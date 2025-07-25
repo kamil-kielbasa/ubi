@@ -1,0 +1,13 @@
+&flash0 {
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        ubi_partition: partition@d0000 {
+            label = "ubi_partition";
+            reg = <0x000d0000 DT_SIZE_K(128)>;
+        };
+    };
+};
+
