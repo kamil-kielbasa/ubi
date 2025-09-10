@@ -4,4 +4,39 @@
 config UBI_ENABLE
 	bool "Enable UBI library"
 	help
-	  This option enables the 'UBI' library
+		This option enables the 'UBI' library
+
+if UBI_ENABLE
+
+	config UBI_MAX_NR_OF_VOLUMES
+		int "Maximum number of volumes across one UBI device"
+		default 10
+
+	choice UBI_LOG_LEVEL_CHOICE
+		prompt "Max compiled-in log level for UBI"
+		default UBI_LOG_LEVEL_INF
+		config UBI_LOG_LEVEL_OFF
+			bool "Off"
+		config UBI_LOG_LEVEL_ERR
+			bool "Error"
+		config UBI_LOG_LEVEL_WRN
+			bool "Warning"
+		config UBI_LOG_LEVEL_INF
+			bool "Info"
+		config UBI_LOG_LEVEL_DBG
+			bool "Debug"
+	endchoice
+
+	config UBI_LOG_LEVEL
+		int
+		default 0 if UBI_LOG_LEVEL_OFF
+		default 1 if UBI_LOG_LEVEL_ERR
+		default 2 if UBI_LOG_LEVEL_WRN
+		default 3 if UBI_LOG_LEVEL_INF
+		default 4 if UBI_LOG_LEVEL_DBG
+
+	config UBI_TEST_API_ENABLE
+		bool "Enable internal UBI API for testing purposes"
+		default false
+
+endif

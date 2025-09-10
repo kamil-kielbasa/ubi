@@ -2,44 +2,55 @@
  * \file    ubi.c
  * \author  Kamil Kielbasa
  * \brief   Unsorted Block Images (UBI) implementation.
- * \version 0.1
- * \date    2025-07-25
+ * \version 0.2
+ * \date    2025-09-10
  *
  * \copyright Copyright (c) 2025
  *
  */
 
-/* Include files ----------------------------------------------------------- */
+/* Include files ------------------------------------------------------------------------------ */
 
+/* Internal headers: */
 #include "ubi.h"
+#include "ubi_utils.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
-#include <zephyr/sys/util.h> /* ARRAY_SIZE */
-#include <zephyr/toolchain.h> /* packed for struct's */
-#include <zephyr/sys/crc.h> /* CRC32 */
-#include <zephyr/drivers/flash.h> /* Flash API */
-#include <zephyr/sys/slist.h> /* For sys_snode_t, which is used internally by k_queue */
-#include <zephyr/sys/rb.h> /* Red-black tree */
+#include <zephyr/sys/util.h>
+#include <zephyr/sys/crc.h>
+#include <zephyr/sys/slist.h>
+#include <zephyr/sys/rb.h>
+#include <zephyr/drivers/flash.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/__assert.h>
 
 /* Standard library headers: */
+#include <errno.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdbool.h>
 
-/* Module defines ---------------------------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------ */
 
 #define RBT_PTR(p) ((struct rbnode *)((uintptr_t)(p) & ~1))
 
-/* Module types and type definitiones -------------------------------------- */
+LOG_MODULE_REGISTER(ubi, CONFIG_UBI_LOG_LEVEL);
 
-struct ubi_device {
-	struct mem_tech_device mtd;
+/* Module types and type definitiones ---------------------------------------------------------- */
+
+struct ubi_volume {
+	size_t vol_idx;
+	size_t vol_id;
+	struct ubi_volume_config cfg;
 
 	size_t eba_tbl_size;
 	struct rbtree eba_tbl; /* Key: LEB index, Value: PEB index. */
+};
+
+struct ubi_device {
+	struct ubi_mtd mtd;
 
 	size_t free_pebs_size;
 	struct rbtree free_pebs; /* Key: erase counter, Value: PEB index. */
@@ -51,64 +62,22 @@ struct ubi_device {
 	sys_slist_t bad_pebs; /* Bad PEBS indexes linked-list. */
 
 	uint64_t global_seqnr;
+
+	size_t vols_seqnr;
+	size_t vols_size;
+	struct rbtree vols;
 };
-
-#define UBI_DEV_HDR_NR_OF_RES_PEBS (1)
-#define UBI_DEV_HDR_RES_PEB_0 (0)
-#define UBI_DEV_HDR_MAGIC (0x55424925) // "UBI%"
-#define UBI_DEV_HDR_SIZE (32)
-#define UBI_DEV_HDR_VERSION (1)
-
-struct ubi_dev_hdr {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding_1[3];
-	uint32_t offset;
-	uint32_t size;
-	uint32_t padding_2[3];
-	uint32_t vol_tbl_crc;
-};
-
-BUILD_ASSERT(sizeof(struct ubi_dev_hdr) == UBI_DEV_HDR_SIZE);
-
-#define UBI_EC_HDR_MAGIC (0x55424923) // "UBI#"
-#define UBI_EC_HDR_SIZE (16)
-#define UBI_EC_HDR_VERSION (1)
-
-struct ubi_ec_hdr {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding[3];
-	uint32_t ec;
-	uint32_t hdr_crc;
-};
-
-BUILD_ASSERT(sizeof(struct ubi_ec_hdr) == UBI_EC_HDR_SIZE);
-
-#define UBI_VID_HDR_MAGIC (0x55424921) // "UBI!"
-#define UBI_VID_HDR_SIZE (32)
-#define UBI_VID_HDR_VERSION (1)
-
-struct ubi_vid_hdr {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding_1[3];
-	uint32_t lnum;
-	uint32_t data_size;
-	uint64_t sqnum;
-	uint32_t padding_2;
-	uint32_t hdr_crc;
-};
-
-BUILD_ASSERT(sizeof(struct ubi_vid_hdr) == UBI_VID_HDR_SIZE);
 
 struct ubi_rbt_item {
 	struct rbnode node;
-	uint32_t key;
-	uint32_t value;
-};
 
-BUILD_ASSERT(sizeof(struct ubi_rbt_item) == 16);
+	uint32_t key;
+
+	union {
+		uint32_t pnum;
+		struct ubi_volume *vol;
+	} value;
+};
 
 struct ubi_list_item {
 	sys_snode_t node;
@@ -116,32 +85,17 @@ struct ubi_list_item {
 	uint32_t nr_of_erases;
 };
 
-BUILD_ASSERT(sizeof(struct ubi_list_item) == 12);
-
-/* Module interface variables and constants -------------------------------- */
-/* Static variables and constants ------------------------------------------ */
-
-static struct ubi_device *ubi = NULL;
-
-/* Static function declarations -------------------------------------------- */
+/* Module interface variables and constants ---------------------------------------------------- */
+/* Static variables and constants -------------------------------------------------------------- */
+/* Static function declarations ---------------------------------------------------------------- */
 
 static bool ubi_rbt_cmp(struct rbnode *a, struct rbnode *b);
 static struct ubi_rbt_item *ubi_rbt_search(struct rbtree *tree, uint32_t key);
-static void ubi_rbt_cleanup(struct rbtree *tree);
 
-static void ubi_list_cleanup(sys_slist_t *list);
+static void move_to_bad_blocks(struct ubi_device *ubi, struct ubi_rbt_item *entry,
+			       struct ubi_list_item *bad_item);
 
-static int ubi_ec_hdr_read(const struct ubi_device *ubi, const size_t pnum,
-			   struct ubi_ec_hdr *ec_hdr);
-static int ubi_ec_hdr_write(const struct ubi_device *ubi, const size_t pnum,
-			    struct ubi_ec_hdr *ec_hdr);
-
-static int ubi_vid_hdr_read(const struct ubi_device *ubi, const size_t pnum,
-			    struct ubi_vid_hdr *vid_hdr, bool check);
-static int ubi_vid_hdr_write(struct ubi_device *ubi, const size_t pnum,
-			     struct ubi_vid_hdr *vid_hdr);
-
-/* Static function definitions --------------------------------------------- */
+/* Static function definitions ----------------------------------------------------------------- */
 
 static bool ubi_rbt_cmp(struct rbnode *a, struct rbnode *b)
 {
@@ -173,571 +127,1133 @@ static struct ubi_rbt_item *ubi_rbt_search(struct rbtree *tree, uint32_t key)
 	return NULL;
 }
 
-static void ubi_rbt_cleanup(struct rbtree *tree)
+static void move_to_bad_blocks(struct ubi_device *ubi, struct ubi_rbt_item *entry,
+			       struct ubi_list_item *bad_item)
 {
-	struct rbnode *node;
+	__ASSERT_NO_MSG(!ubi);
+	__ASSERT_NO_MSG(!entry);
+	__ASSERT_NO_MSG(!bad_item);
 
-	while ((node = rb_get_min(tree)) != NULL) {
-		struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
-		rb_remove(tree, node);
-		k_free(entry);
-	}
+	bad_item->peb_index = entry->value.pnum;
+	bad_item->nr_of_erases = entry->key;
+	sys_slist_append(&ubi->bad_pebs, &bad_item->node);
+	ubi->bad_pebs_size += 1;
 }
 
-static void ubi_list_cleanup(sys_slist_t *list)
-{
-	struct ubi_list_item *entry, *tmp;
+/* Module interface function definitions ------------------------------------------------------- */
 
-	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(list, entry, tmp, node)
-	{
-		sys_slist_remove(list, NULL, &entry->node);
-		k_free(entry); // Free dynamically allocated node
-	}
-}
-
-static int ubi_ec_hdr_read(const struct ubi_device *ubi, const size_t pnum,
-			   struct ubi_ec_hdr *ec_hdr)
-{
-	if (!ubi)
-		return -1;
-
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-
-	if (pnum > total_nr_of_pebs || UBI_DEV_HDR_RES_PEB_0 == pnum)
-		return -1;
-
-	struct ubi_ec_hdr hdr = { 0 };
-	int ret = flash_read(ubi->mtd.dev, ubi->mtd.p_off + (pnum * ubi->mtd.eb_size), &hdr,
-			     sizeof(hdr));
-	if (ret != 0) {
-		printk("Flash read error: %d\n", ret);
-		return -1;
-	}
-
-	if (UBI_EC_HDR_MAGIC != hdr.magic ||
-	    hdr.hdr_crc != crc32_ieee((const uint8_t *)&hdr, sizeof(hdr) - sizeof(hdr.hdr_crc))) {
-		printk("EC header incorrect!\n");
-		return -1;
-	}
-
-	if (ec_hdr)
-		*ec_hdr = hdr;
-
-	return 0;
-}
-
-static int ubi_ec_hdr_write(const struct ubi_device *ubi, const size_t pnum,
-			    struct ubi_ec_hdr *ec_hdr)
-{
-	if (!ubi || !ec_hdr)
-		return -1;
-
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-
-	if (pnum > total_nr_of_pebs || UBI_DEV_HDR_RES_PEB_0 == pnum)
-		return -1;
-
-	ec_hdr->magic = UBI_EC_HDR_MAGIC;
-	ec_hdr->version = UBI_EC_HDR_VERSION;
-	ec_hdr->hdr_crc =
-		crc32_ieee((const uint8_t *)ec_hdr, sizeof(*ec_hdr) - sizeof(ec_hdr->hdr_crc));
-
-	int ret = flash_write(ubi->mtd.dev, ubi->mtd.p_off + (pnum * ubi->mtd.eb_size), ec_hdr,
-			      sizeof(*ec_hdr));
-	if (ret != 0) {
-		printk("Flash write error: %d\n", ret);
-		return -1;
-	}
-
-	return 0;
-}
-
-static int ubi_vid_hdr_read(const struct ubi_device *ubi, const size_t pnum,
-			    struct ubi_vid_hdr *vid_hdr, bool check)
-{
-	if (!ubi)
-		return -1;
-
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-
-	if (pnum > total_nr_of_pebs || UBI_DEV_HDR_RES_PEB_0 == pnum)
-		return -1;
-
-	struct ubi_vid_hdr hdr = { 0 };
-	int ret = flash_read(ubi->mtd.dev,
-			     ubi->mtd.p_off + (pnum * ubi->mtd.eb_size) + UBI_EC_HDR_SIZE, &hdr,
-			     sizeof(hdr));
-	if (ret != 0) {
-		printk("Flash read error: %d\n", ret);
-		return -1;
-	}
-
-	if (vid_hdr)
-		*vid_hdr = hdr;
-
-	if (check) {
-		if (UBI_VID_HDR_MAGIC != hdr.magic ||
-		    hdr.hdr_crc !=
-			    crc32_ieee((const uint8_t *)&hdr, sizeof(hdr) - sizeof(hdr.hdr_crc))) {
-			printk("VID header incorrect!\n");
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-static int ubi_vid_hdr_write(struct ubi_device *ubi, const size_t pnum, struct ubi_vid_hdr *vid_hdr)
-{
-	if (!ubi || !vid_hdr)
-		return -1;
-
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-
-	if (pnum > total_nr_of_pebs || UBI_DEV_HDR_RES_PEB_0 == pnum)
-		return -1;
-
-	vid_hdr->magic = UBI_VID_HDR_MAGIC;
-	vid_hdr->version = UBI_VID_HDR_VERSION;
-	vid_hdr->sqnum = ubi->global_seqnr++;
-	vid_hdr->hdr_crc =
-		crc32_ieee((const uint8_t *)vid_hdr, sizeof(*vid_hdr) - sizeof(vid_hdr->hdr_crc));
-
-	int ret = flash_write(ubi->mtd.dev,
-			      ubi->mtd.p_off + (pnum * ubi->mtd.eb_size) + UBI_EC_HDR_SIZE, vid_hdr,
-			      sizeof(*vid_hdr));
-	if (ret != 0) {
-		printk("Flash write error: %d\n", ret);
-		return -1;
-	}
-
-	return 0;
-}
-
-/* Module interface function definitions ----------------------------------- */
-
-int ubi_init(const struct mem_tech_device *mtd)
+int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 {
 	int ret = -1;
 
-	/* 1. Preconditions: */
-	if (!mtd)
-		return -1;
+	if (!mtd || !ubi)
+		return -EINVAL;
 
-	if (ubi)
-		return 0;
+	struct ubi_device *ubi_dev = k_malloc(sizeof(*ubi_dev));
 
-	/* 2. Allocate and initialize UBI device: */
-	ubi = k_malloc(sizeof(*ubi));
-
-	if (!ubi)
-		return -1;
-
-	memset(ubi, 0, sizeof(*ubi));
-	ubi->mtd = *mtd;
-	ubi->eba_tbl.lessthan_fn = ubi_rbt_cmp;
-	ubi->free_pebs.lessthan_fn = ubi_rbt_cmp;
-	ubi->dirty_pebs.lessthan_fn = ubi_rbt_cmp;
-	sys_slist_init(&ubi->bad_pebs);
-
-	/* 3. Read UBI volume table: */
-	struct ubi_dev_hdr vol_tbl = { 0 };
-	ret = flash_read(ubi->mtd.dev, ubi->mtd.p_off, &vol_tbl, sizeof(vol_tbl));
-	if (ret != 0) {
-		printk("Flash read error: %d\n", ret);
-		return -1;
+	if (!ubi_dev) {
+		LOG_ERR("Heap allocation failure");
+		return -ENOMEM;
 	}
 
-	/* 4. If fresh flash then initialize all PEB's with EC headers only: */
-	/* 5. Else scan PEB's and fill UBI device: */
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
+	memset(ubi_dev, 0, sizeof(*ubi_dev));
+	ubi_dev->mtd = *mtd;
+	ubi_dev->free_pebs.lessthan_fn = ubi_rbt_cmp;
+	ubi_dev->dirty_pebs.lessthan_fn = ubi_rbt_cmp;
+	sys_slist_init(&ubi_dev->bad_pebs);
+	ubi_dev->vols.lessthan_fn = ubi_rbt_cmp;
 
-	if (UBI_DEV_HDR_MAGIC != vol_tbl.magic ||
-	    crc32_ieee((const uint8_t *)&vol_tbl, sizeof(vol_tbl) - sizeof(vol_tbl.vol_tbl_crc)) !=
-		    vol_tbl.vol_tbl_crc) {
-		/* 4a. Write fresh UBI volume table: */
-		vol_tbl.magic = UBI_DEV_HDR_MAGIC;
-		vol_tbl.version = UBI_DEV_HDR_VERSION;
-		vol_tbl.offset = ubi->mtd.p_off;
-		vol_tbl.size = ubi->mtd.p_size;
-		vol_tbl.vol_tbl_crc = crc32_ieee((const uint8_t *)&vol_tbl,
-						 sizeof(vol_tbl) - sizeof(vol_tbl.vol_tbl_crc));
+	const size_t nr_of_pebs = ubi_dev->mtd.partition_size / ubi_dev->mtd.erase_block_size;
 
-		ret = flash_erase(ubi->mtd.dev, ubi->mtd.p_off, ubi->mtd.eb_size);
-		if (ret != 0) {
-			printk("Flash erase error: %d\n", ret);
-			return -1;
-		}
+	bool is_mounted = false;
+	ret = ubi_dev_is_mounted(&ubi_dev->mtd, &is_mounted);
 
-		ret = flash_write(ubi->mtd.dev, ubi->mtd.p_off, &vol_tbl, sizeof(vol_tbl));
-		if (ret != 0) {
-			printk("Flash write error: %d\n", ret);
-			return -1;
-		}
-
-		for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < total_nr_of_pebs;
-		     ++peb_idx) {
-			ret = flash_erase(ubi->mtd.dev,
-					  ubi->mtd.p_off + (peb_idx * ubi->mtd.eb_size),
-					  ubi->mtd.eb_size);
-			if (ret != 0) {
-				printk("Flash erase error: %d\n", ret);
-				return -1;
-			}
-
-			struct ubi_ec_hdr ec_hdr = { .ec = 0 };
-			ret = ubi_ec_hdr_write(ubi, peb_idx, &ec_hdr);
-
-			if (ret != 0) {
-				printk("ubi_ec_hdr_write error: %d\n", ret);
-				return -1;
-			}
-
-			struct ubi_rbt_item *new_node = k_malloc(sizeof(*new_node));
-			if (NULL == new_node) {
-				printk("Malloc error\n");
-				return -1;
-			}
-
-			new_node->key = ec_hdr.ec;
-			new_node->value = peb_idx;
-			rb_insert(&ubi->free_pebs, &new_node->node);
-			ubi->free_pebs_size += 1;
-		}
-	} else {
-		for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < total_nr_of_pebs;
-		     ++peb_idx) {
-			struct ubi_ec_hdr ec_hdr = { 0 };
-			ret = ubi_ec_hdr_read(ubi, peb_idx, &ec_hdr);
-
-			if (ret != 0) {
-				struct ubi_list_item *new_item = k_malloc(sizeof(*new_item));
-				if (NULL == new_item) {
-					printk("Malloc error\n");
-					return -1;
-				}
-
-				new_item->peb_index = peb_idx;
-				new_item->nr_of_erases = 0;
-				sys_slist_append(&ubi->bad_pebs, &new_item->node);
-				ubi->bad_pebs_size += 1;
-				continue;
-			}
-
-			struct ubi_vid_hdr vid_hdr = { 0 };
-			ret = ubi_vid_hdr_read(ubi, peb_idx, &vid_hdr, false);
-			if (ret != 0) {
-				printk("ubi_vid_hdr_read error: %d\n", ret);
-				return -1;
-			}
-
-			struct ubi_vid_hdr empty_vid_hdr = { 0 };
-			memset(&empty_vid_hdr, 0xff, sizeof(empty_vid_hdr));
-			if (0 == memcmp(&vid_hdr, &empty_vid_hdr, sizeof(vid_hdr))) {
-				struct ubi_rbt_item *new_node = k_malloc(sizeof(*new_node));
-				if (NULL == new_node) {
-					printk("Malloc error\n");
-					return -1;
-				}
-
-				new_node->key = ec_hdr.ec;
-				new_node->value = peb_idx;
-				rb_insert(&ubi->free_pebs, &new_node->node);
-				ubi->free_pebs_size += 1;
-				continue;
-			}
-
-			ret = ubi_vid_hdr_read(ubi, peb_idx, &vid_hdr, true);
-
-			if (ret != 0) {
-				struct ubi_list_item *new_item = k_malloc(sizeof(*new_item));
-				if (NULL == new_item) {
-					printk("Malloc error\n");
-					return -1;
-				}
-
-				new_item->peb_index = peb_idx;
-				new_item->nr_of_erases = 0;
-				sys_slist_append(&ubi->bad_pebs, &new_item->node);
-				ubi->bad_pebs_size += 1;
-				continue;
-			}
-
-			if (vid_hdr.sqnum > ubi->global_seqnr) {
-				ubi->global_seqnr = vid_hdr.sqnum;
-			}
-
-			struct ubi_rbt_item *exist_node =
-				ubi_rbt_search(&ubi->eba_tbl, vid_hdr.lnum);
-			struct ubi_rbt_item *new_node = k_malloc(sizeof(*new_node));
-			if (NULL == new_node) {
-				printk("Malloc error\n");
-				return -1;
-			}
-
-			if (NULL == exist_node) {
-				new_node->key = vid_hdr.lnum;
-				new_node->value = peb_idx;
-				rb_insert(&ubi->eba_tbl, &new_node->node);
-				ubi->eba_tbl_size += 1;
-				continue;
-			} else {
-				struct ubi_vid_hdr exist_vid_hdr = { 0 };
-				ret = ubi_vid_hdr_read(ubi, exist_node->value, &exist_vid_hdr,
-						       true);
-
-				if (ret != 0) {
-					printk("ubi_vid_hdr_read error: %d\n", ret);
-					return -1;
-				}
-
-				if (exist_vid_hdr.sqnum > vid_hdr.sqnum) {
-					new_node->key = ec_hdr.ec;
-					new_node->value = peb_idx;
-					rb_insert(&ubi->free_pebs, &new_node->node);
-					ubi->free_pebs_size += 1;
-					continue;
-				} else {
-					struct ubi_ec_hdr exist_ec_hdr = { 0 };
-					ret = ubi_ec_hdr_read(ubi, peb_idx, &exist_ec_hdr);
-
-					rb_remove(&ubi->eba_tbl, &exist_node->node);
-					ubi->eba_tbl_size -= 1;
-					exist_node->key = exist_ec_hdr.ec;
-					rb_insert(&ubi->free_pebs, &exist_node->node);
-					ubi->free_pebs_size += 1;
-
-					new_node->key = vid_hdr.lnum;
-					new_node->value = peb_idx;
-					rb_insert(&ubi->eba_tbl, &new_node->node);
-					ubi->eba_tbl_size += 1;
-					continue;
-				}
-			}
-
-			printk("Unhandled scanning scenario!\n");
-			return -1;
-		}
+	if (0 != ret) {
+		LOG_ERR("Device check if mount failure");
+		return ret;
 	}
 
-	return 0;
-}
+	/* 1. UBI device is not mounted. */
+	if (false == is_mounted) {
+		ret = ubi_dev_mount(&ubi_dev->mtd);
 
-int ubi_deinit(void)
-{
-	if (!ubi)
-		return -1;
-
-	ubi_rbt_cleanup(&ubi->eba_tbl);
-	ubi_rbt_cleanup(&ubi->free_pebs);
-	ubi_rbt_cleanup(&ubi->dirty_pebs);
-	ubi_list_cleanup(&ubi->bad_pebs);
-
-	memset(ubi, 0, sizeof(*ubi));
-	k_free(ubi);
-	ubi = NULL;
-
-	return 0;
-}
-
-int ubi_info(struct ubi_device_info *dev_info, struct ubi_flash_info *flash_info)
-{
-	if (!ubi)
-		return -1;
-
-	if (!dev_info && !flash_info)
-		return -1;
-
-	if (dev_info) {
-		dev_info->alloc_pebs = ubi->eba_tbl_size;
-		dev_info->free_pebs = ubi->free_pebs_size;
-		dev_info->dirty_pebs = ubi->dirty_pebs_size;
-		dev_info->bad_pebs = ubi->bad_pebs_size;
-
-		const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-		dev_info->leb_count = total_nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
-		dev_info->leb_size = ubi->mtd.eb_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
-	}
-
-	if (flash_info) {
-		flash_info->ec_average = 0;
-		flash_info->peb_count = ubi->mtd.p_size / ubi->mtd.eb_size;
-
-		flash_info->peb_init =
-			k_malloc(sizeof(*flash_info->peb_init) * flash_info->peb_count);
-		if (!flash_info->peb_init)
-			return -1;
-
-		flash_info->peb_ec = k_malloc(sizeof(*flash_info->peb_ec) * flash_info->peb_count);
-		if (!flash_info->peb_ec)
-			return -1;
-
-		for (size_t pnum = 0; pnum < flash_info->peb_count; ++pnum) {
-			if (UBI_DEV_HDR_RES_PEB_0 == pnum) {
-				flash_info->peb_init[pnum] = false;
-			} else {
-				flash_info->peb_init[pnum] = true;
-
-				struct ubi_ec_hdr ec_hdr = { 0 };
-				int ret = ubi_ec_hdr_read(ubi, pnum, &ec_hdr);
-
-				if (0 != ret)
-					return -1;
-
-				flash_info->peb_ec[pnum] = ec_hdr.ec;
-				flash_info->ec_average += ec_hdr.ec;
-			}
+		if (0 != ret) {
+			LOG_ERR("Device mount failure");
+			return ret;
 		}
-
-		flash_info->ec_average /= (flash_info->peb_count - UBI_DEV_HDR_NR_OF_RES_PEBS);
-	}
-
-	return 0;
-}
-
-int ubi_leb_write(size_t lnum, const void *buf, size_t len)
-{
-	if (!ubi || !buf || 0 == len)
-		return -1;
-
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-	const size_t total_nr_of_lebs = total_nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
-
-	if (lnum > total_nr_of_lebs)
-		return -1;
-
-	const size_t max_leb_size = ubi->mtd.eb_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
-
-	if (len > max_leb_size)
-		return -1;
-
-	struct ubi_rbt_item *old_item = ubi_rbt_search(&ubi->eba_tbl, lnum);
-
-	if (old_item != NULL) {
-		rb_remove(&ubi->eba_tbl, &old_item->node);
-		ubi->eba_tbl_size -= 1;
 
 		struct ubi_ec_hdr ec_hdr = { 0 };
-		int ret = ubi_ec_hdr_read(ubi, old_item->value, &ec_hdr);
+		ec_hdr.magic = UBI_EC_HDR_MAGIC;
+		ec_hdr.version = UBI_EC_HDR_VERSION;
+		ec_hdr.ec = 0;
+		ec_hdr.hdr_crc = crc32_ieee((const uint8_t *)&ec_hdr,
+					    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
 
-		if (ret != 0) {
-			printk("ubi_ec_hdr_read error: %d\n", ret);
-			return -1;
+		for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < nr_of_pebs; ++peb_idx) {
+			const size_t offset = ubi_dev->mtd.partition_offset +
+					      (peb_idx * ubi_dev->mtd.erase_block_size);
+
+			ret = flash_erase(ubi_dev->mtd.flash_device, offset,
+					  ubi_dev->mtd.erase_block_size);
+
+			if (0 != ret) {
+				LOG_ERR("Flash erase failure");
+				goto exit;
+			}
+
+			ret = ubi_ec_hdr_write(&ubi_dev->mtd, peb_idx, &ec_hdr);
+
+			if (0 != ret) {
+				LOG_ERR("EC header write failure");
+				goto exit;
+			}
+		}
+	}
+
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi_dev->mtd, &dev_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Device header read failure");
+		return ret;
+	}
+
+	/* 2. Collect EBA tables for volumes. */
+	for (size_t vol_idx = 0; vol_idx < dev_hdr.vol_count; ++vol_idx) {
+		struct ubi_vol_hdr vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(&ubi_dev->mtd, vol_idx, &vol_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Volume header read failure");
+			goto exit;
 		}
 
-		struct ubi_rbt_item *dirty_item = old_item;
-		dirty_item->key = ec_hdr.ec;
-		rb_insert(&ubi->dirty_pebs, &dirty_item->node);
+		struct ubi_volume *vol = k_malloc(sizeof(*vol));
+
+		if (!vol) {
+			LOG_ERR("Heap allocation failure");
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		memset(vol, 0, sizeof(*vol));
+		vol->vol_idx = vol_idx;
+		vol->vol_id = vol_hdr.vol_id;
+		memcpy(vol->cfg.name, vol_hdr.name, strlen(vol_hdr.name));
+		vol->cfg.type = vol_hdr.vol_type;
+		vol->cfg.leb_count = vol_hdr.lebs_count;
+		vol->eba_tbl_size = 0;
+		vol->eba_tbl.lessthan_fn = ubi_rbt_cmp;
+
+		struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+
+		if (!item) {
+			LOG_ERR("Heap allocation failure");
+			ret = -ENOMEM;
+			k_free(vol);
+			goto exit;
+		}
+
+		memset(item, 0, sizeof(*item));
+		item->key = vol->vol_id;
+		item->value.vol = vol;
+
+		rb_insert(&ubi_dev->vols, &item->node);
+		ubi_dev->vols_size += 1;
+
+		if (vol->vol_id > ubi_dev->vols_seqnr)
+			ubi_dev->vols_seqnr = vol->vol_id;
+	}
+
+	if (dev_hdr.vol_count > 0)
+		ubi_dev->vols_seqnr += 1;
+
+	size_t ec_sum = 0;
+	size_t ec_count = 0;
+
+	/* 3. Scan all PEB's with correct EC header and collect average of erases */
+	for (size_t pnum = UBI_DEV_HDR_NR_OF_RES_PEBS; pnum < nr_of_pebs; ++pnum) {
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi_dev->mtd, pnum, &ec_hdr);
+
+		if (0 == ret) {
+			ec_sum += ec_hdr.ec;
+			ec_count += 1;
+		}
+	}
+
+	const size_t ec_avg = ec_sum / ec_count;
+
+	/* 4. Scan all PEB's and update volume EBA table:
+	 *    1. If EC header is incorrect, then append to bad PEBs.
+	 *    2. If EC header is correct and VID header is empty, then insert to free PEBs.
+	 *    3. If EC header is correct and VID header is incorrect, then append to bad PEBs.
+	 *    4. If EC header is correct and VID header is correct then:
+	 *       1. Collect greater sequence number.
+	 *       2. Search in volume EBA table LEB with this key exist.
+	 *	 3. Volume does not exist, then insert to dirty PEBs.
+	 *       4. LEB does not exist, then insert to volume EBA table.
+	 *       5. LEB does exist but EC and VID headers are incorrect, then append to bad PEBs.
+	 *       6. LEB does exist and EC and VID headers are correct then:
+	 *          1. If newer LEB has lower sequence number, then append to dirty PEBs.
+	 *          2. If newer LEB has greater sequence number, then remove old LEB from volume EBA table
+	 *             and append to dirty PEBs. The newer LEB append to volume EBA table.
+	 */
+	for (size_t pnum = UBI_DEV_HDR_NR_OF_RES_PEBS; pnum < nr_of_pebs; ++pnum) {
+		/* 4.1 */
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi_dev->mtd, pnum, &ec_hdr);
+
+		if (0 != ret) {
+			struct ubi_list_item *item = k_malloc(sizeof(*item));
+
+			if (!item) {
+				LOG_ERR("Heap allocation failure");
+				ret = -ENOMEM;
+				goto exit;
+			}
+
+			item->peb_index = pnum;
+			item->nr_of_erases = ec_avg;
+			sys_slist_append(&ubi_dev->bad_pebs, &item->node);
+			ubi_dev->bad_pebs_size += 1;
+
+			continue;
+		}
+
+		/* 4.2 */
+		struct ubi_vid_hdr vid_hdr = { 0 };
+		ret = ubi_vid_hdr_read(&ubi_dev->mtd, pnum, &vid_hdr, false);
+
+		if (0 != ret) {
+			LOG_ERR("VID header read failure");
+			goto exit;
+		}
+
+		struct ubi_vid_hdr empty_vid_hdr = { 0 };
+		memset(&empty_vid_hdr, 0xff, sizeof(empty_vid_hdr));
+
+		if (0 == memcmp(&vid_hdr, &empty_vid_hdr, sizeof(vid_hdr))) {
+			struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+
+			if (!item) {
+				LOG_ERR("Heap allocation failure");
+				ret = -ENOMEM;
+				goto exit;
+			}
+
+			item->key = ec_hdr.ec;
+			item->value.pnum = pnum;
+			rb_insert(&ubi_dev->free_pebs, &item->node);
+			ubi_dev->free_pebs_size += 1;
+
+			continue;
+		}
+
+		/* 4.3 */
+		memset(&vid_hdr, 0, sizeof(vid_hdr));
+		ret = ubi_vid_hdr_read(&ubi_dev->mtd, pnum, &vid_hdr, true);
+
+		if (0 != ret) {
+			struct ubi_list_item *item = k_malloc(sizeof(*item));
+
+			if (!item) {
+				LOG_ERR("Heap allocation failure");
+				ret = -ENOMEM;
+				goto exit;
+			}
+
+			item->peb_index = pnum;
+			item->nr_of_erases = ec_hdr.ec;
+			sys_slist_append(&ubi_dev->bad_pebs, &item->node);
+			ubi_dev->bad_pebs_size += 1;
+
+			continue;
+		}
+
+		/* 4.4.1 */
+		if (vid_hdr.sqnum > ubi_dev->global_seqnr)
+			ubi_dev->global_seqnr = vid_hdr.sqnum;
+
+		/* 4.4.2 */
+		struct ubi_rbt_item *tmp = ubi_rbt_search(&ubi_dev->vols, vid_hdr.vol_id);
+
+		/* 4.4.3 */
+		if (!tmp) {
+			struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+
+			if (!item) {
+				LOG_ERR("Heap allocation failure");
+				ret = -ENOMEM;
+				goto exit;
+			}
+
+			item->key = ec_hdr.ec;
+			item->value.pnum = pnum;
+			rb_insert(&ubi_dev->free_pebs, &item->node);
+			ubi_dev->free_pebs_size += 1;
+
+			continue;
+		}
+
+		struct ubi_volume *vol = tmp->value.vol;
+
+		struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+
+		if (!item) {
+			LOG_ERR("Heap allocation failure");
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		tmp = ubi_rbt_search(&vol->eba_tbl, vid_hdr.lnum);
+		if (!tmp) {
+			/* 4.4.4 */
+			if (vid_hdr.lnum >= vol->cfg.leb_count) {
+				item->key = ec_hdr.ec;
+				item->value.pnum = pnum;
+				rb_insert(&ubi_dev->dirty_pebs, &item->node);
+				ubi_dev->dirty_pebs_size += 1;
+				continue;
+			}
+
+			item->key = vid_hdr.lnum;
+			item->value.pnum = pnum;
+			rb_insert(&vol->eba_tbl, &item->node);
+			vol->eba_tbl_size += 1;
+
+			continue;
+		} else {
+			/* 4.4.5 */
+			struct ubi_ec_hdr exist_ec_hdr = { 0 };
+			ret = ubi_ec_hdr_read(&ubi_dev->mtd, tmp->value.pnum, &exist_ec_hdr);
+
+			if (0 != ret) {
+				struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
+
+				if (!bad_item) {
+					LOG_ERR("Heap allocation failure");
+					k_free(item);
+					ret = -ENOMEM;
+					goto exit;
+				}
+
+				bad_item->peb_index = tmp->value.pnum;
+				bad_item->nr_of_erases = ec_avg;
+				sys_slist_append(&ubi_dev->bad_pebs, &bad_item->node);
+				ubi_dev->bad_pebs_size += 1;
+
+				continue;
+			}
+
+			struct ubi_vid_hdr exist_vid_hdr = { 0 };
+			ret = ubi_vid_hdr_read(&ubi_dev->mtd, tmp->value.pnum, &exist_vid_hdr,
+					       true);
+
+			if (0 != ret) {
+				struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
+
+				if (!bad_item) {
+					LOG_ERR("Heap allocation failure");
+					k_free(item);
+					ret = -ENOMEM;
+					goto exit;
+				}
+
+				bad_item->peb_index = tmp->value.pnum;
+				bad_item->nr_of_erases = ec_hdr.ec;
+				sys_slist_append(&ubi_dev->bad_pebs, &bad_item->node);
+				ubi_dev->bad_pebs_size += 1;
+
+				continue;
+			}
+
+			/* 4.4.6.1 */
+			if (vid_hdr.sqnum < exist_vid_hdr.sqnum) {
+				item->key = ec_hdr.ec;
+				item->value.pnum = pnum;
+				rb_insert(&ubi_dev->dirty_pebs, &item->node);
+				ubi_dev->dirty_pebs_size += 1;
+
+				continue;
+			} else {
+				/* 4.4.6.2 */
+				rb_remove(&vol->eba_tbl, &tmp->node);
+				vol->eba_tbl_size -= 1;
+
+				tmp->key = exist_ec_hdr.ec;
+				rb_insert(&ubi_dev->dirty_pebs, &tmp->node);
+				ubi_dev->dirty_pebs_size += 1;
+
+				item->key = vid_hdr.lnum;
+				item->key = pnum;
+				rb_insert(&vol->eba_tbl, &item->node);
+				vol->eba_tbl_size += 1;
+
+				continue;
+			}
+		}
+	}
+
+	*ubi = ubi_dev;
+	return 0;
+
+exit:
+	ubi_device_deinit(ubi_dev);
+	*ubi = NULL;
+	return ret;
+}
+
+int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
+{
+	if (!ubi || !info)
+		return -EINVAL;
+
+	memset(info, 0, sizeof(*info));
+	info->leb_total_count =
+		(ubi->mtd.partition_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
+	info->leb_size = ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+
+	info->free_leb_count = ubi->free_pebs_size;
+	info->dirty_leb_count = ubi->dirty_pebs_size;
+	info->bad_leb_count = ubi->bad_pebs_size;
+
+	if (ubi->vols_size > 0) {
+		struct ubi_rbt_item *entry = NULL;
+		RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
+		{
+			const struct ubi_volume *vol = entry->value.vol;
+			info->allocated_leb_count += vol->cfg.leb_count;
+		}
+		info->volumes_count = ubi->vols_size;
+	} else {
+		info->allocated_leb_count = 0;
+		info->volumes_count = 0;
+	}
+
+	return 0;
+}
+
+int ubi_device_erase_peb(struct ubi_device *ubi)
+{
+	if (!ubi)
+		return -EINVAL;
+
+	int ret = -EIO;
+
+	struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
+
+	if (!bad_item) {
+		LOG_ERR("Heap allocation failure");
+		return -ENOMEM;
+	}
+
+	if (ubi->dirty_pebs_size > 0) {
+		struct rbnode *node = rb_get_min(&ubi->dirty_pebs);
+		struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
+
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header read failure");
+
+			move_to_bad_blocks(ubi, entry, bad_item);
+			k_free(entry);
+
+			goto bad_blocks;
+		}
+
+		const size_t offset =
+			ubi->mtd.partition_offset + (entry->value.pnum * ubi->mtd.erase_block_size);
+		ret = flash_erase(ubi->mtd.flash_device, offset, ubi->mtd.erase_block_size);
+
+		if (0 != ret) {
+			LOG_ERR("Flash erase failure");
+
+			move_to_bad_blocks(ubi, entry, bad_item);
+			k_free(entry);
+
+			goto bad_blocks;
+		}
+
+		ec_hdr.ec += 1;
+		ec_hdr.hdr_crc = crc32_ieee((const uint8_t *)&ec_hdr,
+					    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
+		ret = ubi_ec_hdr_write(&ubi->mtd, entry->value.pnum, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header write failure");
+
+			move_to_bad_blocks(ubi, entry, bad_item);
+			k_free(entry);
+
+			goto bad_blocks;
+		}
+
+		rb_remove(&ubi->dirty_pebs, &entry->node);
+		ubi->dirty_pebs_size -= 1;
+
+		entry->key = ec_hdr.ec;
+		rb_insert(&ubi->free_pebs, &entry->node);
+		ubi->free_pebs_size += 1;
+	}
+
+	k_free(bad_item);
+
+bad_blocks:
+	if (ubi->bad_pebs_size > 0) {
+		/** TODO: Torture bad blocks. */
+	}
+
+	return 0;
+}
+
+int ubi_device_deinit(struct ubi_device *ubi)
+{
+	if (!ubi)
+		return -EINVAL;
+
+	if (ubi->free_pebs_size > 0) {
+		struct rbnode *node = NULL;
+		while ((node = rb_get_min(&ubi->free_pebs))) {
+			struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
+			rb_remove(&ubi->free_pebs, node);
+			k_free(entry);
+			ubi->free_pebs_size -= 1;
+		}
+	}
+
+	if (ubi->dirty_pebs_size > 0) {
+		struct rbnode *node = NULL;
+		while ((node = rb_get_min(&ubi->dirty_pebs))) {
+			struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
+			rb_remove(&ubi->dirty_pebs, node);
+			k_free(entry);
+			ubi->dirty_pebs_size -= 1;
+		}
+	}
+
+	if (ubi->bad_pebs_size > 0) {
+		struct ubi_list_item *entry = NULL;
+		struct ubi_list_item *tmp = NULL;
+		SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, entry, tmp, node)
+		{
+			sys_slist_remove(&ubi->bad_pebs, NULL, &entry->node);
+			k_free(entry);
+			ubi->bad_pebs_size -= 1;
+		}
+	}
+
+	if (ubi->vols_size > 0) {
+		struct rbnode *node = NULL;
+		while ((node = rb_get_min(&ubi->vols))) {
+			struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
+			rb_remove(&ubi->vols, node);
+
+			struct ubi_volume *vol = entry->value.vol;
+			if (vol->eba_tbl_size > 0) {
+				while ((node = rb_get_min(&vol->eba_tbl))) {
+					struct ubi_rbt_item *vol_item =
+						CONTAINER_OF(node, struct ubi_rbt_item, node);
+
+					rb_remove(&vol->eba_tbl, &vol_item->node);
+					k_free(vol_item);
+					vol->eba_tbl_size -= 1;
+				}
+			}
+
+			k_free(entry->value.vol);
+			k_free(entry);
+			ubi->vols_size -= 1;
+		}
+	}
+
+	k_free(ubi);
+
+	return 0;
+}
+
+int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
+{
+	int ret = -EIO;
+
+	if (!ubi || !peb_ec || !len)
+		return -EINVAL;
+
+	const size_t nr_of_pebs =
+		(ubi->mtd.partition_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
+
+	size_t *_peb_ec = k_malloc(nr_of_pebs * sizeof(*_peb_ec));
+
+	if (!_peb_ec) {
+		LOG_ERR("Heap allocation failure");
+		return -ENOMEM;
+	}
+
+	for (size_t pnum = 0; pnum < nr_of_pebs; ++pnum) {
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, pnum + UBI_DEV_HDR_NR_OF_RES_PEBS, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header read failure");
+			k_free(_peb_ec);
+			return ret;
+		}
+
+		_peb_ec[pnum] = ec_hdr.ec;
+	}
+
+	*len = nr_of_pebs;
+	*peb_ec = _peb_ec;
+
+	return 0;
+}
+
+int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id)
+{
+	int ret = -EIO;
+
+	if (!ubi || !vol_cfg || !vol_id)
+		return -EINVAL;
+
+	/* 1. Check if volume exist */
+	const size_t name_len = strnlen(vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
+
+	struct ubi_rbt_item *entry = NULL;
+	RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
+	{
+		const struct ubi_volume *vol = entry->value.vol;
+		const size_t len = strnlen(vol->cfg.name, UBI_VOLUME_NAME_MAX_LEN);
+
+		if (name_len == len && 0 == memcmp(vol_cfg->name, vol->cfg.name, name_len)) {
+			*vol_id = vol->vol_id;
+			return 0;
+		}
+	}
+
+	/* 2. Create volume */
+	struct ubi_device_info info = { 0 };
+	ret = ubi_device_get_info(ubi, &info);
+
+	if (0 != ret) {
+		LOG_ERR("UBI device get info failure");
+		return ret;
+	}
+
+	const size_t total_free_pebs = info.leb_total_count - info.allocated_leb_count;
+	if (vol_cfg->leb_count > total_free_pebs) {
+		LOG_ERR("Volume allocation PEBs failure");
+		return -ENOSPC;
+	}
+
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Device header read failure");
+		return ret;
+	}
+
+	struct ubi_dev_hdr new_dev_hdr = dev_hdr;
+	new_dev_hdr.revision += 1;
+	new_dev_hdr.vol_count += 1;
+	new_dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_dev_hdr,
+					 sizeof(new_dev_hdr) - sizeof(new_dev_hdr.hdr_crc));
+
+	struct ubi_vol_hdr new_vol_hdr = { 0 };
+	new_vol_hdr.magic = UBI_VOL_HDR_MAGIC;
+	new_vol_hdr.version = UBI_VOL_HDR_VERSION;
+	new_vol_hdr.vol_type = vol_cfg->type;
+	new_vol_hdr.vol_id = ubi->vols_seqnr++;
+	new_vol_hdr.lebs_count = vol_cfg->leb_count;
+	strncpy(new_vol_hdr.name, vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
+	new_vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_vol_hdr,
+					 sizeof(new_vol_hdr) - sizeof(new_vol_hdr.hdr_crc));
+
+	ret = ubi_vol_hdr_append(&ubi->mtd, &new_dev_hdr, &new_vol_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Volume header append failure");
+		return ret;
+	}
+
+	struct ubi_volume *vol = k_malloc(sizeof(*vol));
+	if (!vol) {
+		LOG_ERR("Heap allocation failure");
+		return -ENOMEM;
+	}
+
+	memset(vol, 0, sizeof(*vol));
+	vol->vol_idx = new_dev_hdr.vol_count - 1;
+	vol->vol_id = new_vol_hdr.vol_id;
+	memcpy(vol->cfg.name, new_vol_hdr.name, strlen(new_vol_hdr.name));
+	vol->cfg.type = new_vol_hdr.vol_type;
+	vol->cfg.leb_count = new_vol_hdr.lebs_count;
+	vol->eba_tbl_size = 0;
+	vol->eba_tbl.lessthan_fn = ubi_rbt_cmp;
+
+	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+	if (!item) {
+		LOG_ERR("Heap allocation failure");
+		k_free(vol);
+		return -ENOMEM;
+	}
+
+	item->key = vol->vol_id;
+	item->value.vol = vol;
+	rb_insert(&ubi->vols, &item->node);
+	ubi->vols_size += 1;
+
+	*vol_id = vol->vol_id;
+	return 0;
+}
+
+int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volume_config *vol_cfg)
+{
+	int ret = -EIO;
+
+	if (!ubi || !vol_cfg)
+		return -EINVAL;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (UBI_VOLUME_TYPE_DYNAMIC != vol->cfg.type) {
+		LOG_ERR("Static volume cannot be resized");
+		return -ECANCELED;
+	}
+
+	if (vol_cfg->leb_count == vol->cfg.leb_count) {
+		LOG_ERR("Cannot resize for the same count of LEBs");
+		return -ECANCELED;
+	}
+
+	if (vol_cfg->leb_count > vol->cfg.leb_count) {
+		struct ubi_device_info info = { 0 };
+		ret = ubi_device_get_info(ubi, &info);
+
+		if (0 != ret) {
+			LOG_ERR("Device get info failure");
+			return ret;
+		}
+
+		const size_t avail = info.leb_total_count - info.allocated_leb_count;
+		const size_t diff = vol_cfg->leb_count - vol->cfg.leb_count;
+
+		if (diff > avail) {
+			LOG_ERR("Lack of available for allocation LEBs");
+			return -ENOSPC;
+		}
+
+		struct ubi_dev_hdr dev_hdr = { 0 };
+		ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Device header read failure");
+			return ret;
+		}
+
+		dev_hdr.revision += 1;
+		dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&dev_hdr,
+					     sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
+
+		struct ubi_vol_hdr vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Volume header read failure");
+			return ret;
+		}
+
+		vol_hdr.lebs_count = vol_cfg->leb_count;
+		vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&vol_hdr,
+					     sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
+
+		ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Volume header update failure");
+			return ret;
+		}
+
+		vol->cfg.leb_count = vol_cfg->leb_count;
+	} else {
+		const size_t diff = vol->cfg.leb_count - vol_cfg->leb_count;
+
+		if (0 == diff) {
+			LOG_ERR("Cannot resize volume to zero LEBs");
+			return -EINVAL;
+		}
+
+		for (size_t lnum = (vol->cfg.leb_count - diff); lnum < vol->cfg.leb_count; ++lnum) {
+			struct ubi_rbt_item *item = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+			if (item) {
+				rb_remove(&vol->eba_tbl, &item->node);
+				vol->eba_tbl_size -= 1;
+
+				struct ubi_ec_hdr ec_hdr = { 0 };
+				ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+
+				if (0 != ret) {
+					LOG_ERR("EC header read failure");
+					return ret;
+				}
+
+				item->key = ec_hdr.ec;
+				rb_insert(&ubi->dirty_pebs, &item->node);
+				ubi->dirty_pebs_size += 1;
+			}
+		}
+
+		struct ubi_dev_hdr dev_hdr = { 0 };
+		ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Device header read failure");
+			return ret;
+		}
+
+		dev_hdr.revision += 1;
+		dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&dev_hdr,
+					     sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
+
+		struct ubi_vol_hdr vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Volume header read failure");
+			return ret;
+		}
+
+		vol_hdr.lebs_count = vol_cfg->leb_count;
+		vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&vol_hdr,
+					     sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
+
+		ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Volume header update failure");
+			return ret;
+		}
+
+		vol->cfg.leb_count = vol_cfg->leb_count;
+	}
+
+	return 0;
+}
+
+int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
+{
+	int ret = -EIO;
+
+	if (!ubi)
+		return -EINVAL;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Device header read failure");
+		return ret;
+	}
+
+	dev_hdr.vol_count -= 1;
+	dev_hdr.revision += 1;
+	dev_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
+
+	struct ubi_volume *vol = entry->value.vol;
+	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_idx);
+
+	if (0 != ret) {
+		LOG_ERR("Volume header remove failure");
+		return ret;
+	}
+
+	struct ubi_rbt_item *item = NULL;
+	RB_FOR_EACH_CONTAINER(&vol->eba_tbl, item, node)
+	{
+		rb_remove(&vol->eba_tbl, &item->node);
+		vol->eba_tbl_size -= 1;
+
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header read failure");
+			return ret;
+		}
+
+		item->key = ec_hdr.ec;
+		rb_insert(&ubi->dirty_pebs, &item->node);
 		ubi->dirty_pebs_size += 1;
 	}
 
-	if (ubi->free_pebs_size == 0)
-		return -1;
+	rb_remove(&ubi->vols, &entry->node);
+	ubi->vols_size -= 1;
+
+	k_free(entry->value.vol);
+	k_free(entry);
+
+	for (size_t vol_idx = 0; vol_idx < dev_hdr.vol_count; ++vol_idx) {
+		struct ubi_vol_hdr vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(&ubi->mtd, vol_idx, &vol_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("Volume header readd failure");
+			return ret;
+		}
+
+		entry = ubi_rbt_search(&ubi->vols, vol_hdr.vol_id);
+
+		if (!entry) {
+			LOG_ERR("Inconsistent between cache and nvm");
+			return -EFAULT;
+		}
+
+		vol = entry->value.vol;
+		vol->vol_idx = vol_idx;
+	}
+
+	return 0;
+}
+
+int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
+			size_t *alloc_lebs)
+{
+	if (!ubi || vol_id < 0 || !vol_cfg || !alloc_lebs)
+		return -EINVAL;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+	*vol_cfg = vol->cfg;
+	*alloc_lebs = vol->eba_tbl_size;
+	return 0;
+}
+
+int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
+{
+	int ret = -EIO;
+
+	if (!ubi || vol_id < 0 || !buf || 0 == len)
+		return -EINVAL;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Overflow the volume LEB limit");
+		return -EACCES;
+	}
+
+	if (0 == ubi->free_pebs_size) {
+		LOG_ERR("Lack of free PEBs");
+		return -ENOSPC;
+	}
+
+	if (len > (ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
+		LOG_ERR("Too big buffer to write in LEB");
+		return -ENOSPC;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	if (entry) {
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header read failure");
+			return ret;
+		}
+
+		rb_remove(&vol->eba_tbl, &entry->node);
+		vol->eba_tbl_size -= 1;
+
+		entry->key = ec_hdr.ec;
+		rb_insert(&ubi->dirty_pebs, &entry->node);
+		ubi->dirty_pebs_size += 1;
+	}
 
 	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
 	struct ubi_rbt_item *min_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
 
 	rb_remove(&ubi->free_pebs, &min_node->node);
 	ubi->free_pebs_size -= 1;
-
-	min_node->key = lnum;
-	rb_insert(&ubi->eba_tbl, &min_node->node);
-	ubi->eba_tbl_size += 1;
-
-	struct ubi_vid_hdr vid_hdr = { .lnum = lnum, .data_size = len };
-	int ret = ubi_vid_hdr_write(ubi, min_node->value, &vid_hdr);
-
-	if (ret != 0) {
-		printk("ubi_vid_hdr_write error: %d\n", ret);
-		return -1;
-	}
-
-	ret = flash_write(ubi->mtd.dev,
-			  ubi->mtd.p_off + (min_node->value * ubi->mtd.eb_size) +
-				  sizeof(struct ubi_ec_hdr) + sizeof(struct ubi_vid_hdr),
-			  buf, len);
-
-	if (ret != 0) {
-		printk("Flash write error: %d\n", ret);
-		return -1;
-	}
-
-	return 0;
-}
-
-int ubi_leb_read(size_t lnum, void *buf, size_t offset, size_t *len)
-{
-	if (!ubi || !buf || !len)
-		return -1;
-
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-	const size_t total_nr_of_lebs = total_nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
-
-	if (lnum > total_nr_of_lebs)
-		return -1;
-
-	const size_t max_leb_size = ubi->mtd.eb_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
-
-	if (offset > max_leb_size)
-		return -1;
-
-	if (ubi->eba_tbl_size == 0)
-		return -1;
-
-	struct ubi_rbt_item *found_item = ubi_rbt_search(&ubi->eba_tbl, lnum);
-
-	if (!found_item)
-		return -1;
-
-	struct ubi_ec_hdr ec_hdr = { 0 };
-	int ret = ubi_ec_hdr_read(ubi, found_item->value, &ec_hdr);
-
-	if (ret != 0) {
-		printk("ubi_ec_hdr_read error: %d\n", ret);
-		return -1;
-	}
 
 	struct ubi_vid_hdr vid_hdr = { 0 };
-	ret = ubi_vid_hdr_read(ubi, found_item->value, &vid_hdr, true);
+	vid_hdr.magic = UBI_VID_HDR_MAGIC;
+	vid_hdr.version = UBI_VID_HDR_VERSION;
+	vid_hdr.lnum = lnum;
+	vid_hdr.vol_id = vol->vol_id;
+	vid_hdr.sqnum = ubi->global_seqnr++;
+	vid_hdr.data_size = len;
+	vid_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
 
-	if (ret != 0) {
-		printk("ubi_vid_hdr_read error: %d\n", ret);
-		return -1;
+	ret = ubi_vid_hdr_write(&ubi->mtd, min_node->value.pnum, &vid_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("VID header write failure");
+		return ret;
 	}
 
-	const size_t bytes_to_read = vid_hdr.data_size - offset;
-	ret = flash_read(ubi->mtd.dev,
-			 ubi->mtd.p_off + (found_item->value * ubi->mtd.eb_size) +
-				 sizeof(struct ubi_ec_hdr) + sizeof(struct ubi_vid_hdr),
-			 buf, bytes_to_read);
+	ret = ubi_leb_data_write(&ubi->mtd, min_node->value.pnum, buf, len);
 
-	if (ret != 0) {
-		printk("Flash read error: %d\n", ret);
-		return -1;
+	if (0 != ret) {
+		LOG_ERR("[REMOVE ME]: len = %zu", len);
+		LOG_ERR("LEB data write failure");
+		return ret;
 	}
 
-	*len = bytes_to_read;
+	struct ubi_rbt_item *alloc_node = min_node;
+	alloc_node->key = lnum;
+	rb_insert(&vol->eba_tbl, &alloc_node->node);
+	vol->eba_tbl_size += 1;
 
 	return 0;
 }
 
-int ubi_leb_map(size_t lnum)
+int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
+		 size_t size)
 {
-	if (!ubi)
-		return -1;
+	int ret = -EIO;
 
-	const size_t total_nr_of_pebs = ubi->mtd.p_size / ubi->mtd.eb_size;
-	const size_t total_nr_of_lebs = total_nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
+	if (!ubi || vol_id < 0 || !buf || 0 == size)
+		return -EINVAL;
 
-	if (lnum > total_nr_of_lebs)
-		return -1;
-
-	if (ubi_rbt_search(&ubi->eba_tbl, lnum)) {
-		printk("LEB is already mapped\n");
-		return -1;
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
 	}
 
-	int ret = -1;
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Overflow the volume LEB limit");
+		return -EACCES;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	if (!entry) {
+		LOG_ERR("LEB not found");
+		return -ENOENT;
+	}
+
+	ret = ubi_leb_data_read(&ubi->mtd, entry->value.pnum, offset, buf, size);
+
+	if (0 != ret) {
+		LOG_ERR("LEB data read failure");
+		return ret;
+	}
+
+	return 0;
+}
+
+int ubi_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
+{
+	int ret = -EIO;
+
+	if (!ubi || vol_id < 0)
+		return -EINVAL;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Overflow the volume LEB limit");
+		return -EACCES;
+	}
+
+	if (0 == ubi->free_pebs_size) {
+		LOG_ERR("Lack of free PEBs");
+		return -ENOSPC;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	if (entry) {
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header read failure");
+			return ret;
+		}
+
+		rb_remove(&vol->eba_tbl, &entry->node);
+		vol->eba_tbl_size -= 1;
+
+		entry->key = ec_hdr.ec;
+		rb_insert(&ubi->dirty_pebs, &entry->node);
+		ubi->dirty_pebs_size += 1;
+	}
 
 	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
 	struct ubi_rbt_item *min_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
@@ -745,108 +1261,154 @@ int ubi_leb_map(size_t lnum)
 	rb_remove(&ubi->free_pebs, &min_node->node);
 	ubi->free_pebs_size -= 1;
 
-	struct ubi_vid_hdr vid_hdr = { .lnum = lnum, .data_size = 0 };
-	ret = ubi_vid_hdr_write(ubi, min_node->value, &vid_hdr);
+	struct ubi_vid_hdr vid_hdr = { 0 };
+	vid_hdr.magic = UBI_VID_HDR_MAGIC;
+	vid_hdr.version = UBI_VID_HDR_VERSION;
+	vid_hdr.lnum = lnum;
+	vid_hdr.vol_id = vol->vol_id;
+	vid_hdr.sqnum = ubi->global_seqnr++;
+	vid_hdr.data_size = 0;
+	vid_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
 
-	if (ret != 0) {
-		printk("ubi_vid_hdr_write error: %d\n", ret);
-		return -1;
+	ret = ubi_vid_hdr_write(&ubi->mtd, min_node->value.pnum, &vid_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("VID header write failure");
+		return ret;
 	}
 
-	min_node->key = lnum;
-	rb_insert(&ubi->eba_tbl, &min_node->node);
-	ubi->eba_tbl_size += 1;
+	struct ubi_rbt_item *alloc_node = min_node;
+	alloc_node->key = lnum;
+	rb_insert(&vol->eba_tbl, &alloc_node->node);
+	vol->eba_tbl_size += 1;
 
 	return 0;
 }
 
-int ubi_leb_is_mapped(size_t lnum, bool *leb_is_mapped)
+int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 {
-	if (!ubi)
-		return -1;
+	int ret = -EIO;
 
-	*leb_is_mapped = (NULL != ubi_rbt_search(&ubi->eba_tbl, lnum));
-	return 0;
-}
+	if (!ubi || vol_id < 0)
+		return -EINVAL;
 
-int ubi_leb_unmap(size_t lnum)
-{
-	if (!ubi)
-		return -1;
-
-	struct ubi_rbt_item *eba_item = ubi_rbt_search(&ubi->eba_tbl, lnum);
-
-	if (!eba_item) {
-		printk("LEB is not mapped!\n");
-		return -1;
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
 	}
 
-	rb_remove(&ubi->eba_tbl, &eba_item->node);
-	ubi->eba_tbl_size -= 1;
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Overflow the volume LEB limit");
+		return -EACCES;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	if (!entry) {
+		LOG_ERR("Cannot unmap not mapped LEB");
+		return -EACCES;
+	}
 
 	struct ubi_ec_hdr ec_hdr = { 0 };
-	int ret = ubi_ec_hdr_read(ubi, eba_item->value, &ec_hdr);
+	ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
 
-	if (ret != 0) {
-		printk("ubi_ec_hdr_read error: %d\n", ret);
-		return -1;
+	if (0 != ret) {
+		LOG_ERR("EC header read failure");
+		return ret;
 	}
 
-	eba_item->key = ec_hdr.ec;
-	rb_insert(&ubi->dirty_pebs, &eba_item->node);
+	rb_remove(&vol->eba_tbl, &entry->node);
+	vol->eba_tbl_size -= 1;
+
+	entry->key = ec_hdr.ec;
+	rb_insert(&ubi->dirty_pebs, &entry->node);
 	ubi->dirty_pebs_size += 1;
 
 	return 0;
 }
 
-int ubi_peb_erase(void)
+int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_mapped)
 {
-	if (!ubi)
-		return -1;
+	if (!ubi || vol_id < 0 || !is_mapped)
+		return -EINVAL;
 
-	int ret = -1;
-
-	if (ubi->dirty_pebs_size > 0) {
-		struct rbnode *dirty_rbnode = rb_get_min(&ubi->dirty_pebs);
-		struct ubi_rbt_item *dirty_node =
-			CONTAINER_OF(dirty_rbnode, struct ubi_rbt_item, node);
-
-		struct ubi_ec_hdr ec_hdr = { 0 };
-		ret = ubi_ec_hdr_read(ubi, dirty_node->value, &ec_hdr);
-
-		if (ret != 0) {
-			printk("ubi_ec_hdr_read error: %d\n", ret);
-			return -1;
-		}
-
-		ret = flash_erase(ubi->mtd.dev,
-				  ubi->mtd.p_off + (dirty_node->value * ubi->mtd.eb_size),
-				  ubi->mtd.eb_size);
-		if (ret != 0) {
-			printk("Flash erase error: %d\n", ret);
-			return -1;
-		}
-
-		ec_hdr.ec += 1;
-		ret = ubi_ec_hdr_write(ubi, dirty_node->value, &ec_hdr);
-
-		if (ret != 0) {
-			printk("ubi_ec_hdr_write error: %d\n", ret);
-			return -1;
-		}
-
-		rb_remove(&ubi->dirty_pebs, &dirty_node->node);
-		ubi->dirty_pebs_size -= 1;
-
-		struct ubi_rbt_item *free_node = dirty_node;
-		free_node->key = ec_hdr.ec;
-		rb_insert(&ubi->free_pebs, &free_node->node);
-		ubi->free_pebs_size += 1;
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
 	}
 
-	if (ubi->bad_pebs_size > 0) {
-		/* TODO: Figure out how to deal with bad pebs as permanent. */
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
 	}
 
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Overflow the volume LEB limit");
+		return -EACCES;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	*is_mapped = (NULL == entry) ? false : true;
+
+	return 0;
+}
+
+int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *size)
+{
+	int ret = -EIO;
+
+	if (!ubi || vol_id < 0 || !size)
+		return -EINVAL;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("Device has no volumes");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Overflow the volume LEB limit");
+		return -EACCES;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	if (!entry) {
+		LOG_ERR("LEB %zu in volume %d is not mapped", lnum, vol_id);
+		return -ENOENT;
+	}
+
+	struct ubi_vid_hdr vid_hdr = { 0 };
+	ret = ubi_vid_hdr_read(&ubi->mtd, entry->value.pnum, &vid_hdr, true);
+
+	if (0 != ret) {
+		LOG_ERR("VID header read failure");
+		return 0;
+	}
+
+	*size = vid_hdr.data_size;
 	return 0;
 }

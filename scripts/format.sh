@@ -2,7 +2,6 @@
 
 lib_src_dir="./lib/src"
 lib_inc_dir="./lib/include"
-sample_src_dir="./sample/src"
 tests_src_dir="./tests/src"
 
 echo "Formating:"
@@ -11,10 +10,7 @@ echo "Formating:"
 echo "- (lib)    API & source code."
 clang-format -i $lib_inc_dir/*.h
 clang-format -i $lib_src_dir/*.c
-
-# Format sample.
-echo "- (sample) sample code."
-clang-format -i $sample_src_dir/*.c
+clang-format -i $lib_src_dir/*.h
 
 # Format tests.
 echo "- (tests)  integration tests code."

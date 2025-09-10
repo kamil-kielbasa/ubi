@@ -1,25 +1,35 @@
-# UBI for Zephyr
+# UBI on Zephyr
 
-This repository demonstrates the use of **Unsorted Block Images (UBI)** with **Zephyr RTOS**, focused on a basic and functional implementation for flash-backed storage use cases.
-
-## Introduction
-
-**UBI (Unsorted Block Images)** is a volume management layer used in Linux for raw flash devices. It provides wear-leveling, bad block management, and support for multiple logical volumes on top of flash memory. UBI is typically used together with a file system such as **UBIFS** to manage persistent data storage on NAND flash.
-
-This project provides a minimal, functional integration of UBI within the Zephyr environment. It covers initialization of UBI, mounting, and simple file operations to demonstrate UBI’s usage in embedded applications. While full UBIFS is not supported natively in Zephyr, this project focuses on preparing and working with UBI-compatible block-level storage.
+This repository introduce support of [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) on **Zephyr RTOS**.
 
 ## Overview
 
-The goal of this project is to demonstrate how to:
+UBI (Latin: "where?") stands for "Unsorted Block Images". It is a volume management system for raw flash devices which manages multiple logical volumes on a single physical flash device and spreads the I/O load (i.e, wear-leveling) across whole flash chip.
 
-- Set up a Zephyr-based workspace for UBI support
-- Build and flash sample/test applications for the `b_u585i_iot02a` board
-- Use Zephyr's file system and flash management features with UBI
+In a sense, UBI may be compared to the Logical Volume Manager (LVM). Whereas LVM maps logical sectors to physical sectors, UBI maps logical eraseblocks to physical eraseblocks. But besides the mapping, UBI implements global wear-leveling and transparent error handling.
+
+An UBI volume is a set of consecutive logical eraseblocks (LEBs). Each logical eraseblock is dynamically mapped to a physical eraseblock (PEB). This mapping is managed by UBI and is hidden from users and higher-level software. UBI is the base mechanism which provides global wear-leveling, per-physical eraseblock erase counters, and the ability to transparently move data from more worn-out physical eraseblocks to less worn-out ones.
+
+The UBI volume size is specified when a volume is created, but may later be changed (volumes are dynamically re-sizable).
+
+### Main features
+
+- UBI provides volumes which may be dynamically created, removed, or re-sized;
+- UBI implements wear-leveling across the entire flash device (i.e., you might think you're continuously writing/erasing the same logical eraseblock of an UBI volume, but UBI will spread this to all physical eraseblocks of the flash chip);
+- UBI transparently handles bad physical eraseblocks;
+- UBI minimizes the chances of losing data by means of scrubbing.
+
+### Resource Usage
+
+| Metric                 | Version 0.2.0 |
+|------------------------|---------------|
+| Flash Usage            | 7902 B        |
+| Static RAM Usage       | 0 B           |
+| RAM Usage              | 16 B per PEB  |
 
 ## Documentation
 
 - ➡️ [environment setup](doc/environment_setup.md)
-- ➡️ [hardware tests](doc/hardware_tests.md)
 - ➡️ [features candidates](doc/features_candidates.md)
 
 ## Contributing

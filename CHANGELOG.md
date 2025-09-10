@@ -1,15 +1,53 @@
-### Version 0.1.0
+# Changelog
 
-**Date:** July 25, 2025
+All notable changes to this project will be documented in this file.  
 
-- [@kamil-kielbasa](https://github.com/kamil-kielbasa): Initial release introducing core UBI support:
-  - UBI initialization and deinitialization routines.
-  - LEB and PEB statistics, including erase capabilities.
-  - LEB I/O operations: map, unmap, read, and write.
-  - Hardware integration tests conducted on `b_u585i_iot02a`.
-  - Example application running on `b_u585i_iot02a`.
-  - Documentation covering:
-    - Environment setup instructions.
-    - Hardware testing procedures.
-    - Candidate features for future development.
-  - Clang-format-based script for consistent code formatting.
+### [0.2.0] – 2025-09-10
+
+**Added**  
+- Support for volumes (static and dynamic).  
+- Runtime resizing for dynamic volumes.  
+- Hidden write block alignment.  
+- Partial bual-bank support for device and volume headers.  
+- Hardware tests performed.  
+
+**Changed**  
+- _No changes in this release._  
+
+**Removed**  
+- Documentation for hardware tests.  
+- Sample application.  
+
+**Fixed**  
+- _No fixes in this release._  
+
+**Contributors**  
+- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+
+---
+
+### [0.1.0] – 2025-07-25
+
+**Added**  
+- UBI initialization and deinitialization routines.  
+- LEB and PEB statistics, including erase capabilities.  
+- LEB I/O operations: map, unmap, read, and write.  
+- Hardware integration tests on `b_u585i_iot02a`.  
+- Example application running on `b_u585i_iot02a`.  
+- Documentation:  
+  - Environment setup instructions.  
+  - Hardware testing procedures.  
+  - Candidate features for future development.  
+- Clang-format script for consistent code formatting.  
+
+**Changed**  
+- _No changes in this release._  
+
+**Removed**  
+- _No removals in this release._  
+
+**Fixed**  
+- _No fixes in this release._  
+
+**Contributors**  
+- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  

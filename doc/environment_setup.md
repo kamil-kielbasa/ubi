@@ -25,15 +25,11 @@ Use `clang-format` script to ensure consistent code style:
 
 ---
 
-## 🏗️ 3. Build Zephyr Projects
+## 🏗️ 3. Build Zephyr Tests
 
-Build the **sample** and **test** applications for the STM32U5 board:
+Build the **tests** application for the STM32U5 board:
 
 ```sh
-# Build the sample application
-west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/
-
-# Build the test application
 west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/
 ```
 
@@ -54,10 +50,6 @@ STM32_Programmer_CLI -c port=SWD -e all
 Flash the compiled Zephyr applications:
 
 ```sh
-# Flash the sample app
-STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/sample/zephyr/zephyr.hex
-
-# Flash the test app
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/tests/zephyr/zephyr.hex
 ```
 
@@ -72,3 +64,9 @@ picocom -b 115200 /dev/ttyACM0
 ```
 
 > ⚠️ Make sure your user has permission to access `/dev/ttyACM0`. 
+
+## 7. Get flash and static RAM usage
+
+```sh
+west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/ -t rom_report -t ram_report
+```
