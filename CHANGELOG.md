@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.  
 
+### [0.3.0] – 2025-09-21
+
+**Added**  
+- Clang format config file.
+
+**Changed**  
+- Replace usage of low-level Zephyr flash APIs with the Zephyr Flash Map (Flash Area API).
+
+**Removed**  
+- _No removals in this release._  
+
+**Fixed**  
+- _No fixes in this release._  
+
+**Contributors**  
+- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+
+---
+
 ### [0.2.0] – 2025-09-10
 
 **Added**  

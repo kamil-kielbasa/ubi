@@ -2,35 +2,36 @@
  * \file    ubi.c
  * \author  Kamil Kielbasa
  * \brief   Unsorted Block Images (UBI) implementation.
- * \version 0.2
- * \date    2025-09-10
+ * \version 0.3
+ * \date    2025-09-21
  *
  * \copyright Copyright (c) 2025
  *
  */
 
-/* Include files ------------------------------------------------------------------------------ */
+/* Include files ------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi.h"
 #include "ubi_utils.h"
 
 /* Zephyr headers: */
-#include <zephyr/kernel.h>
-#include <zephyr/sys/util.h>
-#include <zephyr/sys/crc.h>
-#include <zephyr/sys/slist.h>
-#include <zephyr/sys/rb.h>
 #include <zephyr/drivers/flash.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
+#include <zephyr/sys/crc.h>
+#include <zephyr/sys/rb.h>
+#include <zephyr/sys/slist.h>
+#include <zephyr/sys/util.h>
+#include <zephyr/storage/flash_map.h>
 
 /* Standard library headers: */
 #include <errno.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------ */
 
@@ -38,7 +39,7 @@
 
 LOG_MODULE_REGISTER(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Module types and type definitiones ---------------------------------------------------------- */
+/* Module types and type definitions ----------------------------------------------------------- */
 
 struct ubi_volume {
 	size_t vol_idx;
@@ -163,7 +164,22 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	sys_slist_init(&ubi_dev->bad_pebs);
 	ubi_dev->vols.lessthan_fn = ubi_rbt_cmp;
 
-	const size_t nr_of_pebs = ubi_dev->mtd.partition_size / ubi_dev->mtd.erase_block_size;
+	const struct flash_area *fa = NULL;
+	ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);
+
+	if (0 != ret) {
+		LOG_ERR("Flash area open failure");
+		return ret;
+	}
+
+	if (!flash_area_device_is_ready(fa)) {
+		LOG_ERR("Flash area is not ready");
+		flash_area_close(fa);
+		return -ENODEV;
+	}
+
+	const size_t nr_of_pebs = fa->fa_size / ubi_dev->mtd.erase_block_size;
+	flash_area_close(fa);
 
 	bool is_mounted = false;
 	ret = ubi_dev_is_mounted(&ubi_dev->mtd, &is_mounted);
@@ -190,16 +206,24 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 					    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
 
 		for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < nr_of_pebs; ++peb_idx) {
-			const size_t offset = ubi_dev->mtd.partition_offset +
-					      (peb_idx * ubi_dev->mtd.erase_block_size);
+			const struct flash_area *fa = NULL;
+			ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);
 
-			ret = flash_erase(ubi_dev->mtd.flash_device, offset,
-					  ubi_dev->mtd.erase_block_size);
+			if (0 != ret) {
+				LOG_ERR("Flash area open failure");
+				return ret;
+			}
+
+			const size_t offset = peb_idx * ubi_dev->mtd.erase_block_size;
+			ret = flash_area_erase(fa, offset, ubi_dev->mtd.erase_block_size);
 
 			if (0 != ret) {
 				LOG_ERR("Flash erase failure");
+				flash_area_close(fa);
 				goto exit;
 			}
+
+			flash_area_close(fa);
 
 			ret = ubi_ec_hdr_write(&ubi_dev->mtd, peb_idx, &ec_hdr);
 
@@ -285,20 +309,21 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	const size_t ec_avg = ec_sum / ec_count;
 
 	/* 4. Scan all PEB's and update volume EBA table:
-	 *    1. If EC header is incorrect, then append to bad PEBs.
-	 *    2. If EC header is correct and VID header is empty, then insert to free PEBs.
-	 *    3. If EC header is correct and VID header is incorrect, then append to bad PEBs.
-	 *    4. If EC header is correct and VID header is correct then:
-	 *       1. Collect greater sequence number.
-	 *       2. Search in volume EBA table LEB with this key exist.
-	 *	 3. Volume does not exist, then insert to dirty PEBs.
-	 *       4. LEB does not exist, then insert to volume EBA table.
-	 *       5. LEB does exist but EC and VID headers are incorrect, then append to bad PEBs.
-	 *       6. LEB does exist and EC and VID headers are correct then:
-	 *          1. If newer LEB has lower sequence number, then append to dirty PEBs.
-	 *          2. If newer LEB has greater sequence number, then remove old LEB from volume EBA table
-	 *             and append to dirty PEBs. The newer LEB append to volume EBA table.
-	 */
+   	 *    1. If EC header is incorrect, then append to bad PEBs.
+   	 *    2. If EC header is correct and VID header is empty, then insert to free PEBs.
+   	 *    3. If EC header is correct and VID header is incorrect, then append to bad PEBs.
+   	 *    4. If EC header is correct and VID header is correct then:
+   	 *       1. Collect greater sequence number.
+   	 *       2. Search in volume EBA table LEB with this key exist.
+   	 *	 3. Volume does not exist, then insert to dirty PEBs.
+   	 *       4. LEB does not exist, then insert to volume EBA table.
+   	 *       5. LEB does exist but EC and VID headers are incorrect, then append to bad PEBs.
+   	 *       6. LEB does exist and EC and VID headers are correct then:
+   	 *          1. If newer LEB has lower sequence number, then append to dirty PEBs.
+   	 *          2. If newer LEB has greater sequence number, then remove old LEB
+   	 *	       from volume EBA table and append to dirty PEBs. The newer LEB append to
+   	 *	       volume EBA table.
+   	 */
 	for (size_t pnum = UBI_DEV_HDR_NR_OF_RES_PEBS; pnum < nr_of_pebs; ++pnum) {
 		/* 4.1 */
 		struct ubi_ec_hdr ec_hdr = { 0 };
@@ -509,14 +534,24 @@ int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 	if (!ubi || !info)
 		return -EINVAL;
 
+	const struct flash_area *fa = NULL;
+	int ret = flash_area_open(ubi->mtd.partition_id, &fa);
+
+	if (0 != ret) {
+		LOG_ERR("Flash area open failure");
+		return ret;
+	}
+
 	memset(info, 0, sizeof(*info));
 	info->leb_total_count =
-		(ubi->mtd.partition_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
+		(fa->fa_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
 	info->leb_size = ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
 
 	info->free_leb_count = ubi->free_pebs_size;
 	info->dirty_leb_count = ubi->dirty_pebs_size;
 	info->bad_leb_count = ubi->bad_pebs_size;
+
+	flash_area_close(fa);
 
 	if (ubi->vols_size > 0) {
 		struct ubi_rbt_item *entry = NULL;
@@ -564,9 +599,17 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 			goto bad_blocks;
 		}
 
-		const size_t offset =
-			ubi->mtd.partition_offset + (entry->value.pnum * ubi->mtd.erase_block_size);
-		ret = flash_erase(ubi->mtd.flash_device, offset, ubi->mtd.erase_block_size);
+		const struct flash_area *fa = NULL;
+		ret = flash_area_open(ubi->mtd.partition_id, &fa);
+
+		if (0 != ret) {
+			LOG_ERR("Flash area open failure");
+			return ret;
+		}
+
+		const size_t offset = entry->value.pnum * ubi->mtd.erase_block_size;
+		ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+		flash_area_close(fa);
 
 		if (0 != ret) {
 			LOG_ERR("Flash erase failure");
@@ -681,8 +724,19 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 	if (!ubi || !peb_ec || !len)
 		return -EINVAL;
 
+	const struct flash_area *fa = NULL;
+
+	ret = flash_area_open(ubi->mtd.partition_id, &fa);
+
+	if (0 != ret) {
+		LOG_ERR("Flash area open failure");
+		return ret;
+	}
+
 	const size_t nr_of_pebs =
-		(ubi->mtd.partition_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
+		(fa->fa_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
+
+	flash_area_close(fa);
 
 	size_t *_peb_ec = k_malloc(nr_of_pebs * sizeof(*_peb_ec));
 

@@ -4,8 +4,8 @@
  * \brief   Unsorted Block Images (UBI) Utilities
  *
  * \author  Kamil Kielbasa
- * \version 0.2
- * \date    2025-09-10
+ * \version 0.3
+ * \date    2025-09-21
  *
  * \copyright Copyright (c) 2025
  */
@@ -14,20 +14,15 @@
 #ifndef UBI_UTILS_H
 #define UBI_UTILS_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Include files ------------------------------------------------------------------------------- */
-
 #include "ubi.h"
 
 /* Zephyr header */
 #include <zephyr/sys/util.h>
 
 /* Standard library headers */
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /* Defines ------------------------------------------------------------------------------------- */
 
@@ -37,7 +32,7 @@ extern "C" {
  */
 #define WRITE_BLOCK_SIZE_ALIGNMENT (16)
 
-/* UBI device header constants ----------------------------------------------------------------- */
+/* UBI device header constants */
 #define UBI_DEV_HDR_MAGIC (0x55424925)
 #define UBI_DEV_HDR_SIZE (32)
 #define UBI_DEV_HDR_VERSION (1)
@@ -45,17 +40,17 @@ extern "C" {
 #define UBI_DEV_HDR_RES_PEB_0 (0)
 #define UBI_DEV_HDR_RES_PEB_1 (1)
 
-/* UBI volume header constants ----------------------------------------------------------------- */
+/* UBI volume header constants */
 #define UBI_VOL_HDR_MAGIC (0x55424926)
 #define UBI_VOL_HDR_SIZE (48)
 #define UBI_VOL_HDR_VERSION (1)
 
-/* UBI erase counter header constants ----------------------------------------------------------- */
+/* UBI erase counter header constants */
 #define UBI_EC_HDR_MAGIC (0x55424923)
 #define UBI_EC_HDR_SIZE (16)
 #define UBI_EC_HDR_VERSION (1)
 
-/* UBI volume identifier header constants -------------------------------------------------------- */
+/* UBI volume identifier header constants */
 #define UBI_VID_HDR_MAGIC (0x55424921)
 #define UBI_VID_HDR_SIZE (32)
 #define UBI_VID_HDR_VERSION (1)
@@ -316,9 +311,5 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
 		      size_t len);
 
 /** \} name ubi_utils_data */
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* UBI_UTILS_H */

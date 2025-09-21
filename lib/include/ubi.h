@@ -4,8 +4,8 @@
  * \brief   Unsorted Block Images (UBI) interface.
  *
  * \author  Kamil Kielbasa
- * \version 0.2
- * \date    2025-09-10
+ * \version 0.3
+ * \date    2025-09-21
  *
  * \copyright Copyright (c) 2025
  */
@@ -14,14 +14,10 @@
 #ifndef UBI_H
 #define UBI_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Include files ------------------------------------------------------------------------------- */
-#include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 /* Defines ------------------------------------------------------------------------------------- */
 
@@ -31,7 +27,7 @@ extern "C" {
  */
 #define UBI_VOLUME_NAME_MAX_LEN (16)
 
-/* Forward declarations------------------------------------------------------------------------- */
+/* Forward declarations ------------------------------------------------------------------------ */
 
 /**
  * \brief Forward declaration of the UBI device structure.
@@ -51,13 +47,10 @@ struct ubi_device;
  * \brief Memory technology device (MTD) for UBI.
  */
 struct ubi_mtd {
-	const struct device *flash_device; /*!< Pointer to hardware device. */
+	uint8_t partition_id; /*!< Partition identifier from FIXED_PARTITION_ID macro. */
 
 	size_t write_block_size; /*!< Write block size in bytes. */
 	size_t erase_block_size; /*!< Erase block size in bytes. */
-
-	size_t partition_offset; /*!< Partition offset in bytes. */
-	size_t partition_size; /*!< Partition size in bytes. */
 };
 
 /**
@@ -101,7 +94,8 @@ struct ubi_volume_config {
 
 /**
  * \defgroup ubi_device UBI Device Management
- * \brief Functions to initialize, get statistics, erases and shut down the UBI device.
+ * \brief Functions to initialize, get statistics, erases and shut down the UBI
+ * device.
  * \{
  */
 
@@ -146,10 +140,10 @@ int ubi_device_deinit(struct ubi_device *ubi);
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 
 /**
- * \brief Get UBI erase counter header values. 
- * 
+ * \brief Get UBI erase counter header values.
+ *
  * \param[in] ubi 		Pointer to UBI device instance.
- * \param[out] peb_ec		Address pointer for PEBs erase counters.   
+ * \param[out] peb_ec		Address pointer for PEBs erase counters.
  * \param[out] len		Number of PEBs.
  *
  * \return 0 on success, or negative error code.
@@ -214,8 +208,9 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
 /** \} name ubi_volumes */
 
 /**
- * \defgroup ubi_io UBI LEBs Management 
- * \brief Functions to map/unmap, check if mapped, write/read and get size of logical erase blocks.
+ * \defgroup ubi_io UBI LEBs Management
+ * \brief Functions to map/unmap, check if mapped, write/read and get size of
+ * logical erase blocks.
  * \{
  */
 
@@ -283,7 +278,7 @@ int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_
 
 /**
  * \brief Get size of mapped LEB.
- * 
+ *
  * \param[in] ubi 		Pointer to UBI device.
  * \param vol_id 		Volume ID.
  * \param lnum 			Logical block number.
@@ -294,9 +289,5 @@ int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_
 int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *size);
 
 /** \} name ubi_io */
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* UBI_H */
