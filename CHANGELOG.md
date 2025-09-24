@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.  
 
+### [0.4.0] – 2025-09-24
+
+**Added**  
+- Sample application.  
+
+**Changed**  
+- Flash optimizations.
+- Functionality Refactoring:
+  - Logging improvements.
+  - Code deduplication.
+  - File structure cleanup.
+  - Doxygen documentation updates.
+
+**Removed**  
+- _No removals in this release._  
+
+**Fixed**  
+- _No fixes in this release._  
+
+**Contributors**  
+- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+
+---
+
 ### [0.3.0] – 2025-09-21
 
 **Added**  

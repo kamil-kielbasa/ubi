@@ -21,11 +21,19 @@ The UBI volume size is specified when a volume is created, but may later be chan
 
 ### Resource Usage
 
-| Metric                 | Version 0.2.0 |
-|------------------------|---------------|
-| Flash Usage            | 7902 B        |
-| Static RAM Usage       | 0 B           |
-| RAM Usage              | 16 B per PEB  |
+| Metric              | Version 0.4.0   |
+|---------------------|-----------------|
+| Flash Usage         | 2802 B          |
+| Static RAM Usage    | 0 B             |
+
+**Dynamic RAM Usage**
+
+| Object   | Usage       |
+|----------|-------------|
+| Bad PEB  | 12 B each   |
+| PEB      | 16 B each   |
+| Volume   | 48 B each   |
+| Device   | 88 B each   |
 
 ## Documentation
 

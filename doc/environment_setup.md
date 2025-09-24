@@ -33,6 +33,12 @@ Build the **tests** application for the STM32U5 board:
 west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/
 ```
 
+Build the **sample** application for the STM32U5 board:
+
+```sh
+west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/
+```
+
 ---
 
 ## 🔄 4. Erase Flash Memory
@@ -47,10 +53,16 @@ STM32_Programmer_CLI -c port=SWD -e all
 
 ## 🚀 5. Flash the Board
 
-Flash the compiled Zephyr applications:
+Flash the compiled Zephyr **tests** applications:
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/tests/zephyr/zephyr.hex
+```
+
+Flash the compiled Zephyr **sample** applications:
+
+```sh
+STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/sample/zephyr/zephyr.hex
 ```
 
 ---
@@ -68,5 +80,5 @@ picocom -b 115200 /dev/ttyACM0
 ## 7. Get flash and static RAM usage
 
 ```sh
-west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/ -t rom_report -t ram_report
+west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t <rom_report/ram_report>
 ```

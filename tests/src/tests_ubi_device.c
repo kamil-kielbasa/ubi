@@ -5,8 +5,8 @@
  *
  * \brief   Hardware tests for Unsorted Block Images (UBI) device operations.
  *
- * \version 0.3
- * \date    2025-09-21
+ * \version 0.4
+ * \date    2025-09-24
  *
  * \copyright Copyright (c) 2025
  *
@@ -78,9 +78,7 @@ static void *ztest_suite_setup(void)
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
 
-	mtd.flash_device = flash_dev;
-	mtd.partition_offset = UBI_PARTITION_OFFSET;
-	mtd.partition_size = UBI_PARTITION_SIZE;
+	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
 	mtd.erase_block_size = erase_block_size;
 	mtd.write_block_size = write_block_size;
 
@@ -154,7 +152,7 @@ ZTEST_SUITE(ubi_device, NULL, ztest_suite_setup, ztest_testcase_before, ztest_te
 ZTEST(ubi_device, init_deinit)
 {
 	const size_t exp_ec_avr = 0;
-	const size_t total_nr_of_pebs = (mtd.partition_size / mtd.erase_block_size) - 2;
+	const size_t total_nr_of_pebs = (UBI_PARTITION_SIZE / mtd.erase_block_size) - 2;
 
 	struct ubi_device *ubi = NULL;
 	struct ubi_device_info info = { 0 };
@@ -190,7 +188,7 @@ ZTEST(ubi_device, init_deinit)
 ZTEST(ubi_device, init_deinit_reboot)
 {
 	const size_t exp_ec_avr = 0;
-	const size_t total_nr_of_pebs = (mtd.partition_size / mtd.erase_block_size) - 2;
+	const size_t total_nr_of_pebs = (UBI_PARTITION_SIZE / mtd.erase_block_size) - 2;
 
 	struct ubi_device *ubi = NULL;
 	struct ubi_device_info info = { 0 };
