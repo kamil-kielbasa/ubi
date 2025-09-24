@@ -2,8 +2,8 @@
  * \file    ubi.c
  * \author  Kamil Kielbasa
  * \brief   Unsorted Block Images (UBI) implementation.
- * \version 0.3
- * \date    2025-09-21
+ * \version 0.4
+ * \date    2025-09-24
  *
  * \copyright Copyright (c) 2025
  *
@@ -15,7 +15,6 @@
 #include "ubi_utils.h"
 
 /* Zephyr headers: */
-#include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/crc.h>
@@ -23,7 +22,6 @@
 #include <zephyr/storage/flash_map.h>
 
 /* Standard library headers: */
-#include <errno.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -31,29 +29,141 @@
 
 /* Module defines ------------------------------------------------------------------------------ */
 /* Module types and type definitions ----------------------------------------------------------- */
+
+enum dual_bank_state { BANKS_INVALID, BANKS_VALID, BANK1_VALID, BANK2_VALID };
+
 /* Module interface variables and constants ---------------------------------------------------- */
 /* Static variables and constants -------------------------------------------------------------- */
 /* Static function declarations ---------------------------------------------------------------- */
+
+/**
+ * \brief Read the device headers from a UBI device.
+ *
+ * \param[in] mtd		UBI MTD device structure.
+ * \param[out] db_state   	Dual-bank state.
+ * \param[out] dev_hdr_1  	First device header.
+ * \param[out] dev_hdr_2  	Second device header.
+ *
+ * \return 0 on success, negative error code on failure.
+ */
+static int get_dev_hdr(const struct ubi_mtd *mtd, enum dual_bank_state *db_state,
+		       struct ubi_dev_hdr *dev_hdr_1, struct ubi_dev_hdr *dev_hdr_2);
+
+/**
+ * \brief Overwrite the device and volume headers on a UBI device.
+ *
+ * \param[in] mtd       	UBI MTD device structure.
+ * \param[out] db_state  	Dual-bank state.
+ * \param[in] buf       	Buffer containing the new device and volumes data.
+ * \param len       		Size of the \p buf in bytes.
+ *
+ * \return 0 on success, negative error code on failure.
+ */
+static int overwrite_dev_and_vol_hdrs(const struct ubi_mtd *mtd, enum dual_bank_state *db_state,
+				      const uint8_t *buf, size_t len);
+
 /* Static function definitions ----------------------------------------------------------------- */
-/* Module interface function definitions ------------------------------------------------------- */
 
-/** TODO: verify magic, version and crc32 for every write */
-
-int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
+static int get_dev_hdr(const struct ubi_mtd *mtd, enum dual_bank_state *db_state,
+		       struct ubi_dev_hdr *dev_hdr_1, struct ubi_dev_hdr *dev_hdr_2)
 {
-	if (!mtd || !is_mounted)
+	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(db_state);
+	__ASSERT_NO_MSG(dev_hdr_1);
+	__ASSERT_NO_MSG(dev_hdr_2);
+
+	int ret = -EIO;
+
+	size_t offset = 0;
+	uint32_t crc = 0;
+
+	bool valid_1 = false;
+	bool valid_2 = false;
+
+	struct ubi_dev_hdr hdr_1 = { 0 };
+	struct ubi_dev_hdr hdr_2 = { 0 };
+
+	const struct flash_area *fa = NULL;
+	ret = flash_area_open(mtd->partition_id, &fa);
+
+	if (0 != ret)
+		return ret;
+
+	/* Read first device header */
+	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
+	ret = flash_area_read(fa, offset, &hdr_1, sizeof(hdr_1));
+
+	valid_1 = (0 == ret);
+
+	if (valid_1) {
+		valid_1 &= (UBI_DEV_HDR_MAGIC == hdr_1.magic);
+
+		crc = crc32_ieee((const uint8_t *)&hdr_1, sizeof(hdr_1) - sizeof(hdr_1.hdr_crc));
+		valid_1 &= (crc == hdr_1.hdr_crc);
+	}
+
+	/* Read second device header */
+	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
+	ret = flash_area_read(fa, offset, &hdr_2, sizeof(hdr_2));
+
+	valid_2 = (0 == ret);
+
+	if (valid_2) {
+		valid_2 &= (UBI_DEV_HDR_MAGIC == hdr_2.magic);
+
+		crc = crc32_ieee((const uint8_t *)&hdr_2, sizeof(hdr_2) - sizeof(hdr_2.hdr_crc));
+		valid_2 &= (crc == hdr_2.hdr_crc);
+	}
+
+	/* Check dual-bank device headers state */
+	*db_state = BANKS_INVALID;
+
+	if (valid_1 && valid_2) {
+		if ((hdr_1.hdr_crc == hdr_2.hdr_crc) && (hdr_1.revision == hdr_2.revision)) {
+			*db_state = BANKS_VALID;
+
+			if (dev_hdr_1)
+				*dev_hdr_1 = hdr_1;
+
+			if (dev_hdr_2)
+				*dev_hdr_2 = hdr_2;
+		}
+	}
+
+	if (valid_1 && !valid_2) {
+		*db_state = BANK1_VALID;
+
+		if (dev_hdr_1)
+			*dev_hdr_1 = hdr_1;
+	}
+
+	if (valid_2 && !valid_1) {
+		*db_state = BANK2_VALID;
+
+		if (dev_hdr_2)
+			*dev_hdr_2 = hdr_2;
+	}
+
+	flash_area_close(fa);
+	return 0;
+}
+
+static int overwrite_dev_and_vol_hdrs(const struct ubi_mtd *mtd, enum dual_bank_state *db_state,
+				      const uint8_t *buf, size_t len)
+{
+	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(db_state);
+	__ASSERT_NO_MSG(buf);
+	__ASSERT_NO_MSG(0 != len);
+
+	if (len > mtd->erase_block_size)
 		return -EINVAL;
 
 	int ret = -EIO;
 	size_t offset = 0;
 
-	bool valid_1 = false;
-	struct ubi_dev_hdr dev_hdr_1 = { 0 };
+	*db_state = BANKS_INVALID;
 
-	bool valid_2 = false;
-	struct ubi_dev_hdr dev_hdr_2 = { 0 };
-
-	/* 1. Read first device header */
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(mtd->partition_id, &fa);
 
@@ -61,33 +171,31 @@ int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
 		goto exit;
 
 	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_1, sizeof(dev_hdr_1));
+	ret = flash_area_erase(fa, offset, mtd->erase_block_size);
 
-	valid_1 = (0 == ret);
+	if (0 != ret)
+		goto exit;
 
-	if (valid_1) {
-		valid_1 &= (UBI_DEV_HDR_MAGIC == dev_hdr_1.magic);
+	ret = flash_area_write(fa, offset, buf, len);
 
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_1,
-						sizeof(dev_hdr_1) - sizeof(dev_hdr_1.hdr_crc));
-		valid_1 &= (crc == dev_hdr_1.hdr_crc);
-	}
+	if (0 != ret)
+		goto exit;
 
-	/* 2. Read second device header */
+	*db_state = BANK1_VALID;
+
 	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_2, sizeof(dev_hdr_2));
+	ret = flash_area_erase(fa, offset, mtd->erase_block_size);
 
-	valid_2 = (0 == ret);
+	if (0 != ret)
+		goto exit;
 
-	if (valid_2) {
-		valid_2 &= (UBI_DEV_HDR_MAGIC == dev_hdr_2.magic);
+	ret = flash_area_write(fa, offset, buf, len);
 
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_2,
-						sizeof(dev_hdr_2) - sizeof(dev_hdr_2.hdr_crc));
-		valid_2 &= (crc == dev_hdr_2.hdr_crc);
-	}
+	if (0 != ret)
+		goto exit;
 
-	*is_mounted = (valid_1 && valid_2);
+	*db_state = BANK2_VALID;
+	*db_state = BANKS_VALID;
 
 exit:
 	if (fa)
@@ -96,19 +204,53 @@ exit:
 	return ret;
 }
 
+/* Module interface function definitions ------------------------------------------------------- */
+
+int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
+{
+	if (!mtd || !is_mounted)
+		return -EINVAL;
+
+	int ret = -EIO;
+
+	enum dual_bank_state db_state = BANKS_INVALID;
+	struct ubi_dev_hdr dev_hdr_1 = { 0 };
+	struct ubi_dev_hdr dev_hdr_2 = { 0 };
+
+	/* 1. Read first device header */
+	ret = get_dev_hdr(mtd, &db_state, &dev_hdr_1, &dev_hdr_2);
+
+	if (0 != ret)
+		return ret;
+
+	*is_mounted = false;
+
+	switch (db_state) {
+	case BANKS_VALID:
+		*is_mounted = true;
+		break;
+
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
+		break;
+	}
+
+	return 0;
+}
+
 int ubi_dev_mount(const struct ubi_mtd *mtd)
 {
-	int ret = -EIO;
-	size_t offset = 0;
-
 	if (!mtd)
 		return -EINVAL;
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(mtd->partition_id, &fa);
 
 	if (0 != ret)
-		goto exit;
+		return ret;
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
 	dev_hdr.magic = UBI_DEV_HDR_MAGIC;
@@ -120,35 +262,24 @@ int ubi_dev_mount(const struct ubi_mtd *mtd)
 	dev_hdr.hdr_crc =
 		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
 
-	/* Save device header in first bank */
-	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+	flash_area_close(fa);
 
-	if (0 != ret)
-		goto exit;
+	enum dual_bank_state db_state = BANKS_INVALID;
+	ret = overwrite_dev_and_vol_hdrs(mtd, &db_state, (const uint8_t *)&dev_hdr,
+					 sizeof(dev_hdr));
 
-	ret = flash_area_write(fa, offset, &dev_hdr, sizeof(dev_hdr));
+	switch (db_state) {
+	case BANKS_VALID:
+		return ret;
 
-	if (0 != ret)
-		goto exit;
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
+		/** TODO: dual-bank implementation */
+		return -ENOSYS;
+	}
 
-	/* Save device header in second bank */
-	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_erase(fa, offset, mtd->erase_block_size);
-
-	if (0 != ret)
-		goto exit;
-
-	ret = flash_area_write(fa, offset, &dev_hdr, sizeof(dev_hdr));
-
-	if (0 != ret)
-		goto exit;
-
-exit:
-	if (fa)
-		flash_area_close(fa);
-
-	return ret;
+	return -EACCES;
 }
 
 int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
@@ -157,83 +288,29 @@ int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
 		return -EINVAL;
 
 	int ret = -EIO;
-	size_t offset = 0;
 
-	bool valid_1 = false;
+	enum dual_bank_state db_state = BANKS_INVALID;
 	struct ubi_dev_hdr dev_hdr_1 = { 0 };
-
-	bool valid_2 = false;
 	struct ubi_dev_hdr dev_hdr_2 = { 0 };
 
-	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = get_dev_hdr(mtd, &db_state, &dev_hdr_1, &dev_hdr_2);
 
 	if (0 != ret)
-		goto exit;
+		return ret;
 
-	/* 1. Read first device header */
-	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_1, sizeof(dev_hdr_1));
-
-	valid_1 = (0 == ret);
-
-	if (valid_1) {
-		valid_1 &= (UBI_DEV_HDR_MAGIC == dev_hdr_1.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_1,
-						sizeof(dev_hdr_1) - sizeof(dev_hdr_1.hdr_crc));
-		valid_1 &= (crc == dev_hdr_1.hdr_crc);
-	}
-
-	/* 2. Read second device header */
-	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_2, sizeof(dev_hdr_2));
-
-	valid_2 = (0 == ret);
-
-	if (valid_2) {
-		valid_2 &= (UBI_DEV_HDR_MAGIC == dev_hdr_2.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_2,
-						sizeof(dev_hdr_2) - sizeof(dev_hdr_2.hdr_crc));
-		valid_2 &= (crc == dev_hdr_2.hdr_crc);
-	}
-
-	flash_area_close(fa);
-
-	/* 3. Use correct and validated device header */
-	ret = -ENOENT;
-
-	if (valid_1 && valid_2) {
-		if (dev_hdr_1.revision != dev_hdr_2.revision) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
-		if (dev_hdr_1.hdr_crc != dev_hdr_2.hdr_crc) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
+	switch (db_state) {
+	case BANKS_VALID:
 		memcpy(hdr, &dev_hdr_1, sizeof(dev_hdr_1));
-		ret = 0;
-	}
+		return 0;
 
-	if (valid_1 && !valid_2) {
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
 		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
+		return -ENOSYS;
 	}
 
-	if (valid_2 && !valid_1) {
-		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
-	}
-
-exit:
-	if (fa)
-		flash_area_close(fa);
-
-	return ret;
+	return -EACCES;
 }
 
 int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_vol_hdr *hdr)
@@ -243,63 +320,30 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 
 	int ret = -EIO;
 	size_t offset = 0;
+	uint32_t crc = 0;
 
-	bool valid_1 = false;
+	enum dual_bank_state db_state = BANKS_INVALID;
 	struct ubi_dev_hdr dev_hdr_1 = { 0 };
-
-	bool valid_2 = false;
 	struct ubi_dev_hdr dev_hdr_2 = { 0 };
 
-	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = get_dev_hdr(mtd, &db_state, &dev_hdr_1, &dev_hdr_2);
 
 	if (0 != ret)
-		goto exit;
+		return ret;
 
-	/* 1. Read first device header */
-	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_1, sizeof(dev_hdr_1));
-
-	valid_1 = (0 == ret);
-
-	if (valid_1) {
-		valid_1 &= (UBI_DEV_HDR_MAGIC == dev_hdr_1.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_1,
-						sizeof(dev_hdr_1) - sizeof(dev_hdr_1.hdr_crc));
-		valid_1 &= (crc == dev_hdr_1.hdr_crc);
-	}
-
-	/* 2. Read second device header */
-	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_2, sizeof(dev_hdr_2));
-
-	valid_2 = (0 == ret);
-
-	if (valid_2) {
-		valid_2 &= (UBI_DEV_HDR_MAGIC == dev_hdr_2.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_2,
-						sizeof(dev_hdr_2) - sizeof(dev_hdr_2.hdr_crc));
-		valid_2 &= (crc == dev_hdr_2.hdr_crc);
-	}
-
-	/* 3. Use correct and validated device header */
-	ret = -EACCES;
-
-	if (valid_1 && valid_2) {
-		if (dev_hdr_1.revision != dev_hdr_2.revision) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
-		if (dev_hdr_1.hdr_crc != dev_hdr_2.hdr_crc) {
-			ret = -EBADMSG;
-			goto exit;
-		}
+	switch (db_state) {
+	case BANKS_VALID: {
+		bool valid_1 = false;
+		bool valid_2 = false;
 
 		struct ubi_vol_hdr vol_hdr_1 = { 0 };
 		struct ubi_vol_hdr vol_hdr_2 = { 0 };
+
+		const struct flash_area *fa = NULL;
+		ret = flash_area_open(mtd->partition_id, &fa);
+
+		if (0 != ret)
+			return ret;
 
 		/* 3.1 Read VID header from first bank */
 		offset = (UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size) + UBI_DEV_HDR_SIZE +
@@ -311,9 +355,8 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 		if (valid_1) {
 			valid_1 &= (UBI_VOL_HDR_MAGIC == vol_hdr_1.magic);
 
-			const uint32_t crc =
-				crc32_ieee((const uint8_t *)&vol_hdr_1,
-					   sizeof(vol_hdr_1) - sizeof(vol_hdr_1.hdr_crc));
+			crc = crc32_ieee((const uint8_t *)&vol_hdr_1,
+					 sizeof(vol_hdr_1) - sizeof(vol_hdr_1.hdr_crc));
 			valid_1 &= (crc == vol_hdr_1.hdr_crc);
 		}
 
@@ -327,43 +370,40 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 		if (valid_2) {
 			valid_2 &= (UBI_VOL_HDR_MAGIC == vol_hdr_2.magic);
 
-			const uint32_t crc =
-				crc32_ieee((const uint8_t *)&vol_hdr_2,
-					   sizeof(vol_hdr_2) - sizeof(vol_hdr_2.hdr_crc));
+			crc = crc32_ieee((const uint8_t *)&vol_hdr_2,
+					 sizeof(vol_hdr_2) - sizeof(vol_hdr_2.hdr_crc));
 			valid_2 &= (crc == vol_hdr_2.hdr_crc);
 		}
+
+		flash_area_close(fa);
 
 		/* 3.3 VID headers from both banks are correct and validated */
 		if (valid_1 && valid_2) {
 			memcpy(hdr, &vol_hdr_1, sizeof(vol_hdr_1));
+			return 0;
 		}
 
 		if (valid_1 && !valid_2) {
 			/** TODO: dual-bank implementation */
-			__ASSERT_NO_MSG(false);
+			return -ENOSYS;
 		}
 
 		if (valid_2 && !valid_1) {
 			/** TODO: dual-bank implementation */
-			__ASSERT_NO_MSG(false);
+			return -ENOSYS;
 		}
+
+		return 0;
 	}
 
-	if (valid_1 && !valid_2) {
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
 		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
+		return -ENOSYS;
 	}
 
-	if (valid_2 && !valid_1) {
-		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
-	}
-
-exit:
-	if (fa)
-		flash_area_close(fa);
-
-	return ret;
+	return -EACCES;
 }
 
 int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
@@ -375,62 +415,22 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	int ret = -EIO;
 	size_t offset = 0;
 
-	bool valid_1 = false;
-	struct ubi_dev_hdr dev_hdr_1 = { 0 };
-
-	bool valid_2 = false;
-	struct ubi_dev_hdr dev_hdr_2 = { 0 };
-
+	const struct flash_area *fa = NULL;
 	uint8_t *buf = NULL;
 
-	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	enum dual_bank_state read_db_state = BANKS_INVALID;
+	struct ubi_dev_hdr dev_hdr_1 = { 0 };
+	struct ubi_dev_hdr dev_hdr_2 = { 0 };
+
+	ret = get_dev_hdr(mtd, &read_db_state, &dev_hdr_1, &dev_hdr_2);
 
 	if (0 != ret)
 		goto exit;
 
-	/* 1. Read first device header */
-	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_1, sizeof(dev_hdr_1));
-
-	valid_1 = (0 == ret);
-
-	if (valid_1) {
-		valid_1 &= (UBI_DEV_HDR_MAGIC == dev_hdr_1.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_1,
-						sizeof(dev_hdr_1) - sizeof(dev_hdr_1.hdr_crc));
-		valid_1 &= (crc == dev_hdr_1.hdr_crc);
-	}
-
-	/* 2. Read second device header */
-	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_2, sizeof(dev_hdr_2));
-
-	valid_2 = (0 == ret);
-
-	if (valid_2) {
-		valid_2 &= (UBI_DEV_HDR_MAGIC == dev_hdr_2.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_2,
-						sizeof(dev_hdr_2) - sizeof(dev_hdr_2.hdr_crc));
-		valid_2 &= (crc == dev_hdr_2.hdr_crc);
-	}
-
-	/* 3. Use correct and validated device header */
 	ret = -EACCES;
 
-	if (valid_1 && valid_2) {
-		if (dev_hdr_1.revision != dev_hdr_2.revision) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
-		if (dev_hdr_1.hdr_crc != dev_hdr_2.hdr_crc) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
+	switch (read_db_state) {
+	case BANKS_VALID: {
 		if (dev_hdr_1.vol_count >= CONFIG_UBI_MAX_NR_OF_VOLUMES) {
 			ret = -ENOSPC;
 			goto exit;
@@ -441,7 +441,6 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 			goto exit;
 		}
 
-		/* 3.1 Allocate buffer for device header and volumes headers and copy it */
 		const size_t buf_size =
 			UBI_DEV_HDR_SIZE + ((dev_hdr_1.vol_count + 1) * UBI_VOL_HDR_SIZE);
 
@@ -451,6 +450,11 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 			ret = -ENOMEM;
 			goto exit;
 		}
+
+		ret = flash_area_open(mtd->partition_id, &fa);
+
+		if (0 != ret)
+			goto exit;
 
 		offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
 		ret = flash_area_read(fa, offset, buf, buf_size - UBI_VOL_HDR_SIZE);
@@ -462,38 +466,30 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		memcpy(&buf[buf_size - UBI_VOL_HDR_SIZE], vol_hdr, sizeof(*vol_hdr));
 
 		/* 3.2 Overwrite first bank */
-		offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+		enum dual_bank_state write_db_state = BANKS_INVALID;
+		ret = overwrite_dev_and_vol_hdrs(mtd, &write_db_state, buf, buf_size);
 
-		if (0 != ret)
+		switch (write_db_state) {
+		case BANKS_VALID:
+			break;
+
+		case BANKS_INVALID:
+		case BANK1_VALID:
+		case BANK2_VALID:
+			/** TODO: dual-bank implementation */
+			ret = -ENOSYS;
 			goto exit;
+		}
 
-		ret = flash_area_write(fa, offset, buf, buf_size);
-
-		if (0 != ret)
-			goto exit;
-
-		/* 3.2 Overwrite second bank */
-		offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
-
-		if (0 != ret)
-			goto exit;
-
-		ret = flash_area_write(fa, offset, buf, buf_size);
-
-		if (0 != ret)
-			goto exit;
+		break;
 	}
 
-	if (valid_1 && !valid_2) {
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
 		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
-	}
-
-	if (valid_2 && !valid_1) {
-		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
+		ret = -ENOSYS;
+		break;
 	}
 
 exit:
@@ -513,64 +509,23 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		return -EINVAL;
 
 	int ret = -EIO;
-	size_t offset = 0;
-
-	bool valid_1 = false;
-	struct ubi_dev_hdr dev_hdr_1 = { 0 };
-
-	bool valid_2 = false;
-	struct ubi_dev_hdr dev_hdr_2 = { 0 };
 
 	uint8_t *buf = NULL;
 
-	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	enum dual_bank_state read_db_state = BANKS_INVALID;
+	struct ubi_dev_hdr dev_hdr_1 = { 0 };
+	struct ubi_dev_hdr dev_hdr_2 = { 0 };
+
+	ret = get_dev_hdr(mtd, &read_db_state, &dev_hdr_1, &dev_hdr_2);
 
 	if (0 != ret)
 		goto exit;
 
-	/* 1. Read first device header */
-	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_1, sizeof(dev_hdr_1));
-
-	valid_1 = (0 == ret);
-
-	if (valid_1) {
-		valid_1 &= (UBI_DEV_HDR_MAGIC == dev_hdr_1.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_1,
-						sizeof(dev_hdr_1) - sizeof(dev_hdr_1.hdr_crc));
-		valid_1 &= (crc == dev_hdr_1.hdr_crc);
-	}
-
-	/* 2. Read second device header */
-	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_2, sizeof(dev_hdr_2));
-
-	valid_2 = (0 == ret);
-
-	if (valid_2) {
-		valid_2 &= (UBI_DEV_HDR_MAGIC == dev_hdr_2.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_2,
-						sizeof(dev_hdr_2) - sizeof(dev_hdr_2.hdr_crc));
-		valid_2 &= (crc == dev_hdr_2.hdr_crc);
-	}
-
 	/* 3. Use correct and validated device header */
 	ret = -EACCES;
 
-	if (valid_1 && valid_2) {
-		if (dev_hdr_1.revision != dev_hdr_2.revision) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
-		if (dev_hdr_1.hdr_crc != dev_hdr_2.hdr_crc) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
+	switch (read_db_state) {
+	case BANKS_VALID: {
 		if (dev_hdr_1.vol_count >= CONFIG_UBI_MAX_NR_OF_VOLUMES) {
 			ret = -ENOSPC;
 			goto exit;
@@ -618,44 +573,33 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		}
 
 		/* 3.2 Overwrite first bank */
-		offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+		enum dual_bank_state write_db_state = BANKS_INVALID;
+		ret = overwrite_dev_and_vol_hdrs(mtd, &write_db_state, buf, buf_size);
 
-		if (0 != ret)
+		switch (write_db_state) {
+		case BANKS_VALID:
+			break;
+
+		case BANKS_INVALID:
+		case BANK1_VALID:
+		case BANK2_VALID:
+			/** TODO: dual-bank implementation */
+			ret = -ENOSYS;
 			goto exit;
+		}
 
-		ret = flash_area_write(fa, offset, buf, buf_size);
-
-		if (0 != ret)
-			goto exit;
-
-		/* 3.3 Overwrite second bank */
-		offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
-
-		if (0 != ret)
-			goto exit;
-
-		ret = flash_area_write(fa, offset, buf, buf_size);
-
-		if (0 != ret)
-			goto exit;
+		break;
 	}
 
-	if (valid_1 && !valid_2) {
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
 		/** TODO: dual-bank implementation */
 		__ASSERT_NO_MSG(false);
-	}
-
-	if (valid_2 && !valid_1) {
-		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
+		break;
 	}
 
 exit:
-	if (fa)
-		flash_area_close(fa);
-
 	if (buf)
 		k_free(buf);
 
@@ -669,76 +613,36 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		return -EINVAL;
 
 	int ret = -EIO;
-	size_t offset = 0;
-
-	bool valid_1 = false;
-	struct ubi_dev_hdr dev_hdr_1 = { 0 };
-
-	bool valid_2 = false;
-	struct ubi_dev_hdr dev_hdr_2 = { 0 };
 
 	uint8_t *buf = NULL;
 
-	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	/* 1. Read first device header */
+	enum dual_bank_state read_db_state = BANKS_INVALID;
+	struct ubi_dev_hdr dev_hdr_1 = { 0 };
+	struct ubi_dev_hdr dev_hdr_2 = { 0 };
+
+	ret = get_dev_hdr(mtd, &read_db_state, &dev_hdr_1, &dev_hdr_2);
 
 	if (0 != ret)
 		goto exit;
 
-	/* 1. Read first device header */
-	offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_1, sizeof(dev_hdr_1));
-
-	valid_1 = (0 == ret);
-
-	if (valid_1) {
-		valid_1 &= (UBI_DEV_HDR_MAGIC == dev_hdr_1.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_1,
-						sizeof(dev_hdr_1) - sizeof(dev_hdr_1.hdr_crc));
-		valid_1 &= (crc == dev_hdr_1.hdr_crc);
-	}
-
-	/* 2. Read second device header */
-	offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-	ret = flash_area_read(fa, offset, &dev_hdr_2, sizeof(dev_hdr_2));
-
-	valid_2 = (0 == ret);
-
-	if (valid_2) {
-		valid_2 &= (UBI_DEV_HDR_MAGIC == dev_hdr_2.magic);
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&dev_hdr_2,
-						sizeof(dev_hdr_2) - sizeof(dev_hdr_2.hdr_crc));
-		valid_2 &= (crc == dev_hdr_2.hdr_crc);
-	}
-
 	/* 3. Use correct and validated device header */
 	ret = -EACCES;
 
-	if (valid_1 && valid_2) {
-		if (dev_hdr_1.revision != dev_hdr_2.revision) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
-		if (dev_hdr_1.hdr_crc != dev_hdr_2.hdr_crc) {
-			ret = -EBADMSG;
-			goto exit;
-		}
-
+	switch (read_db_state) {
+	case BANKS_VALID: {
 		if (dev_hdr_1.vol_count >= CONFIG_UBI_MAX_NR_OF_VOLUMES) {
 			ret = -ENOSPC;
 			goto exit;
 		}
 
 		if (index > (dev_hdr_1.vol_count - 1)) {
-			ret = -EACCES;
+			ret = -EINVAL;
 			goto exit;
 		}
 
 		if (dev_hdr_1.revision + 1 != dev_hdr->revision) {
-			ret = -EACCES;
+			ret = -EINVAL;
 			goto exit;
 		}
 
@@ -772,49 +676,37 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		}
 
 		if (buf_off != buf_size) {
-			ret = -EACCES;
+			ret = -EINVAL;
 			goto exit;
 		}
 
 		/* 3.2 Overwrite first bank */
-		offset = UBI_DEV_HDR_RES_PEB_0 * mtd->erase_block_size;
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+		enum dual_bank_state write_db_state = BANKS_INVALID;
+		ret = overwrite_dev_and_vol_hdrs(mtd, &write_db_state, buf, buf_size);
 
-		if (0 != ret)
+		switch (write_db_state) {
+		case BANKS_VALID:
+			break;
+
+		case BANKS_INVALID:
+		case BANK1_VALID:
+		case BANK2_VALID:
+			/** TODO: dual-bank implementation */
+			ret = -ENOSYS;
 			goto exit;
+		}
 
-		ret = flash_area_write(fa, offset, buf, buf_size);
-
-		if (0 != ret)
-			goto exit;
-
-		/* 3.3 Overwrite second bank */
-		offset = UBI_DEV_HDR_RES_PEB_1 * mtd->erase_block_size;
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
-
-		if (0 != ret)
-			goto exit;
-
-		ret = flash_area_write(fa, offset, buf, buf_size);
-
-		if (0 != ret)
-			goto exit;
+		break;
 	}
 
-	if (valid_1 && !valid_2) {
+	case BANKS_INVALID:
+	case BANK1_VALID:
+	case BANK2_VALID:
 		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
-	}
-
-	if (valid_2 && !valid_1) {
-		/** TODO: dual-bank implementation */
-		__ASSERT_NO_MSG(false);
+		break;
 	}
 
 exit:
-	if (fa)
-		flash_area_close(fa);
-
 	if (buf)
 		k_free(buf);
 

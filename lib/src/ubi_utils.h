@@ -4,8 +4,8 @@
  * \brief   Unsorted Block Images (UBI) Utilities
  *
  * \author  Kamil Kielbasa
- * \version 0.3
- * \date    2025-09-21
+ * \version 0.4
+ * \date    2025-09-24
  *
  * \copyright Copyright (c) 2025
  */

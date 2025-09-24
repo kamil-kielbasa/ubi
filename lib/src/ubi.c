@@ -2,8 +2,8 @@
  * \file    ubi.c
  * \author  Kamil Kielbasa
  * \brief   Unsorted Block Images (UBI) implementation.
- * \version 0.3
- * \date    2025-09-21
+ * \version 0.4
+ * \date    2025-09-24
  *
  * \copyright Copyright (c) 2025
  *
@@ -16,7 +16,6 @@
 #include "ubi_utils.h"
 
 /* Zephyr headers: */
-#include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
@@ -41,65 +40,157 @@ LOG_MODULE_REGISTER(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Module types and type definitions ----------------------------------------------------------- */
 
+/**
+ * \brief UBI volume representation.
+ *
+ * This structure describes a single UBI (Unsorted Block Images) volume
+ * and its associated configuration and erase block mapping.
+ */
 struct ubi_volume {
-	size_t vol_idx;
-	size_t vol_id;
-	struct ubi_volume_config cfg;
+	size_t vol_idx; /**< Index of the volume within the UBI device. */
+	size_t vol_id; /**< Unique identifier of the volume. */
+	struct ubi_volume_config cfg; /**< Volume configuration parameters. */
 
-	size_t eba_tbl_size;
-	struct rbtree eba_tbl; /* Key: LEB index, Value: PEB index. */
+	size_t eba_tbl_size; /**< Size of the eraseblock association (EBA) table. */
+	struct rbtree eba_tbl; /**< Red-black tree mapping:
+                                     - Key: Logical Erase Block (LEB) index
+                                     - Value: Physical Erase Block (PEB) index */
 };
 
+BUILD_ASSERT(sizeof(struct ubi_volume) == 48);
+
+/**
+ * \brief UBI device representation.
+ *
+ * This structure describes a UBI device with its PEB management
+ * structures and global sequencing information.
+ */
 struct ubi_device {
-	struct ubi_mtd mtd;
+	struct ubi_mtd mtd; /**< Underlying MTD (Memory Technology Device). */
 
-	size_t free_pebs_size;
-	struct rbtree free_pebs; /* Key: erase counter, Value: PEB index. */
+	size_t free_pebs_size; /**< Number of free PEBs available. */
+	struct rbtree free_pebs; /**< Red-black tree of free PEBs:
+                                     - Key: Erase counter
+                                     - Value: PEB index */
 
-	size_t dirty_pebs_size;
-	struct rbtree dirty_pebs; /* Key: erase counter, Value: PEB index. */
+	size_t dirty_pebs_size; /**< Number of dirty PEBs (need erasure). */
+	struct rbtree dirty_pebs; /**< Red-black tree of dirty PEBs:
+                                     - Key: Erase counter
+                                     - Value: PEB index */
 
-	size_t bad_pebs_size;
-	sys_slist_t bad_pebs; /* Bad PEBS indexes linked-list. */
+	size_t bad_pebs_size; /**< Number of bad PEBs detected. */
+	sys_slist_t bad_pebs; /**< Singly linked list of bad PEB indices. */
 
-	uint64_t global_seqnr;
+	uint64_t global_seqnr; /**< Global sequence number for updates. */
 
-	size_t vols_seqnr;
-	size_t vols_size;
-	struct rbtree vols;
+	size_t vols_seqnr; /**< Volume sequence counter. */
+	size_t vols_size; /**< Number of volumes tracked. */
+	struct rbtree vols; /**< Red-black tree of volumes:
+			       - Key: Volume identifier
+			       - Value: Volume pointer */
 };
 
-struct ubi_rbt_item {
-	struct rbnode node;
+BUILD_ASSERT(sizeof(struct ubi_device) == 88);
 
-	uint32_t key;
+/**
+ * \brief Red-black tree item used in UBI.
+ *
+ * Represents a key-value pair stored in the red-black tree
+ * structure, mapping either physical eraseblock numbers
+ * or volume pointers.
+ */
+struct ubi_rbt_item {
+	struct rbnode node; /**< Red-black tree node linkage. */
+
+	uint32_t key; /**< Key for ordering the node. */
 
 	union {
-		uint32_t pnum;
-		struct ubi_volume *vol;
-	} value;
+		uint32_t pnum; /**< Physical eraseblock number. */
+		struct ubi_volume *vol; /**< Pointer to a UBI volume. */
+	} value; /**< Associated value. */
 };
 
+BUILD_ASSERT(sizeof(struct ubi_rbt_item) == 16);
+
+/**
+ * \brief List item for UBI bad or tracked PEBs.
+ *
+ * Represents a node in a singly linked list of tracked PEBs
+ * along with metadata such as erase counters.
+ */
 struct ubi_list_item {
-	sys_snode_t node;
-	uint32_t peb_index;
-	uint32_t nr_of_erases;
+	sys_snode_t node; /**< Linked-list node linkage. */
+	uint32_t peb_index; /**< Physical eraseblock index. */
+	uint32_t nr_of_erases; /**< Number of erase cycles performed on this PEB. */
 };
+
+BUILD_ASSERT(sizeof(struct ubi_list_item) == 12);
 
 /* Module interface variables and constants ---------------------------------------------------- */
 /* Static variables and constants -------------------------------------------------------------- */
 /* Static function declarations ---------------------------------------------------------------- */
 
+/**
+ * \brief Compare two red-black tree nodes.
+ *
+ * Used as the comparator function for ordering nodes within UBI's red-black tree implementation.
+ *
+ * \param[in] a 	Pointer to the first node.
+ * \param[in] b 	Pointer to the second node.
+ *
+ * \return true if \p a is less than \p b, false otherwise.
+ */
 static bool ubi_rbt_cmp(struct rbnode *a, struct rbnode *b);
+
+/**
+ * \brief Search for an item in a UBI red-black tree by key.
+ *
+ * Traverses the given red-black tree to find a node that matches the provided key.
+ *
+ * \param[in] tree 	Pointer to the red-black tree to search.
+ * \param key  		32-bit key to search for.
+ *
+ * \return Pointer to the matching ubi_rbt_item, or NULL if not found.
+ */
 static struct ubi_rbt_item *ubi_rbt_search(struct rbtree *tree, uint32_t key);
 
-static void move_to_bad_blocks(struct ubi_device *ubi, struct ubi_rbt_item *entry,
+/**
+ * \brief Move a PEB to the bad blocks list.
+ *
+ * Transfers the given physical erase block (PEB) into the list of bad blocks, updating its
+ * associated erase counter metadata.
+ *
+ * \param[in] ubi     	Pointer to the UBI device structure.
+ * \param pnum       	Physical erase block index.
+ * \param nr_of_erases 	Number of erasures performed on this PEB.
+ * \param[in] bad_item	Pointer to the list item representing the bad PEB.
+ */
+static void move_to_bad_blocks(struct ubi_device *ubi, size_t pnum, size_t nr_of_erases,
 			       struct ubi_list_item *bad_item);
+
+/**
+ * \brief Write data to a logical eraseblock (LEB).
+ *
+ * Writes a buffer of data into a specific logical erase block within a volume, handling volume ID
+ * and logical number mapping.
+ *
+ * \param[in] ubi   	Pointer to the UBI device structure.
+ * \param vol_id 	ID of the target volume.
+ * \param lnum  	Logical eraseblock number within the volume.
+ * \param[in] buf   	Pointer to the data buffer to be written.
+ * \param len   	Length of the buffer in bytes.
+ *
+ * \return 0 on success, negative error code on failure.
+ */
+static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len);
 
 /* Static function definitions ----------------------------------------------------------------- */
 
 static bool ubi_rbt_cmp(struct rbnode *a, struct rbnode *b)
 {
+	__ASSERT_NO_MSG(a);
+	__ASSERT_NO_MSG(b);
+
 	struct ubi_rbt_item *data_a = CONTAINER_OF(a, struct ubi_rbt_item, node);
 	struct ubi_rbt_item *data_b = CONTAINER_OF(b, struct ubi_rbt_item, node);
 
@@ -111,6 +202,8 @@ static bool ubi_rbt_cmp(struct rbnode *a, struct rbnode *b)
 
 static struct ubi_rbt_item *ubi_rbt_search(struct rbtree *tree, uint32_t key)
 {
+	__ASSERT_NO_MSG(tree);
+
 	struct rbnode *node = tree->root;
 
 	while (node) {
@@ -128,17 +221,112 @@ static struct ubi_rbt_item *ubi_rbt_search(struct rbtree *tree, uint32_t key)
 	return NULL;
 }
 
-static void move_to_bad_blocks(struct ubi_device *ubi, struct ubi_rbt_item *entry,
+static void move_to_bad_blocks(struct ubi_device *ubi, size_t pnum, size_t nr_of_erases,
 			       struct ubi_list_item *bad_item)
 {
-	__ASSERT_NO_MSG(!ubi);
-	__ASSERT_NO_MSG(!entry);
-	__ASSERT_NO_MSG(!bad_item);
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(bad_item);
 
-	bad_item->peb_index = entry->value.pnum;
-	bad_item->nr_of_erases = entry->key;
+	bad_item->peb_index = pnum;
+	bad_item->nr_of_erases = nr_of_erases;
 	sys_slist_append(&ubi->bad_pebs, &bad_item->node);
 	ubi->bad_pebs_size += 1;
+}
+
+static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
+{
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(vol_id >= 0);
+	__ASSERT_NO_MSG((buf && len > 0) || (!buf && len == 0));
+
+	int ret = -EIO;
+
+	if (0 == ubi->vols_size) {
+		LOG_ERR("No volumes present on device");
+		return -ENOENT;
+	}
+
+	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		return -ENOENT;
+	}
+
+	struct ubi_volume *vol = entry->value.vol;
+
+	if (lnum > vol->cfg.leb_count) {
+		LOG_ERR("Volume LEB limit exceeded");
+		return -EACCES;
+	}
+
+	if (0 == ubi->free_pebs_size) {
+		LOG_ERR("Lack of free PEBs");
+		return -ENOSPC;
+	}
+
+	if (len > (ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
+		LOG_ERR("Too big buffer to write in LEB");
+		return -ENOSPC;
+	}
+
+	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
+
+	if (entry) {
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
+
+		if (0 != ret) {
+			LOG_ERR("EC header read failure");
+			return ret;
+		}
+
+		rb_remove(&vol->eba_tbl, &entry->node);
+		vol->eba_tbl_size -= 1;
+
+		entry->key = ec_hdr.ec;
+		rb_insert(&ubi->dirty_pebs, &entry->node);
+		ubi->dirty_pebs_size += 1;
+	}
+
+	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
+	struct ubi_rbt_item *min_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
+
+	rb_remove(&ubi->free_pebs, &min_node->node);
+	ubi->free_pebs_size -= 1;
+
+	struct ubi_vid_hdr vid_hdr = { 0 };
+	vid_hdr.magic = UBI_VID_HDR_MAGIC;
+	vid_hdr.version = UBI_VID_HDR_VERSION;
+	vid_hdr.lnum = lnum;
+	vid_hdr.vol_id = vol->vol_id;
+	vid_hdr.sqnum = ubi->global_seqnr++;
+	vid_hdr.data_size = len;
+	vid_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
+
+	ret = ubi_vid_hdr_write(&ubi->mtd, min_node->value.pnum, &vid_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("VID header write failure");
+		return ret;
+	}
+
+	if (buf && len > 0) {
+		ret = ubi_leb_data_write(&ubi->mtd, min_node->value.pnum, buf, len);
+
+		if (0 != ret) {
+			LOG_ERR("LEB data write failure");
+			return ret;
+		}
+	}
+
+	struct ubi_rbt_item *alloc_node = min_node;
+	alloc_node->key = lnum;
+	rb_insert(&vol->eba_tbl, &alloc_node->node);
+	vol->eba_tbl_size += 1;
+
+	return 0;
 }
 
 /* Module interface function definitions ------------------------------------------------------- */
@@ -185,7 +373,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	ret = ubi_dev_is_mounted(&ubi_dev->mtd, &is_mounted);
 
 	if (0 != ret) {
-		LOG_ERR("Device check if mount failure");
+		LOG_ERR("Device check mount failure");
 		return ret;
 	}
 
@@ -313,12 +501,13 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
    	 *    2. If EC header is correct and VID header is empty, then insert to free PEBs.
    	 *    3. If EC header is correct and VID header is incorrect, then append to bad PEBs.
    	 *    4. If EC header is correct and VID header is correct then:
-   	 *       1. Collect greater sequence number.
+   	 *       1. Collect greater sequence number from VID.
    	 *       2. Search in volume EBA table LEB with this key exist.
    	 *	 3. Volume does not exist, then insert to dirty PEBs.
-   	 *       4. LEB does not exist, then insert to volume EBA table.
-   	 *       5. LEB does exist but EC and VID headers are incorrect, then append to bad PEBs.
-   	 *       6. LEB does exist and EC and VID headers are correct then:
+         *       4. LEB does not exist, but exceed volume LEB limit, insert to dirty PEBs.
+   	 *       5. LEB does not exist, then insert to volume EBA table.
+   	 *       6. LEB does exist but EC or VID headers of EBA table LEB are incorrect, then append to bad PEBs.
+   	 *       7. LEB does exist and EC and VID headers are correct then:
    	 *          1. If newer LEB has lower sequence number, then append to dirty PEBs.
    	 *          2. If newer LEB has greater sequence number, then remove old LEB
    	 *	       from volume EBA table and append to dirty PEBs. The newer LEB append to
@@ -338,11 +527,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 				goto exit;
 			}
 
-			item->peb_index = pnum;
-			item->nr_of_erases = ec_avg;
-			sys_slist_append(&ubi_dev->bad_pebs, &item->node);
-			ubi_dev->bad_pebs_size += 1;
-
+			move_to_bad_blocks(ubi_dev, pnum, ec_avg, item);
 			continue;
 		}
 
@@ -388,13 +573,11 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 				goto exit;
 			}
 
-			item->peb_index = pnum;
-			item->nr_of_erases = ec_hdr.ec;
-			sys_slist_append(&ubi_dev->bad_pebs, &item->node);
-			ubi_dev->bad_pebs_size += 1;
-
+			move_to_bad_blocks(ubi_dev, pnum, ec_hdr.ec, item);
 			continue;
 		}
+		
+		/* 4.4 */
 
 		/* 4.4.1 */
 		if (vid_hdr.sqnum > ubi_dev->global_seqnr)
@@ -415,8 +598,8 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 
 			item->key = ec_hdr.ec;
 			item->value.pnum = pnum;
-			rb_insert(&ubi_dev->free_pebs, &item->node);
-			ubi_dev->free_pebs_size += 1;
+			rb_insert(&ubi_dev->dirty_pebs, &item->node);
+			ubi_dev->dirty_pebs_size += 1;
 
 			continue;
 		}
@@ -432,6 +615,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 		}
 
 		tmp = ubi_rbt_search(&vol->eba_tbl, vid_hdr.lnum);
+
 		if (!tmp) {
 			/* 4.4.4 */
 			if (vid_hdr.lnum >= vol->cfg.leb_count) {
@@ -442,6 +626,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 				continue;
 			}
 
+			/* 4.4.5 */
 			item->key = vid_hdr.lnum;
 			item->value.pnum = pnum;
 			rb_insert(&vol->eba_tbl, &item->node);
@@ -449,7 +634,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 
 			continue;
 		} else {
-			/* 4.4.5 */
+			/* 4.4.6 */
 			struct ubi_ec_hdr exist_ec_hdr = { 0 };
 			ret = ubi_ec_hdr_read(&ubi_dev->mtd, tmp->value.pnum, &exist_ec_hdr);
 
@@ -463,11 +648,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 					goto exit;
 				}
 
-				bad_item->peb_index = tmp->value.pnum;
-				bad_item->nr_of_erases = ec_avg;
-				sys_slist_append(&ubi_dev->bad_pebs, &bad_item->node);
-				ubi_dev->bad_pebs_size += 1;
-
+				move_to_bad_blocks(ubi_dev, tmp->value.pnum, ec_avg, bad_item);
 				continue;
 			}
 
@@ -485,15 +666,11 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 					goto exit;
 				}
 
-				bad_item->peb_index = tmp->value.pnum;
-				bad_item->nr_of_erases = ec_hdr.ec;
-				sys_slist_append(&ubi_dev->bad_pebs, &bad_item->node);
-				ubi_dev->bad_pebs_size += 1;
-
+				move_to_bad_blocks(ubi_dev, tmp->value.pnum, ec_hdr.ec, bad_item);
 				continue;
 			}
 
-			/* 4.4.6.1 */
+			/* 4.4.7.1 */
 			if (vid_hdr.sqnum < exist_vid_hdr.sqnum) {
 				item->key = ec_hdr.ec;
 				item->value.pnum = pnum;
@@ -502,7 +679,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 
 				continue;
 			} else {
-				/* 4.4.6.2 */
+				/* 4.4.7.2 */
 				rb_remove(&vol->eba_tbl, &tmp->node);
 				vol->eba_tbl_size -= 1;
 
@@ -593,7 +770,7 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		if (0 != ret) {
 			LOG_ERR("EC header read failure");
 
-			move_to_bad_blocks(ubi, entry, bad_item);
+			move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
 			k_free(entry);
 
 			goto bad_blocks;
@@ -614,7 +791,7 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		if (0 != ret) {
 			LOG_ERR("Flash erase failure");
 
-			move_to_bad_blocks(ubi, entry, bad_item);
+			move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
 			k_free(entry);
 
 			goto bad_blocks;
@@ -628,7 +805,7 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		if (0 != ret) {
 			LOG_ERR("EC header write failure");
 
-			move_to_bad_blocks(ubi, entry, bad_item);
+			move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
 			k_free(entry);
 
 			goto bad_blocks;
@@ -657,63 +834,52 @@ int ubi_device_deinit(struct ubi_device *ubi)
 	if (!ubi)
 		return -EINVAL;
 
-	if (ubi->free_pebs_size > 0) {
-		struct rbnode *node = NULL;
-		while ((node = rb_get_min(&ubi->free_pebs))) {
-			struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
-			rb_remove(&ubi->free_pebs, node);
-			k_free(entry);
-			ubi->free_pebs_size -= 1;
-		}
+	struct rbnode *node = NULL;
+	struct ubi_rbt_item *rbt_item = NULL;
+	struct ubi_rbt_item *vol_item = NULL;
+
+	struct ubi_list_item *list_item = NULL;
+	struct ubi_list_item *list_next = NULL;
+
+	while ((node = rb_get_min(&ubi->free_pebs))) {
+		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
+		rb_remove(&ubi->free_pebs, &rbt_item->node);
+		k_free(rbt_item);
+		ubi->free_pebs_size -= 1;
 	}
 
-	if (ubi->dirty_pebs_size > 0) {
-		struct rbnode *node = NULL;
-		while ((node = rb_get_min(&ubi->dirty_pebs))) {
-			struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
-			rb_remove(&ubi->dirty_pebs, node);
-			k_free(entry);
-			ubi->dirty_pebs_size -= 1;
-		}
+	while ((node = rb_get_min(&ubi->dirty_pebs))) {
+		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
+		rb_remove(&ubi->dirty_pebs, &rbt_item->node);
+		k_free(rbt_item);
+		ubi->dirty_pebs_size -= 1;
 	}
 
-	if (ubi->bad_pebs_size > 0) {
-		struct ubi_list_item *entry = NULL;
-		struct ubi_list_item *tmp = NULL;
-		SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, entry, tmp, node)
-		{
-			sys_slist_remove(&ubi->bad_pebs, NULL, &entry->node);
-			k_free(entry);
-			ubi->bad_pebs_size -= 1;
-		}
+	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, list_item, list_next, node)
+	{
+		sys_slist_remove(&ubi->bad_pebs, NULL, &list_item->node);
+		k_free(list_item);
+		ubi->bad_pebs_size -= 1;
 	}
 
-	if (ubi->vols_size > 0) {
-		struct rbnode *node = NULL;
-		while ((node = rb_get_min(&ubi->vols))) {
-			struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
-			rb_remove(&ubi->vols, node);
+	while ((node = rb_get_min(&ubi->vols))) {
+		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
+		rb_remove(&ubi->vols, &rbt_item->node);
 
-			struct ubi_volume *vol = entry->value.vol;
-			if (vol->eba_tbl_size > 0) {
-				while ((node = rb_get_min(&vol->eba_tbl))) {
-					struct ubi_rbt_item *vol_item =
-						CONTAINER_OF(node, struct ubi_rbt_item, node);
-
-					rb_remove(&vol->eba_tbl, &vol_item->node);
-					k_free(vol_item);
-					vol->eba_tbl_size -= 1;
-				}
-			}
-
-			k_free(entry->value.vol);
-			k_free(entry);
-			ubi->vols_size -= 1;
+		struct ubi_volume *vol = rbt_item->value.vol;
+		while ((node = rb_get_min(&vol->eba_tbl))) {
+			vol_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
+			rb_remove(&vol->eba_tbl, &vol_item->node);
+			k_free(vol_item);
+			vol->eba_tbl_size -= 1;
 		}
+
+		k_free(rbt_item->value.vol);
+		k_free(rbt_item);
+		ubi->vols_size -= 1;
 	}
 
 	k_free(ubi);
-
 	return 0;
 }
 
@@ -797,7 +963,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	const size_t total_free_pebs = info.leb_total_count - info.allocated_leb_count;
 	if (vol_cfg->leb_count > total_free_pebs) {
-		LOG_ERR("Volume allocation PEBs failure");
+		LOG_ERR("Failed to allocate PEBs for volume");
 		return -ENOSPC;
 	}
 
@@ -871,7 +1037,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -910,45 +1076,12 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 			LOG_ERR("Lack of available for allocation LEBs");
 			return -ENOSPC;
 		}
-
-		struct ubi_dev_hdr dev_hdr = { 0 };
-		ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("Device header read failure");
-			return ret;
-		}
-
-		dev_hdr.revision += 1;
-		dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&dev_hdr,
-					     sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
-
-		struct ubi_vol_hdr vol_hdr = { 0 };
-		ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("Volume header read failure");
-			return ret;
-		}
-
-		vol_hdr.lebs_count = vol_cfg->leb_count;
-		vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&vol_hdr,
-					     sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
-
-		ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("Volume header update failure");
-			return ret;
-		}
-
-		vol->cfg.leb_count = vol_cfg->leb_count;
 	} else {
 		const size_t diff = vol->cfg.leb_count - vol_cfg->leb_count;
 
 		if (0 == diff) {
 			LOG_ERR("Cannot resize volume to zero LEBs");
-			return -EINVAL;
+			return -ECANCELED;
 		}
 
 		for (size_t lnum = (vol->cfg.leb_count - diff); lnum < vol->cfg.leb_count; ++lnum) {
@@ -971,41 +1104,40 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 				ubi->dirty_pebs_size += 1;
 			}
 		}
-
-		struct ubi_dev_hdr dev_hdr = { 0 };
-		ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("Device header read failure");
-			return ret;
-		}
-
-		dev_hdr.revision += 1;
-		dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&dev_hdr,
-					     sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
-
-		struct ubi_vol_hdr vol_hdr = { 0 };
-		ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("Volume header read failure");
-			return ret;
-		}
-
-		vol_hdr.lebs_count = vol_cfg->leb_count;
-		vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&vol_hdr,
-					     sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
-
-		ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("Volume header update failure");
-			return ret;
-		}
-
-		vol->cfg.leb_count = vol_cfg->leb_count;
 	}
 
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Device header read failure");
+		return ret;
+	}
+
+	dev_hdr.revision += 1;
+	dev_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
+
+	struct ubi_vol_hdr vol_hdr = { 0 };
+	ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Volume header read failure");
+		return ret;
+	}
+
+	vol_hdr.lebs_count = vol_cfg->leb_count;
+	vol_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vol_hdr, sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
+
+	ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
+
+	if (0 != ret) {
+		LOG_ERR("Volume header update failure");
+		return ret;
+	}
+
+	vol->cfg.leb_count = vol_cfg->leb_count;
 	return 0;
 }
 
@@ -1017,7 +1149,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -1086,8 +1218,8 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 		entry = ubi_rbt_search(&ubi->vols, vol_hdr.vol_id);
 
 		if (!entry) {
-			LOG_ERR("Inconsistent between cache and nvm");
-			return -EFAULT;
+			LOG_ERR("Inconsistency between cache and nvm");
+			return -EIO;
 		}
 
 		vol = entry->value.vol;
@@ -1104,7 +1236,7 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -1123,96 +1255,10 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
 
 int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
 {
-	int ret = -EIO;
-
 	if (!ubi || vol_id < 0 || !buf || 0 == len)
 		return -EINVAL;
 
-	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
-		return -ENOENT;
-	}
-
-	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
-
-	if (!entry) {
-		LOG_ERR("Device volume not found");
-		return -ENOENT;
-	}
-
-	struct ubi_volume *vol = entry->value.vol;
-
-	if (lnum > vol->cfg.leb_count) {
-		LOG_ERR("Overflow the volume LEB limit");
-		return -EACCES;
-	}
-
-	if (0 == ubi->free_pebs_size) {
-		LOG_ERR("Lack of free PEBs");
-		return -ENOSPC;
-	}
-
-	if (len > (ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
-		LOG_ERR("Too big buffer to write in LEB");
-		return -ENOSPC;
-	}
-
-	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
-
-	if (entry) {
-		struct ubi_ec_hdr ec_hdr = { 0 };
-		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("EC header read failure");
-			return ret;
-		}
-
-		rb_remove(&vol->eba_tbl, &entry->node);
-		vol->eba_tbl_size -= 1;
-
-		entry->key = ec_hdr.ec;
-		rb_insert(&ubi->dirty_pebs, &entry->node);
-		ubi->dirty_pebs_size += 1;
-	}
-
-	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
-	struct ubi_rbt_item *min_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
-
-	rb_remove(&ubi->free_pebs, &min_node->node);
-	ubi->free_pebs_size -= 1;
-
-	struct ubi_vid_hdr vid_hdr = { 0 };
-	vid_hdr.magic = UBI_VID_HDR_MAGIC;
-	vid_hdr.version = UBI_VID_HDR_VERSION;
-	vid_hdr.lnum = lnum;
-	vid_hdr.vol_id = vol->vol_id;
-	vid_hdr.sqnum = ubi->global_seqnr++;
-	vid_hdr.data_size = len;
-	vid_hdr.hdr_crc =
-		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
-
-	ret = ubi_vid_hdr_write(&ubi->mtd, min_node->value.pnum, &vid_hdr);
-
-	if (0 != ret) {
-		LOG_ERR("VID header write failure");
-		return ret;
-	}
-
-	ret = ubi_leb_data_write(&ubi->mtd, min_node->value.pnum, buf, len);
-
-	if (0 != ret) {
-		LOG_ERR("[REMOVE ME]: len = %zu", len);
-		LOG_ERR("LEB data write failure");
-		return ret;
-	}
-
-	struct ubi_rbt_item *alloc_node = min_node;
-	alloc_node->key = lnum;
-	rb_insert(&vol->eba_tbl, &alloc_node->node);
-	vol->eba_tbl_size += 1;
-
-	return 0;
+	return leb_write(ubi, vol_id, lnum, buf, len);
 }
 
 int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
@@ -1224,7 +1270,7 @@ int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -1238,7 +1284,7 @@ int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
-		LOG_ERR("Overflow the volume LEB limit");
+		LOG_ERR("Volume LEB limit exceeded");
 		return -EACCES;
 	}
 
@@ -1261,83 +1307,10 @@ int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
 
 int ubi_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 {
-	int ret = -EIO;
-
 	if (!ubi || vol_id < 0)
 		return -EINVAL;
 
-	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
-		return -ENOENT;
-	}
-
-	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
-
-	if (!entry) {
-		LOG_ERR("Device volume not found");
-		return -ENOENT;
-	}
-
-	struct ubi_volume *vol = entry->value.vol;
-
-	if (lnum > vol->cfg.leb_count) {
-		LOG_ERR("Overflow the volume LEB limit");
-		return -EACCES;
-	}
-
-	if (0 == ubi->free_pebs_size) {
-		LOG_ERR("Lack of free PEBs");
-		return -ENOSPC;
-	}
-
-	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
-
-	if (entry) {
-		struct ubi_ec_hdr ec_hdr = { 0 };
-		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
-
-		if (0 != ret) {
-			LOG_ERR("EC header read failure");
-			return ret;
-		}
-
-		rb_remove(&vol->eba_tbl, &entry->node);
-		vol->eba_tbl_size -= 1;
-
-		entry->key = ec_hdr.ec;
-		rb_insert(&ubi->dirty_pebs, &entry->node);
-		ubi->dirty_pebs_size += 1;
-	}
-
-	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
-	struct ubi_rbt_item *min_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
-
-	rb_remove(&ubi->free_pebs, &min_node->node);
-	ubi->free_pebs_size -= 1;
-
-	struct ubi_vid_hdr vid_hdr = { 0 };
-	vid_hdr.magic = UBI_VID_HDR_MAGIC;
-	vid_hdr.version = UBI_VID_HDR_VERSION;
-	vid_hdr.lnum = lnum;
-	vid_hdr.vol_id = vol->vol_id;
-	vid_hdr.sqnum = ubi->global_seqnr++;
-	vid_hdr.data_size = 0;
-	vid_hdr.hdr_crc =
-		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
-
-	ret = ubi_vid_hdr_write(&ubi->mtd, min_node->value.pnum, &vid_hdr);
-
-	if (0 != ret) {
-		LOG_ERR("VID header write failure");
-		return ret;
-	}
-
-	struct ubi_rbt_item *alloc_node = min_node;
-	alloc_node->key = lnum;
-	rb_insert(&vol->eba_tbl, &alloc_node->node);
-	vol->eba_tbl_size += 1;
-
-	return 0;
+	return leb_write(ubi, vol_id, lnum, NULL, 0);
 }
 
 int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
@@ -1348,7 +1321,7 @@ int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -1362,14 +1335,14 @@ int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
-		LOG_ERR("Overflow the volume LEB limit");
+		LOG_ERR("Volume LEB limit exceeded");
 		return -EACCES;
 	}
 
 	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
 
 	if (!entry) {
-		LOG_ERR("Cannot unmap not mapped LEB");
+		LOG_ERR("Cannot unmap an unmapped LEB");
 		return -EACCES;
 	}
 
@@ -1397,7 +1370,7 @@ int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -1411,7 +1384,7 @@ int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
-		LOG_ERR("Overflow the volume LEB limit");
+		LOG_ERR("Volume LEB limit exceeded");
 		return -EACCES;
 	}
 
@@ -1430,7 +1403,7 @@ int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *si
 		return -EINVAL;
 
 	if (0 == ubi->vols_size) {
-		LOG_ERR("Device has no volumes");
+		LOG_ERR("No volumes present on device");
 		return -ENOENT;
 	}
 
@@ -1444,7 +1417,7 @@ int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *si
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
-		LOG_ERR("Overflow the volume LEB limit");
+		LOG_ERR("Volume LEB limit exceeded");
 		return -EACCES;
 	}
 
