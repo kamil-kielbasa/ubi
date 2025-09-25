@@ -2,8 +2,8 @@
  * \file    main.c
  * \author  Kamil Kielbasa
  * \brief   Sample for Unsorted Block Images (UBI) implementation.
- * \version 0.4
- * \date    2025-09-24
+ * \version 0.5
+ * \date    2025-09-25
  *
  * \copyright Copyright (c) 2025
  *

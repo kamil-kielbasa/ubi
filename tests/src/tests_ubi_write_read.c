@@ -5,8 +5,8 @@
  *
  * \brief   Hardware tests for Unsorted Block Images (UBI) write and read operations.
  *
- * \version 0.4
- * \date    2025-09-24
+ * \version 0.5
+ * \date    2025-09-25
  *
  * \copyright Copyright (c) 2025
  *

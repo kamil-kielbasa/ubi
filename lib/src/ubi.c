@@ -2,8 +2,8 @@
  * \file    ubi.c
  * \author  Kamil Kielbasa
  * \brief   Unsorted Block Images (UBI) implementation.
- * \version 0.4
- * \date    2025-09-24
+ * \version 0.5
+ * \date    2025-09-25
  *
  * \copyright Copyright (c) 2025
  *
@@ -66,6 +66,8 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 48);
  * structures and global sequencing information.
  */
 struct ubi_device {
+	struct k_mutex mutex;
+
 	struct ubi_mtd mtd; /**< Underlying MTD (Memory Technology Device). */
 
 	size_t free_pebs_size; /**< Number of free PEBs available. */
@@ -90,7 +92,7 @@ struct ubi_device {
 			       - Value: Volume pointer */
 };
 
-BUILD_ASSERT(sizeof(struct ubi_device) == 88);
+BUILD_ASSERT(sizeof(struct ubi_device) == 112);
 
 /**
  * \brief Red-black tree item used in UBI.
@@ -239,35 +241,42 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	__ASSERT_NO_MSG(vol_id >= 0);
 	__ASSERT_NO_MSG((buf && len > 0) || (!buf && len == 0));
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	int ret = -EIO;
 
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
-		return -EACCES;
+		ret = -EACCES;
+		goto exit;
 	}
 
 	if (0 == ubi->free_pebs_size) {
 		LOG_ERR("Lack of free PEBs");
-		return -ENOSPC;
+		ret = -ENOSPC;
+		goto exit;
 	}
 
 	if (len > (ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
 		LOG_ERR("Too big buffer to write in LEB");
-		return -ENOSPC;
+		ret = -ENOSPC;
+		goto exit;
 	}
 
 	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
@@ -278,7 +287,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 		if (0 != ret) {
 			LOG_ERR("EC header read failure");
-			return ret;
+			goto exit;
 		}
 
 		rb_remove(&vol->eba_tbl, &entry->node);
@@ -309,7 +318,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 	if (0 != ret) {
 		LOG_ERR("VID header write failure");
-		return ret;
+		goto exit;
 	}
 
 	if (buf && len > 0) {
@@ -317,7 +326,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 		if (0 != ret) {
 			LOG_ERR("LEB data write failure");
-			return ret;
+			goto exit;
 		}
 	}
 
@@ -326,7 +335,9 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	rb_insert(&vol->eba_tbl, &alloc_node->node);
 	vol->eba_tbl_size += 1;
 
-	return 0;
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 /* Module interface function definitions ------------------------------------------------------- */
@@ -346,6 +357,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	}
 
 	memset(ubi_dev, 0, sizeof(*ubi_dev));
+	k_mutex_init(&ubi_dev->mutex);
 	ubi_dev->mtd = *mtd;
 	ubi_dev->free_pebs.lessthan_fn = ubi_rbt_cmp;
 	ubi_dev->dirty_pebs.lessthan_fn = ubi_rbt_cmp;
@@ -576,7 +588,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 			move_to_bad_blocks(ubi_dev, pnum, ec_hdr.ec, item);
 			continue;
 		}
-		
+
 		/* 4.4 */
 
 		/* 4.4.1 */
@@ -711,12 +723,14 @@ int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 	if (!ubi || !info)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	const struct flash_area *fa = NULL;
 	int ret = flash_area_open(ubi->mtd.partition_id, &fa);
 
 	if (0 != ret) {
 		LOG_ERR("Flash area open failure");
-		return ret;
+		goto exit;
 	}
 
 	memset(info, 0, sizeof(*info));
@@ -743,13 +757,17 @@ int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 		info->volumes_count = 0;
 	}
 
-	return 0;
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_device_erase_peb(struct ubi_device *ubi)
 {
 	if (!ubi)
 		return -EINVAL;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	int ret = -EIO;
 
@@ -781,7 +799,7 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 
 		if (0 != ret) {
 			LOG_ERR("Flash area open failure");
-			return ret;
+			goto bad_blocks;
 		}
 
 		const size_t offset = entry->value.pnum * ubi->mtd.erase_block_size;
@@ -826,6 +844,7 @@ bad_blocks:
 		/** TODO: Torture bad blocks. */
 	}
 
+	k_mutex_unlock(&ubi->mutex);
 	return 0;
 }
 
@@ -883,6 +902,8 @@ int ubi_device_deinit(struct ubi_device *ubi)
 	return 0;
 }
 
+#if defined(CONFIG_UBI_TEST_API_ENABLE)
+
 int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 {
 	int ret = -EIO;
@@ -890,13 +911,15 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 	if (!ubi || !peb_ec || !len)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	const struct flash_area *fa = NULL;
 
 	ret = flash_area_open(ubi->mtd.partition_id, &fa);
 
 	if (0 != ret) {
 		LOG_ERR("Flash area open failure");
-		return ret;
+		goto exit;
 	}
 
 	const size_t nr_of_pebs =
@@ -908,7 +931,8 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 
 	if (!_peb_ec) {
 		LOG_ERR("Heap allocation failure");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto exit;
 	}
 
 	for (size_t pnum = 0; pnum < nr_of_pebs; ++pnum) {
@@ -918,7 +942,7 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 		if (0 != ret) {
 			LOG_ERR("EC header read failure");
 			k_free(_peb_ec);
-			return ret;
+			goto exit;
 		}
 
 		_peb_ec[pnum] = ec_hdr.ec;
@@ -927,8 +951,12 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 	*len = nr_of_pebs;
 	*peb_ec = _peb_ec;
 
+exit:
+	k_mutex_unlock(&ubi->mutex);
 	return 0;
 }
+
+#endif /* CONFIG_UBI_TEST_API_ENABLE */
 
 int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id)
 {
@@ -936,6 +964,8 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	if (!ubi || !vol_cfg || !vol_id)
 		return -EINVAL;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	/* 1. Check if volume exist */
 	const size_t name_len = strnlen(vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
@@ -948,7 +978,8 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 		if (name_len == len && 0 == memcmp(vol_cfg->name, vol->cfg.name, name_len)) {
 			*vol_id = vol->vol_id;
-			return 0;
+			ret = 0;
+			goto exit;
 		}
 	}
 
@@ -958,13 +989,14 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	if (0 != ret) {
 		LOG_ERR("UBI device get info failure");
-		return ret;
+		goto exit;
 	}
 
 	const size_t total_free_pebs = info.leb_total_count - info.allocated_leb_count;
 	if (vol_cfg->leb_count > total_free_pebs) {
 		LOG_ERR("Failed to allocate PEBs for volume");
-		return -ENOSPC;
+		ret = -ENOSPC;
+		goto exit;
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
@@ -972,7 +1004,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	if (0 != ret) {
 		LOG_ERR("Device header read failure");
-		return ret;
+		goto exit;
 	}
 
 	struct ubi_dev_hdr new_dev_hdr = dev_hdr;
@@ -995,13 +1027,14 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	if (0 != ret) {
 		LOG_ERR("Volume header append failure");
-		return ret;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = k_malloc(sizeof(*vol));
 	if (!vol) {
 		LOG_ERR("Heap allocation failure");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto exit;
 	}
 
 	memset(vol, 0, sizeof(*vol));
@@ -1017,7 +1050,8 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	if (!item) {
 		LOG_ERR("Heap allocation failure");
 		k_free(vol);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto exit;
 	}
 
 	item->key = vol->vol_id;
@@ -1026,7 +1060,10 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	ubi->vols_size += 1;
 
 	*vol_id = vol->vol_id;
-	return 0;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volume_config *vol_cfg)
@@ -1036,28 +1073,34 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 	if (!ubi || !vol_cfg)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (UBI_VOLUME_TYPE_DYNAMIC != vol->cfg.type) {
 		LOG_ERR("Static volume cannot be resized");
-		return -ECANCELED;
+		ret = -ECANCELED;
+		goto exit;
 	}
 
 	if (vol_cfg->leb_count == vol->cfg.leb_count) {
 		LOG_ERR("Cannot resize for the same count of LEBs");
-		return -ECANCELED;
+		ret = -ECANCELED;
+		goto exit;
 	}
 
 	if (vol_cfg->leb_count > vol->cfg.leb_count) {
@@ -1066,7 +1109,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 		if (0 != ret) {
 			LOG_ERR("Device get info failure");
-			return ret;
+			goto exit;
 		}
 
 		const size_t avail = info.leb_total_count - info.allocated_leb_count;
@@ -1074,14 +1117,16 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 		if (diff > avail) {
 			LOG_ERR("Lack of available for allocation LEBs");
-			return -ENOSPC;
+			ret = -ENOSPC;
+			goto exit;
 		}
 	} else {
 		const size_t diff = vol->cfg.leb_count - vol_cfg->leb_count;
 
 		if (0 == diff) {
 			LOG_ERR("Cannot resize volume to zero LEBs");
-			return -ECANCELED;
+			ret = -ECANCELED;
+			goto exit;
 		}
 
 		for (size_t lnum = (vol->cfg.leb_count - diff); lnum < vol->cfg.leb_count; ++lnum) {
@@ -1096,7 +1141,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 				if (0 != ret) {
 					LOG_ERR("EC header read failure");
-					return ret;
+					goto exit;
 				}
 
 				item->key = ec_hdr.ec;
@@ -1111,7 +1156,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 	if (0 != ret) {
 		LOG_ERR("Device header read failure");
-		return ret;
+		goto exit;
 	}
 
 	dev_hdr.revision += 1;
@@ -1123,7 +1168,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 	if (0 != ret) {
 		LOG_ERR("Volume header read failure");
-		return ret;
+		goto exit;
 	}
 
 	vol_hdr.lebs_count = vol_cfg->leb_count;
@@ -1134,11 +1179,14 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 	if (0 != ret) {
 		LOG_ERR("Volume header update failure");
-		return ret;
+		goto exit;
 	}
 
 	vol->cfg.leb_count = vol_cfg->leb_count;
-	return 0;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
@@ -1148,16 +1196,20 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	if (!ubi)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
@@ -1165,7 +1217,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	if (0 != ret) {
 		LOG_ERR("Device header read failure");
-		return ret;
+		goto exit;
 	}
 
 	dev_hdr.vol_count -= 1;
@@ -1178,7 +1230,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	if (0 != ret) {
 		LOG_ERR("Volume header remove failure");
-		return ret;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *item = NULL;
@@ -1192,7 +1244,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 		if (0 != ret) {
 			LOG_ERR("EC header read failure");
-			return ret;
+			goto exit;
 		}
 
 		item->key = ec_hdr.ec;
@@ -1212,21 +1264,24 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 		if (0 != ret) {
 			LOG_ERR("Volume header readd failure");
-			return ret;
+			goto exit;
 		}
 
 		entry = ubi_rbt_search(&ubi->vols, vol_hdr.vol_id);
 
 		if (!entry) {
 			LOG_ERR("Inconsistency between cache and nvm");
-			return -EIO;
+			ret = -EIO;
+			goto exit;
 		}
 
 		vol = entry->value.vol;
 		vol->vol_idx = vol_idx;
 	}
 
-	return 0;
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
@@ -1235,22 +1290,32 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
 	if (!ubi || vol_id < 0 || !vol_cfg || !alloc_lebs)
 		return -EINVAL;
 
+	int ret = -EIO;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 	*vol_cfg = vol->cfg;
 	*alloc_lebs = vol->eba_tbl_size;
-	return 0;
+	ret = 0;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
@@ -1269,40 +1334,48 @@ int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
 	if (!ubi || vol_id < 0 || !buf || 0 == size)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
-		return -EACCES;
+		ret = -EACCES;
+		goto exit;
 	}
 
 	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
 
 	if (!entry) {
 		LOG_ERR("LEB not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	ret = ubi_leb_data_read(&ubi->mtd, entry->value.pnum, offset, buf, size);
 
 	if (0 != ret) {
 		LOG_ERR("LEB data read failure");
-		return ret;
+		goto exit;
 	}
 
-	return 0;
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
@@ -1320,30 +1393,36 @@ int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	if (!ubi || vol_id < 0)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
-		return -EACCES;
+		ret = -EACCES;
+		goto exit;
 	}
 
 	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
 
 	if (!entry) {
 		LOG_ERR("Cannot unmap an unmapped LEB");
-		return -EACCES;
+		ret = -EACCES;
+		goto exit;
 	}
 
 	struct ubi_ec_hdr ec_hdr = { 0 };
@@ -1351,7 +1430,7 @@ int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 
 	if (0 != ret) {
 		LOG_ERR("EC header read failure");
-		return ret;
+		goto exit;
 	}
 
 	rb_remove(&vol->eba_tbl, &entry->node);
@@ -1361,7 +1440,9 @@ int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	rb_insert(&ubi->dirty_pebs, &entry->node);
 	ubi->dirty_pebs_size += 1;
 
-	return 0;
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_mapped)
@@ -1369,30 +1450,40 @@ int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_
 	if (!ubi || vol_id < 0 || !is_mapped)
 		return -EINVAL;
 
+	int ret = -EIO;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
-		return -EACCES;
+		ret = -EACCES;
+		goto exit;
 	}
 
 	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
 
 	*is_mapped = (NULL == entry) ? false : true;
+	ret = 0;
 
-	return 0;
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *size)
@@ -1402,30 +1493,36 @@ int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *si
 	if (!ubi || vol_id < 0 || !size)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	if (0 == ubi->vols_size) {
 		LOG_ERR("No volumes present on device");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_rbt_item *entry = ubi_rbt_search(&ubi->vols, vol_id);
 
 	if (!entry) {
 		LOG_ERR("Device volume not found");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
 
 	if (lnum > vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
-		return -EACCES;
+		ret = -EACCES;
+		goto exit;
 	}
 
 	entry = ubi_rbt_search(&vol->eba_tbl, lnum);
 
 	if (!entry) {
 		LOG_ERR("LEB %zu in volume %d is not mapped", lnum, vol_id);
-		return -ENOENT;
+		ret = -ENOENT;
+		goto exit;
 	}
 
 	struct ubi_vid_hdr vid_hdr = { 0 };
@@ -1433,9 +1530,12 @@ int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *si
 
 	if (0 != ret) {
 		LOG_ERR("VID header read failure");
-		return 0;
+		goto exit;
 	}
 
 	*size = vid_hdr.data_size;
-	return 0;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }

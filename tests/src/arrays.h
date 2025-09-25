@@ -4,8 +4,8 @@
  * \brief   Randomly generated arrays for testing purposes.
  *
  * \author  Kamil Kielbasa
- * \version 0.4
- * \date    2025-09-24
+ * \version 0.5
+ * \date    2025-09-25
  *
  * \copyright Copyright (c) 2025
  */

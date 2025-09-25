@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.  
 
+### [0.5.0] – 2025-09-25
+
+**Added**  
+- Introduced mutex-based synchronization for thread safety.  
+
+**Changed**  
+- _No changes in this release._  
+
+**Removed**  
+- _No removals in this release._  
+
+**Fixed**  
+- _No fixes in this release._  
+
+**Contributors**  
+- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+
+---
+
 ### [0.4.0] – 2025-09-24
 
 **Added**  

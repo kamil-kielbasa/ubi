@@ -3,6 +3,7 @@
 lib_src_dir="./lib/src"
 lib_inc_dir="./lib/include"
 tests_src_dir="./tests/src"
+sample_src_dir="./tests/src"
 
 echo "Formating:"
 
@@ -15,3 +16,7 @@ clang-format -i $lib_src_dir/*.h
 # Format tests.
 echo "- (tests)  integration tests code."
 clang-format -i $tests_src_dir/*.c
+
+# Format sample.
+echo "- (sample) sample tests code."
+clang-format -i $sample_src_dir/*.c

@@ -30,10 +30,10 @@ The UBI volume size is specified when a volume is created, but may later be chan
 
 | Object   | Usage       |
 |----------|-------------|
-| Bad PEB  | 12 B each   |
-| PEB      | 16 B each   |
-| Volume   | 48 B each   |
-| Device   | 88 B each   |
+| Bad PEB  | 12  B each  |
+| PEB      | 16  B each  |
+| Volume   | 48  B each  |
+| Device   | 112 B each  |
 
 ## Documentation
 
