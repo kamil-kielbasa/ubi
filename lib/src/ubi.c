@@ -700,7 +700,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 				ubi_dev->dirty_pebs_size += 1;
 
 				item->key = vid_hdr.lnum;
-				item->key = pnum;
+				item->value.pnum = pnum;
 				rb_insert(&vol->eba_tbl, &item->node);
 				vol->eba_tbl_size += 1;
 

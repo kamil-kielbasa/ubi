@@ -1,60 +1,96 @@
 # UBI on Zephyr
 
-This repository introduce support of [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) on **Zephyr RTOS**.
+An [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) implementation for [Zephyr RTOS](https://www.zephyrproject.org/).
 
-## Overview
+UBI is a volume management layer for raw flash devices. It maps logical erase blocks (LEBs) to physical erase blocks (PEBs), providing wear-leveling, bad block handling, and multiple logical volumes on a single flash partition — similar to what LVM does for block devices.
 
-UBI (Latin: "where?") stands for "Unsorted Block Images". It is a volume management system for raw flash devices which manages multiple logical volumes on a single physical flash device and spreads the I/O load (i.e, wear-leveling) across whole flash chip.
+This is a from-scratch implementation targeting resource-constrained embedded systems running Zephyr. It requires approximately 2.8 KB of flash and zero static RAM.
 
-In a sense, UBI may be compared to the Logical Volume Manager (LVM). Whereas LVM maps logical sectors to physical sectors, UBI maps logical eraseblocks to physical eraseblocks. But besides the mapping, UBI implements global wear-leveling and transparent error handling.
+## Features
 
-An UBI volume is a set of consecutive logical eraseblocks (LEBs). Each logical eraseblock is dynamically mapped to a physical eraseblock (PEB). This mapping is managed by UBI and is hidden from users and higher-level software. UBI is the base mechanism which provides global wear-leveling, per-physical eraseblock erase counters, and the ability to transparently move data from more worn-out physical eraseblocks to less worn-out ones.
+- Dynamic volume creation, removal, and resizing (dynamic volumes)
+- Global wear-leveling across the entire flash partition
+- Transparent bad block detection and isolation
+- Dual-bank metadata headers for crash resilience
+- Thread-safe operations via Zephyr mutexes
+- Zero static RAM usage
 
-The UBI volume size is specified when a volume is created, but may later be changed (volumes are dynamically re-sizable).
+## Quick Start
 
-### Main features
+```c
+#include <ubi.h>
+#include <zephyr/drivers/flash.h>
+#include <zephyr/storage/flash_map.h>
 
-- UBI provides volumes which may be dynamically created, removed, or re-sized;
-- UBI implements wear-leveling across the entire flash device (i.e., you might think you're continuously writing/erasing the same logical eraseblock of an UBI volume, but UBI will spread this to all physical eraseblocks of the flash chip);
-- UBI transparently handles bad physical eraseblocks;
-- UBI minimizes the chances of losing data by means of scrubbing.
+#define UBI_PARTITION_NAME ubi_partition
+#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 
-### Resource Usage
+int main(void)
+{
+    const struct device *flash_dev = UBI_PARTITION_DEVICE;
+    struct flash_pages_info page_info = { 0 };
+    flash_get_page_info_by_offs(flash_dev, 0, &page_info);
 
-| Metric              | Version 0.4.0   |
-|---------------------|-----------------|
-| Flash Usage         | 2802 B          |
-| Static RAM Usage    | 0 B             |
+    struct ubi_mtd mtd = {
+        .partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME),
+        .erase_block_size = page_info.size,
+        .write_block_size = flash_get_write_block_size(flash_dev),
+    };
 
-**Dynamic RAM Usage**
+    struct ubi_device *ubi = NULL;
+    ubi_device_init(&mtd, &ubi);
 
-| Object   | Usage       |
-|----------|-------------|
-| Bad PEB  | 12  B each  |
-| PEB      | 16  B each  |
-| Volume   | 48  B each  |
-| Device   | 112 B each  |
+    /* Create a volume */
+    struct ubi_volume_config cfg = {
+        .name = "my_vol",
+        .type = UBI_VOLUME_TYPE_DYNAMIC,
+        .leb_count = 4,
+    };
+    int vol_id;
+    ubi_volume_create(ubi, &cfg, &vol_id);
+
+    /* Write and read data */
+    const char data[] = "Hello, UBI!";
+    ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
+
+    char buf[64];
+    ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(data));
+
+    ubi_device_deinit(ubi);
+    return 0;
+}
+```
+
+Error handling is omitted for brevity. All API functions return `0` on success or a negative `errno` code on failure. See [`sample/`](sample/) for a complete buildable example.
+
+## Resource Usage
+
+| Metric | Value (v0.5.0) |
+|--------|----------------|
+| Flash  | 2802 B         |
+| Static RAM | 0 B        |
+
+| Runtime Object | RAM per instance |
+|----------------|------------------|
+| Device         | 112 B            |
+| Volume         | 48 B             |
+| PEB (free/dirty/mapped) | 16 B   |
+| Bad PEB        | 12 B             |
 
 ## Documentation
 
-- ➡️ [environment setup](doc/environment_setup.md)
-- ➡️ [features candidates](doc/features_candidates.md)
-
-## Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository and create a new branch.
-2. Implement your feature or bugfix.
-3. Write tests if applicable.
-4. Open a pull request.
-
-Please ensure your code follows the existing style and structure of the project.
+| Document | Description |
+|----------|-------------|
+| [Architecture Guide](doc/architecture.md) | Concepts, data structures, initialization flow, ASCII diagrams |
+| [Environment Setup](doc/environment_setup.md) | Build, flash, and debug instructions for STM32U5 |
+| [Roadmap](doc/roadmap.md) | Planned features and development priorities |
+| [Changelog](CHANGELOG.md) | Version history with detailed change notes |
+| [Contributing](CONTRIBUTING.md) | How to contribute to the project |
 
 ## License
 
-This library is published as open-source software without any warranty of any kind. Use is permitted under the terms of the MIT license.
+MIT License. See [LICENSE](LICENSE) for details.
 
 ## Contact
 
-email: kamkie1996@gmail.com
+Kamil Kielbasa — kamkie1996@gmail.com

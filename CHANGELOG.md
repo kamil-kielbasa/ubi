@@ -1,103 +1,91 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.  
+All notable changes to this project will be documented in this file.
 
-### [0.5.0] – 2025-09-25
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Added**  
-- Introduced mutex-based synchronization for thread safety.  
+## [Unreleased]
 
-**Changed**  
-- _No changes in this release._  
+## [0.6.0] - 2026-03-24
 
-**Removed**  
-- _No removals in this release._  
+### Added
 
-**Fixed**  
-- _No fixes in this release._  
+- Architecture guide with ASCII diagrams covering on-flash layout, in-RAM data structures, PEB lifecycle, device initialization flow, and wear-leveling strategy (`doc/architecture.md`).
+- Development roadmap with prioritized feature list (`doc/roadmap.md`).
+- Contributor guide with code style, build/test, and PR workflow (`CONTRIBUTING.md`).
+- Thread safety section in architecture documentation.
 
-**Contributors**  
-- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+### Changed
 
----
+- Rewrote `README.md` with quick-start example, structured documentation links, and updated resource usage table.
+- Adopted [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format for `CHANGELOG.md`.
+- Refactored `doc/environment_setup.md` with prerequisites table, numbered workflow, and troubleshooting notes.
+- Renamed `doc/features_candidates.md` to `doc/roadmap.md` with status and priority tracking.
 
-### [0.4.0] – 2025-09-24
+### Fixed
 
-**Added**  
-- Sample application.  
+- EBA table corruption during init when resolving sequence number conflicts (`ubi.c`: `item->key` was overwritten with PEB index instead of setting `item->value.pnum`).
 
-**Changed**  
-- Flash optimizations.
-- Functionality Refactoring:
-  - Logging improvements.
-  - Code deduplication.
-  - File structure cleanup.
-  - Doxygen documentation updates.
+### Removed
 
-**Removed**  
-- _No removals in this release._  
+- `doc/features_candidates.md` (replaced by `doc/roadmap.md`).
 
-**Fixed**  
-- _No fixes in this release._  
+## [0.5.0] - 2025-09-25
 
-**Contributors**  
-- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+### Added
 
----
+- Mutex-based synchronization for thread-safe device and volume operations.
 
-### [0.3.0] – 2025-09-21
+## [0.4.0] - 2025-09-24
 
-**Added**  
-- Clang format config file.
+### Added
 
-**Changed**  
-- Replace usage of low-level Zephyr flash APIs with the Zephyr Flash Map (Flash Area API).
+- Sample application demonstrating UBI initialization on STM32U5.
 
-**Removed**  
-- _No removals in this release._  
+### Changed
 
-**Fixed**  
-- _No fixes in this release._  
+- Optimized flash read/write operations to reduce unnecessary flash area open/close cycles.
+- Improved logging messages across all modules.
+- Deduplicated common code paths in volume and LEB operations.
+- Reorganized source file structure for clarity.
+- Updated Doxygen documentation for all public API functions.
 
-**Contributors**  
-- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+## [0.3.0] - 2025-09-21
 
----
+### Added
 
-### [0.2.0] – 2025-09-10
+- `.clang-format` configuration file for consistent code style.
 
-**Added**  
-- Support for volumes (static and dynamic).  
-- Runtime resizing for dynamic volumes.  
-- Hidden write block alignment.  
-- Partial bual-bank support for device and volume headers.  
-- Hardware tests performed.  
+### Changed
 
-**Changed**  
-- _No changes in this release._  
+- Replaced low-level Zephyr flash APIs with the Zephyr Flash Map (Flash Area API) for better portability and abstraction.
 
-**Removed**  
-- Documentation for hardware tests.  
-- Sample application.  
+## [0.2.0] - 2025-09-10
 
-**Fixed**  
-- _No fixes in this release._  
+### Added
 
-**Contributors**  
-- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
+- Volume support with static and dynamic volume types.
+- Runtime resizing for dynamic volumes.
+- Write block alignment handling (transparent to the caller).
+- Partial dual-bank support for device and volume headers on reserved PEBs.
+- Hardware integration tests on `b_u585i_iot02a`.
 
----
+### Removed
 
-### [0.1.0] – 2025-07-25
+- Hardware test documentation (superseded by updated environment setup guide).
+- Temporary sample application (reintroduced in v0.4.0).
 
-**Added**  
-- UBI initialization and deinitialization routines.  
-- LEB and PEB statistics, including erase capabilities.  
-- LEB I/O operations: map, unmap, read, and write.  
-- Hardware integration tests on `b_u585i_iot02a`.  
-- Example application running on `b_u585i_iot02a`.  
-- Documentation:  
-  - Environment setup instructions.  
+## [0.1.0] - 2025-07-25
+
+### Added
+
+- UBI device initialization and deinitialization routines.
+- LEB and PEB statistics reporting, including per-PEB erase counters.
+- LEB I/O operations: map, unmap, read, and write.
+- Hardware integration tests on `b_u585i_iot02a`.
+- Example application for `b_u585i_iot02a`.
+- Environment setup documentation.
   - Hardware testing procedures.  
   - Candidate features for future development.  
 - Clang-format script for consistent code formatting.  

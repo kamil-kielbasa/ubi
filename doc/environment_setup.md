@@ -1,84 +1,91 @@
-# 🛠️ Zephyr + UBI: Hardware Setup & Build Guide (STM32U5)
+# Environment Setup
 
-This guide walks you through environment setup, building Zephyr projects, flashing the STM32U5 board, and viewing logs via UART. It’s designed for working with **Unsorted Block Images (UBI)** on Zephyr with the `b_u585i_iot02a` board.
+Build, flash, and debug guide for UBI on Zephyr with the `b_u585i_iot02a` (STM32U5) board.
 
----
+## Prerequisites
 
-## 📦 1. Environment Setup
+| Tool | Purpose | Install |
+|------|---------|---------|
+| [west](https://docs.zephyrproject.org/latest/develop/west/index.html) | Zephyr meta-tool (build, flash, manage manifests) | `pip install west` |
+| [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html) | Cross-compilation toolchain | See Zephyr docs |
+| [STM32CubeProgrammer CLI](https://www.st.com/en/development-tools/stm32cubeprog.html) | Flash erase and programming | ST website |
+| [picocom](https://github.com/npat-efault/picocom) | Serial terminal for UART output | `sudo apt install picocom` |
+| [clang-format](https://clang.llvm.org/docs/ClangFormat.html) | Code formatting (optional) | `sudo apt install clang-format` |
 
-Initialize and update the Zephyr workspace:
+## 1. Initialize Workspace
+
+Set up the Zephyr west workspace and fetch dependencies:
 
 ```sh
 west init -l .
 west update --narrow -o=--depth=1
 ```
 
----
+## 2. Code Formatting (Optional)
 
-## 🎨 2. Code Formatting (Optional)
-
-Use `clang-format` script to ensure consistent code style:
+Apply the project's `.clang-format` rules to all source files:
 
 ```sh
 ./scripts/format.sh
 ```
 
----
+## 3. Build
 
-## 🏗️ 3. Build Zephyr Tests
-
-Build the **tests** application for the STM32U5 board:
+Build the **test** application:
 
 ```sh
 west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/
 ```
 
-Build the **sample** application for the STM32U5 board:
+Build the **sample** application:
 
 ```sh
 west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/
 ```
 
----
+## 4. Erase Flash
 
-## 🔄 4. Erase Flash Memory
-
-Erase all flash contents using STM32CubeProgrammer CLI:
+Erase all flash contents before programming. This is required on first use or when switching between test and sample builds:
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -e all
 ```
 
----
+## 5. Flash
 
-## 🚀 5. Flash the Board
-
-Flash the compiled Zephyr **tests** applications:
+Flash the **test** application:
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/tests/zephyr/zephyr.hex
 ```
 
-Flash the compiled Zephyr **sample** applications:
+Flash the **sample** application:
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/sample/zephyr/zephyr.hex
 ```
 
----
+## 6. Serial Console
 
-## 🖥️ 6. View Console Output
-
-Open a serial terminal to see log output:
+Open a serial terminal to view log output:
 
 ```sh
 picocom -b 115200 /dev/ttyACM0
 ```
 
-> ⚠️ Make sure your user has permission to access `/dev/ttyACM0`. 
-
-## 7. Get flash and static RAM usage
+If you get a "permission denied" error, add your user to the `dialout` group:
 
 ```sh
-west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t <rom_report/ram_report>
+sudo usermod -aG dialout $USER
+```
+
+Then log out and back in for the change to take effect.
+
+## 7. Resource Reports
+
+Generate flash (ROM) and static RAM usage reports:
+
+```sh
+west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t rom_report
+west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t ram_report
 ```
