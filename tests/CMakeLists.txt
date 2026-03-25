@@ -4,10 +4,29 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(ubi_tests)
 
+target_compile_options(app PRIVATE
+    -Werror
+    -Wextra
+    -Wshadow
+    -Wdouble-promotion
+    -Wformat=2
+    -Wnull-dereference
+    -Wunused
+    -Wno-unused-parameter
+)
+target_compile_definitions(app PRIVATE _POSIX_C_SOURCE=200809L)
+
 target_sources(app PRIVATE
                src/tests_ubi_device.c
                src/tests_ubi_volumes.c
                src/tests_ubi_map_unmap.c
                src/tests_ubi_write_read.c
                src/tests_ubi_erase.c
-               src/tests_ubi_mixed.c)
+               src/tests_ubi_mixed.c
+               src/tests_ubi_error_handling.c
+               src/tests_ubi_boundary.c
+               src/tests_ubi_recovery.c)
+
+if(CONFIG_FLASH_SIMULATOR)
+    target_sources(app PRIVATE src/tests_ubi_stress.c)
+endif()

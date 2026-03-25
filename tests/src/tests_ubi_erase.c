@@ -61,8 +61,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit);
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -108,22 +108,22 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit)
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad)
 {
-	zassert_not_null(before_init);
-	zassert_not_null(after_init);
-	zassert_not_null(after_deinit);
+	zassert_not_null(bi);
+	zassert_not_null(ai);
+	zassert_not_null(ad);
 
-	zassert_equal(before_init->free_bytes, after_deinit->free_bytes);
-	zassert_equal(before_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_equal(bi->free_bytes, ad->free_bytes);
+	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
-	zassert_not_equal(after_init->free_bytes, after_deinit->free_bytes);
-	zassert_not_equal(after_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_not_equal(ai->free_bytes, ad->free_bytes);
+	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
 
-	memset(before_init, 0, sizeof(*before_init));
-	memset(after_init, 0, sizeof(*after_init));
-	memset(after_deinit, 0, sizeof(*after_deinit));
+	memset(bi, 0, sizeof(*bi));
+	memset(ai, 0, sizeof(*ai));
+	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -150,6 +150,20 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 ZTEST_SUITE(ubi_erase, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
+/**
+ * \brief Verify the PEB erase lifecycle: write until full, unmap, erase all
+ *        dirty PEBs, and confirm erase counter progression.
+ *
+ * \details Scenario: Create a static volume with 1 LEB. Repeatedly write
+ *          a 256-byte array (leb_total_count times), consuming all free PEBs
+ *          via LEB overwrite. Verify free_leb_count=0 and dirty_leb_count=
+ *          total-1. Unmap the LEB. Erase all dirty PEBs one by one, verifying
+ *          counters at each step. After all erases, confirm all PEB erase
+ *          counters are 1. Deinitialize, re-initialize, and verify persistence.
+ *
+ * \expect Dirty PEBs are recycled to free. All erase counters increment to 1.
+ *         State persists across reboot. Heap memory is reclaimed.
+ */
 ZTEST(ubi_erase, one_volume_one_leb_operations_with_reboot)
 {
 	size_t exp_ec_avr = 0;
@@ -288,6 +302,19 @@ ZTEST(ubi_erase, one_volume_one_leb_operations_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify multi-volume, multi-LEB erase cycles with progressive erase
+ *        counter growth.
+ *
+ * \details Scenario: Create 2 volumes (7 LEBs each). Execute 6 cycles, each
+ *          consisting of: write 14 different-sized arrays across all 14 LEBs,
+ *          read and verify correctness, unmap all LEBs, erase all dirty PEBs.
+ *          After each cycle, verify the average erase counter increments
+ *          (0\u21921\u21922\u2192...\u21926).
+ *
+ * \expect All data is correct in every cycle. Erase counters increase
+ *         monotonically. Heap memory is reclaimed after deinit.
+ */
 ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 {
 	size_t exp_ec_avr[] = { 0, 1, 2, 3, 4, 5 };

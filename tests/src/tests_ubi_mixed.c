@@ -61,8 +61,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit);
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -108,22 +108,22 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit)
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad)
 {
-	zassert_not_null(before_init);
-	zassert_not_null(after_init);
-	zassert_not_null(after_deinit);
+	zassert_not_null(bi);
+	zassert_not_null(ai);
+	zassert_not_null(ad);
 
-	zassert_equal(before_init->free_bytes, after_deinit->free_bytes);
-	zassert_equal(before_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_equal(bi->free_bytes, ad->free_bytes);
+	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
-	zassert_not_equal(after_init->free_bytes, after_deinit->free_bytes);
-	zassert_not_equal(after_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_not_equal(ai->free_bytes, ad->free_bytes);
+	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
 
-	memset(before_init, 0, sizeof(*before_init));
-	memset(after_init, 0, sizeof(*after_init));
-	memset(after_deinit, 0, sizeof(*after_deinit));
+	memset(bi, 0, sizeof(*bi));
+	memset(ai, 0, sizeof(*ai));
+	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -150,6 +150,27 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 ZTEST_SUITE(ubi_mixed, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
+/**
+ * \brief Comprehensive end-to-end scenario exercising volume creation, I/O,
+ *        removal, resize, mapping, and data persistence.
+ *
+ * \details Scenario:
+ *          1. Create two volumes (7 static, 7 dynamic LEBs).
+ *          2. Fill the partition by writing 14 arrays of varying sizes across
+ *             both volumes.
+ *          3. Unmap all LEBs and erase all dirty PEBs.
+ *          4. Remove the first volume. Resize the second from 7 to 14 LEBs.
+ *          5. Map 3 LEBs in the resized volume.
+ *          6. Resize the second volume down to 2 LEBs (triggers shrinking
+ *             with active mappings).
+ *          7. Create a third volume (5 LEBs). Write data to 2 LEBs, map 2
+ *             additional LEBs.
+ *          8. Deinitialize, re-initialize, and verify all states: LEB sizes,
+ *             mapping status, and volume configurations persist.
+ *
+ * \expect All operations succeed in sequence. Data and mapping states survive
+ *         the reboot. Heap memory is fully reclaimed after deinit.
+ */
 ZTEST(ubi_mixed, scenario_1)
 {
 	size_t exp_ec_avr = 0;
@@ -253,13 +274,14 @@ ZTEST(ubi_mixed, scenario_1)
 	rdata_idx = 0;
 	for (size_t vol_idx = 0; vol_idx < ARRAY_SIZE(volumes_id); ++vol_idx) {
 		for (size_t lnum = 0; lnum < volumes[vol_idx]->leb_count; ++lnum) {
-			size_t size = 0;
+			size_t leb_size = 0;
 
-			zassert_ok(ubi_leb_get_size(ubi, volumes_id[vol_idx], lnum, &size));
-			zassert_equal(wdata_size[rdata_idx], size);
+			zassert_ok(ubi_leb_get_size(ubi, volumes_id[vol_idx], lnum, &leb_size));
+			zassert_equal(wdata_size[rdata_idx], leb_size);
 
 			uint8_t rdata[8192] = { 0 };
-			zassert_ok(ubi_leb_read(ubi, volumes_id[vol_idx], lnum, 0, rdata, size));
+			zassert_ok(
+				ubi_leb_read(ubi, volumes_id[vol_idx], lnum, 0, rdata, leb_size));
 			zassert_mem_equal(rdata, wdata[rdata_idx], wdata_size[rdata_idx],
 					  "Memory blocks are not equal");
 
@@ -295,13 +317,14 @@ ZTEST(ubi_mixed, scenario_1)
 	rdata_idx = 0;
 	for (size_t vol_idx = 0; vol_idx < ARRAY_SIZE(volumes_id); ++vol_idx) {
 		for (size_t lnum = 0; lnum < volumes[vol_idx]->leb_count; ++lnum) {
-			size_t size = 0;
+			size_t leb_size = 0;
 
-			zassert_ok(ubi_leb_get_size(ubi, volumes_id[vol_idx], lnum, &size));
-			zassert_equal(wdata_size[rdata_idx], size);
+			zassert_ok(ubi_leb_get_size(ubi, volumes_id[vol_idx], lnum, &leb_size));
+			zassert_equal(wdata_size[rdata_idx], leb_size);
 
 			uint8_t rdata[8192] = { 0 };
-			zassert_ok(ubi_leb_read(ubi, volumes_id[vol_idx], lnum, 0, rdata, size));
+			zassert_ok(
+				ubi_leb_read(ubi, volumes_id[vol_idx], lnum, 0, rdata, leb_size));
 			zassert_mem_equal(rdata, wdata[rdata_idx], wdata_size[rdata_idx],
 					  "Memory blocks are not equal");
 

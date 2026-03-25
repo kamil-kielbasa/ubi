@@ -1,5 +1,9 @@
 # UBI on Zephyr
 
+![CI](https://github.com/kamil-kielbasa/ubi/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/kamil-kielbasa/ubi/graph/badge.svg)](https://codecov.io/gh/kamil-kielbasa/ubi)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 An [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) implementation for [Zephyr RTOS](https://www.zephyrproject.org/).
 
 UBI is a volume management layer for raw flash devices. It maps logical erase blocks (LEBs) to physical erase blocks (PEBs), providing wear-leveling, bad block handling, and multiple logical volumes on a single flash partition — similar to what LVM does for block devices.
@@ -83,6 +87,7 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 |----------|-------------|
 | [Architecture Guide](doc/architecture.md) | Concepts, data structures, initialization flow, ASCII diagrams |
 | [Environment Setup](doc/environment_setup.md) | Build, flash, and debug instructions for STM32U5 |
+| [Test Strategy](doc/test_strategy.md) | Test categories, coverage targets, patterns, and tooling |
 | [Roadmap](doc/roadmap.md) | Planned features and development priorities |
 | [Changelog](CHANGELOG.md) | Version history with detailed change notes |
 | [Contributing](CONTRIBUTING.md) | How to contribute to the project |

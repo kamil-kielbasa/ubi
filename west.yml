@@ -6,10 +6,10 @@ manifest:
   projects:
     - name: zephyr
       remote: zephyrproject-rtos
-      revision: main
+      revision: v4.0.0
       import:
         name-allowlist:
-          - cmsis_6
+          - cmsis
           - hal_stm32
 
   self:

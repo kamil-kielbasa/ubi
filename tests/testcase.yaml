@@ -1,0 +1,18 @@
+common:
+  tags: ubi
+  timeout: 300
+
+tests:
+  ubi.functional:
+    platform_allow:
+      - native_sim
+      - b_u585i_iot02a
+    harness: ztest
+
+  ubi.stress:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600

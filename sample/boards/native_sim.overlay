@@ -1,0 +1,21 @@
+/ {
+	fstab {
+		compatible = "zephyr,fstab";
+	};
+};
+
+&flash0 {
+	/* Match STM32U5 8 KB erase pages so sample exercises the same geometry. */
+	erase-block-size = <8192>;
+
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ubi_partition: partition@0 {
+			label = "ubi_partition";
+			reg = <0x00000000 DT_SIZE_K(128)>;
+		};
+	};
+};

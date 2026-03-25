@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-25
+
+### Added
+
+- native_sim board support for tests and sample.
+- Test suites: error handling (50), boundary (5), recovery (10), stress (4) — 87 tests total.
+- GitHub Actions CI workflow with build, test, and Codecov coverage upload.
+- Code coverage infrastructure (`native_sim_coverage.conf`, `scripts/coverage.sh`).
+- CI/test runner scripts (`scripts/run_tests.sh`, `scripts/ci.sh`).
+- Twister test metadata (`tests/testcase.yaml`).
+- Test strategy documentation (`doc/test_strategy.md`).
+- CI, Codecov, and license badges in `README.md`.
+- Doxygen-style documentation for all test functions.
+
+### Changed
+
+- Pinned Zephyr to `v4.0.0` in `west.yml` (was `main`).
+- Enabled strict compile flags (`-Werror -Wextra -Wshadow` etc.) for library and tests.
+- Portable `BUILD_ASSERT` and `device_is_ready()` for cross-platform builds.
+- native_sim erase-block-size set to 8192 to match STM32U5 geometry.
+- CI uploads line-only coverage to Codecov (eliminates phantom branches from
+  Zephyr LOG macros). Branch-coverage HTML report kept as build artifact.
+
+### Fixed
+
+- `west.yml`: `cmsis_6` → `cmsis` for Zephyr v4.0.0.
+- `scripts/format.sh`: sample path pointed to `tests/src` instead of `sample/src`.
+- Recovery test: erase PEB before writing garbage (hardware compatibility).
+
 ## [0.6.0] - 2026-03-24
 
 ### Added

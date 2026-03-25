@@ -61,8 +61,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit);
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -108,22 +108,22 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit)
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad)
 {
-	zassert_not_null(before_init);
-	zassert_not_null(after_init);
-	zassert_not_null(after_deinit);
+	zassert_not_null(bi);
+	zassert_not_null(ai);
+	zassert_not_null(ad);
 
-	zassert_equal(before_init->free_bytes, after_deinit->free_bytes);
-	zassert_equal(before_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_equal(bi->free_bytes, ad->free_bytes);
+	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
-	zassert_not_equal(after_init->free_bytes, after_deinit->free_bytes);
-	zassert_not_equal(after_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_not_equal(ai->free_bytes, ad->free_bytes);
+	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
 
-	memset(before_init, 0, sizeof(*before_init));
-	memset(after_init, 0, sizeof(*after_init));
-	memset(after_deinit, 0, sizeof(*after_deinit));
+	memset(bi, 0, sizeof(*bi));
+	memset(ai, 0, sizeof(*ai));
+	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -150,6 +150,16 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 ZTEST_SUITE(ubi_write_read, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
+/**
+ * \brief Verify that a single LEB write persists across a reboot.
+ *
+ * \details Scenario: Create a static volume with 4 LEBs. Write a 256-byte
+ *          array to LEB 2. Read back and verify. Deinitialize, re-initialize,
+ *          and read LEB 2 again.
+ *
+ * \expect Data is intact after reboot. free_leb_count decreases by 1 after
+ *         the write. All erase counters are 0. Heap memory is reclaimed.
+ */
 ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -240,6 +250,17 @@ ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify that multiple LEBs with varying data sizes persist across a
+ *        reboot.
+ *
+ * \details Scenario: Create a static volume with 4 LEBs. Write different-sized
+ *          patterns (10, 6, 4, 9 bytes) to each of the 4 LEBs. Deinitialize,
+ *          re-initialize, and read all LEBs.
+ *
+ * \expect All four LEBs contain correct data after reboot. Each stored size
+ *         matches the original write length.
+ */
 ZTEST(ubi_write_read, one_volume_many_leb_operations_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -328,6 +349,18 @@ ZTEST(ubi_write_read, one_volume_many_leb_operations_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify large-scale I/O across multiple volumes with varying payload
+ *        sizes and reboot persistence.
+ *
+ * \details Scenario: Create three volumes (2, 4, 8 LEBs). Write 14 different
+ *          arrays (sizes: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048,
+ *          4096, 8000 bytes) sequentially across all LEBs. Read all data back.
+ *          Deinitialize, re-initialize, and read everything again.
+ *
+ * \expect All 14 data patterns are correct after initial write and after
+ *         reboot. Heap memory is fully reclaimed after deinit.
+ */
 ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -493,6 +526,19 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify non-aligned write sizes exercise the padding path and persist
+ *        across a reboot.
+ *
+ * \details Scenario: Create a static volume with 4 LEBs. Write non-aligned
+ *          sizes (5, 97, 271, 3907 bytes) to each LEB. These sizes are not
+ *          multiples of WRITE_BLOCK_SIZE_ALIGNMENT (16 bytes), exercising the
+ *          partial-block padding logic in ubi_leb_data_write(). Read back
+ *          and verify. Deinitialize, re-initialize, and verify persistence.
+ *
+ * \expect All non-aligned writes succeed. Read-back data matches. Data
+ *         persists across reboot with correct stored sizes.
+ */
 ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot)
 {
 	const size_t exp_ec_avr = 0;

@@ -60,8 +60,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit);
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -107,22 +107,22 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit)
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad)
 {
-	zassert_not_null(before_init);
-	zassert_not_null(after_init);
-	zassert_not_null(after_deinit);
+	zassert_not_null(bi);
+	zassert_not_null(ai);
+	zassert_not_null(ad);
 
-	zassert_equal(before_init->free_bytes, after_deinit->free_bytes);
-	zassert_equal(before_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_equal(bi->free_bytes, ad->free_bytes);
+	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
-	zassert_not_equal(after_init->free_bytes, after_deinit->free_bytes);
-	zassert_not_equal(after_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_not_equal(ai->free_bytes, ad->free_bytes);
+	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
 
-	memset(before_init, 0, sizeof(*before_init));
-	memset(after_init, 0, sizeof(*after_init));
-	memset(after_deinit, 0, sizeof(*after_deinit));
+	memset(bi, 0, sizeof(*bi));
+	memset(ai, 0, sizeof(*ai));
+	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -149,6 +149,17 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 ZTEST_SUITE(ubi_device, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
+/**
+ * \brief Verify a single init/deinit cycle leaves the device in a clean state.
+ *
+ * \details Scenario: Initialize a freshly erased UBI device. Query device info
+ *          and verify all counters (allocated, free, dirty, bad, volumes). Check
+ *          that all PEB erase counters are 0. Deinitialize.
+ *
+ * \expect allocated_leb_count=0, free_leb_count=total PEBs, dirty=0, bad=0,
+ *         volumes=0, leb_size within valid range. All erase counters are 0.
+ *         Heap memory is fully reclaimed after deinit.
+ */
 ZTEST(ubi_device, init_deinit)
 {
 	const size_t exp_ec_avr = 0;
@@ -185,6 +196,17 @@ ZTEST(ubi_device, init_deinit)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify device state is consistent across two consecutive init/deinit
+ *        cycles (simulated reboot).
+ *
+ * \details Scenario: Perform two full init-verify-deinit cycles on a freshly
+ *          erased partition. Each cycle validates all device info counters
+ *          and erase counter averages.
+ *
+ * \expect Both cycles produce identical device info. Heap memory is fully
+ *         reclaimed after each deinit.
+ */
 ZTEST(ubi_device, init_deinit_reboot)
 {
 	const size_t exp_ec_avr = 0;

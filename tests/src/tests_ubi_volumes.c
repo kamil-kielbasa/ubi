@@ -60,8 +60,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit);
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -107,22 +107,22 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit)
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad)
 {
-	zassert_not_null(before_init);
-	zassert_not_null(after_init);
-	zassert_not_null(after_deinit);
+	zassert_not_null(bi);
+	zassert_not_null(ai);
+	zassert_not_null(ad);
 
-	zassert_equal(before_init->free_bytes, after_deinit->free_bytes);
-	zassert_equal(before_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_equal(bi->free_bytes, ad->free_bytes);
+	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
-	zassert_not_equal(after_init->free_bytes, after_deinit->free_bytes);
-	zassert_not_equal(after_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_not_equal(ai->free_bytes, ad->free_bytes);
+	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
 
-	memset(before_init, 0, sizeof(*before_init));
-	memset(after_init, 0, sizeof(*after_init));
-	memset(after_deinit, 0, sizeof(*after_deinit));
+	memset(bi, 0, sizeof(*bi));
+	memset(ai, 0, sizeof(*ai));
+	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -149,6 +149,17 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 ZTEST_SUITE(ubi_volumes, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
+/**
+ * \brief Verify that a single volume persists across a simulated reboot.
+ *
+ * \details Scenario: Create a static volume with 2 LEBs. Verify the device
+ *          info reflects the allocated LEBs and volume count. Deinitialize,
+ *          re-initialize (simulated reboot), and verify the volume persists
+ *          with the same name, type, LEB count, and allocation.
+ *
+ * \expect Volume is recoverable after reboot. Device info matches across
+ *         both init cycles. Heap memory is fully reclaimed after deinit.
+ */
 ZTEST(ubi_volumes, create_one_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -228,6 +239,17 @@ ZTEST(ubi_volumes, create_one_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify that creating and removing a volume persists correctly across
+ *        reboots.
+ *
+ * \details Scenario: Create a static volume. Deinitialize and re-initialize to
+ *          confirm persistence. Remove the volume, deinitialize, re-initialize,
+ *          and verify the volume no longer exists.
+ *
+ * \expect After removal and reboot, volumes_count=0 and allocated_leb_count=0.
+ *         Heap memory is fully reclaimed after each deinit.
+ */
 ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -354,6 +376,16 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify that resizing a dynamic volume upward persists across a reboot.
+ *
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Resize it upward
+ *          to 4 LEBs. Verify the new allocation. Deinitialize, re-initialize,
+ *          and confirm the resized configuration persists.
+ *
+ * \expect After reboot, the volume reports leb_count=4 with the correct
+ *         allocated_leb_count. Heap memory is fully reclaimed after deinit.
+ */
 ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -505,6 +537,17 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify that multiple volumes persist across a reboot.
+ *
+ * \details Scenario: Create three volumes with varying LEB counts (2, 4, 8).
+ *          Verify all device info counters and per-volume configurations.
+ *          Deinitialize, re-initialize, and confirm all three volumes persist
+ *          with correct properties.
+ *
+ * \expect All three volumes are recoverable after reboot with matching names,
+ *         types, LEB counts, and allocations. Heap memory is fully reclaimed.
+ */
 ZTEST(ubi_volumes, create_many_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -663,6 +706,16 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify selective volume removal with multiple volumes across reboots.
+ *
+ * \details Scenario: Create three volumes. Remove the middle volume and verify
+ *          the remaining two persist after reboot. Remove the remaining volumes
+ *          and verify the device is empty after another reboot.
+ *
+ * \expect After selective removal, only the expected volumes remain.
+ *         After full removal, volumes_count=0. Heap memory is reclaimed.
+ */
 ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -991,6 +1044,19 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify complex multi-volume resize scenarios (both grow and shrink)
+ *        across reboots.
+ *
+ * \details Scenario: Create three dynamic volumes. Resize one downward
+ *          (8\u21924 LEBs) and two upward (2\u21923, 4\u21926 LEBs). Verify all
+ *          allocation counts. Deinitialize, re-initialize, and confirm the
+ *          resized configurations persist.
+ *
+ * \expect All resize operations succeed. After reboot, each volume reports
+ *         its updated leb_count. Total allocated LEBs match the sum of
+ *         resized counts.
+ */
 ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 {
 	const size_t exp_ec_avr = 0;

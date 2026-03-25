@@ -60,8 +60,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit);
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -107,22 +107,22 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-static void memory_check(struct sys_memory_stats *before_init, struct sys_memory_stats *after_init,
-			 struct sys_memory_stats *after_deinit)
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad)
 {
-	zassert_not_null(before_init);
-	zassert_not_null(after_init);
-	zassert_not_null(after_deinit);
+	zassert_not_null(bi);
+	zassert_not_null(ai);
+	zassert_not_null(ad);
 
-	zassert_equal(before_init->free_bytes, after_deinit->free_bytes);
-	zassert_equal(before_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_equal(bi->free_bytes, ad->free_bytes);
+	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
-	zassert_not_equal(after_init->free_bytes, after_deinit->free_bytes);
-	zassert_not_equal(after_init->allocated_bytes, after_deinit->allocated_bytes);
+	zassert_not_equal(ai->free_bytes, ad->free_bytes);
+	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
 
-	memset(before_init, 0, sizeof(*before_init));
-	memset(after_init, 0, sizeof(*after_init));
-	memset(after_deinit, 0, sizeof(*after_deinit));
+	memset(bi, 0, sizeof(*bi));
+	memset(ai, 0, sizeof(*ai));
+	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -149,6 +149,19 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 ZTEST_SUITE(ubi_map, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
+/**
+ * \brief Verify map/unmap lifecycle for a single LEB across reboots.
+ *
+ * \details Scenario: Create a static volume with 4 LEBs. Verify LEB 0 is
+ *          initially unmapped. Map LEB 0 and verify it is mapped with
+ *          data_size=0. Deinitialize, re-initialize, unmap LEB 0, and verify
+ *          the dirty PEB count increases. Re-initialize again and verify
+ *          the dirty PEB was cleaned up.
+ *
+ * \expect Map/unmap states persist across reboots. free_leb_count decreases
+ *         by 1 after mapping. dirty_leb_count increases after unmapping.
+ *         Heap memory is fully reclaimed after each deinit.
+ */
 ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -263,6 +276,18 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify map/unmap lifecycle for all LEBs in a volume across reboots.
+ *
+ * \details Scenario: Create a static volume with 4 LEBs. Map all 4 LEBs and
+ *          verify each is mapped with data_size=0. Confirm free_leb_count
+ *          decreased by 4. Deinitialize, re-initialize, unmap all 4 LEBs,
+ *          verify dirty_leb_count=4. Re-initialize and verify cleanup.
+ *
+ * \expect All 4 map operations succeed. After unmap, dirty_leb_count reflects
+ *         4 dirty PEBs. After re-init, dirty PEBs are cleaned. Heap is
+ *         fully reclaimed.
+ */
 ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 {
 	const size_t exp_ec_avr = 0;
@@ -392,6 +417,18 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
+/**
+ * \brief Verify map/unmap operations across multiple volumes with reboots.
+ *
+ * \details Scenario: Create two volumes (4 and 8 LEBs). Map selected LEBs
+ *          in each volume (4 in the first, 6 in the second). Verify mapping
+ *          status and allocation counts. Unmap all mapped LEBs, verify dirty
+ *          counts increase. Reboot and verify cleanup.
+ *
+ * \expect Map/unmap counts are accurate across both volumes. Dirty PEBs
+ *         are properly accounted for. After reboot cleanup, dirty count
+ *         drops. Heap memory is fully reclaimed.
+ */
 ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 {
 	const size_t exp_ec_avr = 0;

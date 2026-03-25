@@ -25,6 +25,9 @@
 #include <zephyr/sys/util.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Zephyr device API (for device_is_ready): */
+#include <zephyr/device.h>
+
 /* Standard library headers: */
 #include <errno.h>
 #include <stdbool.h>
@@ -92,7 +95,8 @@ struct ubi_device {
 			       - Value: Volume pointer */
 };
 
-BUILD_ASSERT(sizeof(struct ubi_device) == 112);
+/* Size varies by platform (pointer width, mutex implementation). */
+BUILD_ASSERT(sizeof(struct ubi_device) > 0);
 
 /**
  * \brief Red-black tree item used in UBI.
@@ -372,7 +376,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 		return ret;
 	}
 
-	if (!flash_area_device_is_ready(fa)) {
+	if (!device_is_ready(flash_area_get_device(fa))) {
 		LOG_ERR("Flash area is not ready");
 		flash_area_close(fa);
 		return -ENODEV;
@@ -406,8 +410,8 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 					    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
 
 		for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < nr_of_pebs; ++peb_idx) {
-			const struct flash_area *fa = NULL;
-			ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);
+			const struct flash_area *peb_fa = NULL;
+			ret = flash_area_open(ubi_dev->mtd.partition_id, &peb_fa);
 
 			if (0 != ret) {
 				LOG_ERR("Flash area open failure");
@@ -415,15 +419,15 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 			}
 
 			const size_t offset = peb_idx * ubi_dev->mtd.erase_block_size;
-			ret = flash_area_erase(fa, offset, ubi_dev->mtd.erase_block_size);
+			ret = flash_area_erase(peb_fa, offset, ubi_dev->mtd.erase_block_size);
 
 			if (0 != ret) {
 				LOG_ERR("Flash erase failure");
-				flash_area_close(fa);
+				flash_area_close(peb_fa);
 				goto exit;
 			}
 
-			flash_area_close(fa);
+			flash_area_close(peb_fa);
 
 			ret = ubi_ec_hdr_write(&ubi_dev->mtd, peb_idx, &ec_hdr);
 

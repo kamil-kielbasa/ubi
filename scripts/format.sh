@@ -3,7 +3,7 @@
 lib_src_dir="./lib/src"
 lib_inc_dir="./lib/include"
 tests_src_dir="./tests/src"
-sample_src_dir="./tests/src"
+sample_src_dir="./sample/src"
 
 echo "Formating:"
 

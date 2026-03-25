@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ubi
+
+      - name: Initialize west workspace
+        run: |
+          west init -l ubi
+          west update --narrow -o=--depth=1
+
+      - name: Build tests (native_sim)
+        run: |
+          west build -p --build-dir build/native_sim/tests \
+            -b native_sim ubi/tests/
+
+      - name: Run tests (native_sim)
+        run: ./build/native_sim/tests/zephyr/zephyr.exe
+
+      - name: Build sample (native_sim)
+        run: |
+          west build -p --build-dir build/native_sim/sample \
+            -b native_sim ubi/sample/
+
+      - name: Build tests (b_u585i_iot02a)
+        run: |
+          west build -p --build-dir build/b_u585i_iot02a/tests \
+            -b b_u585i_iot02a ubi/tests/
+
+      - name: Build sample (b_u585i_iot02a)
+        run: |
+          west build -p --build-dir build/b_u585i_iot02a/sample \
+            -b b_u585i_iot02a ubi/sample/
+
+  coverage:
+    runs-on: ubuntu-latest
+    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: ubi
+
+      - name: Initialize west workspace
+        run: |
+          west init -l ubi
+          west update --narrow -o=--depth=1
+
+      - name: Install lcov and curl
+        run: apt-get update && apt-get install -y lcov curl
+
+      - name: Build tests with coverage
+        run: |
+          west build -p --build-dir build/coverage \
+            -b native_sim ubi/tests/ \
+            -- -DOVERLAY_CONFIG="$(pwd)/ubi/tests/boards/native_sim_coverage.conf"
+
+      - name: Run tests
+        run: ./build/coverage/zephyr/zephyr.exe
+
+      - name: Collect coverage
+        run: |
+          lcov --capture \
+            --directory build/coverage \
+            --output-file coverage.info \
+            --rc lcov_branch_coverage=1
+          lcov --extract coverage.info '*/lib/src/*' \
+            --output-file coverage_filtered.info \
+            --rc lcov_branch_coverage=1
+          genhtml coverage_filtered.info \
+            --output-directory coverage_html \
+            --branch-coverage \
+            --title "UBI Code Coverage"
+          lcov --summary coverage_filtered.info --rc lcov_branch_coverage=1
+          lcov --capture \
+            --directory build/coverage \
+            --output-file coverage_lines.info
+          lcov --extract coverage_lines.info '*/lib/src/*' \
+            --output-file coverage_lines_filtered.info
+          lcov --summary coverage_lines_filtered.info
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_html/
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage_lines_filtered.info
+          disable_search: true
+          flags: unittests
+          fail_ci_if_error: false
