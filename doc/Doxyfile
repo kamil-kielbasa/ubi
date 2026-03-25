@@ -1,0 +1,25 @@
+# Doxyfile for UBI API documentation
+# Minimal configuration — only generates XML for Breathe/Sphinx consumption.
+# Paths are relative to this file's directory (doc/).
+
+PROJECT_NAME           = "UBI"
+PROJECT_BRIEF          = "Unsorted Block Images for Zephyr RTOS"
+
+INPUT                  = ../lib/include/ubi.h
+RECURSIVE              = NO
+
+OUTPUT_DIRECTORY       = ../build/doc/doxygen
+GENERATE_XML           = YES
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+
+XML_PROGRAMLISTING     = YES
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+
+OPTIMIZE_OUTPUT_FOR_C  = YES
+TYPEDEF_HIDES_STRUCT   = YES
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES

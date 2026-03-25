@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-03-25
+
+### Added
+
+- Sphinx documentation with Read the Docs theme, deployed to GitHub Pages.
+- Doxygen + Breathe auto-generated API reference from `ubi.h`.
+- Introduction page: what is UBI, why UBI on Zephyr, resource usage, feature summary.
+- Getting started guide: quick start, native_sim build, STM32U5 build, tests, coverage.
+- Configuration reference: Kconfig options, DeviceTree overlays, sizing guidelines.
+- Contributing guide in Sphinx (mirrored from root `CONTRIBUTING.md`).
+- Changelog included in Sphinx via MyST `{include}` directive.
+- `doc/Makefile` for local documentation builds.
+- Docs badge in `README.md`.
+- `docs` CI job: builds Sphinx docs and deploys to GitHub Pages on push to `main`.
+
+### Changed
+
+- Slimmed `README.md` to a gateway page (badges, quick start, link to full docs).
+- Moved resource usage tables, features list, and documentation links from `README.md` to Sphinx.
+- Moved "What is UBI?" and API Reference sections from `architecture.md` to dedicated Sphinx pages.
+- Updated `CONTRIBUTING.md` to reference native_sim build instructions.
+
+### Removed
+
+- `doc/environment_setup.md` content superseded by `doc/getting_started.md`.
+- Manual API reference table from `architecture.md` (replaced by auto-generated Breathe docs).
+
 ## [0.7.0] - 2026-03-25
 
 ### Added

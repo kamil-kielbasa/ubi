@@ -1,23 +1,14 @@
 # UBI on Zephyr
 
 ![CI](https://github.com/kamil-kielbasa/ubi/actions/workflows/ci.yml/badge.svg)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://kamil-kielbasa.github.io/ubi/)
 [![codecov](https://codecov.io/gh/kamil-kielbasa/ubi/graph/badge.svg)](https://codecov.io/gh/kamil-kielbasa/ubi)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-An [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) implementation for [Zephyr RTOS](https://www.zephyrproject.org/).
+An [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) volume manager for [Zephyr RTOS](https://www.zephyrproject.org/).
+It provides wear-leveling, bad block management, and multiple logical volumes on raw flash — using approximately **2.8 KB of flash** and **zero static RAM**.
 
-UBI is a volume management layer for raw flash devices. It maps logical erase blocks (LEBs) to physical erase blocks (PEBs), providing wear-leveling, bad block handling, and multiple logical volumes on a single flash partition — similar to what LVM does for block devices.
-
-This is a from-scratch implementation targeting resource-constrained embedded systems running Zephyr. It requires approximately 2.8 KB of flash and zero static RAM.
-
-## Features
-
-- Dynamic volume creation, removal, and resizing (dynamic volumes)
-- Global wear-leveling across the entire flash partition
-- Transparent bad block detection and isolation
-- Dual-bank metadata headers for crash resilience
-- Thread-safe operations via Zephyr mutexes
-- Zero static RAM usage
+**Full documentation**: [kamil-kielbasa.github.io/ubi](https://kamil-kielbasa.github.io/ubi/)
 
 ## Quick Start
 
@@ -44,7 +35,6 @@ int main(void)
     struct ubi_device *ubi = NULL;
     ubi_device_init(&mtd, &ubi);
 
-    /* Create a volume */
     struct ubi_volume_config cfg = {
         .name = "my_vol",
         .type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -53,7 +43,6 @@ int main(void)
     int vol_id;
     ubi_volume_create(ubi, &cfg, &vol_id);
 
-    /* Write and read data */
     const char data[] = "Hello, UBI!";
     ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
@@ -65,32 +54,7 @@ int main(void)
 }
 ```
 
-Error handling is omitted for brevity. All API functions return `0` on success or a negative `errno` code on failure. See [`sample/`](sample/) for a complete buildable example.
-
-## Resource Usage
-
-| Metric | Value (v0.5.0) |
-|--------|----------------|
-| Flash  | 2802 B         |
-| Static RAM | 0 B        |
-
-| Runtime Object | RAM per instance |
-|----------------|------------------|
-| Device         | 112 B            |
-| Volume         | 48 B             |
-| PEB (free/dirty/mapped) | 16 B   |
-| Bad PEB        | 12 B             |
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture Guide](doc/architecture.md) | Concepts, data structures, initialization flow, ASCII diagrams |
-| [Environment Setup](doc/environment_setup.md) | Build, flash, and debug instructions for STM32U5 |
-| [Test Strategy](doc/test_strategy.md) | Test categories, coverage targets, patterns, and tooling |
-| [Roadmap](doc/roadmap.md) | Planned features and development priorities |
-| [Changelog](CHANGELOG.md) | Version history with detailed change notes |
-| [Contributing](CONTRIBUTING.md) | How to contribute to the project |
+Error handling is omitted for brevity. All API functions return `0` on success or a negative `errno` code on failure.
 
 ## License
 

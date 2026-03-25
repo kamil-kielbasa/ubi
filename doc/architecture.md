@@ -1,37 +1,6 @@
-# UBI Architecture Guide
+# Architecture Guide
 
-This document provides a comprehensive overview of the Unsorted Block Images (UBI) subsystem for Zephyr RTOS. It is intended for developers who want to understand UBI internals before contributing or integrating UBI into their applications.
-
-## Table of Contents
-
-1. [What is UBI?](#what-is-ubi)
-2. [Flash Storage Primer](#flash-storage-primer)
-3. [Architecture Overview](#architecture-overview)
-4. [On-Flash Layout](#on-flash-layout)
-5. [Header Structures](#header-structures)
-6. [In-RAM Data Structures](#in-ram-data-structures)
-7. [PEB Lifecycle](#peb-lifecycle)
-8. [Device Initialization](#device-initialization)
-9. [Wear-Leveling](#wear-leveling)
-10. [Dual-Bank Mechanism](#dual-bank-mechanism)
-11. [Volume Management](#volume-management)
-12. [API Reference](#api-reference)
-
----
-
-## What is UBI?
-
-UBI (Unsorted Block Images) is a volume management layer for raw flash devices. It sits between the application (or a filesystem) and the raw flash hardware, solving three fundamental problems:
-
-1. **Wear-leveling** — flash memory cells degrade after a finite number of erase cycles. UBI distributes writes evenly across all physical erase blocks so no single block wears out prematurely.
-2. **Bad block management** — flash blocks can fail over the lifetime of the device. UBI detects and isolates bad blocks transparently.
-3. **Logical volumes** — UBI allows partitioning a single flash region into multiple named logical volumes, each independently readable, writable, and resizable.
-
-UBI can be compared to the Logical Volume Manager (LVM) in Linux. Whereas LVM maps logical sectors to physical sectors, UBI maps Logical Erase Blocks (LEBs) to Physical Erase Blocks (PEBs).
-
-This implementation is a ground-up port of the UBI concept for the Zephyr RTOS, designed for resource-constrained embedded systems. It uses zero static RAM and requires approximately 2.8 KB of flash.
-
----
+This document provides a comprehensive overview of the UBI subsystem internals. For an introduction to what UBI is and why it exists, see the [Introduction](introduction.md).
 
 ## Flash Storage Primer
 
@@ -609,52 +578,3 @@ If a volume with the same name already exists, the function returns successfully
 
 `ubi_volume_remove()` unmaps all LEBs (moving their PEBs to `dirty_pebs`), removes the volume header from the reserved PEBs, and frees the in-RAM structures.
 
----
-
-## API Reference
-
-### Device Management
-
-| Function | Description |
-|----------|-------------|
-| `ubi_device_init(mtd, &ubi)` | Initialize UBI on a flash partition. Scans PEBs, reconstructs volumes. |
-| `ubi_device_deinit(ubi)` | Shut down UBI, free all in-RAM structures. |
-| `ubi_device_get_info(ubi, &info)` | Query device statistics (free/dirty/bad PEB counts, volume count). |
-| `ubi_device_erase_peb(ubi)` | Erase one dirty PEB (lowest EC first), move it to free pool. |
-
-### Volume Management
-
-| Function | Description |
-|----------|-------------|
-| `ubi_volume_create(ubi, &cfg, &vol_id)` | Create a new volume or return existing one if name matches. |
-| `ubi_volume_resize(ubi, vol_id, &cfg)` | Resize a dynamic volume (change LEB count). |
-| `ubi_volume_remove(ubi, vol_id)` | Delete a volume and unmap all its LEBs. |
-| `ubi_volume_get_info(ubi, vol_id, &cfg, &alloc)` | Query volume configuration and allocated LEB count. |
-
-### LEB I/O
-
-| Function | Description |
-|----------|-------------|
-| `ubi_leb_write(ubi, vol_id, lnum, buf, len)` | Write data to a LEB. Allocates a new PEB, old one becomes dirty. |
-| `ubi_leb_read(ubi, vol_id, lnum, offset, buf, size)` | Read data from a mapped LEB. |
-| `ubi_leb_map(ubi, vol_id, lnum)` | Map a LEB to a PEB without writing data. |
-| `ubi_leb_unmap(ubi, vol_id, lnum)` | Unmap a LEB, moving its PEB to dirty. |
-| `ubi_leb_is_mapped(ubi, vol_id, lnum, &mapped)` | Check if a LEB is currently mapped. |
-| `ubi_leb_get_size(ubi, vol_id, lnum, &size)` | Get the data size stored in a mapped LEB. |
-
-### Test-Only API
-
-Available when `CONFIG_UBI_TEST_API_ENABLE=y`:
-
-| Function | Description |
-|----------|-------------|
-| `ubi_device_get_peb_ec(ubi, &peb_ec, &len)` | Read erase counters of all data PEBs. |
-
-### Configuration (Kconfig)
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `CONFIG_UBI_ENABLE` | n | Enable UBI subsystem |
-| `CONFIG_UBI_MAX_NR_OF_VOLUMES` | 10 | Maximum number of volumes per device |
-| `CONFIG_UBI_LOG_LEVEL_*` | OFF | Log verbosity (OFF, ERR, WRN, INF, DBG) |
-| `CONFIG_UBI_TEST_API_ENABLE` | n | Enable test-only APIs |
