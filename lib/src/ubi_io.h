@@ -1,18 +1,18 @@
 /**
- * \file    ubi_utils.h
+ * \file    ubi_io.h
  *
- * \brief   Unsorted Block Images (UBI) Utilities
+ * \brief   Unsorted Block Images (UBI) flash I/O operations.
  *
  * \author  Kamil Kielbasa
- * \version 0.5
- * \date    2025-09-25
+ * \version 0.9
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  */
 
 /* Include guard ------------------------------------------------------------------------------- */
-#ifndef UBI_UTILS_H
-#define UBI_UTILS_H
+#ifndef UBI_IO_H
+#define UBI_IO_H
 
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi.h"
@@ -83,7 +83,7 @@ struct ubi_vol_hdr {
 	uint8_t vol_type; /*!< Volume type */
 	uint8_t padding_1[2]; /*!< Reserved */
 	uint32_t vol_id; /*!< Volume ID */
-	uint32_t lebs_count; /*!< Number of logical erase blocks */
+	uint32_t leb_count; /*!< Number of logical erase blocks */
 	uint32_t padding_2[3]; /*!< Reserved */
 	uint8_t name[UBI_VOLUME_NAME_MAX_LEN]; /*!< Volume name */
 	uint32_t hdr_crc; /*!< CRC32 of header */
@@ -123,7 +123,7 @@ BUILD_ASSERT(sizeof(struct ubi_vid_hdr) % WRITE_BLOCK_SIZE_ALIGNMENT == 0);
 /* Module interface function declarations ------------------------------------------------------ */
 
 /**
- * \defgroup ubi_utils_device Device Utilities
+ * \defgroup ubi_io_device Device Utilities
  * \brief Functions for mounting and reading UBI device headers.
  * \{
  */
@@ -157,10 +157,10 @@ int ubi_dev_mount(const struct ubi_mtd *mtd);
  */
 int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr);
 
-/** \} name ubi_utils_device */
+/** \} name ubi_io_device */
 
 /**
- * \defgroup ubi_utils_volume Volume Utilities
+ * \defgroup ubi_io_volume Volume Utilities
  * \brief Functions for reading, writing, and updating UBI volume headers.
  * \{
  */
@@ -213,10 +213,10 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
 		       const size_t index, const struct ubi_vol_hdr *vol_hdr);
 
-/** \} name ubi_utils_volume */
+/** \} name ubi_io_volume */
 
 /**
- * \defgroup ubi_utils_ec Erase Counter Utilities
+ * \defgroup ubi_io_ec Erase Counter Utilities
  * \brief Functions for reading and writing UBI erase counter headers.
  * \{
  */
@@ -243,10 +243,10 @@ int ubi_ec_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_ec_
  */
 int ubi_ec_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, const struct ubi_ec_hdr *ec_hdr);
 
-/** \} name ubi_utils_ec */
+/** \} name ubi_io_ec */
 
 /**
- * \defgroup ubi_utils_vid Volume Identifier Utilities
+ * \defgroup ubi_io_vid Volume Identifier Utilities
  * \brief Functions for reading and writing UBI volume identifier headers.
  * \{
  */
@@ -275,10 +275,10 @@ int ubi_vid_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_vi
  */
 int ubi_vid_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_vid_hdr *vid_hdr);
 
-/** \} name ubi_utils_vid */
+/** \} name ubi_io_vid */
 
 /**
- * \defgroup ubi_utils_data LEB Data Utilities
+ * \defgroup ubi_io_data LEB Data Utilities
  * \brief Functions for reading and writing logical erase block data.
  * \{
  */
@@ -310,6 +310,6 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offset, uint8_t *buf,
 		      size_t len);
 
-/** \} name ubi_utils_data */
+/** \} name ubi_io_data */
 
-#endif /* UBI_UTILS_H */
+#endif /* UBI_IO_H */

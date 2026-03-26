@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 An [Unsorted Block Images (UBI)](http://www.linux-mtd.infradead.org/doc/ubi.html) volume manager for [Zephyr RTOS](https://www.zephyrproject.org/).
-It provides wear-leveling, bad block management, and multiple logical volumes on raw flash — using approximately **2.8 KB of flash** and **zero static RAM**.
+It provides wear-leveling, bad block management, and multiple logical volumes on raw flash — using approximately **6.7 KB of flash** (Cortex-M33, `-Os`) and **zero static RAM**.
 
 **Full documentation**: [kamil-kielbasa.github.io/ubi](https://kamil-kielbasa.github.io/ubi/)
 

@@ -70,9 +70,14 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | File | Role |
 |------|------|
 | `lib/include/ubi.h` | Public API — all structures and function declarations |
-| `lib/src/ubi.c` | Core logic — device init, volume ops, LEB I/O, wear-leveling |
-| `lib/src/ubi_utils.h` | Internal header structures and constants |
-| `lib/src/ubi_utils.c` | Low-level flash I/O, header read/write, dual-bank logic |
+| `lib/src/ubi_core.c` | Device lifecycle — init, deinit, get_info, erase_peb |
+| `lib/src/ubi_volume.c` | Volume management — create, resize, remove, get_info |
+| `lib/src/ubi_leb.c` | LEB operations — read, write, map, unmap, is_mapped, get_size |
+| `lib/src/ubi_cache.c` | Red-black tree comparator and search helpers |
+| `lib/src/ubi_internal.h` | Shared internal types (`ubi_device`, `ubi_volume`) and helpers |
+| `lib/src/ubi_cache.h` | RBT and linked-list item types |
+| `lib/src/ubi_io.h` | On-flash header structures and constants |
+| `lib/src/ubi_io.c` | Low-level flash I/O, header read/write, dual-bank logic |
 
 ---
 
@@ -184,7 +189,7 @@ Offset  Size  Field
 0x05    1     vol_type    0 = static, 1 = dynamic
 0x06    2     padding
 0x08    4     vol_id      unique volume identifier
-0x0C    4     lebs_count  number of LEBs allocated to this volume
+0x0C    4     leb_count   number of LEBs allocated to this volume
 0x10    12    padding
 0x1C    16    name        null-terminated volume name (max 16 bytes including '\0')
 0x2C    4     hdr_crc     CRC-32 of bytes 0x00..0x2B
@@ -236,7 +241,7 @@ struct ubi_device (112 B)
 |-- bad_pebs (Singly-Linked List)
 |   |
 |   |   Holds PEBs with I/O errors (invalid EC headers, failed erases/writes).
-|   |   Entries are struct ubi_list_item { .peb_index, .nr_of_erases }
+|   |   Entries are struct ubi_list_item { .pnum, .erase_count }
 |   |
 |   `-- [PEB 22, ec:~7] --> [PEB 45, ec:~3] --> NULL
 |
@@ -258,7 +263,7 @@ struct ubi_device (112 B)
 |       |-- vol_idx         Index in the reserved PEB header table
 |       |-- vol_id          Unique volume identifier
 |       |-- cfg             { name[16], type (static|dynamic), leb_count }
-|       |-- eba_tbl_size    Number of mapped LEBs
+|       |-- eba_tbl_count   Number of mapped LEBs
 |       `-- eba_tbl (Red-Black Tree, keyed by LEB number)
 |           |
 |           |   Per-volume mapping from logical to physical blocks.
@@ -273,8 +278,8 @@ struct ubi_device (112 B)
 |                   leb:2 --> PEB 19 [EC hdr | VID: vol=0,leb=2,sq=50 | payload]
 |                   leb:5 --> PEB 31 [EC hdr | VID: vol=0,leb=5,sq=55 | payload]
 |
-`-- global_seqnr            Monotonically increasing sequence number for writes
-`-- vols_seqnr              Next volume ID to assign
+`-- global_sqnum            Monotonically increasing sequence number for writes
+`-- vol_next_id             Next volume ID to assign
 ```
 
 ### How the Structures Relate to Flash
@@ -572,7 +577,7 @@ If a volume with the same name already exists, the function returns successfully
 
 ### Resize
 
-`ubi_volume_resize()` is only supported for dynamic volumes. It updates the `lebs_count` in the volume header on both reserved PEBs and adjusts the in-RAM configuration. If the volume is shrunk, LEBs beyond the new limit are unmapped and their PEBs are moved to `dirty_pebs`.
+`ubi_volume_resize()` is only supported for dynamic volumes. It updates the `leb_count` in the volume header on both reserved PEBs and adjusts the in-RAM configuration. If the volume is shrunk, LEBs beyond the new limit are unmapped and their PEBs are moved to `dirty_pebs`.
 
 ### Remove
 

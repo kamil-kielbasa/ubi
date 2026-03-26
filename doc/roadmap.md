@@ -9,6 +9,8 @@ Planned features and improvements for UBI on Zephyr. Items are listed by priorit
 | Dual-bank recovery | High | Planned | Restore corrupted bank from the valid one on boot |
 | Permanent bad block tracking | High | Planned | Persist bad block records to flash across reboots |
 | Write retry mechanism | Medium | Planned | Retry flash writes on transient failures |
+| Bad block torture test | Medium | Planned | Stress-test suspect PEBs before retiring them |
+| Volume module simplification | Medium | Planned | Deduplicate ubi_volume.c with shared helpers |
 | Read-write locking | Medium | Planned | Allow concurrent readers with exclusive writer access |
 | User-space tools | Low | Planned | Port Linux UBI CLI utilities to Zephyr shell |
 
@@ -29,6 +31,23 @@ This feature would stress-test suspicious blocks with multiple erase attempts. I
 ### Write Retry Mechanism
 
 Flash write operations can fail due to transient conditions (voltage fluctuations, marginal cells). This feature would introduce a configurable retry count for write operations before declaring a PEB bad.
+
+### Bad Block Torture Test
+
+When a PEB fails an erase or write operation, perform multiple erase+write cycles to determine whether the failure is transient or permanent. If the block passes the torture test, return it to the free pool; otherwise, retire it as a permanent bad block (requires the permanent bad block tracking feature).
+
+This corresponds to the `/** TODO: Torture bad blocks. */` placeholder in `ubi_core.c`.
+
+### Volume Module Simplification
+
+Deduplicate repeated patterns in `ubi_volume.c` by extracting shared helpers:
+
+1. **`ubi_dev_hdr_update_and_recalc()`** — read device header, bump revision, recalc CRC (used by create, resize, remove).
+2. **`ubi_move_peb_to_dirty_pool()`** — read EC header, insert into dirty tree (used by resize, remove).
+3. **`ubi_reclaim_volume_pebs()`** — iterate EBA table and reclaim PEBs to dirty pool (used by resize, remove).
+4. **`ubi_volume_remove()` in-memory vol_idx update** — replace the O(n) NVM-read loop with an O(m) in-memory traversal.
+
+Estimated reduction: ~150-200 lines (~30-40% of file).
 
 ### Read-Write Locking
 

@@ -42,9 +42,14 @@ All tests must pass before submitting a pull request.
 ```
 lib/
   include/ubi.h       Public API
-  src/ubi.c           Core implementation
-  src/ubi_utils.h     Internal headers and constants
-  src/ubi_utils.c     Low-level flash I/O and header management
+  src/ubi_core.c      Device lifecycle (init, deinit, get_info, erase_peb)
+  src/ubi_volume.c    Volume management (create, resize, remove, get_info)
+  src/ubi_leb.c       LEB operations (read, write, map, unmap)
+  src/ubi_cache.c     Red-black tree comparator and search helpers
+  src/ubi_internal.h  Shared internal types and helper declarations
+  src/ubi_cache.h     RBT and linked-list item types
+  src/ubi_io.h        On-flash header structures and constants
+  src/ubi_io.c        Low-level flash I/O, dual-bank logic
 sample/               Example application
 tests/                Integration tests (ZTest, native_sim)
 doc/                  Sphinx documentation

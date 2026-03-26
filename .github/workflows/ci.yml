@@ -46,6 +46,20 @@ jobs:
           west build -p --build-dir build/b_u585i_iot02a/sample \
             -b b_u585i_iot02a ubi/sample/
 
+      - name: Measure flash usage (ARM, -Os)
+        run: |
+          SIZE_TOOL=$(find /opt/toolchains -name "arm-zephyr-eabi-size" -type f | head -1)
+          ${SIZE_TOOL} build/b_u585i_iot02a/sample/zephyr/zephyr.elf
+          ${SIZE_TOOL} -A \
+            build/b_u585i_iot02a/sample/modules/ubi/lib/lib..__ubi__lib.a \
+            | tee flash_usage.txt
+
+      - name: Upload flash usage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: flash-usage
+          path: flash_usage.txt
+
   coverage:
     runs-on: ubuntu-latest
     container: ghcr.io/zephyrproject-rtos/ci:v0.27.4

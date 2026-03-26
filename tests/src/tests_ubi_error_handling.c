@@ -5,8 +5,8 @@
  *
  * \brief   Tests for UBI API error handling and edge cases.
  *
- * \version 0.6
- * \date    2026-03-24
+ * \version 0.9
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -23,10 +23,13 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/toolchain/common.h>
 #include <zephyr/sys/sys_heap.h>
 
-#include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------ */
@@ -45,6 +48,8 @@ static struct ubi_mtd mtd = { 0 };
 /* Static function declarations ---------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
@@ -58,28 +63,42 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
+	const size_t write_block_size = flash_get_write_block_size(flash_dev);
+	const size_t erase_block_size = page_info.size;
+
 	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	mtd.erase_block_size = erase_block_size;
+	mtd.write_block_size = write_block_size;
 
 	return NULL;
+}
+
+static void ztest_suite_after(void *ctx)
+{
+	(void)ctx;
+
+	return;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
+
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
+
+	return;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
 	(void)ctx;
+	return;
 }
 
 /* Module interface function definitions ------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_error_handling, NULL, ztest_suite_setup, ztest_testcase_before,
-	    ztest_testcase_teardown, NULL);
+	    ztest_testcase_teardown, ztest_suite_after);
 
 /* --- Device init/deinit error paths --- */
 
@@ -199,7 +218,7 @@ ZTEST(ubi_error_handling, volume_create_null_params)
  *          ubi_volume_create() again with the same configuration.
  *
  * \expect Both calls succeed. The returned vol_id is identical.
- *         ubi_device_get_info() reports volumes_count=1.
+ *         ubi_device_get_info() reports volume_count=1.
  */
 ZTEST(ubi_error_handling, volume_create_idempotent)
 {
@@ -220,7 +239,7 @@ ZTEST(ubi_error_handling, volume_create_idempotent)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(1, info.volumes_count);
+	zassert_equal(1, info.volume_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -228,8 +247,8 @@ ZTEST(ubi_error_handling, volume_create_idempotent)
 /**
  * \brief Verify that creating a volume larger than available PEBs fails.
  *
- * \details Scenario: Query leb_total_count, then attempt to create a volume
- *          with leb_count = leb_total_count + 1.
+ * \details Scenario: Query total_peb_count, then attempt to create a volume
+ *          with leb_count = total_peb_count + 1.
  *
  * \expect ubi_volume_create() returns -ENOSPC.
  */
@@ -244,7 +263,7 @@ ZTEST(ubi_error_handling, volume_create_no_space)
 	const struct ubi_volume_config cfg = {
 		.name = "huge",
 		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = info.leb_total_count + 1,
+		.leb_count = info.total_peb_count + 1,
 	};
 	int vol_id;
 
@@ -548,7 +567,7 @@ ZTEST(ubi_error_handling, leb_get_size_null)
  *          size and read back the data.
  *
  * \expect The second write succeeds. ubi_leb_get_size() returns 5. Read-back
- *         matches the second write. dirty_leb_count equals 1 (the old PEB).
+ *         matches the second write. dirty_peb_count equals 1 (the old PEB).
  */
 ZTEST(ubi_error_handling, leb_write_overwrite)
 {
@@ -580,7 +599,7 @@ ZTEST(ubi_error_handling, leb_write_overwrite)
 	/* Verify old PEB moved to dirty */
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(1, info.dirty_leb_count);
+	zassert_equal(1, info.dirty_peb_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -626,7 +645,7 @@ ZTEST(ubi_error_handling, leb_read_with_offset)
  *          are still accessible.
  *
  * \expect ubi_volume_resize() succeeds. LEBs 0..1 are readable with correct
- *         data. dirty_leb_count >= 2 (the trimmed PEBs from LEBs 2..3).
+ *         data. dirty_peb_count >= 2 (the trimmed PEBs from LEBs 2..3).
  */
 ZTEST(ubi_error_handling, volume_resize_shrink_with_mapped_lebs)
 {
@@ -659,7 +678,7 @@ ZTEST(ubi_error_handling, volume_resize_shrink_with_mapped_lebs)
 	/* Dirty PEBs should exist from the trimmed LEBs */
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.dirty_leb_count >= 2);
+	zassert_true(info.dirty_peb_count >= 2);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1328,7 +1347,7 @@ ZTEST(ubi_error_handling, volume_resize_expand_enospc)
 	const struct ubi_volume_config big_cfg = {
 		.name = "rspc",
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = info.leb_total_count + 10,
+		.leb_count = info.total_peb_count + 10,
 	};
 	zassert_equal(-ENOSPC, ubi_volume_resize(ubi, vol_id, &big_cfg));
 
@@ -1391,6 +1410,100 @@ ZTEST(ubi_error_handling, volume_resize_shrink_trim)
 		zassert_ok(ubi_leb_read(ubi, vol_id, lnum, 0, rdata, sizeof(rdata)));
 		zassert_mem_equal(wdata, rdata, sizeof(wdata));
 	}
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/* --- LEB write when all PEBs exhausted --- */
+
+/**
+ * \brief Verify that ubi_leb_write() returns -ENOSPC when all free PEBs
+ *        are consumed.
+ *
+ * \details Scenario: Create a volume occupying all data PEBs. Write to every
+ *          LEB so all free PEBs become allocated. Without erasing dirty PEBs,
+ *          overwrite LEB 0 — its old PEB goes to dirty, but no free PEB is
+ *          available for the new write.
+ *
+ * \expect The overwrite of LEB 0 returns -ENOSPC.
+ */
+ZTEST(ubi_error_handling, leb_write_all_pebs_exhausted)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info;
+	zassert_ok(ubi_device_get_info(ubi, &info));
+
+	/* Allocate all data PEBs to one volume. */
+	const struct ubi_volume_config cfg = {
+		.name = "full",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = info.total_peb_count,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	/* Write to every LEB — consumes all free PEBs. */
+	const uint8_t pattern = 0xAB;
+	uint8_t wdata[32];
+	memset(wdata, pattern, sizeof(wdata));
+
+	for (size_t lnum = 0; lnum < info.total_peb_count; ++lnum) {
+		zassert_ok(ubi_leb_write(ubi, vol_id, lnum, wdata, sizeof(wdata)));
+	}
+
+	/* All PEBs allocated, free count must be 0. */
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(0, info.free_peb_count);
+
+	/* Overwrite LEB 0 — old PEB → dirty, but no free PEB → -ENOSPC. */
+	const uint8_t new_data[] = { 0x01 };
+	zassert_equal(-ENOSPC, ubi_leb_write(ubi, vol_id, 0, new_data, sizeof(new_data)));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/* --- LEB map when all PEBs exhausted --- */
+
+/**
+ * \brief Verify that ubi_leb_map() returns -ENOSPC when free PEBs
+ *        are exhausted.
+ *
+ * \details Scenario: Create a volume using all PEBs, map every LEB, then
+ *          unmap LEB 0 (old PEB → dirty). Try to re-map LEB 0.
+ *
+ * \expect ubi_leb_map() returns -ENOSPC because no free PEB is available.
+ */
+ZTEST(ubi_error_handling, leb_map_all_pebs_exhausted)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info;
+	zassert_ok(ubi_device_get_info(ubi, &info));
+
+	const struct ubi_volume_config cfg = {
+		.name = "mapfull",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = info.total_peb_count,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	/* Map every LEB — exhausts all free PEBs. */
+	for (size_t lnum = 0; lnum < info.total_peb_count; ++lnum) {
+		zassert_ok(ubi_leb_map(ubi, vol_id, lnum));
+	}
+
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(0, info.free_peb_count);
+
+	/* Unmap LEB 0 — PEB goes to dirty, not free. */
+	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
+
+	/* Re-map LEB 0 — no free PEB → -ENOSPC. */
+	zassert_equal(-ENOSPC, ubi_leb_map(ubi, vol_id, 0));
 
 	zassert_ok(ubi_device_deinit(ubi));
 }

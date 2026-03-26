@@ -105,7 +105,7 @@ picocom -b 115200 /dev/ttyACM0
 
 ## Running Tests
 
-All 87 tests run on `native_sim`:
+All 89 tests run on `native_sim`:
 
 ```sh
 bash scripts/run_tests.sh

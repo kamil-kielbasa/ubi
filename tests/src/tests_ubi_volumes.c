@@ -6,7 +6,7 @@
  * \brief   Hardware tests for Unsorted Block Images (UBI) volumes operations.
  *
  * \version 0.5
- * \date    2025-09-25
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -188,7 +188,7 @@ ZTEST(ubi_volumes, create_one_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count, vol_cfg.leb_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg.leb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -247,7 +247,7 @@ ZTEST(ubi_volumes, create_one_with_reboot)
  *          confirm persistence. Remove the volume, deinitialize, re-initialize,
  *          and verify the volume no longer exists.
  *
- * \expect After removal and reboot, volumes_count=0 and allocated_leb_count=0.
+ * \expect After removal and reboot, volume_count=0 and allocated_peb_count=0.
  *         Heap memory is fully reclaimed after each deinit.
  */
 ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
@@ -281,8 +281,8 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count, vol_cfg.leb_count);
-	zassert_equal(1, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg.leb_count);
+	zassert_equal(1, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -332,8 +332,8 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_leb_count);
-	zassert_equal(0, info.volumes_count);
+	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -361,8 +361,8 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_leb_count);
-	zassert_equal(0, info.volumes_count);
+	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.volume_count);
 
 	/* 12. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -384,7 +384,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
  *          and confirm the resized configuration persists.
  *
  * \expect After reboot, the volume reports leb_count=4 with the correct
- *         allocated_leb_count. Heap memory is fully reclaimed after deinit.
+ *         allocated_peb_count. Heap memory is fully reclaimed after deinit.
  */
 ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 {
@@ -420,8 +420,8 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count, vol_cfg.leb_count);
-	zassert_equal(1, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg.leb_count);
+	zassert_equal(1, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -456,8 +456,8 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count, vol_cfg.leb_count);
-	zassert_equal(1, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg.leb_count);
+	zassert_equal(1, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -477,8 +477,8 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(new_vol_cfg.leb_count, info.allocated_leb_count);
-	zassert_equal(1, info.volumes_count);
+	zassert_equal(new_vol_cfg.leb_count, info.allocated_peb_count);
+	zassert_equal(1, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -599,8 +599,8 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(3, info.volumes_count);
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(3, info.volume_count);
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -657,8 +657,8 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 	/* 6. Verify created volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(3, info.volumes_count);
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(3, info.volume_count);
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -714,7 +714,7 @@ ZTEST(ubi_volumes, create_many_with_reboot)
  *          and verify the device is empty after another reboot.
  *
  * \expect After selective removal, only the expected volumes remain.
- *         After full removal, volumes_count=0. Heap memory is reclaimed.
+ *         After full removal, volume_count=0. Heap memory is reclaimed.
  */
 ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 {
@@ -767,9 +767,9 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -825,8 +825,8 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	/* 6. Verify created volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(3, info.volumes_count);
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(3, info.volume_count);
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -869,8 +869,8 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
-	zassert_equal(2, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
+	zassert_equal(2, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -897,8 +897,8 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	/* 11. Verify existing volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_leb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
-	zassert_equal(2, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
+	zassert_equal(2, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -947,8 +947,8 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	/* 14. Verify created volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(2, info.volumes_count);
-	zassert_equal(info.allocated_leb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
+	zassert_equal(2, info.volume_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -984,8 +984,8 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_leb_count);
-	zassert_equal(0, info.volumes_count);
+	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1017,8 +1017,8 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_leb_count);
-	zassert_equal(0, info.volumes_count);
+	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1117,9 +1117,9 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1175,8 +1175,8 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	/* 6. Verify created volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(3, info.volumes_count);
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(3, info.volume_count);
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -1219,9 +1219,9 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + res_vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1255,8 +1255,8 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	/* 11. Verify existing volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_leb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg_1.leb_count + vol_cfg_3.leb_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1312,9 +1312,9 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	/* 14. Verify created volumes */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(info.allocated_peb_count,
 		      vol_cfg_1.leb_count + vol_cfg_2.leb_count + res_vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1357,9 +1357,9 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(info.allocated_peb_count,
 		      res_vol_cfg_1.leb_count + res_vol_cfg_2.leb_count + res_vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -1408,9 +1408,9 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(info.allocated_leb_count,
+	zassert_equal(info.allocated_peb_count,
 		      res_vol_cfg_1.leb_count + res_vol_cfg_2.leb_count + res_vol_cfg_3.leb_count);
-	zassert_equal(3, info.volumes_count);
+	zassert_equal(3, info.volume_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;

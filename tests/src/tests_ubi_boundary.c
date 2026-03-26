@@ -5,8 +5,8 @@
  *
  * \brief   Tests for UBI LEB boundary and capacity edge cases.
  *
- * \version 0.6
- * \date    2026-03-25
+ * \version 0.9
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -23,10 +23,13 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/toolchain/common.h>
 #include <zephyr/sys/sys_heap.h>
 
-#include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------ */
@@ -36,7 +39,7 @@
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* UBI header sizes (must match lib/src/ubi_utils.h). */
+/* UBI header sizes (must match lib/src/ubi_io.h). */
 #define UBI_EC_HDR_SIZE (16)
 #define UBI_VID_HDR_SIZE (32)
 
@@ -49,6 +52,8 @@ static struct ubi_mtd mtd = { 0 };
 /* Static function declarations ---------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
@@ -62,28 +67,42 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
+	const size_t write_block_size = flash_get_write_block_size(flash_dev);
+	const size_t erase_block_size = page_info.size;
+
 	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	mtd.erase_block_size = erase_block_size;
+	mtd.write_block_size = write_block_size;
 
 	return NULL;
+}
+
+static void ztest_suite_after(void *ctx)
+{
+	(void)ctx;
+
+	return;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
+
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
+
+	return;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
 	(void)ctx;
+	return;
 }
 
 /* Module interface function definitions ------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
-	    NULL);
+	    ztest_suite_after);
 
 /**
  * \brief Verify that writing exactly the maximum LEB data capacity succeeds.
@@ -96,7 +115,7 @@ ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_
  * \expect The write succeeds. The stored size equals the maximum data capacity.
  *         Reading back the full LEB returns identical data byte-for-byte.
  */
-ZTEST(ubi_boundary, test_write_max_leb_data)
+ZTEST(ubi_boundary, write_max_leb_data)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -152,7 +171,7 @@ ZTEST(ubi_boundary, test_write_max_leb_data)
  *
  * \expect ubi_leb_write() returns -ENOSPC. No data is written to the LEB.
  */
-ZTEST(ubi_boundary, test_write_exceeds_leb_capacity)
+ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -188,7 +207,7 @@ ZTEST(ubi_boundary, test_write_exceeds_leb_capacity)
  * \expect ubi_leb_read() succeeds. The 4 returned bytes match the tail
  *         portion (bytes 4..7) of the original pattern.
  */
-ZTEST(ubi_boundary, test_read_at_exact_boundary)
+ZTEST(ubi_boundary, read_at_exact_boundary)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -223,7 +242,7 @@ ZTEST(ubi_boundary, test_read_at_exact_boundary)
  * \expect Both writes succeed. Read-back data matches the original patterns
  *         exactly, confirming that the padding logic does not corrupt data.
  */
-ZTEST(ubi_boundary, test_write_alignment_boundary)
+ZTEST(ubi_boundary, write_alignment_boundary)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -269,7 +288,7 @@ ZTEST(ubi_boundary, test_write_alignment_boundary)
  * \expect Both writes succeed. ubi_leb_get_size() returns the exact logical
  *         size (1 and 15). Read-back data matches the original bytes.
  */
-ZTEST(ubi_boundary, test_write_sub_alignment)
+ZTEST(ubi_boundary, write_sub_alignment)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));

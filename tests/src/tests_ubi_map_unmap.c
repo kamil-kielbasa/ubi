@@ -6,7 +6,7 @@
  * \brief   Hardware tests for Unsorted Block Images (UBI) map and unmap operations.
  *
  * \version 0.5
- * \date    2025-09-25
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -158,8 +158,8 @@ ZTEST_SUITE(ubi_map, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testc
  *          the dirty PEB count increases. Re-initialize again and verify
  *          the dirty PEB was cleaned up.
  *
- * \expect Map/unmap states persist across reboots. free_leb_count decreases
- *         by 1 after mapping. dirty_leb_count increases after unmapping.
+ * \expect Map/unmap states persist across reboots. free_peb_count decreases
+ *         by 1 after mapping. dirty_peb_count increases after unmapping.
  *         Heap memory is fully reclaimed after each deinit.
  */
 ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
@@ -211,7 +211,7 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 	zassert_equal(0, size);
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_map));
-	zassert_equal(info_after_map.free_leb_count, info_after_init.free_leb_count - 1);
+	zassert_equal(info_after_map.free_peb_count, info_after_init.free_peb_count - 1);
 
 	/* 5. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -236,9 +236,9 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 
 	/* 8. Verify device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
-	zassert_equal(info_after_unmap.free_leb_count, info_after_init.free_leb_count - 1);
-	zassert_equal(0, info_after_map.dirty_leb_count);
-	zassert_equal(1, info_after_unmap.dirty_leb_count);
+	zassert_equal(info_after_unmap.free_peb_count, info_after_init.free_peb_count - 1);
+	zassert_equal(0, info_after_map.dirty_peb_count);
+	zassert_equal(1, info_after_unmap.dirty_peb_count);
 
 	/* 9. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -260,9 +260,9 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 
 	/* 11. Verify device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
-	zassert_equal(info_after_unmap.free_leb_count, info_after_init.free_leb_count - 1);
-	zassert_equal(0, info_after_map.dirty_leb_count);
-	zassert_equal(0, info_after_unmap.dirty_leb_count);
+	zassert_equal(info_after_unmap.free_peb_count, info_after_init.free_peb_count - 1);
+	zassert_equal(0, info_after_map.dirty_peb_count);
+	zassert_equal(0, info_after_unmap.dirty_peb_count);
 
 	/* 12. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -280,11 +280,11 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
  * \brief Verify map/unmap lifecycle for all LEBs in a volume across reboots.
  *
  * \details Scenario: Create a static volume with 4 LEBs. Map all 4 LEBs and
- *          verify each is mapped with data_size=0. Confirm free_leb_count
+ *          verify each is mapped with data_size=0. Confirm free_peb_count
  *          decreased by 4. Deinitialize, re-initialize, unmap all 4 LEBs,
- *          verify dirty_leb_count=4. Re-initialize and verify cleanup.
+ *          verify dirty_peb_count=4. Re-initialize and verify cleanup.
  *
- * \expect All 4 map operations succeed. After unmap, dirty_leb_count reflects
+ * \expect All 4 map operations succeed. After unmap, dirty_peb_count reflects
  *         4 dirty PEBs. After re-init, dirty PEBs are cleaned. Heap is
  *         fully reclaimed.
  */
@@ -348,8 +348,8 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 	}
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_map));
-	zassert_equal(info_after_map.free_leb_count,
-		      info_after_init.free_leb_count - ARRAY_SIZE(lnum));
+	zassert_equal(info_after_map.free_peb_count,
+		      info_after_init.free_peb_count - ARRAY_SIZE(lnum));
 
 	/* 5. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -375,10 +375,10 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 
 	/* 8. Verify device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
-	zassert_equal(info_after_unmap.free_leb_count,
-		      info_after_init.free_leb_count - ARRAY_SIZE(lnum));
-	zassert_equal(0, info_after_map.dirty_leb_count);
-	zassert_equal(ARRAY_SIZE(lnum), info_after_unmap.dirty_leb_count);
+	zassert_equal(info_after_unmap.free_peb_count,
+		      info_after_init.free_peb_count - ARRAY_SIZE(lnum));
+	zassert_equal(0, info_after_map.dirty_peb_count);
+	zassert_equal(ARRAY_SIZE(lnum), info_after_unmap.dirty_peb_count);
 
 	/* 9. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -400,10 +400,10 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 
 	/* 11. Verify device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
-	zassert_equal(info_after_unmap.free_leb_count,
-		      info_after_init.free_leb_count - ARRAY_SIZE(lnum));
-	zassert_equal(0, info_after_map.dirty_leb_count);
-	zassert_equal(0, info_after_unmap.dirty_leb_count);
+	zassert_equal(info_after_unmap.free_peb_count,
+		      info_after_init.free_peb_count - ARRAY_SIZE(lnum));
+	zassert_equal(0, info_after_map.dirty_peb_count);
+	zassert_equal(0, info_after_unmap.dirty_peb_count);
 
 	/* 12. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -514,8 +514,8 @@ ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 	}
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_map));
-	zassert_equal(info_after_map.free_leb_count,
-		      info_after_init.free_leb_count - ARRAY_SIZE(lnum_1) - ARRAY_SIZE(lnum_2));
+	zassert_equal(info_after_map.free_peb_count,
+		      info_after_init.free_peb_count - ARRAY_SIZE(lnum_1) - ARRAY_SIZE(lnum_2));
 
 	/* 5. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -544,10 +544,10 @@ ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 
 	/* 8. Verify device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
-	zassert_equal(info_after_map.free_leb_count,
-		      info_after_init.free_leb_count - ARRAY_SIZE(lnum_1) - ARRAY_SIZE(lnum_2));
-	zassert_equal(0, info_after_map.dirty_leb_count);
-	zassert_equal(ARRAY_SIZE(lnum_1) + ARRAY_SIZE(lnum_2), info_after_unmap.dirty_leb_count);
+	zassert_equal(info_after_map.free_peb_count,
+		      info_after_init.free_peb_count - ARRAY_SIZE(lnum_1) - ARRAY_SIZE(lnum_2));
+	zassert_equal(0, info_after_map.dirty_peb_count);
+	zassert_equal(ARRAY_SIZE(lnum_1) + ARRAY_SIZE(lnum_2), info_after_unmap.dirty_peb_count);
 
 	/* 9. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -569,10 +569,10 @@ ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 
 	/* 11. Verify device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
-	zassert_equal(info_after_map.free_leb_count,
-		      info_after_init.free_leb_count - ARRAY_SIZE(lnum_1) - ARRAY_SIZE(lnum_2));
-	zassert_equal(0, info_after_map.dirty_leb_count);
-	zassert_equal(0, info_after_unmap.dirty_leb_count);
+	zassert_equal(info_after_map.free_peb_count,
+		      info_after_init.free_peb_count - ARRAY_SIZE(lnum_1) - ARRAY_SIZE(lnum_2));
+	zassert_equal(0, info_after_map.dirty_peb_count);
+	zassert_equal(0, info_after_unmap.dirty_peb_count);
 
 	/* 12. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));

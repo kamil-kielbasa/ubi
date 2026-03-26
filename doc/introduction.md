@@ -39,13 +39,14 @@ UBI fills this gap. It provides a **thin, low-overhead volume manager** that giv
 
 ## Resource Usage
 
-UBI is designed for resource-constrained embedded systems. The following measurements were taken on the `b_u585i_iot02a` (STM32U5, Cortex-M33) board at v0.5.0:
+UBI is designed for resource-constrained embedded systems. The following measurements were taken on the `b_u585i_iot02a` (STM32U5, Cortex-M33) board with size optimization (`-Os`).
+The CI pipeline measures flash usage on every push (see the `flash-usage` build artifact).
 
 ### Flash and Static RAM
 
 | Metric     | Value    |
 |------------|----------|
-| Flash      | 2802 B   |
+| Flash      | 6,876 B  |
 | Static RAM | 0 B      |
 
 ### Runtime RAM (Dynamic Allocations)

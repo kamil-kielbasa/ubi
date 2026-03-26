@@ -6,7 +6,7 @@
  * \brief   Hardware tests for Unsorted Block Images (UBI) write and read operations.
  *
  * \version 0.5
- * \date    2025-09-25
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -157,7 +157,7 @@ ZTEST_SUITE(ubi_write_read, NULL, ztest_suite_setup, ztest_testcase_before, ztes
  *          array to LEB 2. Read back and verify. Deinitialize, re-initialize,
  *          and read LEB 2 again.
  *
- * \expect Data is intact after reboot. free_leb_count decreases by 1 after
+ * \expect Data is intact after reboot. free_peb_count decreases by 1 after
  *         the write. All erase counters are 0. Heap memory is reclaimed.
  */
 ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
@@ -187,8 +187,8 @@ ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_1, &vol_id_1));
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-	zassert_equal(info_after_init.allocated_leb_count, vol_cfg_1.leb_count);
-	zassert_equal(1, info_after_init.volumes_count);
+	zassert_equal(info_after_init.allocated_peb_count, vol_cfg_1.leb_count);
+	zassert_equal(1, info_after_init.volume_count);
 
 	/* 3. Write data to LEB */
 	int lnum = 2;
@@ -224,9 +224,9 @@ ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
 
 	/* 7. Read device info */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_write));
-	zassert_equal(vol_cfg_1.leb_count, info_after_write.allocated_leb_count);
-	zassert_equal(1, info_after_write.volumes_count);
-	zassert_equal(info_after_init.free_leb_count - 1, info_after_write.free_leb_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_write.allocated_peb_count);
+	zassert_equal(1, info_after_write.volume_count);
+	zassert_equal(info_after_init.free_peb_count - 1, info_after_write.free_peb_count);
 
 	/* 8. Read data from LEB */
 	rdata_size = 0;
@@ -320,10 +320,10 @@ ZTEST(ubi_write_read, one_volume_many_leb_operations_with_reboot)
 
 	/* 6. Read device info */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_write));
-	zassert_equal(vol_cfg_1.leb_count, info_after_write.allocated_leb_count);
-	zassert_equal(1, info_after_write.volumes_count);
-	zassert_equal(info_after_init.free_leb_count - ARRAY_SIZE(leb),
-		      info_after_write.free_leb_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_write.allocated_peb_count);
+	zassert_equal(1, info_after_write.volume_count);
+	zassert_equal(info_after_init.free_peb_count - ARRAY_SIZE(leb),
+		      info_after_write.free_peb_count);
 
 	/* 7. Read data from LEB */
 	for (size_t i = 0; i < ARRAY_SIZE(leb); ++i) {
@@ -489,11 +489,11 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 	/* 7. Read device info */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_write));
 	zassert_equal(vol_cfg_1.leb_count + vol_cfg_2.leb_count + vol_cfg_3.leb_count,
-		      info_after_write.allocated_leb_count);
-	zassert_equal(3, info_after_write.volumes_count);
-	zassert_equal(info_after_init.free_leb_count - vol_cfg_1.leb_count - vol_cfg_2.leb_count -
+		      info_after_write.allocated_peb_count);
+	zassert_equal(3, info_after_write.volume_count);
+	zassert_equal(info_after_init.free_peb_count - vol_cfg_1.leb_count - vol_cfg_2.leb_count -
 			      vol_cfg_3.leb_count,
-		      info_after_write.free_leb_count);
+		      info_after_write.free_peb_count);
 
 	/* 8. Read data from volumes LEBs */
 	rdata_idx = 0;
@@ -621,10 +621,10 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 
 	/* 7. Read device info */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_write));
-	zassert_equal(vol_cfg_1.leb_count, info_after_write.allocated_leb_count);
-	zassert_equal(1, info_after_write.volumes_count);
-	zassert_equal(info_after_init.free_leb_count - ARRAY_SIZE(leb),
-		      info_after_write.free_leb_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_write.allocated_peb_count);
+	zassert_equal(1, info_after_write.volume_count);
+	zassert_equal(info_after_init.free_peb_count - ARRAY_SIZE(leb),
+		      info_after_write.free_peb_count);
 
 	/* 8. Read data from volume LEBs */
 	for (size_t i = 0; i < ARRAY_SIZE(leb); ++i) {

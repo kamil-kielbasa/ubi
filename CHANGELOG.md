@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-26
+
+### Added
+
+- `ubi_cache.h` / `ubi_cache.c`: extracted red-black tree cache module.
+- `ubi_internal.h`: shared internal types and helpers.
+- Coverage tests: `leb_write_all_pebs_exhausted`, `leb_map_all_pebs_exhausted`.
+- CI step to measure ARM flash usage on `b_u585i_iot02a` with artifact upload.
+- Roadmap entries: bad block torture test, volume module simplification.
+
+### Changed
+
+- Restructured monolithic `ubi.c` into `ubi_core.c`, `ubi_volume.c`, `ubi_leb.c`.
+- Renamed `ubi_utils.h` / `ubi_utils.c` to `ubi_io.h` / `ubi_io.c`.
+- Renamed `ubi_device_info` fields from `leb_*` to `peb_*` naming (tracks physical erase blocks).
+- Renamed cache functions `ubi_rbt_cmp` / `ubi_rbt_search` to `ubi_cache_cmp` / `ubi_cache_search`.
+- Decomposed `ubi_device_init` into 4 sub-functions.
+- Decomposed `init_scan_pebs` into 5 helpers (`validate_ec_header`, `validate_vid_header`, `classify_orphan_peb`, `map_leb_first_occurrence`, `resolve_duplicate_leb`).
+- Scoped `flash_area_open` / `close` per PEB operation.
+- Deduplicated volume header ops with `validate_dual_bank()` and `commit_dual_bank()`.
+- Extracted `find_volume()` helper.
+- Replaced numbered comments with descriptive ones.
+- Overhauled Doxygen on all public headers.
+- Updated Kconfig: Zephyr logging template, `depends on FLASH && FLASH_MAP && CRC`, range constraint.
+- Unified condition style from Yoda (`0 != ret`) to standard (`ret != 0`).
+- Updated all file dates to 2026-03-26.
+- Removed Kconfig copyright header.
+
+### Fixed
+
+- 11 bugs from code quality audit.
+- Volume type Doxygen: static = fixed LEB count, dynamic = resizable.
+- Typo in `ubi_volume_remove()`: "readd" → "read".
+- `init_scan_pebs` L237: bare `return` on VID read failure converted to `continue` with bad block classification (consistent with EC failure handling).
+- Memory leak in `init_scan_pebs` duplicate-LEB path when existing PEB header read fails.
+
+### Removed
+
+- Dead code eliminated during file restructure.
+
 ## [0.8.0] - 2026-03-25
 
 ### Added

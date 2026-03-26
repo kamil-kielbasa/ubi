@@ -65,7 +65,23 @@ Flash the **sample** application:
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/sample/zephyr/zephyr.hex
 ```
 
-## 6. Serial Console
+## 6. Measure Flash Usage
+
+After building for the ARM target, measure the UBI library footprint:
+
+```sh
+arm-none-eabi-size build/stm32u5/tests/modules/ubi/lib/lib..__ubi__lib.a
+```
+
+For a per-section breakdown:
+
+```sh
+arm-none-eabi-size -A build/stm32u5/tests/modules/ubi/lib/lib..__ubi__lib.a
+```
+
+The CI pipeline also collects this measurement automatically (see the `flash-usage` build artifact).
+
+## 7. Serial Console
 
 Open a serial terminal to view log output:
 

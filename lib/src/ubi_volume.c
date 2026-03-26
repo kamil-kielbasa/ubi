@@ -1,0 +1,375 @@
+/**
+ * \file    ubi_volume.c
+ * \author  Kamil Kielbasa
+ * \brief   UBI volume management: create, resize, remove, get_info.
+ * \version 0.9
+ * \date    2026-03-26
+ *
+ * \copyright Copyright (c) 2025
+ *
+ */
+
+/* Include files ------------------------------------------------------------------------------- */
+
+/* Internal headers: */
+#include "ubi_internal.h"
+
+/* Zephyr headers: */
+#include <zephyr/logging/log.h>
+#include <zephyr/sys/crc.h>
+
+/* Standard library headers: */
+#include <errno.h>
+#include <string.h>
+
+/* Module defines ------------------------------------------------------------------------------ */
+
+LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
+
+/* Module interface function definitions ------------------------------------------------------- */
+
+int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id)
+{
+	int ret = -EIO;
+
+	if (!ubi || !vol_cfg || !vol_id)
+		return -EINVAL;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	/* Return existing volume if name already exists. */
+	const size_t name_len = strnlen(vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
+
+	struct ubi_rbt_item *entry = NULL;
+	RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
+	{
+		const struct ubi_volume *vol = entry->value.vol;
+		const size_t len = strnlen(vol->cfg.name, UBI_VOLUME_NAME_MAX_LEN);
+
+		if (name_len == len && memcmp(vol_cfg->name, vol->cfg.name, name_len) == 0) {
+			*vol_id = vol->vol_id;
+			ret = 0;
+			goto exit;
+		}
+	}
+
+	/* Allocate and persist a new volume. */
+	struct ubi_device_info info = { 0 };
+	ret = ubi_device_get_info(ubi, &info);
+
+	if (ret != 0) {
+		LOG_ERR("UBI device get info failure");
+		goto exit;
+	}
+
+	const size_t total_free_pebs = info.total_peb_count - info.allocated_peb_count;
+	if (vol_cfg->leb_count > total_free_pebs) {
+		LOG_ERR("Failed to allocate PEBs for volume");
+		ret = -ENOSPC;
+		goto exit;
+	}
+
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Device header read failure");
+		goto exit;
+	}
+
+	struct ubi_dev_hdr new_dev_hdr = dev_hdr;
+	new_dev_hdr.revision += 1;
+	new_dev_hdr.vol_count += 1;
+	new_dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_dev_hdr,
+					 sizeof(new_dev_hdr) - sizeof(new_dev_hdr.hdr_crc));
+
+	struct ubi_vol_hdr new_vol_hdr = { 0 };
+	new_vol_hdr.magic = UBI_VOL_HDR_MAGIC;
+	new_vol_hdr.version = UBI_VOL_HDR_VERSION;
+	new_vol_hdr.vol_type = vol_cfg->type;
+	new_vol_hdr.vol_id = ubi->vol_next_id++;
+	new_vol_hdr.leb_count = vol_cfg->leb_count;
+	strncpy(new_vol_hdr.name, vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
+	new_vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_vol_hdr,
+					 sizeof(new_vol_hdr) - sizeof(new_vol_hdr.hdr_crc));
+
+	ret = ubi_vol_hdr_append(&ubi->mtd, &new_dev_hdr, &new_vol_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Volume header append failure");
+		goto exit;
+	}
+
+	struct ubi_volume *vol = k_malloc(sizeof(*vol));
+	if (!vol) {
+		LOG_ERR("Heap allocation failure");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	memset(vol, 0, sizeof(*vol));
+	vol->vol_idx = new_dev_hdr.vol_count - 1;
+	vol->vol_id = new_vol_hdr.vol_id;
+	memcpy(vol->cfg.name, new_vol_hdr.name, strlen(new_vol_hdr.name));
+	vol->cfg.type = new_vol_hdr.vol_type;
+	vol->cfg.leb_count = new_vol_hdr.leb_count;
+	vol->eba_tbl_count = 0;
+	vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
+
+	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+	if (!item) {
+		LOG_ERR("Heap allocation failure");
+		k_free(vol);
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	item->key = vol->vol_id;
+	item->value.vol = vol;
+	rb_insert(&ubi->vols, &item->node);
+	ubi->vol_count += 1;
+
+	*vol_id = vol->vol_id;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
+}
+
+int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volume_config *vol_cfg)
+{
+	int ret = -EIO;
+
+	if (!ubi || !vol_cfg)
+		return -EINVAL;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
+
+	if (!vol) {
+		ret = -ENOENT;
+		goto exit;
+	}
+
+	if (UBI_VOLUME_TYPE_DYNAMIC != vol->cfg.type) {
+		LOG_ERR("Static volume cannot be resized");
+		ret = -ECANCELED;
+		goto exit;
+	}
+
+	if (vol_cfg->leb_count == vol->cfg.leb_count) {
+		LOG_ERR("Cannot resize for the same count of LEBs");
+		ret = -ECANCELED;
+		goto exit;
+	}
+
+	if (vol_cfg->leb_count > vol->cfg.leb_count) {
+		struct ubi_device_info info = { 0 };
+		ret = ubi_device_get_info(ubi, &info);
+
+		if (ret != 0) {
+			LOG_ERR("Device get info failure");
+			goto exit;
+		}
+
+		const size_t avail = info.total_peb_count - info.allocated_peb_count;
+		const size_t diff = vol_cfg->leb_count - vol->cfg.leb_count;
+
+		if (diff > avail) {
+			LOG_ERR("Lack of available for allocation LEBs");
+			ret = -ENOSPC;
+			goto exit;
+		}
+	} else {
+		const size_t diff = vol->cfg.leb_count - vol_cfg->leb_count;
+
+		if (diff == 0) {
+			LOG_ERR("Cannot resize volume to zero LEBs");
+			ret = -ECANCELED;
+			goto exit;
+		}
+
+		for (size_t lnum = (vol->cfg.leb_count - diff); lnum < vol->cfg.leb_count; ++lnum) {
+			struct ubi_rbt_item *item = ubi_cache_search(&vol->eba_tbl, lnum);
+
+			if (item) {
+				rb_remove(&vol->eba_tbl, &item->node);
+				vol->eba_tbl_count -= 1;
+
+				struct ubi_ec_hdr ec_hdr = { 0 };
+				ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+
+				if (ret != 0) {
+					LOG_ERR("EC header read failure");
+					goto exit;
+				}
+
+				item->key = ec_hdr.ec;
+				rb_insert(&ubi->dirty_pebs, &item->node);
+				ubi->dirty_peb_count += 1;
+			}
+		}
+	}
+
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Device header read failure");
+		goto exit;
+	}
+
+	dev_hdr.revision += 1;
+	dev_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
+
+	struct ubi_vol_hdr vol_hdr = { 0 };
+	ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Volume header read failure");
+		goto exit;
+	}
+
+	vol_hdr.leb_count = vol_cfg->leb_count;
+	vol_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vol_hdr, sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
+
+	ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Volume header update failure");
+		goto exit;
+	}
+
+	vol->cfg.leb_count = vol_cfg->leb_count;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
+}
+
+int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
+{
+	int ret = -EIO;
+
+	if (!ubi)
+		return -EINVAL;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	if (ubi->vol_count == 0) {
+		LOG_ERR("No volumes present on device");
+		ret = -ENOENT;
+		goto exit;
+	}
+
+	struct ubi_rbt_item *entry = ubi_cache_search(&ubi->vols, vol_id);
+
+	if (!entry) {
+		LOG_ERR("Device volume not found");
+		ret = -ENOENT;
+		goto exit;
+	}
+
+	struct ubi_dev_hdr dev_hdr = { 0 };
+	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Device header read failure");
+		goto exit;
+	}
+
+	dev_hdr.vol_count -= 1;
+	dev_hdr.revision += 1;
+	dev_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
+
+	struct ubi_volume *vol = entry->value.vol;
+	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_idx);
+
+	if (ret != 0) {
+		LOG_ERR("Volume header remove failure");
+		goto exit;
+	}
+
+	struct rbnode *eba_node = NULL;
+
+	while ((eba_node = rb_get_min(&vol->eba_tbl))) {
+		struct ubi_rbt_item *item = CONTAINER_OF(eba_node, struct ubi_rbt_item, node);
+
+		rb_remove(&vol->eba_tbl, &item->node);
+		vol->eba_tbl_count -= 1;
+
+		struct ubi_ec_hdr ec_hdr = { 0 };
+		ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+
+		if (ret != 0) {
+			LOG_ERR("EC header read failure");
+			k_free(item);
+			goto exit;
+		}
+
+		item->key = ec_hdr.ec;
+		rb_insert(&ubi->dirty_pebs, &item->node);
+		ubi->dirty_peb_count += 1;
+	}
+
+	rb_remove(&ubi->vols, &entry->node);
+	ubi->vol_count -= 1;
+
+	k_free(entry->value.vol);
+	k_free(entry);
+
+	for (size_t vol_idx = 0; vol_idx < dev_hdr.vol_count; ++vol_idx) {
+		struct ubi_vol_hdr vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(&ubi->mtd, vol_idx, &vol_hdr);
+
+		if (ret != 0) {
+			LOG_ERR("Volume header read failure");
+			goto exit;
+		}
+
+		entry = ubi_cache_search(&ubi->vols, vol_hdr.vol_id);
+
+		if (!entry) {
+			LOG_ERR("Inconsistency between cache and nvm");
+			ret = -EIO;
+			goto exit;
+		}
+
+		vol = entry->value.vol;
+		vol->vol_idx = vol_idx;
+	}
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
+}
+
+int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
+			size_t *alloc_lebs)
+{
+	if (!ubi || vol_id < 0 || !vol_cfg || !alloc_lebs)
+		return -EINVAL;
+
+	int ret = -EIO;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
+
+	if (!vol) {
+		ret = -ENOENT;
+		goto exit;
+	}
+
+	*vol_cfg = vol->cfg;
+	*alloc_lebs = vol->eba_tbl_count;
+	ret = 0;
+
+exit:
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
+}

@@ -5,8 +5,8 @@
  *
  * \brief   Tests for UBI init-time corruption recovery and PEB classification.
  *
- * \version 0.6
- * \date    2026-03-24
+ * \version 0.9
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -23,10 +23,14 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/toolchain/common.h>
+#include <zephyr/sys/sys_heap.h>
 #include <zephyr/sys/crc.h>
 
-#include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------ */
@@ -77,6 +81,8 @@ static struct ubi_mtd mtd = { 0 };
 /* Static function declarations ---------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 static void raw_write_ec_hdr(const struct flash_area *fa, size_t pnum, size_t erase_block_size,
@@ -94,22 +100,36 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
+	const size_t write_block_size = flash_get_write_block_size(flash_dev);
+	const size_t erase_block_size = page_info.size;
+
 	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	mtd.erase_block_size = erase_block_size;
+	mtd.write_block_size = write_block_size;
 
 	return NULL;
+}
+
+static void ztest_suite_after(void *ctx)
+{
+	(void)ctx;
+
+	return;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
+
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
+
+	return;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
 	(void)ctx;
+	return;
 }
 
 /**
@@ -156,7 +176,7 @@ static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t e
 /* Module interface function definitions ------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_recovery, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
-	    NULL);
+	    ztest_suite_after);
 
 /**
  * \brief Verify that a PEB with a corrupt EC header is classified as bad during init.
@@ -168,9 +188,9 @@ ZTEST_SUITE(ubi_recovery, NULL, ztest_suite_setup, ztest_testcase_before, ztest_
  *          This exercises init scan branch 4.1 (EC header read failure).
  *
  * \expect ubi_device_init() succeeds. ubi_device_get_info() reports
- *         bad_leb_count >= 1, confirming the corrupted PEB was isolated.
+ *         bad_peb_count >= 1, confirming the corrupted PEB was isolated.
  */
-ZTEST(ubi_recovery, test_corrupt_ec_header_becomes_bad_peb)
+ZTEST(ubi_recovery, corrupt_ec_header_becomes_bad_peb)
 {
 	/* First, do a normal init + deinit so device/volume headers exist. */
 	struct ubi_device *ubi = NULL;
@@ -209,7 +229,7 @@ ZTEST(ubi_recovery, test_corrupt_ec_header_becomes_bad_peb)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.bad_leb_count >= 1, "Expected at least 1 bad PEB after EC corruption");
+	zassert_true(info.bad_peb_count >= 1, "Expected at least 1 bad PEB after EC corruption");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -224,10 +244,10 @@ ZTEST(ubi_recovery, test_corrupt_ec_header_becomes_bad_peb)
  *          This exercises init scan branch 4.3 (VID CRC validation failure).
  *
  * \expect ubi_device_init() succeeds. ubi_device_get_info() reports
- *         bad_leb_count >= 1, confirming the PEB with the bad VID CRC
+ *         bad_peb_count >= 1, confirming the PEB with the bad VID CRC
  *         was isolated as a bad block.
  */
-ZTEST(ubi_recovery, test_corrupt_vid_crc_becomes_bad_peb)
+ZTEST(ubi_recovery, corrupt_vid_crc_becomes_bad_peb)
 {
 	/* Normal init to set up device/volume headers. */
 	struct ubi_device *ubi = NULL;
@@ -281,7 +301,7 @@ ZTEST(ubi_recovery, test_corrupt_vid_crc_becomes_bad_peb)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.bad_leb_count >= 1,
+	zassert_true(info.bad_peb_count >= 1,
 		     "Expected at least 1 bad PEB after VID CRC corruption");
 
 	zassert_ok(ubi_device_deinit(ubi));
@@ -297,10 +317,10 @@ ZTEST(ubi_recovery, test_corrupt_vid_crc_becomes_bad_peb)
  *          This exercises init scan branch 4.2 (empty VID detection).
  *
  * \expect ubi_device_init() succeeds. ubi_device_get_info() reports
- *         free_leb_count >= 1, confirming the PEB was classified as free
+ *         free_peb_count >= 1, confirming the PEB was classified as free
  *         and available for allocation.
  */
-ZTEST(ubi_recovery, test_valid_ec_empty_vid_becomes_free_peb)
+ZTEST(ubi_recovery, valid_ec_empty_vid_becomes_free_peb)
 {
 	/* Normal init so device/volume headers are written. */
 	struct ubi_device *ubi = NULL;
@@ -325,7 +345,7 @@ ZTEST(ubi_recovery, test_valid_ec_empty_vid_becomes_free_peb)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.free_leb_count >= 1, "PEB with valid EC + empty VID should be free");
+	zassert_true(info.free_peb_count >= 1, "PEB with valid EC + empty VID should be free");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -340,10 +360,10 @@ ZTEST(ubi_recovery, test_valid_ec_empty_vid_becomes_free_peb)
  *          This exercises init scan branch 4.4.3 (volume not found).
  *
  * \expect ubi_device_init() succeeds. ubi_device_get_info() reports
- *         dirty_leb_count >= 1, confirming the orphaned PEB was classified
+ *         dirty_peb_count >= 1, confirming the orphaned PEB was classified
  *         as dirty and is eligible for erasure and reuse.
  */
-ZTEST(ubi_recovery, test_vid_orphan_volume_becomes_dirty_peb)
+ZTEST(ubi_recovery, vid_orphan_volume_becomes_dirty_peb)
 {
 	/* Init and create a volume, then deinit. */
 	struct ubi_device *ubi = NULL;
@@ -380,7 +400,7 @@ ZTEST(ubi_recovery, test_vid_orphan_volume_becomes_dirty_peb)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.dirty_leb_count >= 1, "Orphan vol_id VID should produce dirty PEB");
+	zassert_true(info.dirty_peb_count >= 1, "Orphan vol_id VID should produce dirty PEB");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -398,12 +418,12 @@ ZTEST(ubi_recovery, test_vid_orphan_volume_becomes_dirty_peb)
  *          This exercises init scan branches 4.4.7.1 (lower sqnum → dirty) and
  *          4.4.7.2 (higher sqnum replaces in EBA).
  *
- * \expect ubi_device_init() succeeds. dirty_leb_count >= 1 (the lower-sqnum
+ * \expect ubi_device_init() succeeds. dirty_peb_count >= 1 (the lower-sqnum
  *         duplicate was moved to dirty). Reading LEB 0 returns the data from
  *         the second write (the one with the higher sqnum), confirming correct
  *         conflict resolution.
  */
-ZTEST(ubi_recovery, test_duplicate_leb_sqnum_conflict_resolution)
+ZTEST(ubi_recovery, duplicate_leb_sqnum_conflict_resolution)
 {
 	/* Init, create a volume, write data to LEB 0, deinit. */
 	struct ubi_device *ubi = NULL;
@@ -480,7 +500,7 @@ ZTEST(ubi_recovery, test_duplicate_leb_sqnum_conflict_resolution)
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
 	/* The lower-sqnum duplicate should be classified as dirty. */
-	zassert_true(info.dirty_leb_count >= 1, "Lower-sqnum duplicate should become dirty");
+	zassert_true(info.dirty_peb_count >= 1, "Lower-sqnum duplicate should become dirty");
 
 	/* LEB 0 should still contain the newer data. */
 	uint8_t rdata[4] = { 0 };
@@ -494,20 +514,20 @@ ZTEST(ubi_recovery, test_duplicate_leb_sqnum_conflict_resolution)
  * \brief Verify that ubi_device_erase_peb() is a safe no-op when no dirty PEBs exist.
  *
  * \details Scenario: Initialize a clean device with no volumes and no prior
- *          write activity. Confirm dirty_leb_count is 0. Call
+ *          write activity. Confirm dirty_peb_count is 0. Call
  *          ubi_device_erase_peb().
  *
- * \expect The call returns 0. Device state (free_leb_count, dirty_leb_count)
+ * \expect The call returns 0. Device state (free_peb_count, dirty_peb_count)
  *         remains unchanged, confirming no unintended side effects.
  */
-ZTEST(ubi_recovery, test_erase_peb_no_dirty)
+ZTEST(ubi_recovery, erase_peb_no_dirty)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(0, info.dirty_leb_count);
+	zassert_equal(0, info.dirty_peb_count);
 
 	/* Erase with nothing dirty should be a no-op. */
 	zassert_ok(ubi_device_erase_peb(ubi));
@@ -515,8 +535,8 @@ ZTEST(ubi_recovery, test_erase_peb_no_dirty)
 	/* Device state should be unchanged. */
 	struct ubi_device_info info2;
 	zassert_ok(ubi_device_get_info(ubi, &info2));
-	zassert_equal(info.free_leb_count, info2.free_leb_count);
-	zassert_equal(0, info2.dirty_leb_count);
+	zassert_equal(info.free_peb_count, info2.free_peb_count);
+	zassert_equal(0, info2.dirty_peb_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -534,7 +554,7 @@ ZTEST(ubi_recovery, test_erase_peb_no_dirty)
  * \expect ubi_device_init() returns a non-zero error code. The output ubi pointer
  *         is set to NULL, confirming proper cleanup after the failure.
  */
-ZTEST(ubi_recovery, test_init_fails_with_corrupt_vol_header)
+ZTEST(ubi_recovery, init_fails_with_corrupt_vol_header)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -584,10 +604,10 @@ ZTEST(ubi_recovery, test_init_fails_with_corrupt_vol_header)
  *          free PEB. Since the volume header says leb_count=1, LEB=1 is out of
  *          bounds and init scan branch 4.4.4 classifies it as dirty.
  *
- * \expect ubi_device_init() succeeds. dirty_leb_count >= 1 because the
+ * \expect ubi_device_init() succeeds. dirty_peb_count >= 1 because the
  *         out-of-bounds LEB was moved to the dirty list. LEB 0 data is intact.
  */
-ZTEST(ubi_recovery, test_leb_exceeds_volume_count_becomes_dirty)
+ZTEST(ubi_recovery, leb_exceeds_volume_count_becomes_dirty)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -617,7 +637,7 @@ ZTEST(ubi_recovery, test_leb_exceeds_volume_count_becomes_dirty)
 	/* Erase dirty PEBs so the old LEB 1 PEB becomes free. */
 	struct ubi_device_info info_pre;
 	zassert_ok(ubi_device_get_info(ubi, &info_pre));
-	for (size_t i = 0; i < info_pre.dirty_leb_count + 1; ++i)
+	for (size_t i = 0; i < info_pre.dirty_peb_count + 1; ++i)
 		zassert_ok(ubi_device_erase_peb(ubi));
 
 	zassert_ok(ubi_device_deinit(ubi));
@@ -660,7 +680,7 @@ ZTEST(ubi_recovery, test_leb_exceeds_volume_count_becomes_dirty)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.dirty_leb_count >= 1, "Out-of-bounds LEB should produce dirty PEB");
+	zassert_true(info.dirty_peb_count >= 1, "Out-of-bounds LEB should produce dirty PEB");
 
 	/* LEB 0 data should still be intact. */
 	uint8_t rdata[2] = { 0 };
@@ -681,10 +701,10 @@ ZTEST(ubi_recovery, test_leb_exceeds_volume_count_becomes_dirty)
  *          bad during init phase 4.1. The injected PEB is then inserted normally
  *          via phase 4.4.5.
  *
- * \expect ubi_device_init() succeeds. bad_leb_count >= 1 (the PEB with the corrupt
+ * \expect ubi_device_init() succeeds. bad_peb_count >= 1 (the PEB with the corrupt
  *         EC was moved to bad blocks).
  */
-ZTEST(ubi_recovery, test_duplicate_leb_with_corrupt_existing_ec)
+ZTEST(ubi_recovery, duplicate_leb_with_corrupt_existing_ec)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -751,7 +771,7 @@ ZTEST(ubi_recovery, test_duplicate_leb_with_corrupt_existing_ec)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.bad_leb_count >= 1, "PEB with corrupt EC should be bad");
+	zassert_true(info.bad_peb_count >= 1, "PEB with corrupt EC should be bad");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -766,9 +786,9 @@ ZTEST(ubi_recovery, test_duplicate_leb_with_corrupt_existing_ec)
  *          should be replaced: older goes dirty, newer stays in EBA.
  *          This verifies init scan branch 4.4.7.2 with the higher sqnum winning.
  *
- * \expect ubi_device_init() succeeds. dirty_leb_count >= 1.
+ * \expect ubi_device_init() succeeds. dirty_peb_count >= 1.
  */
-ZTEST(ubi_recovery, test_duplicate_leb_higher_sqnum_replaces_existing)
+ZTEST(ubi_recovery, duplicate_leb_higher_sqnum_replaces_existing)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
@@ -818,10 +838,12 @@ ZTEST(ubi_recovery, test_duplicate_leb_higher_sqnum_replaces_existing)
 	raw_write_vid_hdr(fa, free_peb, mtd.erase_block_size, 0, (uint32_t)vol_id, 9999,
 			  sizeof(data_new));
 
-	/* Write the data payload after VID header. */
+	/* Pad the raw write to flash write-block alignment (hardware requirement). */
+	uint8_t aligned_buf[16] = { 0 };
+	memcpy(aligned_buf, data_new, sizeof(data_new));
 	zassert_ok(flash_area_write(fa,
 				    (free_peb * mtd.erase_block_size) + EC_HDR_SIZE + VID_HDR_SIZE,
-				    data_new, sizeof(data_new)));
+				    aligned_buf, sizeof(aligned_buf)));
 
 	flash_area_close(fa);
 
@@ -830,7 +852,7 @@ ZTEST(ubi_recovery, test_duplicate_leb_higher_sqnum_replaces_existing)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_true(info.dirty_leb_count >= 1, "Lower-sqnum PEB should become dirty");
+	zassert_true(info.dirty_peb_count >= 1, "Lower-sqnum PEB should become dirty");
 
 	/* Reading LEB 0 should return the new data. */
 	uint8_t rdata[3] = { 0 };

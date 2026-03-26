@@ -6,7 +6,7 @@
  * \brief   Hardware tests for Unsorted Block Images (UBI) mixed scenarios.
  *
  * \version 0.5
- * \date    2025-09-25
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -254,8 +254,8 @@ ZTEST(ubi_mixed, scenario_1)
 	/* 3. Cycle of write volumes LEBs */
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.leb_total_count, info.free_leb_count);
-	zassert_equal(0, info.dirty_leb_count);
+	zassert_equal(info.total_peb_count, info.free_peb_count);
+	zassert_equal(0, info.dirty_peb_count);
 
 	wdata_idx = 0;
 	for (size_t vol_idx = 0; vol_idx < ARRAY_SIZE(volumes_id); ++vol_idx) {
@@ -268,8 +268,8 @@ ZTEST(ubi_mixed, scenario_1)
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(0, info.free_leb_count);
-	zassert_equal(0, info.dirty_leb_count);
+	zassert_equal(0, info.free_peb_count);
+	zassert_equal(0, info.dirty_peb_count);
 
 	rdata_idx = 0;
 	for (size_t vol_idx = 0; vol_idx < ARRAY_SIZE(volumes_id); ++vol_idx) {
@@ -291,8 +291,8 @@ ZTEST(ubi_mixed, scenario_1)
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(0, info.free_leb_count);
-	zassert_equal(0, info.dirty_leb_count);
+	zassert_equal(0, info.free_peb_count);
+	zassert_equal(0, info.dirty_peb_count);
 
 	/* 4. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
@@ -345,8 +345,8 @@ ZTEST(ubi_mixed, scenario_1)
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.leb_total_count, info.free_leb_count);
-	zassert_equal(0, info.dirty_leb_count);
+	zassert_equal(info.total_peb_count, info.free_peb_count);
+	zassert_equal(0, info.dirty_peb_count);
 
 	/* 8. Remove first volume */
 	zassert_ok(ubi_volume_remove(ubi, vol_id_1));
@@ -355,11 +355,11 @@ ZTEST(ubi_mixed, scenario_1)
 	zassert_ok(ubi_volume_resize(ubi, vol_id_2, &new_vol_cfg_2));
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.leb_total_count, info.allocated_leb_count);
-	zassert_equal(1, info.volumes_count);
-	zassert_equal(info.leb_total_count, info.free_leb_count);
-	zassert_equal(0, info.dirty_leb_count);
-	zassert_equal(0, info.bad_leb_count);
+	zassert_equal(info.total_peb_count, info.allocated_peb_count);
+	zassert_equal(1, info.volume_count);
+	zassert_equal(info.total_peb_count, info.free_peb_count);
+	zassert_equal(0, info.dirty_peb_count);
+	zassert_equal(0, info.bad_peb_count);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	read_alloc_lebs = 0;
@@ -395,11 +395,11 @@ ZTEST(ubi_mixed, scenario_1)
 	zassert_ok(ubi_volume_resize(ubi, vol_id_2, &new_vol_cfg_2));
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(new_vol_cfg_2.leb_count, info.allocated_leb_count);
-	zassert_equal(1, info.volumes_count);
-	zassert_equal(info.leb_total_count - 3, info.free_leb_count);
-	zassert_equal(1, info.dirty_leb_count);
-	zassert_equal(0, info.bad_leb_count);
+	zassert_equal(new_vol_cfg_2.leb_count, info.allocated_peb_count);
+	zassert_equal(1, info.volume_count);
+	zassert_equal(info.total_peb_count - 3, info.free_peb_count);
+	zassert_equal(1, info.dirty_peb_count);
+	zassert_equal(0, info.bad_peb_count);
 
 	/* 10. Create third volume */
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_3, &vol_id_3));

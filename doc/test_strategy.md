@@ -119,7 +119,7 @@ Recovery tests use raw `flash_area_write()` to inject corrupt headers:
 1. Initialize UBI normally (creates device/volume headers on reserved PEBs)
 2. Deinit
 3. Directly write corrupt EC or VID headers on data PEBs
-4. Re-init and verify PEB classification (`bad_leb_count`, `dirty_leb_count`, etc.)
+4. Re-init and verify PEB classification (`bad_peb_count`, `dirty_peb_count`, etc.)
 
 ### Compile Flags
 

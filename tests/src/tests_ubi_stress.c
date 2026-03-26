@@ -7,8 +7,8 @@
  *          These tests perform heavy flash I/O and must NOT run on real hardware
  *          to avoid premature flash wear.
  *
- * \version 0.6
- * \date    2026-03-24
+ * \version 0.9
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -26,10 +26,13 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/toolchain/common.h>
 #include <zephyr/sys/sys_heap.h>
 
-#include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------ */
@@ -52,6 +55,8 @@ extern struct sys_heap _system_heap;
 /* Static function declarations ---------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
@@ -65,33 +70,47 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
+	const size_t write_block_size = flash_get_write_block_size(flash_dev);
+	const size_t erase_block_size = page_info.size;
+
 	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	mtd.erase_block_size = erase_block_size;
+	mtd.write_block_size = write_block_size;
 
 	return NULL;
+}
+
+static void ztest_suite_after(void *ctx)
+{
+	(void)ctx;
+
+	return;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
+
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
+
+	return;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
 	(void)ctx;
+	return;
 }
 
 /* Module interface function definitions ------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_stress, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
-	    NULL);
+	    ztest_suite_after);
 
 /**
  * \brief Verify that wear-leveling distributes erase cycles evenly across PEBs.
  *
- * \details Scenario: Create a static volume with 1 LEB. Perform 3×leb_total_count
+ * \details Scenario: Create a static volume with 1 LEB. Perform 3×total_peb_count
  *          write-then-erase cycles to stress the greedy wear-leveling algorithm.
  *          Retrieve per-PEB erase counters via ubi_device_get_peb_ec().
  *
@@ -115,7 +134,7 @@ ZTEST(ubi_stress, wear_leveling_distribution)
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
 	const uint8_t data[] = { 0xCA, 0xFE };
-	const size_t cycles = info.leb_total_count * 3;
+	const size_t cycles = info.total_peb_count * 3;
 
 	for (size_t i = 0; i < cycles; i++) {
 		zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
@@ -201,7 +220,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 		struct ubi_device_info info;
 		zassert_ok(ubi_device_get_info(ubi, &info));
 
-		for (size_t d = 0; d < info.dirty_leb_count; d++) {
+		for (size_t d = 0; d < info.dirty_peb_count; d++) {
 			zassert_ok(ubi_device_erase_peb(ubi));
 		}
 	}
@@ -216,7 +235,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
  * \brief Verify behavior when the entire flash partition is full.
  *
  * \details Scenario: Create a static volume whose leb_count equals the total
- *          number of available PEBs (leb_total_count). Write the same 4-byte
+ *          number of available PEBs (total_peb_count). Write the same 4-byte
  *          pattern to every LEB, consuming all free PEBs. Attempt one more
  *          write (overwrite LEB 0), which requires a free PEB that no longer
  *          exists. Read all LEBs back.
@@ -235,7 +254,7 @@ ZTEST(ubi_stress, fill_entire_partition)
 	const struct ubi_volume_config cfg = {
 		.name = "fill",
 		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = info.leb_total_count,
+		.leb_count = info.total_peb_count,
 	};
 	int vol_id;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
@@ -243,7 +262,7 @@ ZTEST(ubi_stress, fill_entire_partition)
 	const uint8_t data[] = { 0xFF, 0x00, 0xAA, 0x55 };
 
 	/* Fill all LEBs */
-	for (size_t lnum = 0; lnum < info.leb_total_count; lnum++) {
+	for (size_t lnum = 0; lnum < info.total_peb_count; lnum++) {
 		zassert_ok(ubi_leb_write(ubi, vol_id, lnum, data, sizeof(data)));
 	}
 
@@ -254,7 +273,7 @@ ZTEST(ubi_stress, fill_entire_partition)
 	/* Verify all data is intact */
 	uint8_t rdata[4];
 
-	for (size_t lnum = 0; lnum < info.leb_total_count; lnum++) {
+	for (size_t lnum = 0; lnum < info.total_peb_count; lnum++) {
 		zassert_ok(ubi_leb_read(ubi, vol_id, lnum, 0, rdata, sizeof(rdata)));
 		zassert_mem_equal(rdata, data, sizeof(data));
 	}
@@ -300,7 +319,7 @@ ZTEST(ubi_stress, multiple_init_deinit_cycles)
 			/* Verify data persists across init/deinit cycles */
 			struct ubi_device_info info;
 			zassert_ok(ubi_device_get_info(ubi, &info));
-			zassert_equal(1, info.volumes_count);
+			zassert_equal(1, info.volume_count);
 
 			uint8_t rdata[2];
 			zassert_ok(ubi_leb_read(ubi, 0, 0, 0, rdata, sizeof(rdata)));

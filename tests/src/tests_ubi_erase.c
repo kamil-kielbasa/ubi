@@ -6,7 +6,7 @@
  * \brief   Hardware tests for Unsorted Block Images (UBI) erases.
  *
  * \version 0.5
- * \date    2025-09-25
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -155,8 +155,8 @@ ZTEST_SUITE(ubi_erase, NULL, ztest_suite_setup, ztest_testcase_before, ztest_tes
  *        dirty PEBs, and confirm erase counter progression.
  *
  * \details Scenario: Create a static volume with 1 LEB. Repeatedly write
- *          a 256-byte array (leb_total_count times), consuming all free PEBs
- *          via LEB overwrite. Verify free_leb_count=0 and dirty_leb_count=
+ *          a 256-byte array (total_peb_count times), consuming all free PEBs
+ *          via LEB overwrite. Verify free_peb_count=0 and dirty_peb_count=
  *          total-1. Unmap the LEB. Erase all dirty PEBs one by one, verifying
  *          counters at each step. After all erases, confirm all PEB erase
  *          counters are 1. Deinitialize, re-initialize, and verify persistence.
@@ -195,29 +195,29 @@ ZTEST(ubi_erase, one_volume_one_leb_operations_with_reboot)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_1, &vol_id_1));
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-	zassert_equal(vol_cfg_1.leb_count, info_after_init.allocated_leb_count);
-	zassert_equal(info_after_init.free_leb_count, info_after_init.leb_total_count);
-	zassert_equal(0, info_after_init.dirty_leb_count);
-	zassert_equal(1, info_after_init.volumes_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_init.allocated_peb_count);
+	zassert_equal(info_after_init.free_peb_count, info_after_init.total_peb_count);
+	zassert_equal(0, info_after_init.dirty_peb_count);
+	zassert_equal(1, info_after_init.volume_count);
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info_after_init.allocated_leb_count, vol_cfg_1.leb_count);
-	zassert_equal(1, info_after_init.volumes_count);
+	zassert_equal(info_after_init.allocated_peb_count, vol_cfg_1.leb_count);
+	zassert_equal(1, info_after_init.volume_count);
 
 	/* 3. Write data to LEB */
-	for (size_t i = 0; i < info_after_init.leb_total_count; ++i) {
+	for (size_t i = 0; i < info_after_init.total_peb_count; ++i) {
 		zassert_ok(ubi_leb_write(ubi, vol_id_1, lnum, array_256, ARRAY_SIZE(array_256)));
 
 		memset(&info, 0, sizeof(info));
 		zassert_ok(ubi_device_get_info(ubi, &info));
-		zassert_equal(info.free_leb_count, info.leb_total_count - i - 1);
-		zassert_equal(i, info.dirty_leb_count);
+		zassert_equal(info.free_peb_count, info.total_peb_count - i - 1);
+		zassert_equal(i, info.dirty_peb_count);
 	}
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(0, info.free_leb_count);
-	zassert_equal(info.leb_total_count - 1, info.dirty_leb_count);
+	zassert_equal(0, info.free_peb_count);
+	zassert_equal(info.total_peb_count - 1, info.dirty_peb_count);
 
 	/* 4. Read data from LEB */
 	size_t rdata_size = 0;
@@ -250,40 +250,40 @@ ZTEST(ubi_erase, one_volume_one_leb_operations_with_reboot)
 
 	/* 7. Get device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-	zassert_equal(vol_cfg_1.leb_count, info_after_init.allocated_leb_count);
-	zassert_equal(0, info_after_init.free_leb_count);
-	zassert_equal(info_after_init.leb_total_count - 1, info_after_init.dirty_leb_count);
-	zassert_equal(1, info_after_init.volumes_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_init.allocated_peb_count);
+	zassert_equal(0, info_after_init.free_peb_count);
+	zassert_equal(info_after_init.total_peb_count - 1, info_after_init.dirty_peb_count);
+	zassert_equal(1, info_after_init.volume_count);
 
 	/* 8. Unmap LEB and erase all dirty LEBs */
 	zassert_ok(ubi_leb_unmap(ubi, vol_id_1, lnum));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(0, info.free_leb_count);
-	zassert_equal(info.leb_total_count, info.dirty_leb_count);
+	zassert_equal(0, info.free_peb_count);
+	zassert_equal(info.total_peb_count, info.dirty_peb_count);
 
-	for (size_t i = 0; i < info.dirty_leb_count; ++i) {
+	for (size_t i = 0; i < info.dirty_peb_count; ++i) {
 		zassert_ok(ubi_device_erase_peb(ubi));
 
 		struct ubi_device_info _info = { 0 };
 		zassert_ok(ubi_device_get_info(ubi, &_info));
-		zassert_equal(i + 1, _info.free_leb_count);
-		zassert_equal(_info.leb_total_count - i - 1, _info.dirty_leb_count);
-		zassert_equal(_info.free_leb_count + _info.dirty_leb_count, _info.leb_total_count);
+		zassert_equal(i + 1, _info.free_peb_count);
+		zassert_equal(_info.total_peb_count - i - 1, _info.dirty_peb_count);
+		zassert_equal(_info.free_peb_count + _info.dirty_peb_count, _info.total_peb_count);
 	}
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.leb_total_count, info.free_leb_count);
-	zassert_equal(0, info.dirty_leb_count);
+	zassert_equal(info.total_peb_count, info.free_peb_count);
+	zassert_equal(0, info.dirty_peb_count);
 
 	/* 9. Verify internal EC header counters */
 	peb_ec = NULL;
 	len = 0;
 	zassert_ok(ubi_device_get_peb_ec(ubi, &peb_ec, &len));
 
-	zassert_equal(len, info.leb_total_count);
+	zassert_equal(len, info.total_peb_count);
 	for (size_t i = 0; i < len; ++i)
 		zassert_equal(1, peb_ec[i]);
 
@@ -383,8 +383,8 @@ ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 	};
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_leb_count, vol_cfg_1.leb_count + vol_cfg_2.leb_count);
-	zassert_equal(2, info.volumes_count);
+	zassert_equal(info.allocated_peb_count, vol_cfg_1.leb_count + vol_cfg_2.leb_count);
+	zassert_equal(2, info.volume_count);
 
 	/* 3. Cycles of write volumes LEBs */
 	for (size_t cycle = 0; cycle < ARRAY_SIZE(exp_ec_avr); ++cycle) {
@@ -392,7 +392,7 @@ ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 		len = 0;
 		zassert_ok(ubi_device_get_peb_ec(ubi, &peb_ec, &len));
 
-		zassert_equal(len, info.leb_total_count);
+		zassert_equal(len, info.total_peb_count);
 		for (size_t i = 0; i < len; ++i)
 			zassert_equal(exp_ec_avr[cycle], peb_ec[i]);
 
@@ -400,8 +400,8 @@ ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 
 		memset(&info, 0, sizeof(info));
 		zassert_ok(ubi_device_get_info(ubi, &info));
-		zassert_equal(info.leb_total_count, info.free_leb_count);
-		zassert_equal(0, info.dirty_leb_count);
+		zassert_equal(info.total_peb_count, info.free_peb_count);
+		zassert_equal(0, info.dirty_peb_count);
 
 		wdata_idx = 0;
 		for (size_t vol_idx = 0; vol_idx < ARRAY_SIZE(volumes_id); ++vol_idx) {
@@ -414,8 +414,8 @@ ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 
 		memset(&info, 0, sizeof(info));
 		zassert_ok(ubi_device_get_info(ubi, &info));
-		zassert_equal(0, info.free_leb_count);
-		zassert_equal(0, info.dirty_leb_count);
+		zassert_equal(0, info.free_peb_count);
+		zassert_equal(0, info.dirty_peb_count);
 
 		rdata_idx = 0;
 		for (size_t vol_idx = 0; vol_idx < ARRAY_SIZE(volumes_id); ++vol_idx) {
@@ -445,7 +445,7 @@ ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 			}
 		}
 
-		zassert_equal(info.leb_total_count, wdata_idx);
+		zassert_equal(info.total_peb_count, wdata_idx);
 		zassert_equal(wdata_idx, rdata_idx);
 		zassert_equal(rdata_idx, erase_idx);
 	}

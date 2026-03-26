@@ -5,7 +5,7 @@
  *
  * \author  Kamil Kielbasa
  * \version 0.5
- * \date    2025-09-25
+ * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  */
