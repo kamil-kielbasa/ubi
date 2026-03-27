@@ -9,6 +9,7 @@ zephyr_library_sources(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_leb.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_cache.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_io.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_res_peb.c
 )
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 

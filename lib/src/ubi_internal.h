@@ -2,8 +2,8 @@
  * \file    ubi_internal.h
  * \author  Kamil Kielbasa
  * \brief   UBI internal types and helpers shared across implementation files.
- * \version 0.9
- * \date    2026-03-26
+ * \version 0.10
+ * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  */
@@ -20,6 +20,7 @@
 /* Internal headers: */
 #include "ubi_cache.h"
 #include "ubi_io.h"
+#include "ubi_res_peb.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>

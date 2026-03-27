@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-27
+
+### Added
+
+- `ubi_res_peb.h` / `ubi_res_peb.c`: reserved PEB management module extracted from `ubi_io.c`.
+- `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` Kconfig option (range 2–4, default 2) for cold spare support.
+- Volume header validation in reserved PEB scan.
+- `data_size` boundary check in `ubi_leb_read()`.
+- 12 new tests (recovery, data_size boundary). Test count: 89 → 101.
+
+### Changed
+
+- Reserved PEB functions use `enum ubi_res_peb_state` and unified `ubi_res_peb_*` naming.
+- `ubi_res_peb_overwrite()` seeks immediate replacement on active PEB failure instead of batching.
+- `ubi_dev_is_mounted()` treats corrupt PEBs as evidence of a previously mounted device.
+
+### Fixed
+
+- Impossible validate condition (`active < 2 && spare == 0 && corrupt == 0` with N=2).
+
 ## [0.9.0] - 2026-03-26
 
 ### Added

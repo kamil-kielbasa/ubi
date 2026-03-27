@@ -77,7 +77,9 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | `lib/src/ubi_internal.h` | Shared internal types (`ubi_device`, `ubi_volume`) and helpers |
 | `lib/src/ubi_cache.h` | RBT and linked-list item types |
 | `lib/src/ubi_io.h` | On-flash header structures and constants |
-| `lib/src/ubi_io.c` | Low-level flash I/O, header read/write, dual-bank logic |
+| `lib/src/ubi_io.c` | Low-level flash I/O, header read/write, mount check |
+| `lib/src/ubi_res_peb.h` | Reserved PEB state types and API declarations |
+| `lib/src/ubi_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
 
 ---
 
@@ -522,41 +524,93 @@ This two-sided greedy approach naturally distributes wear across all PEBs:
 
 ## Dual-Bank Mechanism
 
-UBI stores device and volume metadata on two reserved PEBs (PEB 0 and PEB 1) as mirrors. This dual-bank approach protects against metadata corruption from unexpected power loss during header updates.
+UBI stores device and volume metadata on reserved PEBs as mirrors. The number of reserved PEBs is configurable via `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` (default 2, range 2–4). Two PEBs are always kept **active** (containing identical copies); additional PEBs serve as **cold spares** that are promoted when an active PEB fails.
+
+### PEB Classification
+
+| State | Description |
+|-------|-------------|
+| Active | Contains a valid device header (correct magic + CRC). Participates in dual-bank writes. |
+| Spare | Erased/empty (all `0xFF`). Never written until an active PEB fails. |
+| Corrupt | Contains invalid data (bad magic or CRC). Candidate for in-place recovery or abandonment. |
 
 ### Write Sequence
 
-When metadata changes (volume created, removed, or resized), UBI writes to both banks sequentially:
+When metadata changes (volume created, removed, or resized), UBI writes to both active PEBs sequentially:
 
 ```
-1. Erase PEB 0
-2. Write updated headers to PEB 0    --> BANK1_VALID state
-3. Erase PEB 1
-4. Write updated headers to PEB 1    --> BANKS_VALID state
+1. Erase active PEB 0
+2. Write updated headers to active PEB 0
+3. Erase active PEB 1
+4. Write updated headers to active PEB 1
 ```
 
-If power fails between steps 2 and 4, PEB 0 contains the new data while PEB 1 still has the old data. On next boot, this is detectable.
+If a write fails (dead PEB), UBI promotes a cold spare to replace it.
 
-### Bank States
+### Init-Time Recovery
+
+At `ubi_device_init()`, UBI scans all reserved PEBs (indices `0..N-1`):
 
 ```
-+----------------+    Both banks readable,    +---------------+
-| BANKS_INVALID  |    same CRC & revision     | BANKS_VALID   |
-| (unformatted)  | ---- First mount ---------> | (normal ops)  |
-+----------------+                            +-------+-------+
-                                                      |
-                                           Power loss during update
-                                                      |
-                               +--------------+-------+--------------+
-                               |                                     |
-                               v                                     v
-                        +--------------+                     +--------------+
-                        | BANK1_VALID  |                     | BANK2_VALID  |
-                        | (degraded)   |                     | (degraded)   |
-                        +--------------+                     +--------------+
+scan_reserved_pebs()
+  |
+  +-- All N PEBs valid?  --> Normal init (no recovery needed)
+  |
+  +-- >= 1 active + corrupt or spare PEBs?
+  |     |
+  |     +-- Read full content from active PEB (highest revision)
+  |     +-- For each corrupt PEB: erase + write canonical data
+  |     |     +-- Erase/write succeeds --> PEB recovered in-place
+  |     |     +-- Erase/write fails ----> PEB is dead, promote spare
+  |     +-- At least 2 active PEBs after recovery? --> Init succeeds
+  |
+  +-- 0 active PEBs?  --> Init fails (unrecoverable)
 ```
 
-**Current limitation:** Recovery from a single-bank-valid state (restoring the damaged bank from the valid one) is not yet implemented. In this state, `ubi_device_init()` returns `-ENOSYS`.
+### Runtime Recovery
+
+Volume operations (`ubi_vol_hdr_append`, `ubi_vol_hdr_remove`, `ubi_vol_hdr_update`) call `validate_reserved_pebs()` before committing. If a degraded state is detected, recovery is attempted transparently.
+
+### Read-Only Degraded Mode
+
+When only 1 active PEB remains and 0 spares are available, the system enters **read-only degraded mode**:
+
+- Volume data remains readable (`ubi_leb_read`, `ubi_dev_hdr_read`, `ubi_vol_hdr_read` work normally)
+- Metadata-mutating operations (`ubi_volume_create`, `ubi_volume_remove`, `ubi_volume_resize`) return `-EIO`
+- The system refuses to erase the last surviving copy to prevent total data loss
+
+### State Summary
+
+| Active PEBs | Spares | State | Can update metadata? |
+|---|---|---|---|
+| 2 | N−2 | Healthy | Yes |
+| 1 | ≥1 | Degraded | Yes (spare promoted during recovery) |
+| 1 | 0 | Critical | No — read-only mode |
+| 0 | any | Dead | No — cannot init |
+
+### PEB State Transitions
+
+```
++-------------------+
+|   SPARE (empty)   |
+|   all 0xFF        |
++--------+----------+
+         |
+         | (promoted during recovery
+         |  or overwrite when active fails)
+         v
++-------------------+    power loss / bit rot     +-------------------+
+|      ACTIVE       | --------------------------> |     CORRUPT       |
+|  valid dev hdr +  |                             | bad magic or CRC  |
+|  valid vol hdrs   |                             |                   |
++--------+----------+                             +--------+----------+
+         ^                                                 |
+         |        erase + write canonical content          |
+         +<------------------------------------------------+
+         |        (in-place recovery from other active)
+         |
+         +-- erase/write fails --> PEB is DEAD (stays corrupt)
+```
 
 ---
 

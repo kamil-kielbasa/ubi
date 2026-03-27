@@ -2,8 +2,8 @@
  * \file    ubi_leb.c
  * \author  Kamil Kielbasa
  * \brief   UBI LEB operations: write, read, map, unmap, is_mapped, get_size.
- * \version 0.9
- * \date    2026-03-26
+ * \version 0.10
+ * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  *
@@ -167,6 +167,22 @@ int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
 	if (!entry) {
 		LOG_ERR("LEB not found");
 		ret = -ENOENT;
+		goto exit;
+	}
+
+	/* Validate read range against actual data size stored in VID header */
+	struct ubi_vid_hdr vid_hdr = { 0 };
+	ret = ubi_vid_hdr_read(&ubi->mtd, entry->value.pnum, &vid_hdr, true);
+
+	if (ret != 0) {
+		LOG_ERR("VID header read failure");
+		goto exit;
+	}
+
+	if ((offset + len) > vid_hdr.data_size) {
+		LOG_ERR("Read beyond data_size: offset=%zu len=%zu data_size=%u", offset, len,
+			vid_hdr.data_size);
+		ret = -EINVAL;
 		goto exit;
 	}
 

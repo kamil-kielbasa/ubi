@@ -648,3 +648,48 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 
 	memory_check(&before_init, &after_init, &after_deinit);
 }
+
+/**
+ * \brief Verify that ubi_leb_read rejects reads beyond data_size.
+ *
+ * \details Write 4 bytes to a LEB, then attempt to read 8 bytes starting
+ *          from offset 0. The VID header stores data_size=4, so the read
+ *          should fail because offset + len > data_size.
+ *
+ * \expect ubi_leb_read returns -EINVAL for the oversized read.
+ *         A read within bounds succeeds.
+ */
+ZTEST(ubi_write_read, leb_read_rejects_beyond_data_size)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "dsize",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+	int vol_id = 0;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const uint8_t data[] = { 0xAA, 0xBB, 0xCC, 0xDD };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+
+	/* Read within bounds should succeed */
+	uint8_t rdata[4] = { 0 };
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, data, sizeof(data));
+
+	/* Read beyond data_size should fail */
+	uint8_t oversized[8] = { 0 };
+	const int ret = ubi_leb_read(ubi, vol_id, 0, 0, oversized, sizeof(oversized));
+	zassert_equal(-EINVAL, ret, "Read beyond data_size should return -EINVAL (got %d)", ret);
+
+	/* Read with offset beyond data_size should also fail */
+	uint8_t small[1] = { 0 };
+	const int ret2 = ubi_leb_read(ubi, vol_id, 0, 4, small, sizeof(small));
+	zassert_equal(-EINVAL, ret2, "Read at offset=data_size should return -EINVAL (got %d)",
+		      ret2);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}

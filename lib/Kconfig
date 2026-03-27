@@ -8,6 +8,18 @@ config UBI_ENABLE
 
 if UBI_ENABLE
 
+config UBI_DEV_HDR_NR_OF_RES_PEBS
+	int "Number of reserved PEBs for device and volume headers"
+	default 2
+	range 2 4
+	help
+	  Number of physical erase blocks reserved for storing
+	  device and volume headers. Two PEBs are always kept
+	  active (dual-bank). Additional PEBs serve as cold spares
+	  that are promoted when an active PEB fails permanently.
+	  Increasing this value reduces the number of data PEBs
+	  available for volumes.
+
 config UBI_MAX_NR_OF_VOLUMES
 	int "Maximum number of volumes per UBI device"
 	default 10

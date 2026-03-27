@@ -4,8 +4,8 @@
  * \brief   Unsorted Block Images (UBI) flash I/O operations.
  *
  * \author  Kamil Kielbasa
- * \version 0.9
- * \date    2026-03-26
+ * \version 0.10
+ * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  */
@@ -36,9 +36,7 @@
 #define UBI_DEV_HDR_MAGIC (0x55424925)
 #define UBI_DEV_HDR_SIZE (32)
 #define UBI_DEV_HDR_VERSION (1)
-#define UBI_DEV_HDR_NR_OF_RES_PEBS (2)
-#define UBI_DEV_HDR_RES_PEB_0 (0)
-#define UBI_DEV_HDR_RES_PEB_1 (1)
+#define UBI_DEV_HDR_NR_OF_RES_PEBS (CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS)
 
 /* UBI volume header constants */
 #define UBI_VOL_HDR_MAGIC (0x55424926)
