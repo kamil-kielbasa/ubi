@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-03-27
+
+### Added
+
+- `doc/design_proposal_crypto.md`: design proposal for authenticated encryption layer (AES-128-CCM via PSA Crypto API).
+- Crypto layer entry in `doc/roadmap.md` (Priority: High, Status: Design).
+
 ## [0.10.0] - 2026-03-27
 
 ### Added
