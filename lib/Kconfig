@@ -30,6 +30,18 @@ config UBI_MAX_NR_OF_VOLUMES
 	  on the reserved PEBs so this value is constrained by the
 	  erase block size.
 
+config UBI_PEB_WRITE_RETRY_COUNT
+	int "Number of write retries for data PEBs"
+	default 3
+	range 1 5
+	help
+	  Number of times to retry a failed flash write on data PEBs
+	  before propagating the error to the caller. Applies to EC
+	  header, VID header, and LEB data writes performed through
+	  the I/O layer. Reserved PEB writes are excluded because they
+	  use a separate multi-PEB fallback mechanism.
+	  Set to 1 for a single attempt (no retry).
+
 module = UBI
 module-str = ubi
 source "subsys/logging/Kconfig.template.log_config"

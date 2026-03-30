@@ -107,7 +107,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 	if (ret != 0) {
 		LOG_ERR("VID header write failure");
-		goto exit;
+		goto write_fail;
 	}
 
 	if (buf && len > 0) {
@@ -115,7 +115,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
-			goto exit;
+			goto write_fail;
 		}
 	}
 
@@ -123,6 +123,20 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	alloc_node->key = lnum;
 	rb_insert(&vol->eba_tbl, &alloc_node->node);
 	vol->eba_tbl_count += 1;
+
+	goto exit;
+
+write_fail:
+	k_free(min_node);
+
+	/* PEB was removed from free pool but write failed — mark it bad. */
+	struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
+
+	if (bad_item) {
+		ubi_move_to_bad_blocks(ubi, min_node->value.pnum, 0, bad_item);
+	} else {
+		LOG_ERR("Heap allocation failure, PEB %zu leaked", min_node->value.pnum);
+	}
 
 exit:
 	k_mutex_unlock(&ubi->mutex);

@@ -8,7 +8,6 @@ Planned features and improvements for UBI on Zephyr. Items are listed by priorit
 |---------|----------|--------|-------------|
 | Crypto layer (authenticated encryption) | High | Design | AES-128-CCM encryption of all on-flash structures via PSA Crypto |
 | Permanent bad block tracking | High | Planned | Persist bad block records to flash across reboots |
-| Write retry mechanism | Medium | Planned | Retry flash writes on transient failures |
 | Bad block torture test | Medium | Planned | Stress-test suspect PEBs before retiring them |
 | Volume module simplification | Medium | Planned | Deduplicate ubi_volume.c with shared helpers |
 | Read-write locking | Medium | Planned | Allow concurrent readers with exclusive writer access |
@@ -33,10 +32,6 @@ Full design: [design_proposal_crypto.md](design_proposal_crypto.md).
 Bad blocks are currently tracked in RAM only. If a PEB fails at runtime, it is excluded until the next reboot, at which point the information is lost and the block may be used again (and fail again).
 
 This feature would stress-test suspicious blocks with multiple erase attempts. If a block consistently fails, it is marked as permanently bad and stored in a reserved area of flash so the record persists across reboots.
-
-### Write Retry Mechanism
-
-Flash write operations can fail due to transient conditions (voltage fluctuations, marginal cells). This feature would introduce a configurable retry count for write operations before declaring a PEB bad.
 
 ### Bad Block Torture Test
 

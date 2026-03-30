@@ -37,7 +37,32 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 /* Module interface variables and constants ---------------------------------------------------- */
 /* Static variables and constants -------------------------------------------------------------- */
 /* Static function declarations ---------------------------------------------------------------- */
+
+static int flash_write_with_retry(const struct flash_area *fa, off_t offset, const void *data,
+				  size_t len);
+
 /* Static function definitions ----------------------------------------------------------------- */
+
+static int flash_write_with_retry(const struct flash_area *fa, off_t offset, const void *data,
+				  size_t len)
+{
+	int ret = -EIO;
+
+	for (size_t attempt = 1; attempt <= CONFIG_UBI_PEB_WRITE_RETRY_COUNT; attempt++) {
+		ret = flash_area_write(fa, offset, data, len);
+
+		if (ret == 0) {
+			return 0;
+		}
+
+		if (attempt < CONFIG_UBI_PEB_WRITE_RETRY_COUNT) {
+			LOG_WRN("Flash write retry %zu/%d at offset 0x%lx (err %d)", attempt,
+				CONFIG_UBI_PEB_WRITE_RETRY_COUNT, (unsigned long)offset, ret);
+		}
+	}
+
+	return ret;
+}
 
 /* Module interface function definitions ------------------------------------------------------- */
 
@@ -463,7 +488,7 @@ int ubi_ec_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, const struct 
 		goto exit;
 	}
 
-	ret = flash_area_write(fa, pnum * mtd->erase_block_size, hdr, sizeof(*hdr));
+	ret = flash_write_with_retry(fa, pnum * mtd->erase_block_size, hdr, sizeof(*hdr));
 
 	if (ret != 0)
 		goto exit;
@@ -542,8 +567,8 @@ int ubi_vid_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_v
 		goto exit;
 	}
 
-	ret = flash_area_write(fa, (pnum * mtd->erase_block_size) + UBI_EC_HDR_SIZE, vid_hdr,
-			       sizeof(*vid_hdr));
+	ret = flash_write_with_retry(fa, (pnum * mtd->erase_block_size) + UBI_EC_HDR_SIZE, vid_hdr,
+				     sizeof(*vid_hdr));
 
 	if (ret != 0)
 		goto exit;
@@ -583,7 +608,7 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 	size_t offset = (pnum * mtd->erase_block_size) + UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE;
 
 	if (len % WRITE_BLOCK_SIZE_ALIGNMENT == 0) {
-		ret = flash_area_write(fa, offset, buf, len);
+		ret = flash_write_with_retry(fa, offset, buf, len);
 
 		if (ret != 0)
 			goto exit;
@@ -592,7 +617,7 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 			uint8_t align_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
 			memcpy(align_buf, buf, len);
 
-			ret = flash_area_write(fa, offset, align_buf, ARRAY_SIZE(align_buf));
+			ret = flash_write_with_retry(fa, offset, align_buf, ARRAY_SIZE(align_buf));
 
 			if (ret != 0)
 				goto exit;
@@ -602,13 +627,13 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 			uint8_t align_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
 			memcpy(align_buf, &buf[len - left_size], left_size);
 
-			ret = flash_area_write(fa, offset, buf, len - left_size);
+			ret = flash_write_with_retry(fa, offset, buf, len - left_size);
 
 			if (ret != 0)
 				goto exit;
 
-			ret = flash_area_write(fa, offset + len - left_size, align_buf,
-					       ARRAY_SIZE(align_buf));
+			ret = flash_write_with_retry(fa, offset + len - left_size, align_buf,
+						     ARRAY_SIZE(align_buf));
 
 			if (ret != 0)
 				goto exit;

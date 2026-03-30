@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-03-30
+
+### Added
+
+- `CONFIG_UBI_PEB_WRITE_RETRY_COUNT` Kconfig option (range 1–5, default 3) for data-PEB write retry.
+
+### Fixed
+
+- `leb_write()` now marks PEB bad when VID header or LEB data write fails (previously leaked the PEB).
+
+### Removed
+
+- Write retry mechanism entry from `doc/roadmap.md` (implemented).
+
 ## [0.11.0] - 2026-03-27
 
 ### Added
