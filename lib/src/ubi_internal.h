@@ -20,7 +20,7 @@
 /* Internal headers: */
 #include "ubi_cache.h"
 #include "ubi_io.h"
-#include "ubi_res_peb.h"
+#include "ubi_flash_res_peb.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>

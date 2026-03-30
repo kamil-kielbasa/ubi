@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-03-30
+
+### Changed
+
+- Renamed `ubi_res_peb.h` / `ubi_res_peb.c` to `ubi_flash_res_peb.h` / `ubi_flash_res_peb.c` with `ubi_flash_res_peb_*` prefix on all symbols.
+- `ubi_volume.c` deduplicated with `dev_hdr_read_and_bump()` (3 call sites) and `reclaim_peb_to_dirty()` (2 call sites).
+
+### Removed
+
+- Volume module simplification entry from `doc/roadmap.md` (implemented).
+
 ## [0.13.0] - 2026-03-30
 
 ### Added
@@ -50,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `ubi_res_peb.h` / `ubi_res_peb.c`: reserved PEB management module extracted from `ubi_io.c`.
+- `ubi_flash_res_peb.h` / `ubi_flash_res_peb.c`: reserved PEB management module extracted from `ubi_io.c`.
 - `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` Kconfig option (range 2–4, default 2) for cold spare support.
 - Volume header validation in reserved PEB scan.
 - `data_size` boundary check in `ubi_leb_read()`.
@@ -58,8 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Reserved PEB functions use `enum ubi_res_peb_state` and unified `ubi_res_peb_*` naming.
-- `ubi_res_peb_overwrite()` seeks immediate replacement on active PEB failure instead of batching.
+- Reserved PEB functions use `enum ubi_flash_res_peb_state` and unified `ubi_flash_res_peb_*` naming.
+- `ubi_flash_res_peb_overwrite()` seeks immediate replacement on active PEB failure instead of batching.
 - `ubi_dev_is_mounted()` treats corrupt PEBs as evidence of a previously mounted device.
 
 ### Fixed

@@ -26,6 +26,49 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
+/* Static function declarations ---------------------------------------------------------------- */
+
+static int dev_hdr_read_and_bump(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr,
+				 int vol_count_delta);
+static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item);
+
+/* Static function definitions ----------------------------------------------------------------- */
+
+static int dev_hdr_read_and_bump(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr,
+				 int vol_count_delta)
+{
+	int ret = ubi_dev_hdr_read(mtd, hdr);
+
+	if (ret != 0) {
+		LOG_ERR("Device header read failure");
+		return ret;
+	}
+
+	hdr->vol_count += vol_count_delta;
+	hdr->revision += 1;
+	hdr->hdr_crc =
+		crc32_ieee((const uint8_t *)hdr, sizeof(*hdr) - sizeof(hdr->hdr_crc));
+
+	return 0;
+}
+
+static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item)
+{
+	struct ubi_ec_hdr ec_hdr = { 0 };
+	int ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("EC header read failure");
+		return ret;
+	}
+
+	item->key = ec_hdr.ec;
+	rb_insert(&ubi->dirty_pebs, &item->node);
+	ubi->dirty_peb_count += 1;
+
+	return 0;
+}
+
 /* Module interface function definitions ------------------------------------------------------- */
 
 int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id)
@@ -70,18 +113,10 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 1);
 
-	if (ret != 0) {
-		LOG_ERR("Device header read failure");
+	if (ret != 0)
 		goto exit;
-	}
-
-	struct ubi_dev_hdr new_dev_hdr = dev_hdr;
-	new_dev_hdr.revision += 1;
-	new_dev_hdr.vol_count += 1;
-	new_dev_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_dev_hdr,
-					 sizeof(new_dev_hdr) - sizeof(new_dev_hdr.hdr_crc));
 
 	struct ubi_vol_hdr new_vol_hdr = { 0 };
 	new_vol_hdr.magic = UBI_VOL_HDR_MAGIC;
@@ -93,7 +128,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	new_vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_vol_hdr,
 					 sizeof(new_vol_hdr) - sizeof(new_vol_hdr.hdr_crc));
 
-	ret = ubi_vol_hdr_append(&ubi->mtd, &new_dev_hdr, &new_vol_hdr);
+	ret = ubi_vol_hdr_append(&ubi->mtd, &dev_hdr, &new_vol_hdr);
 
 	if (ret != 0) {
 		LOG_ERR("Volume header append failure");
@@ -108,7 +143,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	}
 
 	memset(vol, 0, sizeof(*vol));
-	vol->vol_idx = new_dev_hdr.vol_count - 1;
+	vol->vol_idx = dev_hdr.vol_count - 1;
 	vol->vol_id = new_vol_hdr.vol_id;
 	memcpy(vol->cfg.name, new_vol_hdr.name, strlen(new_vol_hdr.name));
 	vol->cfg.type = new_vol_hdr.vol_type;
@@ -197,32 +232,19 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 				rb_remove(&vol->eba_tbl, &item->node);
 				vol->eba_tbl_count -= 1;
 
-				struct ubi_ec_hdr ec_hdr = { 0 };
-				ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+				ret = reclaim_peb_to_dirty(ubi, item);
 
-				if (ret != 0) {
-					LOG_ERR("EC header read failure");
+				if (ret != 0)
 					goto exit;
-				}
-
-				item->key = ec_hdr.ec;
-				rb_insert(&ubi->dirty_pebs, &item->node);
-				ubi->dirty_peb_count += 1;
 			}
 		}
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 0);
 
-	if (ret != 0) {
-		LOG_ERR("Device header read failure");
+	if (ret != 0)
 		goto exit;
-	}
-
-	dev_hdr.revision += 1;
-	dev_hdr.hdr_crc =
-		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
 
 	struct ubi_vol_hdr vol_hdr = { 0 };
 	ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
@@ -274,17 +296,10 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, -1);
 
-	if (ret != 0) {
-		LOG_ERR("Device header read failure");
+	if (ret != 0)
 		goto exit;
-	}
-
-	dev_hdr.vol_count -= 1;
-	dev_hdr.revision += 1;
-	dev_hdr.hdr_crc =
-		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
 
 	struct ubi_volume *vol = entry->value.vol;
 	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_idx);
@@ -302,18 +317,12 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 		rb_remove(&vol->eba_tbl, &item->node);
 		vol->eba_tbl_count -= 1;
 
-		struct ubi_ec_hdr ec_hdr = { 0 };
-		ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+		ret = reclaim_peb_to_dirty(ubi, item);
 
 		if (ret != 0) {
-			LOG_ERR("EC header read failure");
 			k_free(item);
 			goto exit;
 		}
-
-		item->key = ec_hdr.ec;
-		rb_insert(&ubi->dirty_pebs, &item->node);
-		ubi->dirty_peb_count += 1;
 	}
 
 	rb_remove(&ubi->vols, &entry->node);

@@ -1,5 +1,5 @@
 /**
- * \file    ubi_res_peb.c
+ * \file    ubi_flash_res_peb.c
  * \author  Kamil Kielbasa
  * \brief   UBI reserved PEB management: scanning, recovery, and commit.
  * \version 0.10
@@ -12,7 +12,7 @@
 /* Include files ------------------------------------------------------------------------------- */
 
 /* Internal header: */
-#include "ubi_res_peb.h"
+#include "ubi_flash_res_peb.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
@@ -39,7 +39,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * with the canonical content. If the erase or write fails, the PEB is left
  * as corrupt (physically dead).
  *
- * \pre scan->active_count < UBI_RES_PEB_NR_ACTIVE (caller must verify).
+ * \pre scan->active_count < UBI_FLASH_RES_PEB_NR_ACTIVE (caller must verify).
  *
  * \param[in] mtd		UBI MTD device structure.
  * \param[in,out] scan		Scan result (updated on successful recovery).
@@ -48,18 +48,18 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  *
  * \return 0 on success (at least 2 active PEBs after recovery), -EIO on failure.
  */
-static int res_peb_recover(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan,
+static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan,
 			   const uint8_t *content, size_t content_len);
 
 /* Static function definitions ----------------------------------------------------------------- */
 
-static int res_peb_recover(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan,
+static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan,
 			   const uint8_t *content, size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(scan);
 	__ASSERT_NO_MSG(content);
-	__ASSERT_NO_MSG(scan->active_count < UBI_RES_PEB_NR_ACTIVE);
+	__ASSERT_NO_MSG(scan->active_count < UBI_FLASH_RES_PEB_NR_ACTIVE);
 
 	const struct flash_area *fa = NULL;
 	int ret = flash_area_open(mtd->partition_id, &fa);
@@ -70,11 +70,11 @@ static int res_peb_recover(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *s
 	}
 
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
-		if (scan->state[i] == UBI_RES_PEB_STATE_ACTIVE) {
+		if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_ACTIVE) {
 			continue;
 		}
 
-		if (scan->active_count >= UBI_RES_PEB_NR_ACTIVE) {
+		if (scan->active_count >= UBI_FLASH_RES_PEB_NR_ACTIVE) {
 			break;
 		}
 
@@ -84,10 +84,10 @@ static int res_peb_recover(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *s
 
 		if (ret != 0) {
 			LOG_WRN("Reserved PEB %zu erase failed (dead?), skipping", i);
-			if (scan->state[i] == UBI_RES_PEB_STATE_SPARE) {
+			if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_SPARE) {
 				scan->spare_count--;
 				scan->corrupt_count++;
-				scan->state[i] = UBI_RES_PEB_STATE_CORRUPT;
+				scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			}
 			continue;
 		}
@@ -96,31 +96,31 @@ static int res_peb_recover(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *s
 
 		if (ret != 0) {
 			LOG_WRN("Reserved PEB %zu write failed (dead?), skipping", i);
-			if (scan->state[i] == UBI_RES_PEB_STATE_SPARE) {
+			if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_SPARE) {
 				scan->spare_count--;
 				scan->corrupt_count++;
-				scan->state[i] = UBI_RES_PEB_STATE_CORRUPT;
+				scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			}
 			continue;
 		}
 
 		/* Successfully recovered */
-		if (scan->state[i] == UBI_RES_PEB_STATE_CORRUPT) {
+		if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_CORRUPT) {
 			scan->corrupt_count--;
-		} else if (scan->state[i] == UBI_RES_PEB_STATE_SPARE) {
+		} else if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_SPARE) {
 			scan->spare_count--;
 		}
 
-		scan->state[i] = UBI_RES_PEB_STATE_ACTIVE;
+		scan->state[i] = UBI_FLASH_RES_PEB_STATE_ACTIVE;
 		scan->active_count++;
 		LOG_INF("Reserved PEB %zu recovered", i);
 	}
 
 	flash_area_close(fa);
 
-	if (scan->active_count < UBI_RES_PEB_NR_ACTIVE) {
+	if (scan->active_count < UBI_FLASH_RES_PEB_NR_ACTIVE) {
 		LOG_ERR("Recovery failed: only %zu active PEBs (need %d)", scan->active_count,
-			UBI_RES_PEB_NR_ACTIVE);
+			UBI_FLASH_RES_PEB_NR_ACTIVE);
 		return -EIO;
 	}
 
@@ -129,12 +129,12 @@ static int res_peb_recover(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *s
 
 /* Module interface function definitions ------------------------------------------------------- */
 
-size_t ubi_res_peb_find_first_active(const struct ubi_res_peb_scan *scan)
+size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *scan)
 {
 	__ASSERT_NO_MSG(scan);
 
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
-		if (scan->state[i] == UBI_RES_PEB_STATE_ACTIVE) {
+		if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_ACTIVE) {
 			return i;
 		}
 	}
@@ -142,7 +142,7 @@ size_t ubi_res_peb_find_first_active(const struct ubi_res_peb_scan *scan)
 	return UBI_DEV_HDR_NR_OF_RES_PEBS;
 }
 
-int ubi_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan)
+int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(scan);
@@ -167,21 +167,21 @@ int ubi_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan)
 		ret = flash_area_read(fa, offset, &hdr, sizeof(hdr));
 
 		if (ret != 0) {
-			scan->state[i] = UBI_RES_PEB_STATE_CORRUPT;
+			scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			scan->corrupt_count++;
 			continue;
 		}
 
 		/* Check if PEB is erased (all 0xFF) by checking magic field */
 		if (hdr.magic == 0xFFFFFFFF) {
-			scan->state[i] = UBI_RES_PEB_STATE_SPARE;
+			scan->state[i] = UBI_FLASH_RES_PEB_STATE_SPARE;
 			scan->spare_count++;
 			continue;
 		}
 
 		/* Validate magic and CRC */
 		if (hdr.magic != UBI_DEV_HDR_MAGIC) {
-			scan->state[i] = UBI_RES_PEB_STATE_CORRUPT;
+			scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			scan->corrupt_count++;
 			continue;
 		}
@@ -190,7 +190,7 @@ int ubi_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan)
 			crc32_ieee((const uint8_t *)&hdr, sizeof(hdr) - sizeof(hdr.hdr_crc));
 
 		if (crc != hdr.hdr_crc) {
-			scan->state[i] = UBI_RES_PEB_STATE_CORRUPT;
+			scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			scan->corrupt_count++;
 			continue;
 		}
@@ -224,13 +224,13 @@ int ubi_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan)
 		}
 
 		if (!vol_hdrs_valid) {
-			scan->state[i] = UBI_RES_PEB_STATE_CORRUPT;
+			scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			scan->corrupt_count++;
 			continue;
 		}
 
 		/* Valid active PEB */
-		scan->state[i] = UBI_RES_PEB_STATE_ACTIVE;
+		scan->state[i] = UBI_FLASH_RES_PEB_STATE_ACTIVE;
 		scan->active_count++;
 
 		if (!has_active || hdr.revision > highest_revision) {
@@ -244,7 +244,7 @@ int ubi_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_res_peb_scan *scan)
 	return 0;
 }
 
-int ubi_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_idx, uint8_t *content,
+int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_idx, uint8_t *content,
 			     const size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
@@ -270,7 +270,7 @@ int ubi_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_idx, ui
 	return ret;
 }
 
-int ubi_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
+int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
 			  const size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
@@ -283,8 +283,8 @@ int ubi_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
 		return -EINVAL;
 	}
 
-	struct ubi_res_peb_scan scan = { 0 };
-	int ret = ubi_res_peb_scan(mtd, &scan);
+	struct ubi_flash_res_peb_scan scan = { 0 };
+	int ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failed: %d", ret);
@@ -308,7 +308,7 @@ int ubi_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
 	 * active PEBs fail in sequence.
 	 */
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
-		if (scan.state[i] != UBI_RES_PEB_STATE_ACTIVE) {
+		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_ACTIVE) {
 			continue;
 		}
 
@@ -327,15 +327,15 @@ int ubi_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
 
 		/* Active PEB failed — mark dead and seek immediate replacement */
 		LOG_WRN("Active PEB %zu failed during commit, seeking replacement", i);
-		scan.state[i] = UBI_RES_PEB_STATE_CORRUPT;
+		scan.state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 
 		for (size_t j = 0; j < UBI_DEV_HDR_NR_OF_RES_PEBS; ++j) {
 			if (j == i) {
 				continue;
 			}
 
-			if (scan.state[j] != UBI_RES_PEB_STATE_CORRUPT &&
-			    scan.state[j] != UBI_RES_PEB_STATE_SPARE) {
+			if (scan.state[j] != UBI_FLASH_RES_PEB_STATE_CORRUPT &&
+			    scan.state[j] != UBI_FLASH_RES_PEB_STATE_SPARE) {
 				continue;
 			}
 
@@ -344,27 +344,27 @@ int ubi_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
 			ret = flash_area_erase(fa, repl_offset, mtd->erase_block_size);
 
 			if (ret != 0) {
-				scan.state[j] = UBI_RES_PEB_STATE_CORRUPT;
+				scan.state[j] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 				continue;
 			}
 
 			ret = flash_area_write(fa, repl_offset, content, content_len);
 
 			if (ret != 0) {
-				scan.state[j] = UBI_RES_PEB_STATE_CORRUPT;
+				scan.state[j] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 				continue;
 			}
 
-			scan.state[j] = UBI_RES_PEB_STATE_ACTIVE;
+			scan.state[j] = UBI_FLASH_RES_PEB_STATE_ACTIVE;
 			written++;
 			break;
 		}
 	}
 
 	/* Fill remaining slots from spare/corrupt PEBs (e.g. initial format) */
-	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS && written < UBI_RES_PEB_NR_ACTIVE; ++i) {
-		if (scan.state[i] != UBI_RES_PEB_STATE_SPARE &&
-		    scan.state[i] != UBI_RES_PEB_STATE_CORRUPT) {
+	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS && written < UBI_FLASH_RES_PEB_NR_ACTIVE; ++i) {
+		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_SPARE &&
+		    scan.state[i] != UBI_FLASH_RES_PEB_STATE_CORRUPT) {
 			continue;
 		}
 
@@ -395,13 +395,13 @@ int ubi_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
 	return 0;
 }
 
-int ubi_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
+int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(dev_hdr);
 
-	struct ubi_res_peb_scan scan = { 0 };
-	int ret = ubi_res_peb_scan(mtd, &scan);
+	struct ubi_flash_res_peb_scan scan = { 0 };
+	int ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failed: %d", ret);
@@ -414,13 +414,13 @@ int ubi_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
 	}
 
 	/* Healthy: all required active PEBs present */
-	if (scan.active_count >= UBI_RES_PEB_NR_ACTIVE) {
+	if (scan.active_count >= UBI_FLASH_RES_PEB_NR_ACTIVE) {
 		*dev_hdr = scan.hdr;
 		return 0;
 	}
 
 	/* Degraded: attempt recovery */
-	const size_t first_active = ubi_res_peb_find_first_active(&scan);
+	const size_t first_active = ubi_flash_res_peb_find_first_active(&scan);
 
 	if (first_active >= UBI_DEV_HDR_NR_OF_RES_PEBS) {
 		LOG_ERR("Validate failed: no active PEB found for recovery");
@@ -435,7 +435,7 @@ int ubi_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
 		return -ENOMEM;
 	}
 
-	ret = ubi_res_peb_read_content(mtd, first_active, content, content_len);
+	ret = ubi_flash_res_peb_read_content(mtd, first_active, content, content_len);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB %zu content read failed: %d", first_active, ret);
@@ -443,7 +443,7 @@ int ubi_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
 		return ret;
 	}
 
-	ret = res_peb_recover(mtd, &scan, content, content_len);
+	ret = flash_res_peb_recover(mtd, &scan, content, content_len);
 	k_free(content);
 
 	if (ret != 0) {
@@ -463,12 +463,12 @@ int ubi_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
 	return 0;
 }
 
-int ubi_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content, const size_t content_len)
+int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content, const size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(content);
 
-	int ret = ubi_res_peb_overwrite(mtd, content, content_len);
+	int ret = ubi_flash_res_peb_overwrite(mtd, content, content_len);
 
 	if (ret != 0) {
 		LOG_ERR("Commit overwrite failed: %d", ret);
@@ -476,8 +476,8 @@ int ubi_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content, const 
 	}
 
 	/* Verify the write succeeded */
-	struct ubi_res_peb_scan verify = { 0 };
-	ret = ubi_res_peb_scan(mtd, &verify);
+	struct ubi_flash_res_peb_scan verify = { 0 };
+	ret = ubi_flash_res_peb_scan(mtd, &verify);
 
 	if (ret != 0) {
 		LOG_ERR("Commit verification scan failed: %d", ret);

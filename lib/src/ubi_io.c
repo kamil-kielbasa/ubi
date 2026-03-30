@@ -13,7 +13,7 @@
 
 /* Internal headers: */
 #include "ubi_io.h"
-#include "ubi_res_peb.h"
+#include "ubi_flash_res_peb.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
@@ -72,8 +72,8 @@ int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
 		return -EINVAL;
 	}
 
-	struct ubi_res_peb_scan scan = { 0 };
-	const int ret = ubi_res_peb_scan(mtd, &scan);
+	struct ubi_flash_res_peb_scan scan = { 0 };
+	const int ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
 		return ret;
@@ -108,7 +108,7 @@ int ubi_dev_mount(const struct ubi_mtd *mtd)
 
 	flash_area_close(fa);
 
-	return ubi_res_peb_overwrite(mtd, (const uint8_t *)&dev_hdr, sizeof(dev_hdr));
+	return ubi_flash_res_peb_overwrite(mtd, (const uint8_t *)&dev_hdr, sizeof(dev_hdr));
 }
 
 int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
@@ -118,7 +118,7 @@ int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	const int ret = ubi_res_peb_validate(mtd, &dev_hdr);
+	const int ret = ubi_flash_res_peb_validate(mtd, &dev_hdr);
 
 	if (ret != 0 && ret != -EROFS) {
 		return ret;
@@ -137,7 +137,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 
 	/* Validate and recover reserved PEBs if needed */
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	int ret = ubi_res_peb_validate(mtd, &dev_hdr);
+	int ret = ubi_flash_res_peb_validate(mtd, &dev_hdr);
 
 	/* Allow reads in read-only degraded mode */
 	if (ret != 0 && ret != -EROFS) {
@@ -145,8 +145,8 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	}
 
 	/* Scan to find active PEBs for reading vol headers */
-	struct ubi_res_peb_scan scan = { 0 };
-	ret = ubi_res_peb_scan(mtd, &scan);
+	struct ubi_flash_res_peb_scan scan = { 0 };
+	ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
 		return ret;
@@ -167,7 +167,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	bool found_valid = false;
 
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
-		if (scan.state[i] != UBI_RES_PEB_STATE_ACTIVE) {
+		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_ACTIVE) {
 			continue;
 		}
 
@@ -216,7 +216,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	uint8_t *content = NULL;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
-	ret = ubi_res_peb_validate(mtd, &cur_hdr);
+	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
 
 	if (ret != 0) {
 		goto exit;
@@ -242,21 +242,21 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	}
 
 	/* Read existing content from first active PEB */
-	struct ubi_res_peb_scan scan = { 0 };
-	ret = ubi_res_peb_scan(mtd, &scan);
+	struct ubi_flash_res_peb_scan scan = { 0 };
+	ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
 		goto exit;
 	}
 
-	const size_t active_peb = ubi_res_peb_find_first_active(&scan);
+	const size_t active_peb = ubi_flash_res_peb_find_first_active(&scan);
 
 	if (active_peb >= UBI_DEV_HDR_NR_OF_RES_PEBS) {
 		ret = -EIO;
 		goto exit;
 	}
 
-	ret = ubi_res_peb_read_content(mtd, active_peb, content, content_len - UBI_VOL_HDR_SIZE);
+	ret = ubi_flash_res_peb_read_content(mtd, active_peb, content, content_len - UBI_VOL_HDR_SIZE);
 
 	if (ret != 0) {
 		goto exit;
@@ -265,7 +265,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	memcpy(&content[0], dev_hdr, sizeof(*dev_hdr));
 	memcpy(&content[content_len - UBI_VOL_HDR_SIZE], vol_hdr, sizeof(*vol_hdr));
 
-	ret = ubi_res_peb_commit(mtd, content, content_len);
+	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
 
 exit:
 	if (content) {
@@ -285,7 +285,7 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	uint8_t *content = NULL;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
-	ret = ubi_res_peb_validate(mtd, &cur_hdr);
+	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
 
 	if (ret != 0) {
 		goto exit;
@@ -338,7 +338,7 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		}
 	}
 
-	ret = ubi_res_peb_commit(mtd, content, content_len);
+	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
 
 exit:
 	if (content) {
@@ -359,7 +359,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	uint8_t *content = NULL;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
-	ret = ubi_res_peb_validate(mtd, &cur_hdr);
+	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
 
 	if (ret != 0) {
 		goto exit;
@@ -415,7 +415,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	ret = ubi_res_peb_commit(mtd, content, content_len);
+	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
 
 exit:
 	if (content) {
