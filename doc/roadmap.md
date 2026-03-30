@@ -7,8 +7,6 @@ Planned features and improvements for UBI on Zephyr. Items are listed by priorit
 | Feature | Priority | Status | Description |
 |---------|----------|--------|-------------|
 | Crypto layer (authenticated encryption) | High | Design | AES-128-CCM encryption of all on-flash structures via PSA Crypto |
-| Permanent bad block tracking | High | Planned | Persist bad block records to flash across reboots |
-| Bad block torture test | Medium | Planned | Stress-test suspect PEBs before retiring them |
 | Volume module simplification | Medium | Planned | Deduplicate ubi_volume.c with shared helpers |
 | Read-write locking | Medium | Planned | Allow concurrent readers with exclusive writer access |
 | User-space tools | Low | Planned | Port Linux UBI CLI utilities to Zephyr shell |
@@ -26,18 +24,6 @@ Key capabilities:
 - **External AAD callback** lets applications bind LEB data to application-specific context.
 
 Full design: [design_proposal_crypto.md](design_proposal_crypto.md).
-
-### Permanent Bad Block Tracking
-
-Bad blocks are currently tracked in RAM only. If a PEB fails at runtime, it is excluded until the next reboot, at which point the information is lost and the block may be used again (and fail again).
-
-This feature would stress-test suspicious blocks with multiple erase attempts. If a block consistently fails, it is marked as permanently bad and stored in a reserved area of flash so the record persists across reboots.
-
-### Bad Block Torture Test
-
-When a PEB fails an erase or write operation, perform multiple erase+write cycles to determine whether the failure is transient or permanent. If the block passes the torture test, return it to the free pool; otherwise, retire it as a permanent bad block (requires the permanent bad block tracking feature).
-
-This corresponds to the `/** TODO: Torture bad blocks. */` placeholder in `ubi_core.c`.
 
 ### Volume Module Simplification
 

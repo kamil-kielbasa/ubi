@@ -130,7 +130,7 @@ ZTEST(ubi_stress, wear_leveling_distribution)
 	int vol_id;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	struct ubi_device_info info;
+	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
 	const uint8_t data[] = { 0xCA, 0xFE };
@@ -163,6 +163,11 @@ ZTEST(ubi_stress, wear_leveling_distribution)
 
 	zassert_true(max_ec <= min_ec + 2, "Wear-leveling imbalance: min_ec=%zu, max_ec=%zu",
 		     min_ec, max_ec);
+
+	/* Cross-check ec_avg: 41 erases / 14 data PEBs = 2. */
+	memset(&info, 0, sizeof(info));
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(info.ec_avg, 2, "ec_avg mismatch: got %zu, expected 2", info.ec_avg);
 
 	k_free(peb_ec);
 	zassert_ok(ubi_device_deinit(ubi));
@@ -225,6 +230,12 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 		}
 	}
 
+	/* 50 cycles × 2 erases per cycle = 100 erases / 14 data PEBs = 7. */
+	struct ubi_device_info final_info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &final_info));
+	zassert_equal(final_info.ec_avg, 7, "ec_avg mismatch: got %zu, expected 7",
+		      final_info.ec_avg);
+
 	zassert_ok(ubi_device_deinit(ubi));
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &mem_after));
@@ -250,6 +261,7 @@ ZTEST(ubi_stress, fill_entire_partition)
 
 	struct ubi_device_info info;
 	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(info.ec_avg, 0, "Fresh device should have ec_avg=0");
 
 	const struct ubi_volume_config cfg = {
 		.name = "fill",
@@ -320,6 +332,7 @@ ZTEST(ubi_stress, multiple_init_deinit_cycles)
 			struct ubi_device_info info;
 			zassert_ok(ubi_device_get_info(ubi, &info));
 			zassert_equal(1, info.volume_count);
+			zassert_equal(0, info.ec_avg, "No erases performed, ec_avg should be 0");
 
 			uint8_t rdata[2];
 			zassert_ok(ubi_leb_read(ubi, 0, 0, 0, rdata, sizeof(rdata)));

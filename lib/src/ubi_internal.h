@@ -78,6 +78,9 @@ struct ubi_device {
 
 	uint64_t global_sqnum; /**< Global sequence number for updates. */
 
+	size_t ec_sum; /**< Sum of all data-PEB erase counters. */
+	size_t ec_count; /**< Number of data PEBs with readable EC headers. */
+
 	size_t vol_next_id; /**< Volume sequence counter. */
 	size_t vol_count; /**< Number of volumes tracked. */
 	struct rbtree vols; /**< Red-black tree of volumes:

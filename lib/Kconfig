@@ -42,6 +42,25 @@ config UBI_PEB_WRITE_RETRY_COUNT
 	  use a separate multi-PEB fallback mechanism.
 	  Set to 1 for a single attempt (no retry).
 
+config UBI_BAD_PEB_TORTURE_CYCLES
+	int "Number of bad PEBs to torture per erase_peb call"
+	default 3
+	range 1 10
+	help
+	  Limits the number of bad PEBs processed by the torture
+	  test in a single ubi_device_erase_peb() invocation.
+	  This bounds the worst-case latency of the erase path.
+
+config UBI_BAD_PEB_TORTURE_MAX_PER_ERASE
+	int "Maximum erase attempts per bad PEB during torture"
+	default 1
+	range 1 10
+	help
+	  When a PEB is marked bad at runtime, the torture test
+	  attempts up to this many erases. If any erase succeeds,
+	  the PEB is considered healthy and returned to the free
+	  pool. If all attempts fail, the PEB stays bad.
+
 module = UBI
 module-str = ubi
 source "subsys/logging/Kconfig.template.log_config"

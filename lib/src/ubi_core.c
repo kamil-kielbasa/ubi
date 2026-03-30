@@ -37,8 +37,9 @@ LOG_MODULE_REGISTER(ubi, CONFIG_UBI_LOG_LEVEL);
 
 static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs);
 static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev_hdr *dev_hdr);
-static size_t init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs);
+static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs);
 static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg);
+static void torture_bad_blocks(struct ubi_device *ubi);
 
 /* Internal helper definitions ----------------------------------------------------------------- */
 
@@ -185,8 +186,10 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 
 /**
  * \brief Compute the average erase counter across all valid PEBs.
+ *
+ * Stores ec_sum and ec_count in the device structure for runtime tracking.
  */
-static size_t init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs)
+static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
 	size_t ec_sum = 0;
 	size_t ec_count = 0;
@@ -201,7 +204,8 @@ static size_t init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_p
 		}
 	}
 
-	return (ec_count > 0) ? (ec_sum / ec_count) : 0;
+	ubi_dev->ec_sum = ec_sum;
+	ubi_dev->ec_count = ec_count;
 }
 
 /**
@@ -565,8 +569,9 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	if (ret != 0)
 		goto exit;
 
-	/* Compute average erase counter for bad-block recovery. */
-	const size_t ec_avg = init_compute_ec_average(ubi_dev, nr_of_pebs);
+	/* Compute average erase counter and store sum/count for runtime tracking. */
+	init_compute_ec_average(ubi_dev, nr_of_pebs);
+	const size_t ec_avg = (ubi_dev->ec_count > 0) ? (ubi_dev->ec_sum / ubi_dev->ec_count) : 0;
 
 	/* Scan all PEBs and classify into free, dirty, bad, or EBA entries. */
 	ret = init_scan_pebs(ubi_dev, nr_of_pebs, ec_avg);
@@ -606,6 +611,7 @@ int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 	info->free_peb_count = ubi->free_peb_count;
 	info->dirty_peb_count = ubi->dirty_peb_count;
 	info->bad_peb_count = ubi->bad_peb_count;
+	info->ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
 
 	flash_area_close(fa);
 
@@ -625,6 +631,102 @@ int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 exit:
 	k_mutex_unlock(&ubi->mutex);
 	return ret;
+}
+
+/**
+ * \brief Attempt to recover bad PEBs by performing erase-only torture.
+ *
+ * Up to CONFIG_UBI_BAD_PEB_TORTURE_CYCLES bad PEBs are tested per call.
+ * Each PEB is erased up to CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE times;
+ * the first successful erase recovers the PEB to the free pool with ec = ec_avg.
+ * If all attempts fail, the PEB remains in the bad list.
+ */
+static void torture_bad_blocks(struct ubi_device *ubi)
+{
+	const struct flash_area *fa = NULL;
+	int ret = flash_area_open(ubi->mtd.partition_id, &fa);
+
+	if (ret != 0) {
+		LOG_ERR("Flash area open failure during torture");
+		return;
+	}
+
+	size_t tortured = 0;
+
+	sys_snode_t *prev = NULL;
+	struct ubi_list_item *item = NULL;
+	struct ubi_list_item *next = NULL;
+
+	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, item, next, node)
+	{
+		if (tortured >= CONFIG_UBI_BAD_PEB_TORTURE_CYCLES) {
+			break;
+		}
+
+		const size_t offset = item->pnum * ubi->mtd.erase_block_size;
+		bool passed = false;
+
+		for (size_t i = 0; i < CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE; ++i) {
+			ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+
+			if (ret == 0) {
+				passed = true;
+				break;
+			}
+		}
+
+		if (passed) {
+			const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) :
+								    0;
+
+			struct ubi_ec_hdr ec_hdr = { 0 };
+			ec_hdr.magic = UBI_EC_HDR_MAGIC;
+			ec_hdr.version = UBI_EC_HDR_VERSION;
+			ec_hdr.ec = ec_avg;
+			ec_hdr.hdr_crc = crc32_ieee((const uint8_t *)&ec_hdr,
+						    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
+
+			ret = ubi_ec_hdr_write(&ubi->mtd, item->pnum, &ec_hdr);
+
+			if (ret != 0) {
+				LOG_WRN("Torture passed but EC write failed for PEB %u",
+					item->pnum);
+				prev = &item->node;
+				tortured += 1;
+				continue;
+			}
+
+			struct ubi_rbt_item *free_item = k_malloc(sizeof(*free_item));
+
+			if (!free_item) {
+				LOG_ERR("Heap allocation failure during torture recovery");
+				prev = &item->node;
+				tortured += 1;
+				continue;
+			}
+
+			sys_slist_remove(&ubi->bad_pebs, prev, &item->node);
+			ubi->bad_peb_count -= 1;
+
+			free_item->key = ec_avg;
+			free_item->value.pnum = item->pnum;
+			rb_insert(&ubi->free_pebs, &free_item->node);
+			ubi->free_peb_count += 1;
+
+			ubi->ec_sum += ec_avg;
+			ubi->ec_count += 1;
+
+			k_free(item);
+
+			LOG_INF("Torture recovered PEB %u", free_item->value.pnum);
+		} else {
+			prev = &item->node;
+		}
+
+		tortured += 1;
+	}
+
+	flash_area_close(fa);
 }
 
 int ubi_device_erase_peb(struct ubi_device *ubi)
@@ -656,6 +758,9 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 
 			rb_remove(&ubi->dirty_pebs, &entry->node);
 			ubi->dirty_peb_count -= 1;
+
+			ubi->ec_sum -= entry->key;
+			ubi->ec_count -= 1;
 
 			ubi_move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
 			k_free(entry);
@@ -689,6 +794,9 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 			rb_remove(&ubi->dirty_pebs, &entry->node);
 			ubi->dirty_peb_count -= 1;
 
+			ubi->ec_sum -= entry->key;
+			ubi->ec_count -= 1;
+
 			ubi_move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
 			k_free(entry);
 
@@ -714,6 +822,9 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 			rb_remove(&ubi->dirty_pebs, &entry->node);
 			ubi->dirty_peb_count -= 1;
 
+			ubi->ec_sum -= entry->key;
+			ubi->ec_count -= 1;
+
 			ubi_move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
 			k_free(entry);
 
@@ -723,6 +834,8 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		rb_remove(&ubi->dirty_pebs, &entry->node);
 		ubi->dirty_peb_count -= 1;
 
+		ubi->ec_sum += 1;
+
 		entry->key = ec_hdr.ec;
 		rb_insert(&ubi->free_pebs, &entry->node);
 		ubi->free_peb_count += 1;
@@ -730,7 +843,7 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 
 exit:
 	if (ubi->bad_peb_count > 0) {
-		/** TODO: Torture bad blocks. */
+		torture_bad_blocks(ubi);
 	}
 
 	k_mutex_unlock(&ubi->mutex);

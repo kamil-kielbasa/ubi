@@ -28,5 +28,6 @@ target_sources(app PRIVATE
                src/tests_ubi_recovery.c)
 
 if(CONFIG_FLASH_SIMULATOR)
-    target_sources(app PRIVATE src/tests_ubi_stress.c)
+    target_sources(app PRIVATE src/tests_ubi_stress.c
+                               src/tests_ubi_torture.c)
 endif()

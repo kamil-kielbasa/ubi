@@ -127,15 +127,22 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	goto exit;
 
 write_fail:
+	/* Save metadata before freeing — avoids use-after-free. */
+	const size_t failed_pnum = min_node->value.pnum;
+	const size_t failed_ec = min_node->key;
+
 	k_free(min_node);
 
 	/* PEB was removed from free pool but write failed — mark it bad. */
 	struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
 
 	if (bad_item) {
-		ubi_move_to_bad_blocks(ubi, min_node->value.pnum, 0, bad_item);
+		ubi->ec_sum -= failed_ec;
+		ubi->ec_count -= 1;
+
+		ubi_move_to_bad_blocks(ubi, failed_pnum, failed_ec, bad_item);
 	} else {
-		LOG_ERR("Heap allocation failure, PEB %zu leaked", min_node->value.pnum);
+		LOG_ERR("Heap allocation failure, PEB %zu leaked", failed_pnum);
 	}
 
 exit:

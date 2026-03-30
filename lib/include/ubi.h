@@ -68,6 +68,8 @@ struct ubi_device_info {
 	size_t dirty_peb_count; /*!< Dirty PEBs awaiting erasure. */
 	size_t bad_peb_count; /*!< Bad PEBs detected and retired. */
 
+	size_t ec_avg; /*!< Average erase counter across all data PEBs. */
+
 	size_t total_peb_count; /*!< Total usable data PEBs on the device. */
 	size_t leb_size; /*!< Usable data size per LEB in bytes. */
 

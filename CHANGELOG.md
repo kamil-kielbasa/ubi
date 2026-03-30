@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-03-30
+
+### Added
+
+- Bad block torture test: erase-only recovery controlled by `CONFIG_UBI_BAD_PEB_TORTURE_CYCLES` (bad PEBs per call, range 1–10, default 3) and `CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE` (erase attempts per PEB, range 1–10, default 1).
+- Runtime `ec_avg` tracking via `ec_sum`/`ec_count` in device struct; exposed in `ubi_device_info.ec_avg`.
+- 5 torture recovery tests (`tests_ubi_torture.c`).
+
+### Fixed
+
+- Use-after-free in `leb_write()` write-fail path: PEB metadata is now saved before `k_free()`.
+- `leb_write()` write-fail now passes correct erase count (was 0) and updates `ec_sum`/`ec_count`.
+- `erase_peb()` bad-block paths now update `ec_sum`/`ec_count` for consistent average tracking.
+
+### Removed
+
+- Bad block torture test and permanent bad block tracking entries from `doc/roadmap.md` (implemented/obsoleted).
+
 ## [0.12.0] - 2026-03-30
 
 ### Added
