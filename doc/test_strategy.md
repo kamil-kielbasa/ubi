@@ -45,6 +45,12 @@ Core API verification organized by functional area:
 |-------|------|-------|
 | `ubi_stress` | `tests_ubi_stress.c` | Full volume utilization, init-deinit cycling, PEB wear leveling, multi-volume concurrent usage |
 
+### 6. Torture Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_torture` | `tests_ubi_torture.c` | Bad-block torture, erase retry logic, degraded-mode transitions |
+
 ## Test Environment
 
 ### Primary: `native_sim`

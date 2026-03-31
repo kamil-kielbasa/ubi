@@ -70,16 +70,18 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | File | Role |
 |------|------|
 | `lib/include/ubi.h` | Public API — all structures and function declarations |
-| `lib/src/ubi_core.c` | Device lifecycle — init, deinit, get_info, erase_peb |
+| `lib/src/ubi_core_init.c` | Device initialization — format, scan, mount |
+| `lib/src/ubi_core_runtime.c` | Device runtime — get_info, erase_peb, deinit, test API |
 | `lib/src/ubi_volume.c` | Volume management — create, resize, remove, get_info |
 | `lib/src/ubi_leb.c` | LEB operations — read, write, map, unmap, is_mapped, get_size |
 | `lib/src/ubi_cache.c` | Red-black tree comparator and search helpers |
 | `lib/src/ubi_internal.h` | Shared internal types (`ubi_device`, `ubi_volume`) and helpers |
 | `lib/src/ubi_cache.h` | RBT and linked-list item types |
 | `lib/src/ubi_io.h` | On-flash header structures and constants |
-| `lib/src/ubi_io.c` | Low-level flash I/O, header read/write, mount check |
-| `lib/src/ubi_res_peb.h` | Reserved PEB state types and API declarations |
-| `lib/src/ubi_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
+| `lib/src/ubi_io_metadata.c` | Metadata I/O — device and volume header read/write |
+| `lib/src/ubi_io_data.c` | Data I/O — EC/VID header and LEB data read/write |
+| `lib/src/ubi_flash_res_peb.h` | Reserved PEB state types and API declarations |
+| `lib/src/ubi_flash_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
 
 ---
 

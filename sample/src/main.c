@@ -2,8 +2,6 @@
  * \file    main.c
  * \author  Kamil Kielbasa
  * \brief   Sample for Unsorted Block Images (UBI) implementation.
- * \version 0.5
- * \date    2025-09-25
  *
  * \copyright Copyright (c) 2025
  *
@@ -23,7 +21,7 @@
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 
-/* Module types and type definitiones -------------------------------------- */
+/* Module types and type definitions --------------------------------------- */
 /* Module interface variables and constants -------------------------------- */
 /* Static variables and constants ------------------------------------------ */
 /* Static function declarations -------------------------------------------- */
@@ -41,8 +39,10 @@ int main(void)
 
 	ret = flash_get_page_info_by_offs(flash_dev, 0, &page_info);
 
-	if (0 != ret)
+	if (ret != 0) {
 		printk("Get page info failure\n");
+		return ret;
+	}
 
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
@@ -55,13 +55,66 @@ int main(void)
 	struct ubi_device *ubi = NULL;
 	ret = ubi_device_init(&mtd, &ubi);
 
-	if (0 != ret)
+	if (ret != 0) {
 		printk("UBI initialization failure\n");
+		return ret;
+	}
 
+	/* Create a volume. */
+	struct ubi_volume_config vol_cfg = {
+		.name = "demo",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id = -1;
+
+	ret = ubi_volume_create(ubi, &vol_cfg, &vol_id);
+
+	if (ret != 0) {
+		printk("Volume create failure\n");
+		goto deinit;
+	}
+
+	/* Write data to LEB 0. */
+	const char wdata[] = "Hello, UBI!";
+
+	ret = ubi_leb_write(ubi, vol_id, 0, wdata, sizeof(wdata));
+
+	if (ret != 0) {
+		printk("LEB write failure\n");
+		goto deinit;
+	}
+
+	/* Read data back from LEB 0. */
+	char rdata[64] = { 0 };
+
+	ret = ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(wdata));
+
+	if (ret != 0) {
+		printk("LEB read failure\n");
+		goto deinit;
+	}
+
+	printk("Read back: %s\n", rdata);
+
+	/* Query device info. */
+	struct ubi_device_info dev_info = { 0 };
+
+	ret = ubi_device_get_info(ubi, &dev_info);
+
+	if (ret != 0) {
+		printk("Device get info failure\n");
+		goto deinit;
+	}
+
+	printk("Volumes: %zu, Free PEBs: %zu\n", dev_info.volume_count,
+	       dev_info.free_peb_count);
+
+deinit:
 	ret = ubi_device_deinit(ubi);
 
-	if (0 != ret)
+	if (ret != 0)
 		printk("UBI deinitialization failure\n");
 
-	return 0;
+	return ret;
 }

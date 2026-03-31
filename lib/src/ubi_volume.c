@@ -2,8 +2,6 @@
  * \file    ubi_volume.c
  * \author  Kamil Kielbasa
  * \brief   UBI volume management: create, resize, remove, get_info.
- * \version 0.9
- * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -223,7 +221,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 		const size_t diff = vol_cfg->leb_count - vol->cfg.leb_count;
 
 		if (diff > avail) {
-			LOG_ERR("Lack of available for allocation LEBs");
+			LOG_ERR("Not enough free PEBs to allocate requested LEBs");
 			ret = -ENOSPC;
 			goto exit;
 		}

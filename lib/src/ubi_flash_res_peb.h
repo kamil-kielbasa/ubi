@@ -2,8 +2,6 @@
  * \file    ubi_flash_res_peb.h
  * \author  Kamil Kielbasa
  * \brief   UBI reserved PEB management: scanning, recovery, and commit.
- * \version 0.10
- * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  */

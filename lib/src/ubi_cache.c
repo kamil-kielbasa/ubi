@@ -4,8 +4,6 @@
  * \brief   UBI red-black tree and linked-list cache helpers.
  *
  * \author  Kamil Kielbasa
- * \version 0.9
- * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  */
