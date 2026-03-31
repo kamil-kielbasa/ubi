@@ -64,6 +64,11 @@ struct ubi_device {
 
 	struct ubi_mtd mtd; /**< Underlying MTD (Memory Technology Device). */
 
+	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
+
+	size_t total_data_peb_count; /**< Total usable data PEBs (cached at init). */
+	size_t leb_size; /**< Usable data size per LEB in bytes (cached at init). */
+
 	size_t free_peb_count; /**< Number of free PEBs available. */
 	struct rbtree free_pebs; /**< Red-black tree of free PEBs:
                                      - Key: Erase counter
@@ -91,6 +96,28 @@ struct ubi_device {
 
 /* Size varies by platform (pointer width, mutex implementation). */
 BUILD_ASSERT(sizeof(struct ubi_device) > 0);
+
+/**
+ * \brief Compute the total number of PEBs reserved by all volumes.
+ *
+ * Sums `cfg.leb_count` across all volumes in the device tree.
+ * Must be called with the device mutex held.
+ *
+ * \param[in] ubi  UBI device (must not be NULL, must have initialized vols tree).
+ *
+ * \return Sum of leb_count across all volumes.
+ */
+static inline size_t ubi_reserved_peb_count(struct ubi_device *ubi)
+{
+	size_t total = 0;
+	struct ubi_rbt_item *entry = NULL;
+
+	RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
+	{
+		total += entry->value.vol->cfg.leb_count;
+	}
+	return total;
+}
 
 /* Internal helper function declarations ------------------------------------------------------- */
 

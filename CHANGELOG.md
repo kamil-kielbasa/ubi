@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-03-31
+
+### Added
+
+- `read_only_degraded` field in `struct ubi_device_info` — exposes whether the device lost reserved PEB redundancy and is operating in degraded read-only mode for metadata operations.
+- Cached `total_data_peb_count` and `leb_size` in the internal device struct, eliminating `flash_area_open()` from `ubi_device_get_info()`.
+- `ubi_reserved_peb_count()` internal helper for computing reserved PEB sum without acquiring mutex or performing flash I/O.
+- Thread-safety notes on all public API groups (`\note` blocks in `ubi.h`): all functions use a per-device mutex and must not be called from ISR context.
+- Precise `\retval` documentation for every public function, including `-EROFS`, `-EIO`, `-ENOENT`, and `-ECANCELED` where applicable.
+- `-EROFS` documented as a return code for `ubi_volume_create()`, `ubi_volume_resize()`, and `ubi_volume_remove()` when the device is in degraded mode.
+
+### Changed
+
+- **Renamed** `ubi_device_info.allocated_peb_count` → `reserved_peb_count` to accurately reflect the semantics (sum of `leb_count` across all volumes, not physically mapped PEBs).
+- `ubi_dev_hdr_read()` now propagates `-EROFS` from `ubi_flash_res_peb_validate()` instead of silently swallowing it; callers can detect degraded mode at the I/O layer.
+- `ubi_device_init()` handles `-EROFS` from the device header read: sets the degraded flag and continues initialization (previously would have hidden the condition).
+- `ubi_device_get_info()` is now a lightweight in-memory operation — uses cached geometry instead of opening the flash area on every call.
+- `ubi_volume_create()` and `ubi_volume_resize()` no longer call the public `ubi_device_get_info()` under the already-held mutex; replaced with direct internal computation via `ubi_reserved_peb_count()`.
+- `dev_hdr_read_and_bump()` explicitly returns `-EROFS` with a descriptive log message when the device is in degraded mode, failing fast before attempting metadata writes.
+
 ## [0.15.0] - 2026-03-31
 
 ### Added

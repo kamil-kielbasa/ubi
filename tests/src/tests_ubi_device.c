@@ -156,7 +156,7 @@ ZTEST_SUITE(ubi_device, NULL, ztest_suite_setup, ztest_testcase_before, ztest_te
  *          and verify all counters (allocated, free, dirty, bad, volumes). Check
  *          that all PEB erase counters are 0. Deinitialize.
  *
- * \expect allocated_peb_count=0, free_peb_count=total PEBs, dirty=0, bad=0,
+ * \expect reserved_peb_count=0, free_peb_count=total PEBs, dirty=0, bad=0,
  *         volumes=0, leb_size within valid range. All erase counters are 0.
  *         Heap memory is fully reclaimed after deinit.
  */
@@ -177,7 +177,7 @@ ZTEST(ubi_device, init_deinit)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.reserved_peb_count);
 	zassert_equal(total_nr_of_pebs, info.free_peb_count);
 	zassert_equal(0, info.dirty_peb_count);
 	zassert_equal(0, info.bad_peb_count);
@@ -224,7 +224,7 @@ ZTEST(ubi_device, init_deinit_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.reserved_peb_count);
 	zassert_equal(total_nr_of_pebs, info.free_peb_count);
 	zassert_equal(0, info.dirty_peb_count);
 	zassert_equal(0, info.bad_peb_count);
@@ -251,7 +251,7 @@ ZTEST(ubi_device, init_deinit_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
-	zassert_equal(0, info.allocated_peb_count);
+	zassert_equal(0, info.reserved_peb_count);
 	zassert_equal(total_nr_of_pebs, info.free_peb_count);
 	zassert_equal(0, info.dirty_peb_count);
 	zassert_equal(0, info.bad_peb_count);

@@ -195,13 +195,13 @@ ZTEST(ubi_erase, one_volume_one_leb_operations_with_reboot)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_1, &vol_id_1));
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-	zassert_equal(vol_cfg_1.leb_count, info_after_init.allocated_peb_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_init.reserved_peb_count);
 	zassert_equal(info_after_init.free_peb_count, info_after_init.total_peb_count);
 	zassert_equal(0, info_after_init.dirty_peb_count);
 	zassert_equal(1, info_after_init.volume_count);
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info_after_init.allocated_peb_count, vol_cfg_1.leb_count);
+	zassert_equal(info_after_init.reserved_peb_count, vol_cfg_1.leb_count);
 	zassert_equal(1, info_after_init.volume_count);
 
 	/* 3. Write data to LEB */
@@ -250,7 +250,7 @@ ZTEST(ubi_erase, one_volume_one_leb_operations_with_reboot)
 
 	/* 7. Get device infos */
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-	zassert_equal(vol_cfg_1.leb_count, info_after_init.allocated_peb_count);
+	zassert_equal(vol_cfg_1.leb_count, info_after_init.reserved_peb_count);
 	zassert_equal(0, info_after_init.free_peb_count);
 	zassert_equal(info_after_init.total_peb_count - 1, info_after_init.dirty_peb_count);
 	zassert_equal(1, info_after_init.volume_count);
@@ -383,7 +383,7 @@ ZTEST(ubi_erase, many_volumes_many_lebs_operations_with_reboot)
 	};
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.allocated_peb_count, vol_cfg_1.leb_count + vol_cfg_2.leb_count);
+	zassert_equal(info.reserved_peb_count, vol_cfg_1.leb_count + vol_cfg_2.leb_count);
 	zassert_equal(2, info.volume_count);
 
 	/* 3. Cycles of write volumes LEBs */

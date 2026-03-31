@@ -124,9 +124,10 @@ int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
 		return ret;
 	}
 
-	/* Both healthy and read-only degraded mode — header is valid for reads */
 	memcpy(hdr, &dev_hdr, sizeof(dev_hdr));
-	return 0;
+
+	/* Propagate -EROFS so callers can detect degraded mode. */
+	return ret;
 }
 
 int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_vol_hdr *hdr)

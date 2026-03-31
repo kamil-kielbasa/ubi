@@ -355,7 +355,7 @@ ZTEST(ubi_mixed, scenario_1)
 	zassert_ok(ubi_volume_resize(ubi, vol_id_2, &new_vol_cfg_2));
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(info.total_peb_count, info.allocated_peb_count);
+	zassert_equal(info.total_peb_count, info.reserved_peb_count);
 	zassert_equal(1, info.volume_count);
 	zassert_equal(info.total_peb_count, info.free_peb_count);
 	zassert_equal(0, info.dirty_peb_count);
@@ -395,7 +395,7 @@ ZTEST(ubi_mixed, scenario_1)
 	zassert_ok(ubi_volume_resize(ubi, vol_id_2, &new_vol_cfg_2));
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(new_vol_cfg_2.leb_count, info.allocated_peb_count);
+	zassert_equal(new_vol_cfg_2.leb_count, info.reserved_peb_count);
 	zassert_equal(1, info.volume_count);
 	zassert_equal(info.total_peb_count - 3, info.free_peb_count);
 	zassert_equal(1, info.dirty_peb_count);

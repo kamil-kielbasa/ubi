@@ -605,10 +605,17 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	struct ubi_dev_hdr dev_hdr = { 0 };
 	ret = ubi_dev_hdr_read(&ubi_dev->mtd, &dev_hdr);
 
-	if (ret != 0) {
+	if (ret == -EROFS) {
+		LOG_WRN("Device in degraded mode: reserved PEB redundancy lost");
+		ubi_dev->read_only_degraded = true;
+	} else if (ret != 0) {
 		LOG_ERR("Device header read failure");
 		goto exit;
 	}
+
+	/* Cache geometry for fast internal lookups. */
+	ubi_dev->total_data_peb_count = nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
+	ubi_dev->leb_size = ubi_dev->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
 
 	ret = init_collect_volumes(ubi_dev, &dev_hdr);
 
@@ -644,42 +651,22 @@ int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
-	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(ubi->mtd.partition_id, &fa);
-
-	if (ret != 0) {
-		LOG_ERR("Flash area open failure");
-		goto exit;
-	}
-
 	memset(info, 0, sizeof(*info));
-	info->total_peb_count =
-		(fa->fa_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
-	info->leb_size = ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+
+	info->read_only_degraded = ubi->read_only_degraded;
+	info->total_peb_count = ubi->total_data_peb_count;
+	info->leb_size = ubi->leb_size;
 
 	info->free_peb_count = ubi->free_peb_count;
 	info->dirty_peb_count = ubi->dirty_peb_count;
 	info->bad_peb_count = ubi->bad_peb_count;
 	info->ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
 
-	flash_area_close(fa);
+	info->reserved_peb_count = ubi_reserved_peb_count(ubi);
+	info->volume_count = ubi->vol_count;
 
-	if (ubi->vol_count > 0) {
-		struct ubi_rbt_item *entry = NULL;
-		RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
-		{
-			const struct ubi_volume *vol = entry->value.vol;
-			info->allocated_peb_count += vol->cfg.leb_count;
-		}
-		info->volume_count = ubi->vol_count;
-	} else {
-		info->allocated_peb_count = 0;
-		info->volume_count = 0;
-	}
-
-exit:
 	k_mutex_unlock(&ubi->mutex);
-	return ret;
+	return 0;
 }
 
 /**

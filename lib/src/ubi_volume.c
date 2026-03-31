@@ -39,6 +39,11 @@ static int dev_hdr_read_and_bump(const struct ubi_mtd *mtd, struct ubi_dev_hdr *
 {
 	int ret = ubi_dev_hdr_read(mtd, hdr);
 
+	if (ret == -EROFS) {
+		LOG_ERR("Device in degraded read-only mode");
+		return -EROFS;
+	}
+
 	if (ret != 0) {
 		LOG_ERR("Device header read failure");
 		return ret;
@@ -119,16 +124,8 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	}
 
 	/* Allocate and persist a new volume. */
-	struct ubi_device_info info = { 0 };
-	ret = ubi_device_get_info(ubi, &info);
-
-	if (ret != 0) {
-		LOG_ERR("UBI device get info failure");
-		goto exit;
-	}
-
-	const size_t total_free_pebs = info.total_peb_count - info.allocated_peb_count;
-	if (vol_cfg->leb_count > total_free_pebs) {
+	const size_t avail = ubi->total_data_peb_count - ubi_reserved_peb_count(ubi);
+	if (vol_cfg->leb_count > avail) {
 		LOG_ERR("Failed to allocate PEBs for volume");
 		ret = -ENOSPC;
 		goto exit;
@@ -222,15 +219,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 	}
 
 	if (vol_cfg->leb_count > vol->cfg.leb_count) {
-		struct ubi_device_info info = { 0 };
-		ret = ubi_device_get_info(ubi, &info);
-
-		if (ret != 0) {
-			LOG_ERR("Device get info failure");
-			goto exit;
-		}
-
-		const size_t avail = info.total_peb_count - info.allocated_peb_count;
+		const size_t avail = ubi->total_data_peb_count - ubi_reserved_peb_count(ubi);
 		const size_t diff = vol_cfg->leb_count - vol->cfg.leb_count;
 
 		if (diff > avail) {

@@ -314,7 +314,7 @@ ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 
 	/* Verify accounting: free + dirty + bad + allocated = total */
 	const size_t accounted = info.free_peb_count + info.dirty_peb_count + info.bad_peb_count +
-				 info.allocated_peb_count;
+				 info.reserved_peb_count;
 	zassert_equal(accounted, info.total_peb_count, "PEB accounting mismatch: %zu != %zu",
 		      accounted, info.total_peb_count);
 
