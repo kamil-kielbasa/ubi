@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-03-31
+
+### Fixed
+
+- **Documentation truthfulness**: Updated `architecture.md` source file table to reflect Phase 3 splits (`ubi_core_init.c`, `ubi_core_runtime.c`, `ubi_io_metadata.c`, `ubi_io_data.c`, `ubi_flash_res_peb.*`). Fixed test count in `getting_started.md` (89 → 111). Added `ubi_torture` suite to `test_strategy.md`.
+- **Sample**: Expanded `sample/src/main.c` to demonstrate full lifecycle (init → create → write → read → get_info → deinit). Fixed `definitiones` typo, removed stale `\version`/`\date` header, replaced Yoda conditions with idiomatic style.
+
+### Changed
+
+- **Style normalization**: Removed per-file `\version`/`\date` Doxygen tags from all library headers and sources — version is tracked via CHANGELOG and git tags only.
+- Replaced Yoda conditions (`0 == len`, `false == is_mounted`) with idiomatic C style (`len == 0`, `!is_mounted`) across `ubi_leb.c`, `ubi_io_data.c`, and `ubi_core_init.c`.
+- Improved log message in `ubi_volume.c`: "Lack of available for allocation LEBs" → "Not enough free PEBs to allocate requested LEBs".
+
 ## [0.17.0] - 2026-03-31
 
 ### Changed

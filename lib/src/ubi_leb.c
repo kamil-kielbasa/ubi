@@ -2,8 +2,6 @@
  * \file    ubi_leb.c
  * \author  Kamil Kielbasa
  * \brief   UBI LEB operations: write, read, map, unmap, is_mapped, get_size.
- * \version 0.10
- * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  *
@@ -154,7 +152,7 @@ exit:
 
 int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
 {
-	if (!ubi || vol_id < 0 || !buf || 0 == len)
+	if (!ubi || vol_id < 0 || !buf || len == 0)
 		return -EINVAL;
 
 	return leb_write(ubi, vol_id, lnum, buf, len);
@@ -165,7 +163,7 @@ int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
 {
 	int ret = -EIO;
 
-	if (!ubi || vol_id < 0 || !buf || 0 == len)
+	if (!ubi || vol_id < 0 || !buf || len == 0)
 		return -EINVAL;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);

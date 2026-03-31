@@ -2,8 +2,6 @@
  * \file    ubi_internal.h
  * \author  Kamil Kielbasa
  * \brief   UBI internal types and helpers shared across implementation files.
- * \version 0.10
- * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  */

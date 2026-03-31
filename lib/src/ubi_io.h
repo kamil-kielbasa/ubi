@@ -4,8 +4,6 @@
  * \brief   Unsorted Block Images (UBI) flash I/O operations.
  *
  * \author  Kamil Kielbasa
- * \version 0.10
- * \date    2026-03-27
  *
  * \copyright Copyright (c) 2025
  */

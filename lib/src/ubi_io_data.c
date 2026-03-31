@@ -219,7 +219,7 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 {
 	int ret = -EIO;
 
-	if (!mtd || !buf || 0 == len)
+	if (!mtd || !buf || len == 0)
 		return -EINVAL;
 
 	const struct flash_area *fa = NULL;
@@ -287,7 +287,7 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
 {
 	int ret = -EIO;
 
-	if (!mtd || !buf || 0 == len)
+	if (!mtd || !buf || len == 0)
 		return -EINVAL;
 
 	const struct flash_area *fa = NULL;

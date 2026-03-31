@@ -591,7 +591,7 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	}
 
 	/* Format device on first use. */
-	if (false == is_mounted) {
+	if (!is_mounted) {
 		ret = init_format_device(ubi_dev, nr_of_pebs);
 
 		if (ret != 0)
