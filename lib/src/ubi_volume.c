@@ -46,8 +46,7 @@ static int dev_hdr_read_and_bump(const struct ubi_mtd *mtd, struct ubi_dev_hdr *
 
 	hdr->vol_count += vol_count_delta;
 	hdr->revision += 1;
-	hdr->hdr_crc =
-		crc32_ieee((const uint8_t *)hdr, sizeof(*hdr) - sizeof(hdr->hdr_crc));
+	hdr->hdr_crc = crc32_ieee((const uint8_t *)hdr, sizeof(*hdr) - sizeof(hdr->hdr_crc));
 
 	return 0;
 }
@@ -58,8 +57,21 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	int ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
 
 	if (ret != 0) {
-		LOG_ERR("EC header read failure");
-		return ret;
+		LOG_WRN("EC header read failure for PEB %zu, marking bad", item->value.pnum);
+
+		struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
+
+		if (!bad_item) {
+			LOG_ERR("Heap allocation failure for bad PEB tracking");
+			k_free(item);
+			return -ENOMEM;
+		}
+
+		const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
+
+		ubi_move_to_bad_blocks(ubi, item->value.pnum, ec_avg, bad_item);
+		k_free(item);
+		return 0;
 	}
 
 	item->key = ec_hdr.ec;
@@ -78,9 +90,12 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	if (!ubi || !vol_cfg || !vol_id)
 		return -EINVAL;
 
+	if (!ubi_validate_volume_name(vol_cfg->name))
+		return -EINVAL;
+
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
-	/* Return existing volume if name already exists. */
+	/* Return existing volume if name already exists with identical config. */
 	const size_t name_len = strnlen(vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
 
 	struct ubi_rbt_item *entry = NULL;
@@ -90,6 +105,13 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 		const size_t len = strnlen(vol->cfg.name, UBI_VOLUME_NAME_MAX_LEN);
 
 		if (name_len == len && memcmp(vol_cfg->name, vol->cfg.name, name_len) == 0) {
+			if (vol_cfg->type != vol->cfg.type ||
+			    vol_cfg->leb_count != vol->cfg.leb_count) {
+				LOG_ERR("Volume name exists with different config");
+				ret = -EEXIST;
+				goto exit;
+			}
+
 			*vol_id = vol->vol_id;
 			ret = 0;
 			goto exit;
@@ -124,7 +146,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	new_vol_hdr.vol_type = vol_cfg->type;
 	new_vol_hdr.vol_id = ubi->vol_next_id++;
 	new_vol_hdr.leb_count = vol_cfg->leb_count;
-	strncpy(new_vol_hdr.name, vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
+	ubi_copy_name_to_hdr(new_vol_hdr.name, vol_cfg->name);
 	new_vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_vol_hdr,
 					 sizeof(new_vol_hdr) - sizeof(new_vol_hdr.hdr_crc));
 
@@ -145,7 +167,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	memset(vol, 0, sizeof(*vol));
 	vol->vol_idx = dev_hdr.vol_count - 1;
 	vol->vol_id = new_vol_hdr.vol_id;
-	memcpy(vol->cfg.name, new_vol_hdr.name, strlen(new_vol_hdr.name));
+	ubi_copy_name_from_hdr(vol->cfg.name, new_vol_hdr.name);
 	vol->cfg.type = new_vol_hdr.vol_type;
 	vol->cfg.leb_count = new_vol_hdr.leb_count;
 	vol->eba_tbl_count = 0;
@@ -320,7 +342,6 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 		ret = reclaim_peb_to_dirty(ubi, item);
 
 		if (ret != 0) {
-			k_free(item);
 			goto exit;
 		}
 	}

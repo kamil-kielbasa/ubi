@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-03-31
+
+### Added
+
+- `ubi_validate_volume_name()`, `ubi_copy_name_to_hdr()`, `ubi_copy_name_from_hdr()` — safe volume name helpers in `ubi_internal.h`.
+- Semantic validation of device headers in reserved PEB scan (`vol_count`, header version, header-vs-erase-block size check).
+- `canonical_peb_idx` field in `struct ubi_flash_res_peb_scan` for deterministic canonical copy selection.
+- Flash geometry validation in `ubi_device_init()` — rejects zero sizes, misaligned partitions, partitions too small for reserved PEBs, and unsupported `write_block_size`.
+- Tests: duplicate-name with different config (`-EEXIST`), empty name, name without NUL, max-length name, sqnum monotonicity across remount.
+
+### Changed
+
+- `ubi_volume_create()` contract: duplicate name with identical config returns existing `vol_id` (idempotent); duplicate name with different config returns `-EEXIST`. Updated `ubi.h` documentation accordingly.
+- `ubi_vol_hdr_read()` now reads from the canonical (highest-revision) reserved PEB instead of the first active one.
+- `ubi_vol_hdr_append()` reads existing content from the canonical reserved PEB.
+- `ubi_flash_res_peb_validate()` performs recovery from the canonical PEB.
+- `ubi_leb_data_write()` uses `mtd->write_block_size` for alignment instead of the hardcoded `WRITE_BLOCK_SIZE_ALIGNMENT` constant.
+
+### Fixed
+
+- **Memory safety**: eliminated all `strlen()` calls on raw on-flash fixed-size name fields; replaced with bounded `strnlen()` and safe copy helpers ensuring NUL-termination.
+- **Sequence number monotonicity**: `global_sqnum` is now set to `max + 1` after PEB scan, preventing reuse of existing sequence numbers after device re-init.
+- **Mixed-revision metadata**: volume headers are now always read from the highest-revision reserved PEB, preventing inconsistent state after interrupted metadata commits.
+- **Reclaim error paths**: `reclaim_peb_to_dirty()` now always consumes its item (moves to dirty pool or marks as bad), preventing orphaned PEBs and potential double-free in `ubi_volume_remove()`.
+- **Boundary conditions**: `ubi_vol_hdr_read()` index check changed from `>` to `>=`; removed incorrect `vol_count >= MAX` guards from `ubi_vol_hdr_remove()` and `ubi_vol_hdr_update()` that prevented operations at maximum volume count.
+
 ## [0.14.0] - 2026-03-30
 
 ### Changed

@@ -1316,7 +1316,115 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Volume resize to insufficient space --- */
+/* --- Volume create duplicate name with different config --- */
+
+/**
+ * \brief Verify that creating a volume with the same name but different
+ *        configuration returns -EEXIST.
+ *
+ * \details Scenario: Create a volume "dup2", then call ubi_volume_create with
+ *          the same name but a different leb_count.
+ *
+ * \expect Second call returns -EEXIST.
+ */
+ZTEST(ubi_error_handling, volume_create_duplicate_name_different_config)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg1 = {
+		.name = "dup2",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id_1;
+	zassert_ok(ubi_volume_create(ubi, &cfg1, &vol_id_1));
+
+	/* Same name, different leb_count. */
+	const struct ubi_volume_config cfg2 = {
+		.name = "dup2",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 3,
+	};
+	int vol_id_2;
+	zassert_equal(ubi_volume_create(ubi, &cfg2, &vol_id_2), -EEXIST);
+
+	/* Same name, different type. */
+	const struct ubi_volume_config cfg3 = {
+		.name = "dup2",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+	int vol_id_3;
+	zassert_equal(ubi_volume_create(ubi, &cfg3, &vol_id_3), -EEXIST);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/* --- Volume create with invalid name --- */
+
+/**
+ * \brief Verify that creating a volume with an empty name returns -EINVAL.
+ */
+ZTEST(ubi_error_handling, volume_create_empty_name)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int vol_id;
+	zassert_equal(ubi_volume_create(ubi, &cfg, &vol_id), -EINVAL);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that creating a volume with a name exactly filling the
+ *        buffer (no NUL terminator) returns -EINVAL.
+ */
+ZTEST(ubi_error_handling, volume_create_name_no_nul)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_volume_config cfg = {
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	/* Fill entire name buffer with non-NUL characters. */
+	memset(cfg.name, 'A', UBI_VOLUME_NAME_MAX_LEN);
+
+	int vol_id;
+	zassert_equal(ubi_volume_create(ubi, &cfg, &vol_id), -EINVAL);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that a volume with the maximum valid name length (MAX_LEN - 1)
+ *        can be created successfully.
+ */
+ZTEST(ubi_error_handling, volume_create_name_max_valid)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_volume_config cfg = {
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	memset(cfg.name, 0, sizeof(cfg.name));
+	memset(cfg.name, 'B', UBI_VOLUME_NAME_MAX_LEN - 1);
+
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
 
 /**
  * \brief Verify that ubi_volume_resize() fails when expanding beyond available

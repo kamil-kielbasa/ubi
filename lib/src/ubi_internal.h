@@ -30,6 +30,7 @@
 /* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 /* Types and type definitions ------------------------------------------------------------------ */
 
@@ -119,5 +120,52 @@ void ubi_move_to_bad_blocks(struct ubi_device *ubi, size_t pnum, size_t erase_co
  * \return Pointer to the volume on success, NULL if not found.
  */
 struct ubi_volume *ubi_find_volume(struct ubi_device *ubi, int vol_id);
+
+/**
+ * \brief Validate a volume name supplied by the caller.
+ *
+ * A valid name is non-empty and NUL-terminated within UBI_VOLUME_NAME_MAX_LEN bytes.
+ *
+ * \param[in] name  Name buffer (UBI_VOLUME_NAME_MAX_LEN bytes).
+ *
+ * \retval true  Name is valid.
+ * \retval false Name is empty or missing NUL terminator.
+ */
+static inline bool ubi_validate_volume_name(const char *name)
+{
+	const size_t len = strnlen(name, UBI_VOLUME_NAME_MAX_LEN);
+	return (len > 0 && len < UBI_VOLUME_NAME_MAX_LEN);
+}
+
+/**
+ * \brief Safely copy a volume name from a RAM source into an on-flash header field.
+ *
+ * Zeroes the destination first, then copies up to UBI_VOLUME_NAME_MAX_LEN - 1 bytes.
+ *
+ * \param[out] dst  Destination (on-flash header name field, UBI_VOLUME_NAME_MAX_LEN bytes).
+ * \param[in]  src  Source name (must be NUL-terminated or at most UBI_VOLUME_NAME_MAX_LEN bytes).
+ */
+static inline void ubi_copy_name_to_hdr(uint8_t *dst, const char *src)
+{
+	memset(dst, 0, UBI_VOLUME_NAME_MAX_LEN);
+	const size_t len = strnlen(src, UBI_VOLUME_NAME_MAX_LEN - 1);
+	memcpy(dst, src, len);
+}
+
+/**
+ * \brief Safely copy a volume name from an on-flash header field into a RAM config.
+ *
+ * Zeroes the destination first, copies up to UBI_VOLUME_NAME_MAX_LEN - 1 bytes,
+ * and ensures NUL-termination regardless of flash content.
+ *
+ * \param[out] dst  Destination config name (UBI_VOLUME_NAME_MAX_LEN bytes).
+ * \param[in]  src  Source (on-flash header name field, UBI_VOLUME_NAME_MAX_LEN bytes).
+ */
+static inline void ubi_copy_name_from_hdr(char *dst, const uint8_t *src)
+{
+	memset(dst, 0, UBI_VOLUME_NAME_MAX_LEN);
+	memcpy(dst, src, UBI_VOLUME_NAME_MAX_LEN - 1);
+	dst[UBI_VOLUME_NAME_MAX_LEN - 1] = '\0';
+}
 
 #endif /* UBI_INTERNAL_H */

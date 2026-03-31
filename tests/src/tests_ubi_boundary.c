@@ -324,3 +324,87 @@ ZTEST(ubi_boundary, write_sub_alignment)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
+
+/* --- Sequence number monotonicity across remount --- */
+
+/* Raw VID header for direct flash reads. */
+struct raw_vid_hdr {
+	uint32_t magic;
+	uint8_t version;
+	uint8_t padding[3];
+	uint32_t lnum;
+	uint32_t vol_id;
+	uint64_t sqnum;
+	uint32_t data_size;
+	uint32_t hdr_crc;
+};
+
+/**
+ * \brief Verify that global_sqnum is strictly monotonic after device re-init.
+ *
+ * \details Scenario: init → create volume → write LEB 0 → deinit →
+ *          init → write LEB 1 → read raw VID headers of both LEBs.
+ *
+ * \expect The second write's sqnum is strictly greater than the first's.
+ */
+ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
+{
+	/* First session: write LEB 0. */
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "sqn",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const uint8_t data1[] = { 0xAA };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data1, sizeof(data1)));
+
+	zassert_ok(ubi_device_deinit(ubi));
+
+	/* Second session: write LEB 1. */
+	ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	/* Re-read vol_id after remount. */
+	struct ubi_volume_config cfg2;
+	size_t alloc;
+	zassert_ok(ubi_volume_get_info(ubi, vol_id, &cfg2, &alloc));
+
+	const uint8_t data2[] = { 0xBB };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 1, data2, sizeof(data2)));
+
+	/* Read raw VID headers to compare sqnums. */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(FIXED_PARTITION_ID(ubi_partition), &fa));
+
+	const size_t nr_of_pebs = fa->fa_size / mtd.erase_block_size;
+	uint64_t sqnum_leb0 = 0;
+	uint64_t sqnum_leb1 = 0;
+
+	for (size_t p = CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS; p < nr_of_pebs; ++p) {
+		struct raw_vid_hdr vid;
+		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + UBI_EC_HDR_SIZE, &vid,
+					   sizeof(vid)));
+
+		if (vid.magic != 0x55424921)
+			continue;
+
+		if (vid.vol_id == (uint32_t)vol_id && vid.lnum == 0)
+			sqnum_leb0 = vid.sqnum;
+		else if (vid.vol_id == (uint32_t)vol_id && vid.lnum == 1)
+			sqnum_leb1 = vid.sqnum;
+	}
+
+	flash_area_close(fa);
+
+	zassert_true(sqnum_leb0 > 0, "LEB 0 sqnum must be non-zero");
+	zassert_true(sqnum_leb1 > sqnum_leb0, "LEB 1 sqnum (%llu) must be > LEB 0 sqnum (%llu)",
+		     sqnum_leb1, sqnum_leb0);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}

@@ -51,6 +51,9 @@ struct ubi_flash_res_peb_scan {
 
 	/** Canonical device header (from active PEB with highest revision). */
 	struct ubi_dev_hdr hdr;
+
+	/** Index of the canonical (highest-revision) active PEB. */
+	size_t canonical_peb_idx;
 };
 
 /* Function declarations ----------------------------------------------------------------------- */
@@ -98,7 +101,8 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
  *
  * \return 0 on success, negative error code on failure.
  */
-int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content, size_t content_len);
+int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
+				size_t content_len);
 
 /**
  * \brief Commit updated headers to reserved PEBs and verify.
@@ -134,6 +138,6 @@ size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *
  * \return 0 on success, negative error code on failure.
  */
 int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, size_t peb_idx, uint8_t *content,
-			     size_t content_len);
+				   size_t content_len);
 
 #endif /* UBI_FLASH_RES_PEB_H */

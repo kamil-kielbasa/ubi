@@ -49,12 +49,51 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * \return 0 on success (at least 2 active PEBs after recovery), -EIO on failure.
  */
 static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan,
-			   const uint8_t *content, size_t content_len);
+				 const uint8_t *content, size_t content_len);
+
+/**
+ * \brief Semantically validate a device header beyond magic/CRC.
+ *
+ * Checks that fields are within expected ranges given the flash geometry.
+ *
+ * \param[in] hdr              Device header to validate.
+ * \param erase_block_size     Size of one erase block in bytes.
+ *
+ * \retval true  Header is semantically valid.
+ * \retval false One or more fields are out of range.
+ */
+static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
+						 size_t erase_block_size);
 
 /* Static function definitions ----------------------------------------------------------------- */
 
+static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
+						 size_t erase_block_size)
+{
+	if (hdr->version != UBI_DEV_HDR_VERSION) {
+		LOG_WRN("Unexpected device header version: %u", hdr->version);
+		return false;
+	}
+
+	if (hdr->vol_count > CONFIG_UBI_MAX_NR_OF_VOLUMES) {
+		LOG_WRN("vol_count %u exceeds max %d", hdr->vol_count,
+			CONFIG_UBI_MAX_NR_OF_VOLUMES);
+		return false;
+	}
+
+	const size_t required = UBI_DEV_HDR_SIZE + ((size_t)hdr->vol_count * UBI_VOL_HDR_SIZE);
+
+	if (required > erase_block_size) {
+		LOG_WRN("Headers (%zu bytes) exceed erase block (%zu bytes)", required,
+			erase_block_size);
+		return false;
+	}
+
+	return true;
+}
+
 static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan,
-			   const uint8_t *content, size_t content_len)
+				 const uint8_t *content, size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(scan);
@@ -195,6 +234,13 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 			continue;
 		}
 
+		/* Semantic validation beyond magic/CRC */
+		if (!flash_res_peb_hdr_semantically_valid(&hdr, mtd->erase_block_size)) {
+			scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
+			scan->corrupt_count++;
+			continue;
+		}
+
 		/* Also validate volume headers if any exist */
 		bool vol_hdrs_valid = true;
 
@@ -236,6 +282,7 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 		if (!has_active || hdr.revision > highest_revision) {
 			highest_revision = hdr.revision;
 			scan->hdr = hdr;
+			scan->canonical_peb_idx = i;
 			has_active = true;
 		}
 	}
@@ -244,8 +291,8 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 	return 0;
 }
 
-int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_idx, uint8_t *content,
-			     const size_t content_len)
+int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_idx,
+				   uint8_t *content, const size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(content);
@@ -271,7 +318,7 @@ int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_i
 }
 
 int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
-			  const size_t content_len)
+				const size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(content);
@@ -362,7 +409,8 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
 	}
 
 	/* Fill remaining slots from spare/corrupt PEBs (e.g. initial format) */
-	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS && written < UBI_FLASH_RES_PEB_NR_ACTIVE; ++i) {
+	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS && written < UBI_FLASH_RES_PEB_NR_ACTIVE;
+	     ++i) {
 		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_SPARE &&
 		    scan.state[i] != UBI_FLASH_RES_PEB_STATE_CORRUPT) {
 			continue;
@@ -419,10 +467,10 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 		return 0;
 	}
 
-	/* Degraded: attempt recovery */
-	const size_t first_active = ubi_flash_res_peb_find_first_active(&scan);
+	/* Degraded: attempt recovery from canonical PEB */
+	const size_t canonical = scan.canonical_peb_idx;
 
-	if (first_active >= UBI_DEV_HDR_NR_OF_RES_PEBS) {
+	if (canonical >= UBI_DEV_HDR_NR_OF_RES_PEBS) {
 		LOG_ERR("Validate failed: no active PEB found for recovery");
 		return -EIO;
 	}
@@ -435,10 +483,10 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 		return -ENOMEM;
 	}
 
-	ret = ubi_flash_res_peb_read_content(mtd, first_active, content, content_len);
+	ret = ubi_flash_res_peb_read_content(mtd, canonical, content, content_len);
 
 	if (ret != 0) {
-		LOG_ERR("Reserved PEB %zu content read failed: %d", first_active, ret);
+		LOG_ERR("Reserved PEB %zu content read failed: %d", canonical, ret);
 		k_free(content);
 		return ret;
 	}
@@ -463,7 +511,8 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 	return 0;
 }
 
-int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content, const size_t content_len)
+int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content,
+			     const size_t content_len)
 {
 	__ASSERT_NO_MSG(mtd);
 	__ASSERT_NO_MSG(content);

@@ -191,14 +191,19 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len);
 /**
  * \brief Create a new UBI volume.
  *
+ * If a volume with the same name already exists and has an identical
+ * configuration (type and leb_count), the call succeeds and returns the
+ * existing volume's identifier (idempotent create). If the name matches
+ * but the configuration differs, -EEXIST is returned.
+ *
  * \param[in] ubi 		UBI device handle.
  * \param[in] vol_cfg 		Volume configuration (name, type, LEB count).
  * \param[out] vol_id 		Assigned volume identifier.
  *
- * \retval 0       Success.
+ * \retval 0       Success (including idempotent duplicate).
  * \retval -EINVAL  Invalid parameters.
- * \retval -ENOMEM  No free PEBs for the requested LEB count.
- * \retval -EEXIST  A volume with the same name already exists.
+ * \retval -ENOSPC  No free PEBs for the requested LEB count.
+ * \retval -EEXIST  A volume with the same name but different configuration exists.
  */
 int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id);
 

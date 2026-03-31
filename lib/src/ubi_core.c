@@ -153,7 +153,7 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 		memset(vol, 0, sizeof(*vol));
 		vol->vol_idx = vol_idx;
 		vol->vol_id = vol_hdr.vol_id;
-		memcpy(vol->cfg.name, vol_hdr.name, strlen(vol_hdr.name));
+		ubi_copy_name_from_hdr(vol->cfg.name, vol_hdr.name);
 		vol->cfg.type = vol_hdr.vol_type;
 		vol->cfg.leb_count = vol_hdr.leb_count;
 		vol->eba_tbl_count = 0;
@@ -536,7 +536,53 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 		goto exit;
 	}
 
+	/* Validate flash geometry. */
+	if (ubi_dev->mtd.write_block_size == 0 || ubi_dev->mtd.erase_block_size == 0) {
+		LOG_ERR("Invalid geometry: write_block_size or erase_block_size is zero");
+		flash_area_close(fa);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (fa->fa_size % ubi_dev->mtd.erase_block_size != 0) {
+		LOG_ERR("Partition size not a multiple of erase block size");
+		flash_area_close(fa);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (ubi_dev->mtd.erase_block_size % ubi_dev->mtd.write_block_size != 0) {
+		LOG_ERR("Erase block size not a multiple of write block size");
+		flash_area_close(fa);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (ubi_dev->mtd.write_block_size > WRITE_BLOCK_SIZE_ALIGNMENT) {
+		LOG_ERR("write_block_size %zu exceeds max supported alignment %d",
+			ubi_dev->mtd.write_block_size, WRITE_BLOCK_SIZE_ALIGNMENT);
+		flash_area_close(fa);
+		ret = -EINVAL;
+		goto exit;
+	}
+
 	const size_t nr_of_pebs = fa->fa_size / ubi_dev->mtd.erase_block_size;
+
+	if (nr_of_pebs <= UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("Partition too small: need > %d PEBs for reserved + data",
+			UBI_DEV_HDR_NR_OF_RES_PEBS);
+		flash_area_close(fa);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (ubi_dev->mtd.erase_block_size < (UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE)) {
+		LOG_ERR("Erase block too small for EC + VID headers");
+		flash_area_close(fa);
+		ret = -EINVAL;
+		goto exit;
+	}
+
 	flash_area_close(fa);
 
 	bool is_mounted = false;
@@ -578,6 +624,9 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 
 	if (ret != 0)
 		goto exit;
+
+	/* Ensure next sqnum is strictly greater than any existing one. */
+	ubi_dev->global_sqnum += 1;
 
 	*ubi = ubi_dev;
 	return 0;

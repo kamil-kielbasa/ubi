@@ -131,7 +131,7 @@ int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
 
 int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_vol_hdr *hdr)
 {
-	if (!mtd || index > CONFIG_UBI_MAX_NR_OF_VOLUMES || !hdr) {
+	if (!mtd || index >= CONFIG_UBI_MAX_NR_OF_VOLUMES || !hdr) {
 		return -EINVAL;
 	}
 
@@ -163,46 +163,34 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 		return ret;
 	}
 
-	/* Try to read a valid volume header from any active PEB */
-	bool found_valid = false;
+	/* Read volume header from the canonical (highest-revision) PEB. */
+	struct ubi_vol_hdr vol_hdr = { 0 };
+	const size_t offset = (scan.canonical_peb_idx * mtd->erase_block_size) + UBI_DEV_HDR_SIZE +
+			      (UBI_VOL_HDR_SIZE * index);
 
-	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
-		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_ACTIVE) {
-			continue;
-		}
+	ret = flash_area_read(fa, offset, &vol_hdr, sizeof(vol_hdr));
 
-		struct ubi_vol_hdr vol_hdr = { 0 };
-		const size_t offset =
-			(i * mtd->erase_block_size) + UBI_DEV_HDR_SIZE + (UBI_VOL_HDR_SIZE * index);
-
-		ret = flash_area_read(fa, offset, &vol_hdr, sizeof(vol_hdr));
-
-		if (ret != 0) {
-			continue;
-		}
-
-		if (vol_hdr.magic != UBI_VOL_HDR_MAGIC) {
-			continue;
-		}
-
-		const uint32_t crc = crc32_ieee((const uint8_t *)&vol_hdr,
-						sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
-
-		if (crc != vol_hdr.hdr_crc) {
-			continue;
-		}
-
-		memcpy(hdr, &vol_hdr, sizeof(vol_hdr));
-		found_valid = true;
-		break;
+	if (ret != 0) {
+		flash_area_close(fa);
+		return ret;
 	}
 
-	flash_area_close(fa);
-
-	if (!found_valid) {
+	if (vol_hdr.magic != UBI_VOL_HDR_MAGIC) {
+		flash_area_close(fa);
 		return -EBADMSG;
 	}
 
+	const uint32_t crc =
+		crc32_ieee((const uint8_t *)&vol_hdr, sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
+
+	if (crc != vol_hdr.hdr_crc) {
+		flash_area_close(fa);
+		return -EBADMSG;
+	}
+
+	memcpy(hdr, &vol_hdr, sizeof(vol_hdr));
+
+	flash_area_close(fa);
 	return 0;
 }
 
@@ -241,7 +229,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	/* Read existing content from first active PEB */
+	/* Read existing content from canonical (highest-revision) PEB */
 	struct ubi_flash_res_peb_scan scan = { 0 };
 	ret = ubi_flash_res_peb_scan(mtd, &scan);
 
@@ -249,14 +237,13 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	const size_t active_peb = ubi_flash_res_peb_find_first_active(&scan);
-
-	if (active_peb >= UBI_DEV_HDR_NR_OF_RES_PEBS) {
+	if (scan.active_count == 0) {
 		ret = -EIO;
 		goto exit;
 	}
 
-	ret = ubi_flash_res_peb_read_content(mtd, active_peb, content, content_len - UBI_VOL_HDR_SIZE);
+	ret = ubi_flash_res_peb_read_content(mtd, scan.canonical_peb_idx, content,
+					     content_len - UBI_VOL_HDR_SIZE);
 
 	if (ret != 0) {
 		goto exit;
@@ -291,8 +278,8 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	if (cur_hdr.vol_count >= CONFIG_UBI_MAX_NR_OF_VOLUMES) {
-		ret = -ENOSPC;
+	if (cur_hdr.vol_count == 0) {
+		ret = -EINVAL;
 		goto exit;
 	}
 
@@ -365,8 +352,8 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	if (cur_hdr.vol_count >= CONFIG_UBI_MAX_NR_OF_VOLUMES) {
-		ret = -ENOSPC;
+	if (cur_hdr.vol_count == 0) {
+		ret = -EINVAL;
 		goto exit;
 	}
 
@@ -606,23 +593,24 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 	}
 
 	size_t offset = (pnum * mtd->erase_block_size) + UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE;
+	const size_t wbs = mtd->write_block_size;
 
-	if (len % WRITE_BLOCK_SIZE_ALIGNMENT == 0) {
+	if (len % wbs == 0) {
 		ret = flash_write_with_retry(fa, offset, buf, len);
 
 		if (ret != 0)
 			goto exit;
 	} else {
-		if (len < WRITE_BLOCK_SIZE_ALIGNMENT) {
+		if (len < wbs) {
 			uint8_t align_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
 			memcpy(align_buf, buf, len);
 
-			ret = flash_write_with_retry(fa, offset, align_buf, ARRAY_SIZE(align_buf));
+			ret = flash_write_with_retry(fa, offset, align_buf, wbs);
 
 			if (ret != 0)
 				goto exit;
 		} else {
-			const size_t left_size = len % WRITE_BLOCK_SIZE_ALIGNMENT;
+			const size_t left_size = len % wbs;
 
 			uint8_t align_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
 			memcpy(align_buf, &buf[len - left_size], left_size);
@@ -632,8 +620,7 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 			if (ret != 0)
 				goto exit;
 
-			ret = flash_write_with_retry(fa, offset + len - left_size, align_buf,
-						     ARRAY_SIZE(align_buf));
+			ret = flash_write_with_retry(fa, offset + len - left_size, align_buf, wbs);
 
 			if (ret != 0)
 				goto exit;
