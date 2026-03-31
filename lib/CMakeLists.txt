@@ -4,11 +4,13 @@ project(ubi)
       
 zephyr_library()
 zephyr_library_sources(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_core_init.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_core_runtime.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_volume.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_leb.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_cache.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_io.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_io_metadata.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_io_data.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_flash_res_peb.c
 )
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)

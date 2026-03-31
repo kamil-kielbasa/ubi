@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-03-31
+
+### Changed
+
+- **Split `ubi_core.c`** into `ubi_core_init.c` (device init, format, scan, volume collection) and `ubi_core_runtime.c` (get_info, erase_peb, deinit, test API). No functional changes.
+- **Split `ubi_io.c`** into `ubi_io_metadata.c` (device/volume header read/write/append/remove/update) and `ubi_io_data.c` (EC/VID header and LEB data read/write). No functional changes.
+- Updated `CMakeLists.txt` to reference the new source files.
+
+### Removed
+
+- `ubi_core.c` — replaced by `ubi_core_init.c` + `ubi_core_runtime.c`.
+- `ubi_io.c` — replaced by `ubi_io_metadata.c` + `ubi_io_data.c`.
+
 ## [0.16.0] - 2026-03-31
 
 ### Added
