@@ -106,6 +106,8 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | `lib/src/ubi_io_data.c` | Data I/O — EC/VID header and LEB data read/write |
 | `lib/src/ubi_flash_res_peb.h` | Reserved PEB state types and API declarations |
 | `lib/src/ubi_flash_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
+| `lib/src/ubi_partition_guard.h` | Single-handle-per-partition registry API |
+| `lib/src/ubi_partition_guard.c` | Static bitfield registry preventing double-init of the same partition |
 | `lib/src/ubi_test_hooks.h` | Fault injection API (requires `CONFIG_UBI_TEST_FAULT_INJECTION`) |
 | `lib/src/ubi_test_hooks.c` | Fault injection implementation — controllable `k_malloc` hook |
 
@@ -526,6 +528,14 @@ Since v0.5.0, all public API functions acquire a per-device Zephyr mutex (`struc
 - The mutex provides mutual exclusion (one thread at a time), not read-write differentiation.
 - The mutex is initialized in `ubi_device_init()` and held for the duration of each API call.
 - Callers do not need to provide their own locking.
+
+### Single Handle Per Partition
+
+Only one `struct ubi_device *` handle may be active per flash partition at any time. `ubi_device_init()` returns `-EBUSY` if a handle for the given `partition_id` already exists. The guard is released when `ubi_device_deinit()` completes.
+
+### Deinit Contract
+
+`ubi_device_deinit()` acquires the device mutex before freeing resources. Any in-flight operations that already hold the mutex will complete before teardown proceeds. The caller must ensure that no other thread will **start** new operations after calling `deinit`.
 
 See the [Roadmap](roadmap.md) for the planned upgrade to a fair read-write lock.
 

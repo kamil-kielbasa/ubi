@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_partition_guard.h"
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -280,6 +281,8 @@ int ubi_device_deinit(struct ubi_device *ubi)
 	if (!ubi)
 		return -EINVAL;
 
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
 	struct rbnode *node = NULL;
 	struct ubi_rbt_item *rbt_item = NULL;
 	struct ubi_rbt_item *vol_item = NULL;
@@ -324,6 +327,8 @@ int ubi_device_deinit(struct ubi_device *ubi)
 		k_free(rbt_item);
 		ubi->vol_count -= 1;
 	}
+
+	ubi_partition_release(ubi->mtd.partition_id);
 
 	k_free(ubi);
 	return 0;

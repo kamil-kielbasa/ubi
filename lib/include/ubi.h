@@ -117,6 +117,9 @@ struct ubi_volume_config {
  * in-memory PEB and volume tables. On success, *ubi points to the
  * allocated device handle; on failure, *ubi is set to NULL.
  *
+ * Only one active handle per flash partition is allowed. A second call
+ * with the same partition_id while a handle is still alive returns -EBUSY.
+ *
  * If the reserved PEB area has lost redundancy (one copy damaged),
  * initialization still succeeds but the device enters degraded
  * read-only mode — check \c ubi_device_info.read_only_degraded.
@@ -133,6 +136,7 @@ struct ubi_volume_config {
  *
  * \retval 0        Success (device may be degraded — query info to check).
  * \retval -EINVAL  NULL pointer or invalid flash geometry.
+ * \retval -EBUSY   A handle for this partition is already active.
  * \retval -ENOMEM  Heap allocation failure.
  * \retval -ENODEV  Flash device not ready.
  * \retval -EIO     Unrecoverable flash I/O error.
@@ -174,7 +178,13 @@ int ubi_device_erase_peb(struct ubi_device *ubi);
 /**
  * \brief Shut down a UBI device and release all resources.
  *
- * Frees all in-memory structures. The handle must not be used after this call.
+ * Acquires the device mutex to wait for any in-flight operations to complete,
+ * then frees all in-memory structures. The handle must not be used after this
+ * call.
+ *
+ * \pre The caller must ensure no other thread will start new operations on
+ *      this handle after calling deinit. In-flight operations that already
+ *      hold the mutex will complete before teardown proceeds.
  *
  * \param[in] ubi 		UBI device handle (may be partially initialized).
  *

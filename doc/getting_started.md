@@ -1,6 +1,6 @@
 # Getting Started
 
-**What this page covers:** How to build, run, and evaluate UBI — from first build to running all 127 tests.
+**What this page covers:** How to build, run, and evaluate UBI — from first build to running all 132 tests.
 
 **Prerequisites:** A working [Zephyr development environment](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) (west, Zephyr SDK).
 
@@ -117,7 +117,7 @@ picocom -b 115200 /dev/ttyACM0
 
 ## Running Tests
 
-All 127 tests (14 suites) run on `native_sim`:
+All 132 tests (15 suites) run on `native_sim`:
 
 ```sh
 bash scripts/run_tests.sh

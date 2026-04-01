@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_partition_guard.h"
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -540,6 +541,15 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	ubi_dev->dirty_pebs.lessthan_fn = ubi_cache_cmp;
 	sys_slist_init(&ubi_dev->bad_pebs);
 	ubi_dev->vols.lessthan_fn = ubi_cache_cmp;
+
+	ret = ubi_partition_acquire(mtd->partition_id);
+
+	if (ret != 0) {
+		LOG_ERR("Partition %u already in use by another UBI handle", mtd->partition_id);
+		k_free(ubi_dev);
+		*ubi = NULL;
+		return -EBUSY;
+	}
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);

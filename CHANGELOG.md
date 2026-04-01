@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-04-01
+
+### Added
+
+- **Single-handle-per-partition guard**: `ubi_partition_acquire()` / `ubi_partition_release()` in `lib/src/ubi_partition_guard.h` / `ubi_partition_guard.c` — static bitfield registry that prevents two `ubi_device` handles for the same flash partition. `ubi_device_init()` returns `-EBUSY` if the partition is already in use.
+- **Concurrency test suite**: `tests/src/tests_ubi_concurrency.c` — multi-threaded tests using `k_thread_create` / `k_thread_join`: concurrent metadata readers, reader-writer interleave, deinit-after-quiescence, double-init guard (`-EBUSY`), init-after-deinit reuse.
+
+### Fixed
+
+- **`ubi_device_deinit()` thread safety**: Now acquires the device mutex before freeing resources. In-flight operations that hold the mutex complete before teardown proceeds.
+
+### Changed
+
+- **`ubi_device_deinit()` contract** (`lib/include/ubi.h`): Added `\pre` clause — caller must ensure no new operations start after calling deinit.
+- **`ubi_device_init()` contract** (`lib/include/ubi.h`): Documents `-EBUSY` and the single-handle-per-partition invariant.
+- **Documentation**: Thread Safety section in `doc/architecture.md` now documents the deinit contract and single-handle-per-partition rule. Source file table includes `ubi_partition_guard` module. Test counts updated across `doc/test_strategy.md` and `doc/getting_started.md`.
+
 ## [0.19.0] - 2026-04-01
 
 ### Added

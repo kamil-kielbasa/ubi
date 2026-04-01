@@ -97,11 +97,13 @@ sudo usermod -aG dialout $USER
 
 Then log out and back in for the change to take effect.
 
-## 7. Resource Reports
+## 8. Resource Reports
 
-Generate flash (ROM) and static RAM usage reports:
+Generate flash (ROM) and static RAM usage reports for the whole firmware image:
 
 ```sh
 west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t rom_report
 west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t ram_report
 ```
+
+UBI-only library numbers (partition size vs. code size) are documented in [Introduction](introduction.md): the DeviceTree `ubi_partition` used in this repo is **128 KiB**; the measured **library** ROM footprint for the sample build is **8,522 B** (see `arm-none-eabi-size` on `modules/ubi/lib/lib..__ubi__lib.a`).

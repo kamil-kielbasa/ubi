@@ -40,7 +40,7 @@ UBI fills this gap as a **thin, low-overhead volume manager** providing:
 - Dual-bank metadata headers for crash resilience (configurable 2–4 reserved PEB copies)
 - Crash recovery via sequence-number-based conflict resolution
 - Thread-safe operations via per-device Zephyr mutex
-- Zero static RAM usage — all structures are heap-allocated at runtime
+- Heap-allocated device and volume state; a small static partition guard (mutex + bitfield) enforces one open handle per `partition_id`
 
 ## Non-Goals
 
@@ -56,14 +56,16 @@ UBI intentionally does **not** provide:
 
 ## Resource Usage
 
-UBI is designed for resource-constrained embedded systems. The following measurements were taken on the `b_u585i_iot02a` (STM32U5, Cortex-M33) board with default configuration and size optimization (`-Os`). The CI pipeline measures flash usage on every push (see the `flash-usage` build artifact). Actual footprint varies depending on board, toolchain, and Kconfig options.
+UBI is designed for resource-constrained embedded systems. The following measurements were taken with `west build -b b_u585i_iot02a ./sample` (STM32U5, Cortex-M33): `CONFIG_UBI_ENABLE=y`, `CONFIG_SIZE_OPTIMIZATIONS=y`, and no test-only options. Library footprint comes from `arm-none-eabi-size build/stm32u5/sample/modules/ubi/lib/lib..__ubi__lib.a` (sum of `.text` + `.data` for flash, `.data` + `.bss` for static RAM in that archive). The CI pipeline also records flash usage (see the `flash-usage` build artifact). Actual numbers vary with board, toolchain, and Kconfig.
 
 ### Flash and Static RAM
 
 | Metric     | Value    | Notes |
 |------------|----------|-------|
-| Flash      | 6,876 B  | Reference configuration: default Kconfig, Cortex-M33, `-Os` |
-| Static RAM | 0 B      | UBI does not declare any static variables |
+| Flash      | 8,522 B  | Sample app / production-style Kconfig; `.text` + `.data` in `lib..__ubi__lib.a` |
+| Static RAM | 24 B     | Partition guard (`ubi_partition_guard.c`): `.data` + `.bss` in the same archive; device/volume state remains heap-allocated |
+
+Enabling `CONFIG_UBI_TEST_API_ENABLE` (Ztest builds) pulls in extra code paths and logging; the same archive on the `tests/` app was approximately **16.2 KiB** flash (`.text` + `.data` only) with `CONFIG_DEBUG_OPTIMIZATIONS=y`.
 
 ### Runtime RAM (Dynamic Allocations)
 

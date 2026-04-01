@@ -7,8 +7,10 @@ It provides wear-leveling, bad block management, and multiple logical volumes
 on a single flash partition — similar to what LVM does for block devices.
 
 This is a from-scratch implementation targeting resource-constrained embedded
-systems. It requires approximately **6.7 KB of flash** and **zero static RAM**
-(measured on b_u585i_iot02a, STM32U5 Cortex-M33, default configuration).
+systems. On `b_u585i_iot02a` (STM32U5 Cortex-M33), the **sample** application
+build reports about **8.5 KB of flash** for `lib..__ubi__lib.a` and **24 bytes**
+of static RAM in that library (partition guard). See :doc:`introduction` for
+methodology and test-build figures.
 
 Start Here
 ----------

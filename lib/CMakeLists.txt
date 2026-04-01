@@ -12,6 +12,7 @@ zephyr_library_sources(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_io_metadata.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_io_data.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_flash_res_peb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi_partition_guard.c
 )
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 

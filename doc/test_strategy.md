@@ -22,13 +22,14 @@
 | `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | 3 | Randomized churn with reboots, multi-volume operations, persistence across reinit | native_sim (simulator only) |
 | `ubi_torture` | `tests_ubi_torture.c` | 5 | Bad-block torture, erase retry, degraded transitions | native_sim (simulator only) |
 | `ubi_hil_smoke` | `tests_ubi_hil_smoke.c` | 3 | Basic lifecycle, persistence, stress cycles (board-portable smoke) | native_sim |
-| **Total** | | **127** | | |
+| `ubi_concurrency` | `tests_ubi_concurrency.c` | 5 | Multi-threaded readers/writers, deinit quiescence, partition guard | native_sim |
+| **Total** | | **132** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a) |
 |--------|----------------------|--------------------------|
-| Functional correctness | Full — all 127 tests run (14 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 132 tests run (15 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |
@@ -92,6 +93,12 @@ Core API verification organized by functional area:
 | Suite | File | Focus |
 |-------|------|-------|
 | `ubi_hil_smoke` | `tests_ubi_hil_smoke.c` | Board-portable smoke: basic lifecycle, persistence across reinit, stress cycles. Runs on both native_sim and hardware targets. |
+
+### 9. Concurrency Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_concurrency` | `tests_ubi_concurrency.c` | Multi-threaded concurrent readers, reader-writer interleave, deinit-after-quiescence, double-init partition guard (`-EBUSY`), init-after-deinit reuse. Uses `k_thread_create` + `k_thread_join`. |
 
 ## Test Environment
 
