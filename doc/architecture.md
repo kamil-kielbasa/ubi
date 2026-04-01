@@ -1,6 +1,30 @@
 # Architecture Guide
 
-This document provides a comprehensive overview of the UBI subsystem internals. For an introduction to what UBI is and why it exists, see the [Introduction](introduction.md).
+**What this page covers:** UBI internals — on-flash layout, in-RAM data structures, initialization, wear-leveling, dual-bank metadata redundancy, recovery, and failure handling.
+
+**Prerequisites:** Read the [Overview](overview.md) first for the mental model (PEB, LEB, EC, VID, EBA).
+
+**What you will learn:** How UBI maps logical blocks to physical blocks, how it recovers from crashes, and how wear is distributed across the flash.
+
+## 30-Second Summary
+
+UBI divides a flash partition into Physical Erase Blocks (PEBs). The first N PEBs (configurable, default 2) store mirrored device and volume metadata. All remaining PEBs hold user data. Each data PEB carries an Erase Counter (EC) header and a Volume Identifier (VID) header followed by the payload. At init, UBI scans every PEB and builds an in-RAM red-black tree cache of free, dirty, and bad blocks plus per-volume LEB-to-PEB mappings. Writes always pick the free PEB with the lowest erase count (wear-leveling). Crash recovery relies on monotonically increasing sequence numbers in VID headers — the higher sqnum always wins.
+
+## Core Invariants
+
+These rules hold at all times after a successful `ubi_device_init()`:
+
+| Invariant | Description |
+|-----------|-------------|
+| One LEB, one PEB | Each mapped LEB points to exactly one active PEB. No two LEBs share a PEB. |
+| Higher sqnum wins | During init, if two PEBs claim the same (vol_id, lnum), the one with the higher sequence number is kept; the other becomes dirty. |
+| Erase before reuse | A dirty PEB must be erased before it can return to the free pool. No in-place overwrites. |
+| Bad PEBs are terminal | Once a PEB is classified as bad, it never returns to the free or dirty pool (unless torture recovery succeeds). |
+| Reserved PEBs are mirrors | The first N reserved PEBs hold identical copies of device + volume metadata. They are never used for data. |
+| Free pool is EC-ordered | `free_pebs` is a red-black tree keyed by erase count. `rb_get_min()` always returns the least-worn block. |
+| Mutex serialization | All public API calls acquire a per-device mutex. UBI is thread-safe but not ISR-safe. |
+
+---
 
 ## Flash Storage Primer
 
@@ -30,7 +54,7 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 
 ```
 +-----------------------------------------------------+
-|                   Application                        |
+|                   Application                       |
 +-----------------------------------------------------+
             |                          ^
             | ubi_leb_write()          | ubi_leb_read()
@@ -38,17 +62,17 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
             | ubi_device_init()        | ubi_device_get_info()
             v                          |
 +-----------------------------------------------------+
-|                     UBI Layer                        |
-|                                                      |
+|                     UBI Layer                       |
+|                                                     |
 |  +---------------+  +---------------+  +---------+  |
 |  | Volume Mgmt   |  | LEB I/O       |  | Wear-   |  |
 |  | create/remove |  | read/write    |  | Level   |  |
 |  | resize/info   |  | map/unmap     |  | Engine  |  |
 |  +---------------+  +---------------+  +---------+  |
-|                                                      |
+|                                                     |
 |  +----------------------------------------------+   |
-|  |           PEB Management (RBT Cache)          |   |
-|  |  free_pebs | dirty_pebs | bad_pebs | vols     |   |
+|  |           PEB Management (RBT Cache)         |   |
+|  |  free_pebs | dirty_pebs | bad_pebs | vols    |   |
 |  +----------------------------------------------+   |
 +-----------------------------------------------------+
             |                          ^
@@ -56,12 +80,12 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
             | flash_area_erase()       |
             v                          |
 +-----------------------------------------------------+
-|          Zephyr Flash Area API (Flash Map)           |
+|          Zephyr Flash Area API (Flash Map)          |
 +-----------------------------------------------------+
             |                          ^
             v                          |
 +-----------------------------------------------------+
-|              Flash Hardware (NOR / NAND)             |
+|              Flash Hardware (NOR / NAND)            |
 +-----------------------------------------------------+
 ```
 
@@ -87,16 +111,16 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 
 ## On-Flash Layout
 
-UBI reserves the first two PEBs (PEB 0 and PEB 1) for device and volume metadata, stored in a dual-bank configuration for crash resilience. The remaining PEBs (2 through N-1) are data blocks available for volume use.
+UBI reserves the first N PEBs for device and volume metadata, stored in a dual-bank configuration for crash resilience. N is configurable via `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` (default 2, range 2–4). The remaining PEBs (N through total-1) are data blocks available for volume use.
 
 ```
-Flash Partition
+Flash Partition (default: N=2 reserved PEBs)
 +====================+====================+=====+====================+
-| PEB 0 (Reserved)   | PEB 1 (Reserved)   | ... | PEB N-1            |
+| PEB 0 (Reserved)   | PEB 1 (Reserved)   | ... | PEB total-1        |
 | Device Header Bank | Device Header Bank |     | Data Block         |
 +====================+====================+=====+====================+
 
-Reserved PEB Layout (PEB 0 and PEB 1 are mirrors):
+Reserved PEB Layout (reserved PEBs are mirrors):
 
 Offset 0x000  +----------------------+
               | Device Header (32 B) |  magic, version, revision, vol_count, CRC
@@ -109,7 +133,7 @@ Offset 0x050  | Volume 1 Hdr  (48 B) |
               +----------------------+
 
 
-Data PEB Layout (PEB 2 through PEB N-1):
+Data PEB Layout (PEB N through PEB total-1):
 
 Offset 0x000  +----------------------+
               | EC Header    (16 B)  |  magic, version, erase_counter, CRC
@@ -165,7 +189,7 @@ The `sqnum` field is critical for crash recovery. During the PEB scan at init, i
 
 ### Device Header — 32 bytes
 
-Stored on reserved PEB 0 and PEB 1. Describes the overall UBI device.
+Stored on all reserved PEBs (default: PEB 0 and PEB 1). Describes the overall UBI device.
 
 ```
 Offset  Size  Field
@@ -294,11 +318,12 @@ Every PEB on flash is tracked by exactly one of these structures at any time:
                           +------------------+
                           |   Physical Flash |
                           +------------------+
-                          | PEB 0  (reserved)|----> Device + Volume headers (Bank 1)
-                          | PEB 1  (reserved)|----> Device + Volume headers (Bank 2)
+                          | PEB 0  (reserved)|----> Device + Volume headers (Bank 1)  \
+                          | PEB 1  (reserved)|----> Device + Volume headers (Bank 2)   > N reserved
+                          |  ...  (if N > 2) |----> Cold spares                       /
                           |------------------|
-  free_pebs RBT --------->| PEB 2  (free)    |  EC hdr present, VID = 0xFF
-  free_pebs RBT --------->| PEB 3  (free)    |  EC hdr present, VID = 0xFF
+  free_pebs RBT --------->| PEB N  (free)    |  EC hdr present, VID = 0xFF
+  free_pebs RBT --------->| PEB N+1 (free)   |  EC hdr present, VID = 0xFF
                           |------------------|
   vol[0].eba_tbl -------->| PEB 4  (vol0/L0) |  EC hdr + VID(vol=0,leb=0) + data
   vol[0].eba_tbl -------->| PEB 5  (vol0/L1) |  EC hdr + VID(vol=0,leb=1) + data
@@ -310,7 +335,7 @@ Every PEB on flash is tracked by exactly one of these structures at any time:
   bad_pebs list --------->| PEB 8  (bad)     |  Unreadable or failed I/O
                           +------------------+
 
-  Rule: PEB 0,1 are always reserved.
+  Rule: PEB 0..N-1 are always reserved (N = CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS).
         Every other PEB is in exactly ONE of:
         - free_pebs      (erased, ready for use)
         - Some volume's eba_tbl  (in use, holds live data)
@@ -334,6 +359,20 @@ All allocations are dynamic (`k_malloc`). Static RAM usage is zero.
 ## PEB Lifecycle
 
 A Physical Erase Block moves through the following states during normal operation:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Free : ubi_device_init() (fresh flash)
+    Free --> Allocated : leb_write() / leb_map()
+    Allocated --> Dirty : leb_write() (overwrite) / leb_unmap()
+    Dirty --> Free : ubi_device_erase_peb() (ec += 1)
+    Free --> Bad : I/O error
+    Allocated --> Bad : I/O error
+    Dirty --> Bad : I/O error
+    Bad --> Free : Torture recovery (rare)
+```
+
+**Detailed ASCII reference:**
 
 ```
                           +-------+
@@ -393,14 +432,14 @@ ubi_device_init(mtd, &ubi)
         |
         v
   Check: is device mounted?
-  (read PEB 0 and PEB 1, look for valid device headers)
+  (read reserved PEBs 0..N-1, look for valid device headers)
         |
         +--- NO (fresh flash) -------> Phase 0: First-Time Mount
         |                                  |
         +--- YES (reboot) --+              |
         |                   |              v
-        |                   |     Write device header to PEB 0 and PEB 1
-        |                   |     Erase PEBs 2..N-1
+        |                   |     Write device header to reserved PEBs
+        |                   |     Erase data PEBs N..total-1
         |                   |     Write EC headers (ec=0) to each
         |                   |              |
         v                   v              |
@@ -416,7 +455,7 @@ ubi_device_init(mtd, &ubi)
                     v
   +--------------------------------------------+
   | Phase 2: Compute Average Erase Count       |
-  |   Scan PEBs 2..N-1                         |
+  |   Scan PEBs N..total-1                     |
   |   Read EC headers, sum valid erase counts  |
   |   ec_avg = ec_sum / ec_count               |
   |   (Used as fallback EC for bad blocks)     |
@@ -425,7 +464,7 @@ ubi_device_init(mtd, &ubi)
                     v
   +--------------------------------------------+
   | Phase 3: PEB Scan & Classification         |
-  |   For each PEB from 2 to N-1:             |
+  |   For each PEB from N to total-1:          |
   |                                            |
   |   3.1  EC header invalid?                  |
   |         --> bad_pebs (ec = ec_avg)         |
@@ -459,7 +498,7 @@ ubi_device_init(mtd, &ubi)
 
 | Aspect | First-Time Mount | Reboot (Re-mount) |
 |--------|------------------|--------------------|
-| Device header on PEB 0/1 | Not present | Already written |
+| Device header on reserved PEBs | Not present | Already written |
 | Phase 0 | Erase all data PEBs, write EC headers with `ec=0` | Skipped entirely |
 | Phase 1–3 | Runs (all PEBs will be free) | Runs (reconstructs volumes from existing data) |
 | Volume data | None — empty EBA tables | Reconstructed from VID headers on flash |
@@ -522,6 +561,75 @@ This two-sided greedy approach naturally distributes wear across all PEBs:
 - Least-worn dirty blocks are recycled first, keeping the counter distribution tight.
 - Over time, all PEBs converge toward a similar erase count.
 
+### Write Flow (Mermaid)
+
+```mermaid
+flowchart TD
+    Start["ubi_leb_write(vol_id, lnum, buf, len)"]
+    Lookup["Look up LEB in volume EBA table"]
+    Mapped{"LEB already mapped?"}
+    OldDirty["Move old PEB to dirty_pebs"]
+    SelectFree["Select free PEB with lowest EC\n(rb_get_min on free_pebs)"]
+    NoFree{"Free PEB available?"}
+    ErrNospc["Return -ENOSPC"]
+    WriteEC["Write EC header (ec + 1)"]
+    WriteVID["Write VID header\n(vol_id, lnum, sqnum++, data_size)"]
+    WriteData["Write user data payload"]
+    WriteFail{"Write succeeded?"}
+    MarkBad["Mark PEB as bad\nRetry with next free PEB"]
+    UpdateEBA["Update EBA: LEB → new PEB"]
+    Done["Return 0"]
+
+    Start --> Lookup --> Mapped
+    Mapped -- Yes --> OldDirty --> SelectFree
+    Mapped -- No --> SelectFree
+    SelectFree --> NoFree
+    NoFree -- No --> ErrNospc
+    NoFree -- Yes --> WriteEC --> WriteVID --> WriteData --> WriteFail
+    WriteFail -- Yes --> UpdateEBA --> Done
+    WriteFail -- No --> MarkBad --> SelectFree
+```
+
+### Read Flow (Mermaid)
+
+```mermaid
+flowchart TD
+    Start["ubi_leb_read(vol_id, lnum, offset, buf, len)"]
+    FindVol["Find volume in vols RBT"]
+    FindLEB["Look up LEB in volume EBA table"]
+    IsMapped{"LEB mapped?"}
+    ErrInval["Return -EINVAL"]
+    ReadFlash["Read from PEB at data offset + user offset"]
+    Done["Return 0"]
+
+    Start --> FindVol --> FindLEB --> IsMapped
+    IsMapped -- No --> ErrInval
+    IsMapped -- Yes --> ReadFlash --> Done
+```
+
+### Erase / Reclaim Flow (Mermaid)
+
+```mermaid
+flowchart TD
+    Start["ubi_device_erase_peb()"]
+    HasDirty{"dirty_pebs non-empty?"}
+    NoDirty["Return 0 (nothing to reclaim)"]
+    SelectMin["Select dirty PEB with lowest EC\n(rb_get_min on dirty_pebs)"]
+    Erase["Erase PEB on flash"]
+    EraseFail{"Erase succeeded?"}
+    MarkBad["Mark PEB as bad"]
+    IncEC["Increment erase counter"]
+    WriteEC["Write new EC header"]
+    MoveToFree["Move PEB to free_pebs"]
+    Done["Return 0"]
+
+    Start --> HasDirty
+    HasDirty -- No --> NoDirty
+    HasDirty -- Yes --> SelectMin --> Erase --> EraseFail
+    EraseFail -- No --> MarkBad --> Done
+    EraseFail -- Yes --> IncEC --> WriteEC --> MoveToFree --> Done
+```
+
 ---
 
 ## Dual-Bank Mechanism
@@ -541,10 +649,10 @@ UBI stores device and volume metadata on reserved PEBs as mirrors. The number of
 When metadata changes (volume created, removed, or resized), UBI writes to both active PEBs sequentially:
 
 ```
-1. Erase active PEB 0
-2. Write updated headers to active PEB 0
-3. Erase active PEB 1
-4. Write updated headers to active PEB 1
+1. Erase active reserved PEB (bank 1)
+2. Write updated headers to active reserved PEB (bank 1)
+3. Erase active reserved PEB (bank 2)
+4. Write updated headers to active reserved PEB (bank 2)
 ```
 
 If a write fails (dead PEB), UBI promotes a cold spare to replace it.
@@ -578,8 +686,17 @@ Volume operations (`ubi_vol_hdr_append`, `ubi_vol_hdr_remove`, `ubi_vol_hdr_upda
 When only 1 active PEB remains and 0 spares are available, the system enters **read-only degraded mode**:
 
 - Volume data remains readable (`ubi_leb_read`, `ubi_dev_hdr_read`, `ubi_vol_hdr_read` work normally)
-- Metadata-mutating operations (`ubi_volume_create`, `ubi_volume_remove`, `ubi_volume_resize`) return `-EIO`
+- Metadata-mutating operations (`ubi_volume_create`, `ubi_volume_remove`, `ubi_volume_resize`) return `-EROFS`
 - The system refuses to erase the last surviving copy to prevent total data loss
+
+| Operation | Degraded mode behavior |
+|-----------|----------------------|
+| `ubi_leb_read` | Works normally |
+| `ubi_leb_write` | Works normally (data PEBs are unaffected) |
+| `ubi_device_get_info` | Works normally (`read_only_degraded = true`) |
+| `ubi_volume_create` | Returns `-EROFS` |
+| `ubi_volume_resize` | Returns `-EROFS` |
+| `ubi_volume_remove` | Returns `-EROFS` |
 
 ### State Summary
 
@@ -627,15 +744,15 @@ When only 1 active PEB remains and 0 spares are available, the system enters **r
 
 ### Create
 
-`ubi_volume_create()` assigns a unique volume ID, writes a new volume header to both reserved PEBs (incrementing the device revision), and adds the volume to the in-RAM `vols` RBT. The PEBs for the volume are **not** pre-allocated — they are claimed from `free_pebs` on-demand when LEBs are written or mapped.
+`ubi_volume_create()` assigns a unique volume ID, writes a new volume header to both active reserved PEBs (incrementing the device revision), and adds the volume to the in-RAM `vols` RBT. The PEBs for the volume are **not** pre-allocated — they are claimed from `free_pebs` on-demand when LEBs are written or mapped.
 
 If a volume with the same name already exists, the function returns successfully with the existing volume's ID (idempotent behavior).
 
 ### Resize
 
-`ubi_volume_resize()` is only supported for dynamic volumes. It updates the `leb_count` in the volume header on both reserved PEBs and adjusts the in-RAM configuration. If the volume is shrunk, LEBs beyond the new limit are unmapped and their PEBs are moved to `dirty_pebs`.
+`ubi_volume_resize()` is only supported for dynamic volumes. It updates the `leb_count` in the volume header on both active reserved PEBs and adjusts the in-RAM configuration. If the volume is shrunk, LEBs beyond the new limit are unmapped and their PEBs are moved to `dirty_pebs`.
 
 ### Remove
 
-`ubi_volume_remove()` unmaps all LEBs (moving their PEBs to `dirty_pebs`), removes the volume header from the reserved PEBs, and frees the in-RAM structures.
+`ubi_volume_remove()` unmaps all LEBs (moving their PEBs to `dirty_pebs`), removes the volume header from the active reserved PEBs, and frees the in-RAM structures.
 

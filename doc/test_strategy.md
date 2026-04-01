@@ -1,10 +1,36 @@
-# UBI Test Strategy
+# Test Strategy
 
-## Scope
+**What this page covers:** Test categories, environments, coverage targets, test patterns, and known gaps.
 
-This document describes the testing strategy for the UBI (Unsorted Block Images) library,
-covering test categories, environments, coverage targets, tooling, and patterns used
-across the test suite.
+**Prerequisites:** [Getting Started](getting_started.md) for build and run instructions.
+
+## Executive Summary
+
+| Suite | File | Tests | Focus | Environment |
+|-------|------|------:|-------|-------------|
+| `ubi_device` | `tests_ubi_device.c` | 2 | Device init, deinit, get_info | native_sim |
+| `ubi_volumes` | `tests_ubi_volumes.c` | 6 | Volume create, remove, resize, get_info | native_sim |
+| `ubi_map_unmap` | `tests_ubi_map_unmap.c` | 3 | LEB map, unmap, is_mapped | native_sim |
+| `ubi_write_read` | `tests_ubi_write_read.c` | 5 | LEB write, read, get_size | native_sim |
+| `ubi_erase` | `tests_ubi_erase.c` | 2 | PEB erase, dirty-to-free recycling | native_sim |
+| `ubi_mixed` | `tests_ubi_mixed.c` | 1 | Multi-volume cross-functional workflows | native_sim |
+| `ubi_error_handling` | `tests_ubi_error_handling.c` | 56 | NULL params, out-of-range, no-space, edge cases | native_sim |
+| `ubi_boundary` | `tests_ubi_boundary.c` | 6 | Max LEB capacity, alignment, sqnum persistence | native_sim |
+| `ubi_recovery` | `tests_ubi_recovery.c` | 21 | Corruption, dual-bank, sqnum conflicts, degraded mode | native_sim |
+| `ubi_stress` | `tests_ubi_stress.c` | 4 | Full utilization, init cycling, wear leveling | native_sim (simulator only) |
+| `ubi_torture` | `tests_ubi_torture.c` | 5 | Bad-block torture, erase retry, degraded transitions | native_sim (simulator only) |
+| **Total** | | **111** | | |
+
+## What native_sim Proves vs. What Hardware Proves
+
+| Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a) |
+|--------|----------------------|--------------------------|
+| Functional correctness | Full — all 111 tests run | Build verification only (CI cross-compiles) |
+| Flash timing / latency | Not representative | Realistic |
+| Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
+| Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |
+| Wear-leveling distribution | Verified via erase counter checks | Observable but not systematically tested |
+| Memory footprint | Approximate (host allocator) | Precise (Cortex-M33 heap) |
 
 ## Test Categories
 
@@ -18,7 +44,7 @@ Core API verification organized by functional area:
 | `ubi_volumes` | `tests_ubi_volumes.c` | Volume create, remove, resize, get_info |
 | `ubi_map_unmap` | `tests_ubi_map_unmap.c` | LEB map, unmap, is_mapped |
 | `ubi_write_read` | `tests_ubi_write_read.c` | LEB write, read, get_size |
-| `ubi_erase` | `tests_ubi_erase.c` | PEB erase, dirty→free recycling |
+| `ubi_erase` | `tests_ubi_erase.c` | PEB erase, dirty-to-free recycling |
 | `ubi_mixed` | `tests_ubi_mixed.c` | Multi-volume and cross-functional workflows |
 
 ### 2. Error Handling Tests
@@ -37,7 +63,7 @@ Core API verification organized by functional area:
 
 | Suite | File | Focus |
 |-------|------|-------|
-| `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header → bad PEB, corrupt VID CRC → bad PEB, valid EC + empty VID → free PEB, orphan vol_id → dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean |
+| `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header -> bad PEB, corrupt VID CRC -> bad PEB, valid EC + empty VID -> free PEB, orphan vol_id -> dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean |
 
 ### 5. Stress Tests (simulator only)
 
@@ -45,7 +71,7 @@ Core API verification organized by functional area:
 |-------|------|-------|
 | `ubi_stress` | `tests_ubi_stress.c` | Full volume utilization, init-deinit cycling, PEB wear leveling, multi-volume concurrent usage |
 
-### 6. Torture Tests
+### 6. Torture Tests (simulator only)
 
 | Suite | File | Focus |
 |-------|------|-------|
@@ -59,7 +85,7 @@ Core API verification organized by functional area:
 - **Erase block**: 8192 bytes (matches STM32U5 geometry)
 - **Partition**: 128 KB at offset 0x0 (`ubi_partition`)
 - **Config**: `CONFIG_FLASH_SIMULATOR=y`, `CONFIG_FLASH_SIMULATOR_DOUBLE_WRITES=y`, `CONFIG_FLASH_SIMULATOR_EXPLICIT_ERASE=y`
-- **Usage**: All test suites run here; stress tests are simulator-only
+- **Usage**: All test suites run here; stress and torture tests are simulator-only
 
 ### Secondary: `b_u585i_iot02a`
 
@@ -72,8 +98,8 @@ Core API verification organized by functional area:
 
 | Metric | Target |
 |--------|--------|
-| Line coverage | ≥ 80% |
-| Branch coverage | ≥ 70% |
+| Line coverage | >= 80% |
+| Branch coverage | >= 70% |
 
 ### Tooling
 
@@ -136,21 +162,19 @@ Tests build with strict warnings to catch issues at compile time:
 -Wnull-dereference -Wunused -Wno-unused-parameter
 ```
 
-## Known Limitations
+## Known Gaps
 
-- **No hardware-in-the-loop**: Tests run only on the flash simulator; actual flash
-  wear, timing, and power-loss behavior are not tested.
-- **No power-loss simulation**: The simulator does not model power cuts during writes.
-- **Dual-bank recovery**: The `ubi_device_erase_peb` function's bad-block torture
-  path (`-ENOSYS`) is not exercised because the simulator doesn't produce flash
-  erase failures.
-- **Heap exhaustion**: Malloc failure paths are not systematically tested because
-  Zephyr's heap allocator on `native_sim` does not easily support fault injection.
+| Gap | Impact | Mitigation |
+|-----|--------|------------|
+| No hardware-in-the-loop testing | Real flash timing, wear, and failure patterns not exercised | CI cross-compiles for STM32U5; manual hardware testing during development |
+| No power-loss simulation | Interrupted writes and metadata commits not tested | Recovery logic is tested via corruption injection (corrupt headers, duplicate LEBs) |
+| No real flash erase failures | `ubi_device_erase_peb` bad-block torture path (`-ENOSYS`) not exercised | Torture tests use simulator flags; path is code-reviewed |
+| No heap exhaustion testing | `k_malloc` failure paths not systematically tested | Zephyr's `native_sim` allocator does not easily support fault injection |
 
 ## How to Add a New Test
 
-1. Choose the appropriate test file based on test category (see table above)
+1. Choose the appropriate test file based on test category (see executive summary table)
 2. Add a `ZTEST(suite_name, test_name)` function
-3. Follow the fixture pattern: init → operate → assert → deinit
+3. Follow the fixture pattern: init -> operate -> assert -> deinit
 4. If testing a new file, add it to `tests/CMakeLists.txt`
 5. Build and run: `bash scripts/run_tests.sh`

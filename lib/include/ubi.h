@@ -5,7 +5,7 @@
  *
  * \author  Kamil Kielbasa
  *
- * \copyright Copyright (c) 2025
+ * \copyright Copyright (c) 2026
  */
 
 /* Include guard ------------------------------------------------------------------------------- */
@@ -310,8 +310,8 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
  * \brief Write data to a logical erase block (LEB).
  *
  * Maps the LEB if not already mapped, then writes \p len bytes from \p buf.
- * The LEB must belong to a dynamic volume. \p len must be aligned to
- * \c mtd.write_block_size and must not exceed the LEB data size.
+ * The LEB must belong to a dynamic volume. \p len must not exceed the LEB
+ * data size. Unaligned lengths are internally padded to \c mtd.write_block_size.
  *
  * \param[in] ubi 		UBI device handle.
  * \param[in] vol_id 		Volume identifier.
@@ -320,7 +320,7 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
  * \param[in] len 		Number of bytes to write from \p buf.
  *
  * \retval 0       Success.
- * \retval -EINVAL  NULL pointer, invalid vol_id, lnum out of range, or len misaligned.
+ * \retval -EINVAL  NULL pointer, invalid vol_id, or lnum out of range.
  * \retval -EIO     Flash write failure.
  */
 int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len);

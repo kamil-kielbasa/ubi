@@ -1,18 +1,22 @@
 # Introduction
 
+**What this page covers:** Why UBI exists, how it compares to other Zephyr storage options, what it provides, what it does not, and its resource footprint.
+
+**Prerequisites:** [Overview](overview.md) for the mental model.
+
 ## What is UBI?
 
-UBI (Unsorted Block Images) is a volume management layer for raw flash devices. It sits between the application (or a filesystem) and the raw flash hardware, solving three fundamental problems:
+UBI (Unsorted Block Images) is a volume management layer for raw flash devices on Zephyr RTOS. It maps Logical Erase Blocks (LEBs) to Physical Erase Blocks (PEBs), solving three fundamental problems of raw flash:
 
-1. **Wear-leveling** — flash memory cells degrade after a finite number of erase cycles. UBI distributes writes evenly across all physical erase blocks so no single block wears out prematurely.
-2. **Bad block management** — flash blocks can fail over the lifetime of the device. UBI detects and isolates bad blocks transparently.
-3. **Logical volumes** — UBI allows partitioning a single flash region into multiple named logical volumes, each independently readable, writable, and resizable.
+1. **Wear-leveling** — distributes writes across all PEBs so no single block wears out prematurely.
+2. **Bad block management** — detects and isolates failed blocks transparently.
+3. **Logical volumes** — partitions a single flash region into multiple named volumes, each independently readable, writable, and resizable.
 
-UBI can be compared to the Logical Volume Manager (LVM) in Linux. Whereas LVM maps logical sectors to physical sectors, UBI maps Logical Erase Blocks (LEBs) to Physical Erase Blocks (PEBs).
+UBI is analogous to the Logical Volume Manager (LVM) in Linux, but operates on erase blocks instead of sectors.
 
 ## Why UBI on Zephyr?
 
-Zephyr RTOS provides flash abstractions ([Flash Map API](https://docs.zephyrproject.org/latest/services/storage/flash_map/flash_map.html), [NVS](https://docs.zephyrproject.org/latest/services/storage/nvs/nvs.html), [LittleFS](https://docs.zephyrproject.org/latest/services/file_system/index.html)), but none of them offer a general-purpose **volume manager with wear-leveling for raw flash**:
+Zephyr provides several flash abstractions, but none offer a general-purpose volume manager with wear-leveling for raw flash:
 
 | Existing Solution | What It Does | What It Lacks |
 |-------------------|--------------|---------------|
@@ -21,11 +25,11 @@ Zephyr RTOS provides flash abstractions ([Flash Map API](https://docs.zephyrproj
 | LittleFS | Filesystem with wear-leveling | File-grained, heavier footprint, no raw block access |
 | FCB | Flash circular buffer | Append-only, no random-access volumes |
 
-UBI fills this gap. It provides a **thin, low-overhead volume manager** that gives applications:
+UBI fills this gap as a **thin, low-overhead volume manager** providing:
 
 - Multiple named volumes on a single flash partition
 - Transparent wear-leveling across all volumes
-- Raw block-level read/write (not file-level), which is ideal for storing firmware images, configuration blobs, or structured binary data
+- Raw block-level read/write — ideal for firmware images, configuration blobs, or structured binary data
 - Bad block isolation without application awareness
 
 ## Features
@@ -33,21 +37,33 @@ UBI fills this gap. It provides a **thin, low-overhead volume manager** that giv
 - Dynamic volume creation, removal, and resizing (dynamic volumes)
 - Global wear-leveling across the entire flash partition
 - Transparent bad block detection and isolation
-- Dual-bank metadata headers for crash resilience
-- Thread-safe operations via Zephyr mutexes
-- Zero static RAM usage
+- Dual-bank metadata headers for crash resilience (configurable 2–4 reserved PEB copies)
+- Crash recovery via sequence-number-based conflict resolution
+- Thread-safe operations via per-device Zephyr mutex
+- Zero static RAM usage — all structures are heap-allocated at runtime
+
+## Non-Goals
+
+UBI intentionally does **not** provide:
+
+| Non-goal | Rationale |
+|----------|-----------|
+| Filesystem (files, directories, POSIX API) | UBI is a block-level volume manager. Use LittleFS or FAT on top if you need a filesystem. |
+| FTL replacement for eMMC / SD | Managed flash has its own translation layer. UBI adds no value. |
+| Power-loss atomicity for user data | UBI protects metadata (dual-bank + sqnum). User data writes are not journaled — a power loss mid-write may leave a LEB partially written. |
+| Encryption | Planned as an optional `CONFIG_UBI_CRYPTO` layer (AES-128-CCM). See the [Roadmap](roadmap.md). |
+| Read-write lock differentiation | Current locking is a simple mutex. A fair read-write lock is planned. |
 
 ## Resource Usage
 
-UBI is designed for resource-constrained embedded systems. The following measurements were taken on the `b_u585i_iot02a` (STM32U5, Cortex-M33) board with size optimization (`-Os`).
-The CI pipeline measures flash usage on every push (see the `flash-usage` build artifact).
+UBI is designed for resource-constrained embedded systems. The following measurements were taken on the `b_u585i_iot02a` (STM32U5, Cortex-M33) board with default configuration and size optimization (`-Os`). The CI pipeline measures flash usage on every push (see the `flash-usage` build artifact). Actual footprint varies depending on board, toolchain, and Kconfig options.
 
 ### Flash and Static RAM
 
-| Metric     | Value    |
-|------------|----------|
-| Flash      | 6,876 B  |
-| Static RAM | 0 B      |
+| Metric     | Value    | Notes |
+|------------|----------|-------|
+| Flash      | 6,876 B  | Reference configuration: default Kconfig, Cortex-M33, `-Os` |
+| Static RAM | 0 B      | UBI does not declare any static variables |
 
 ### Runtime RAM (Dynamic Allocations)
 
@@ -58,13 +74,13 @@ The CI pipeline measures flash usage on every push (see the `flash-usage` build 
 | PEB (free/dirty/mapped)    | 16 B             |
 | Bad PEB                    | 12 B             |
 
-All allocations are dynamic (`k_malloc`). Static RAM usage is zero — UBI does not declare any static variables.
+All allocations are dynamic (`k_malloc`). Runtime RAM is proportional to the number of PEBs and volumes.
 
 ### Example: Typical Deployment
 
-For a device with 16 PEBs and 2 volumes:
+For a device with 16 PEBs (8 KB erase blocks, 128 KB partition) and 2 volumes:
 
 - Device: 112 B
-- PEB tracking: 14 data PEBs × 16 B = 224 B
-- Volumes: 2 × 48 B = 96 B
+- PEB tracking: 14 data PEBs x 16 B = 224 B
+- Volumes: 2 x 48 B = 96 B
 - **Total runtime RAM: ~432 B**

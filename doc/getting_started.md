@@ -1,5 +1,17 @@
 # Getting Started
 
+**What this page covers:** How to build, run, and evaluate UBI — from first build to running all 111 tests.
+
+**Prerequisites:** A working [Zephyr development environment](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) (west, Zephyr SDK).
+
+## Before You Start
+
+| Path | What it gives you |
+|------|-------------------|
+| **Quick evaluation** | Build for `native_sim`, run the sample, see UBI in action — no hardware needed. |
+| **Project integration** | Add UBI as a west module, configure via Kconfig and DeviceTree. See [Configuration](configuration.md). |
+| **Hardware testing** | Build for `b_u585i_iot02a`, flash, and observe via serial. Requires STM32CubeProgrammer. |
+
 ## Quick Start
 
 ```c

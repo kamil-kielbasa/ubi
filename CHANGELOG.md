@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-04-01
+
+### Added
+
+- **Documentation**: New `doc/overview.md` — mental model (PEB/LEB/EC/VID/EBA), six-step lifecycle, stack Mermaid diagram, links to deeper docs.
+- **Sphinx**: `sphinxcontrib-mermaid` in `doc/requirements.txt` and `myst_fence_as_directive` for Mermaid in MyST (`doc/conf.py`).
+- **Architecture guide**: 30-second summary, Core Invariants table, Mermaid flowcharts (write, read, erase/reclaim), PEB lifecycle state diagram, degraded-mode operation table.
+
+### Changed
+
+- **README**: Expanded landing page — stack diagram, key properties, when to use / not, documentation map, project quality, design trade-offs.
+- **Sphinx index** (`doc/index.rst`): “Start here” guidance, grouped toctree (Understanding / Using / Quality / Project), aligned flash footprint wording with introduction (~6.7 KB).
+- **Contributing**: Root `CONTRIBUTING.md` is a short pointer to the full guide; `doc/contributing.md` rewritten with current source layout, dev loop, testing and documentation expectations, PR checklist.
+- **Configuration** (`doc/configuration.md`): Impact analysis table for Kconfig options, sizing example, “what this page covers” framing.
+- **Test strategy** (`doc/test_strategy.md`): Executive summary table (all suites and counts), native_sim vs hardware comparison, known gaps as a structured table.
+- **API docs** (`doc/api.rst`): Usage notes — lifecycle, thread safety, error model table, typical call sequence.
+- **Introduction** (`doc/introduction.md`): Non-goals table, tighter opening, resource profile notes.
+- **Getting started** (`doc/getting_started.md`): “Before you start” paths (evaluation vs integration vs hardware).
+
+### Fixed
+
+- **Documentation**: Degraded read-only mode now documents `-EROFS` (not `-EIO`) for `ubi_volume_create` / `resize` / `remove` in `architecture.md`.
+- **On-flash layout docs**: Corrected data-PEB range wording and init scan phases to use PEB indices N..total-1 (reserved count N) instead of hardcoded “2..N-1”.
+- **Public API docs** (`ubi.h`): `ubi_leb_write` — document internal padding for unaligned lengths and align `\retval` with implementation; copyright year 2026.
+
 ## [0.17.1] - 2026-03-31
 
 ### Fixed

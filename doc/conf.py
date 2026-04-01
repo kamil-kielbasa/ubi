@@ -15,9 +15,9 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 # -- Project information -----------------------------------------------------
 
 project = 'UBI on Zephyr'
-copyright = '2025-2026, Kamil Kielbasa'
+copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.9.0'
+version = '0.18.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -25,6 +25,7 @@ extensions = [
     'breathe',
     'myst_parser',
     'sphinx_rtd_theme',
+    'sphinxcontrib.mermaid',
 ]
 
 source_suffix = ['.rst', '.md']
@@ -40,6 +41,7 @@ html_theme = 'sphinx_rtd_theme'
 # -- MyST parser options -----------------------------------------------------
 
 myst_heading_anchors = 3
+myst_fence_as_directive = ["mermaid"]
 
 # -- Doxygen + Breathe -------------------------------------------------------
 
