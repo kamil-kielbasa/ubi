@@ -107,8 +107,7 @@ int main(void)
 		goto deinit;
 	}
 
-	printk("Volumes: %zu, Free PEBs: %zu\n", dev_info.volume_count,
-	       dev_info.free_peb_count);
+	printk("Volumes: %zu, Free PEBs: %zu\n", dev_info.volume_count, dev_info.free_peb_count);
 
 deinit:
 	ret = ubi_device_deinit(ubi);

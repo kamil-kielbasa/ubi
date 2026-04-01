@@ -140,6 +140,11 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 			return ret;
 		}
 
+		if (!ubi_vol_hdr_semantically_valid(&vol_hdr)) {
+			LOG_ERR("Volume header %zu semantically invalid", vol_idx);
+			return -EIO;
+		}
+
 		struct ubi_volume *vol = k_malloc(sizeof(*vol));
 
 		if (!vol) {
@@ -395,8 +400,17 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 			return -ENOMEM;
 		}
 
+		rb_remove(&vol->eba_tbl, &existing->node);
+		vol->eba_tbl_count -= 1;
+
 		ubi_move_to_bad_blocks(dev, existing->value.pnum, ec_avg, bad);
-		k_free(item);
+		k_free(existing);
+
+		item->key = vid_hdr->lnum;
+		item->value.pnum = pnum;
+		rb_insert(&vol->eba_tbl, &item->node);
+		vol->eba_tbl_count += 1;
+
 		return SCAN_PEB_HANDLED;
 	}
 
@@ -412,8 +426,17 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 			return -ENOMEM;
 		}
 
+		rb_remove(&vol->eba_tbl, &existing->node);
+		vol->eba_tbl_count -= 1;
+
 		ubi_move_to_bad_blocks(dev, existing->value.pnum, ec_hdr->ec, bad);
-		k_free(item);
+		k_free(existing);
+
+		item->key = vid_hdr->lnum;
+		item->value.pnum = pnum;
+		rb_insert(&vol->eba_tbl, &item->node);
+		vol->eba_tbl_count += 1;
+
 		return SCAN_PEB_HANDLED;
 	}
 

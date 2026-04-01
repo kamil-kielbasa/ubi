@@ -186,6 +186,21 @@ int ubi_device_deinit(struct ubi_device *ubi);
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 
 /**
+ * \brief Verify internal consistency invariants (test API).
+ *
+ * Checks that the sum of all tracked PEBs (free + dirty + bad + mapped)
+ * equals total_data_peb_count, that tree sizes match their counters,
+ * and that reserved_peb_count matches the sum of vol->cfg.leb_count.
+ *
+ * \param[in] ubi  UBI device handle.
+ *
+ * \retval 0       All invariants hold.
+ * \retval -EINVAL  NULL pointer.
+ * \retval -EIO     An invariant was violated (details logged).
+ */
+int ubi_device_check_invariants(struct ubi_device *ubi);
+
+/**
  * \brief Retrieve per-PEB erase counters (test API).
  *
  * Allocates an array of erase counters, one per data PEB. The caller
@@ -236,7 +251,7 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len);
  * \param[out] vol_id 		Assigned volume identifier.
  *
  * \retval 0       Success (including idempotent duplicate).
- * \retval -EINVAL  NULL pointer or invalid volume name.
+ * \retval -EINVAL  NULL pointer, invalid name, invalid type, or leb_count == 0.
  * \retval -ENOSPC  Not enough free PEBs for the requested LEB count.
  * \retval -EEXIST  A volume with the same name but different configuration exists.
  * \retval -EROFS   Device is in degraded read-only mode.
@@ -257,7 +272,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
  * \param[in] vol_cfg 		New volume configuration (only leb_count is used).
  *
  * \retval 0        Success.
- * \retval -EINVAL   NULL pointer or volume not found.
+ * \retval -EINVAL   NULL pointer or leb_count == 0.
  * \retval -ENOENT   Volume with given vol_id does not exist.
  * \retval -ECANCELED Static volume, or leb_count unchanged.
  * \retval -ENOSPC   Not enough free PEBs to grow.
@@ -290,7 +305,8 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id);
  * \param[out] alloc_lebs	Number of LEBs currently mapped (with data written).
  *
  * \retval 0       Success.
- * \retval -EINVAL  NULL pointer or volume not found.
+ * \retval -EINVAL  NULL pointer.
+ * \retval -ENOENT  Volume with given vol_id does not exist.
  */
 int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
 			size_t *alloc_lebs);
@@ -310,7 +326,7 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
  * \brief Write data to a logical erase block (LEB).
  *
  * Maps the LEB if not already mapped, then writes \p len bytes from \p buf.
- * The LEB must belong to a dynamic volume. \p len must not exceed the LEB
+ * Works for both static and dynamic volumes. \p len must not exceed the LEB
  * data size. Unaligned lengths are internally padded to \c mtd.write_block_size.
  *
  * \param[in] ubi 		UBI device handle.

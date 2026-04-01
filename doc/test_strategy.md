@@ -14,18 +14,21 @@
 | `ubi_write_read` | `tests_ubi_write_read.c` | 5 | LEB write, read, get_size | native_sim |
 | `ubi_erase` | `tests_ubi_erase.c` | 2 | PEB erase, dirty-to-free recycling | native_sim |
 | `ubi_mixed` | `tests_ubi_mixed.c` | 1 | Multi-volume cross-functional workflows | native_sim |
-| `ubi_error_handling` | `tests_ubi_error_handling.c` | 56 | NULL params, out-of-range, no-space, edge cases | native_sim |
+| `ubi_error_handling` | `tests_ubi_error_handling.c` | 62 | NULL params, out-of-range, no-space, contract tests (idempotent unmap, no-op map, static write, invalid type, zero LEBs, capacity) | native_sim |
 | `ubi_boundary` | `tests_ubi_boundary.c` | 6 | Max LEB capacity, alignment, sqnum persistence | native_sim |
 | `ubi_recovery` | `tests_ubi_recovery.c` | 21 | Corruption, dual-bank, sqnum conflicts, degraded mode | native_sim |
+| `ubi_fault_injection` | `tests_ubi_fault_injection.c` | 4 | Transactional safety under allocation failures, COW overwrite, invariant checks | native_sim |
 | `ubi_stress` | `tests_ubi_stress.c` | 4 | Full utilization, init cycling, wear leveling | native_sim (simulator only) |
+| `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | 3 | Randomized churn with reboots, multi-volume operations, persistence across reinit | native_sim (simulator only) |
 | `ubi_torture` | `tests_ubi_torture.c` | 5 | Bad-block torture, erase retry, degraded transitions | native_sim (simulator only) |
-| **Total** | | **111** | | |
+| `ubi_hil_smoke` | `tests_ubi_hil_smoke.c` | 3 | Basic lifecycle, persistence, stress cycles (board-portable smoke) | native_sim |
+| **Total** | | **127** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a) |
 |--------|----------------------|--------------------------|
-| Functional correctness | Full — all 111 tests run | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 127 tests run (14 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |
@@ -51,7 +54,7 @@ Core API verification organized by functional area:
 
 | Suite | File | Focus |
 |-------|------|-------|
-| `ubi_error_handling` | `tests_ubi_error_handling.c` | NULL parameters, out-of-range LEB numbers, no-space conditions, resize edge cases, overwrite semantics, no-volumes paths |
+| `ubi_error_handling` | `tests_ubi_error_handling.c` | NULL parameters, out-of-range LEB numbers, no-space conditions, resize edge cases, overwrite semantics, no-volumes paths, contract tests (idempotent unmap, no-op map, static volume write, invalid type, zero LEBs, capacity accounting) |
 
 ### 3. Boundary Tests
 
@@ -65,17 +68,30 @@ Core API verification organized by functional area:
 |-------|------|-------|
 | `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header -> bad PEB, corrupt VID CRC -> bad PEB, valid EC + empty VID -> free PEB, orphan vol_id -> dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean |
 
-### 5. Stress Tests (simulator only)
+### 5. Fault Injection Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_fault_injection` | `tests_ubi_fault_injection.c` | Transactional safety: malloc failure during create (P0.2), COW overwrite preserves old data on failure (P0.7), invariant checker after create/write/remove and resize/shrink cycles. Requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`. |
+
+### 6. Stress Tests (simulator only)
 
 | Suite | File | Focus |
 |-------|------|-------|
 | `ubi_stress` | `tests_ubi_stress.c` | Full volume utilization, init-deinit cycling, PEB wear leveling, multi-volume concurrent usage |
+| `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | Randomized churn with reboots, multi-volume mixed operations, persistence across reinit |
 
-### 6. Torture Tests (simulator only)
+### 7. Torture Tests (simulator only)
 
 | Suite | File | Focus |
 |-------|------|-------|
 | `ubi_torture` | `tests_ubi_torture.c` | Bad-block torture, erase retry logic, degraded-mode transitions |
+
+### 8. HIL Smoke Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_hil_smoke` | `tests_ubi_hil_smoke.c` | Board-portable smoke: basic lifecycle, persistence across reinit, stress cycles. Runs on both native_sim and hardware targets. |
 
 ## Test Environment
 
@@ -124,18 +140,25 @@ collects lcov data, and uploads the HTML report as a build artifact.
 
 ### Fixture Pattern
 
-Each test suite uses the standard ZTest fixture:
+Each test suite uses the standard ZTest fixture. Shared helpers in `tests/src/` eliminate boilerplate:
+
+- **`ubi_test_fixture.h`** — `ubi_test_setup_mtd()`, `ubi_test_erase_partition()`, `ubi_test_init_device()`, `ubi_test_reinit_device()`
+- **`ubi_test_memory.h`** — `ubi_test_memory_snapshot()`, `ubi_test_memory_check_no_leak()` (requires `CONFIG_SYS_HEAP_RUNTIME_STATS`)
+- **`ubi_test_raw_flash.h`** — `ubi_test_raw_write_ec_hdr()`, `ubi_test_raw_write_vid_hdr()` for corruption injection
 
 ```c
+#include "ubi_test_fixture.h"
+
 static struct ubi_mtd mtd = { 0 };
 
 static void *ztest_suite_setup(void) {
-    /* Discover flash geometry, populate mtd */
+    ubi_test_setup_mtd(&mtd);
+    return NULL;
 }
 
 static void ztest_testcase_before(void *ctx) {
-    /* Erase entire partition for test isolation */
-    flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE);
+    (void)ctx;
+    ubi_test_erase_partition();
 }
 
 ZTEST_SUITE(suite_name, NULL, ztest_suite_setup, ztest_testcase_before,
@@ -166,10 +189,10 @@ Tests build with strict warnings to catch issues at compile time:
 
 | Gap | Impact | Mitigation |
 |-----|--------|------------|
-| No hardware-in-the-loop testing | Real flash timing, wear, and failure patterns not exercised | CI cross-compiles for STM32U5; manual hardware testing during development |
 | No power-loss simulation | Interrupted writes and metadata commits not tested | Recovery logic is tested via corruption injection (corrupt headers, duplicate LEBs) |
 | No real flash erase failures | `ubi_device_erase_peb` bad-block torture path (`-ENOSYS`) not exercised | Torture tests use simulator flags; path is code-reviewed |
-| No heap exhaustion testing | `k_malloc` failure paths not systematically tested | Zephyr's `native_sim` allocator does not easily support fault injection |
+| Partial heap exhaustion coverage | `k_malloc` failure hook (`CONFIG_UBI_TEST_FAULT_INJECTION`) covers volume create; not yet wired through all allocation sites | `ubi_fault_injection` suite validates transactional safety for create; remaining paths are code-reviewed |
+| HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 | Manual hardware testing during development; HIL CI planned |
 
 ## How to Add a New Test
 

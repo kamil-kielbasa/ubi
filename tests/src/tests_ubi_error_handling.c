@@ -496,12 +496,12 @@ ZTEST(ubi_error_handling, leb_read_null_buffer)
 }
 
 /**
- * \brief Verify that unmapping an already-unmapped LEB fails.
+ * \brief Verify that unmapping an already-unmapped LEB is idempotent.
  *
  * \details Scenario: Create a volume with 2 LEBs. Without mapping or writing
  *          to LEB 0, call ubi_leb_unmap() on it.
  *
- * \expect Returns -EACCES because the LEB has no PEB mapping to remove.
+ * \expect Returns 0 (idempotent no-op).
  */
 ZTEST(ubi_error_handling, leb_unmap_unmapped)
 {
@@ -516,7 +516,7 @@ ZTEST(ubi_error_handling, leb_unmap_unmapped)
 	int vol_id;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	zassert_equal(-EACCES, ubi_leb_unmap(ubi, vol_id, 0));
+	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1252,6 +1252,166 @@ ZTEST(ubi_error_handling, leb_get_size_out_of_range)
 
 	size_t size;
 	zassert_equal(-EACCES, ubi_leb_get_size(ubi, vol_id, 5, &size));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/* --- P0.1 contract tests: invalid type and zero leb_count --- */
+
+/**
+ * \brief Verify that creating a volume with an invalid type is rejected.
+ *
+ * \expect Returns -EINVAL.
+ */
+ZTEST(ubi_error_handling, volume_create_invalid_type)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "badtp",
+		.type = 42,
+		.leb_count = 1,
+	};
+	int vol_id;
+	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, &vol_id));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that creating a volume with leb_count == 0 is rejected.
+ *
+ * \expect Returns -EINVAL.
+ */
+ZTEST(ubi_error_handling, volume_create_zero_lebs)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "zero",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 0,
+	};
+	int vol_id;
+	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, &vol_id));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that resizing a volume to leb_count == 0 is rejected.
+ *
+ * \expect Returns -EINVAL.
+ */
+ZTEST(ubi_error_handling, volume_resize_zero_lebs_rejected)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "rzero",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const struct ubi_volume_config zero_cfg = {
+		.name = "rzero",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 0,
+	};
+	zassert_equal(-EINVAL, ubi_volume_resize(ubi, vol_id, &zero_cfg));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/* --- P1.1 contract tests: idempotent unmap, no-op map, static write --- */
+
+/**
+ * \brief Verify that unmapping an unmapped LEB twice is safe (idempotent).
+ *
+ * \expect Both calls return 0.
+ */
+ZTEST(ubi_error_handling, leb_unmap_unmapped_is_idempotent)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "idem_u",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
+	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that mapping an already-mapped LEB is a no-op.
+ *
+ * \expect Second map call returns 0 without allocating a new PEB.
+ */
+ZTEST(ubi_error_handling, leb_map_already_mapped_is_noop)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "noop_m",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	zassert_ok(ubi_leb_map(ubi, vol_id, 0));
+
+	struct ubi_device_info info_before;
+	zassert_ok(ubi_device_get_info(ubi, &info_before));
+
+	zassert_ok(ubi_leb_map(ubi, vol_id, 0));
+
+	struct ubi_device_info info_after;
+	zassert_ok(ubi_device_get_info(ubi, &info_after));
+
+	zassert_equal(info_before.free_peb_count, info_after.free_peb_count,
+		      "No-op map should not consume a PEB");
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that writing to a static volume is allowed.
+ *
+ * \expect Write and read-back succeed.
+ */
+ZTEST(ubi_error_handling, static_volume_write_allowed)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "stwr",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+	int vol_id;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const uint8_t data[] = { 0xCA, 0xFE };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+
+	uint8_t rdata[2] = { 0 };
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, data, sizeof(data));
 
 	zassert_ok(ubi_device_deinit(ubi));
 }

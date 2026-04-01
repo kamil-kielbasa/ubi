@@ -25,9 +25,12 @@ target_sources(app PRIVATE
                src/tests_ubi_mixed.c
                src/tests_ubi_error_handling.c
                src/tests_ubi_boundary.c
-               src/tests_ubi_recovery.c)
+               src/tests_ubi_recovery.c
+               src/tests_ubi_fault_injection.c
+               src/tests_ubi_hil_smoke.c)
 
 if(CONFIG_FLASH_SIMULATOR)
     target_sources(app PRIVATE src/tests_ubi_stress.c
-                               src/tests_ubi_torture.c)
+                               src/tests_ubi_torture.c
+                               src/tests_ubi_stress_longrun.c)
 endif()

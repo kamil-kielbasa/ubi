@@ -92,3 +92,12 @@ LEB I/O
 .. doxygenfunction:: ubi_leb_unmap
 .. doxygenfunction:: ubi_leb_is_mapped
 .. doxygenfunction:: ubi_leb_get_size
+
+Test API (CONFIG_UBI_TEST_API_ENABLE)
+-------------------------------------
+
+These functions are only available when ``CONFIG_UBI_TEST_API_ENABLE=y``.
+Do not enable in production builds.
+
+.. doxygenfunction:: ubi_device_check_invariants
+.. doxygenfunction:: ubi_device_get_peb_ec

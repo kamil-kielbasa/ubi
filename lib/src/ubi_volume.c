@@ -65,9 +65,14 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 		struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
 
 		if (!bad_item) {
-			LOG_ERR("Heap allocation failure for bad PEB tracking");
-			k_free(item);
-			return -ENOMEM;
+			const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) :
+								    0;
+			LOG_WRN("Cannot allocate bad PEB entry, keeping PEB %zu in dirty pool",
+				item->value.pnum);
+			item->key = ec_avg;
+			rb_insert(&ubi->dirty_pebs, &item->node);
+			ubi->dirty_peb_count += 1;
+			return 0;
 		}
 
 		const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
@@ -93,7 +98,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	if (!ubi || !vol_cfg || !vol_id)
 		return -EINVAL;
 
-	if (!ubi_validate_volume_name(vol_cfg->name))
+	if (!ubi_volume_config_is_valid(vol_cfg))
 		return -EINVAL;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
@@ -121,19 +126,40 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 		}
 	}
 
-	/* Allocate and persist a new volume. */
-	const size_t avail = ubi->total_data_peb_count - ubi_reserved_peb_count(ubi);
+	/* Capacity check accounting for bad PEBs. */
+	const size_t usable = ubi->total_data_peb_count - ubi->bad_peb_count;
+	const size_t avail = usable - ubi_reserved_peb_count(ubi);
+
 	if (vol_cfg->leb_count > avail) {
 		LOG_ERR("Failed to allocate PEBs for volume");
 		ret = -ENOSPC;
 		goto exit;
 	}
 
+	/* Allocate RAM before any flash mutation so failures are side-effect free. */
+	struct ubi_volume *vol = k_malloc(sizeof(*vol));
+	if (!vol) {
+		LOG_ERR("Heap allocation failure");
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+	if (!item) {
+		LOG_ERR("Heap allocation failure");
+		k_free(vol);
+		ret = -ENOMEM;
+		goto exit;
+	}
+
 	struct ubi_dev_hdr dev_hdr = { 0 };
 	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 1);
 
-	if (ret != 0)
+	if (ret != 0) {
+		k_free(item);
+		k_free(vol);
 		goto exit;
+	}
 
 	struct ubi_vol_hdr new_vol_hdr = { 0 };
 	new_vol_hdr.magic = UBI_VOL_HDR_MAGIC;
@@ -149,13 +175,8 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	if (ret != 0) {
 		LOG_ERR("Volume header append failure");
-		goto exit;
-	}
-
-	struct ubi_volume *vol = k_malloc(sizeof(*vol));
-	if (!vol) {
-		LOG_ERR("Heap allocation failure");
-		ret = -ENOMEM;
+		k_free(item);
+		k_free(vol);
 		goto exit;
 	}
 
@@ -167,14 +188,6 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	vol->cfg.leb_count = new_vol_hdr.leb_count;
 	vol->eba_tbl_count = 0;
 	vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
-
-	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
-	if (!item) {
-		LOG_ERR("Heap allocation failure");
-		k_free(vol);
-		ret = -ENOMEM;
-		goto exit;
-	}
 
 	item->key = vol->vol_id;
 	item->value.vol = vol;
@@ -195,6 +208,9 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 	if (!ubi || !vol_cfg)
 		return -EINVAL;
 
+	if (vol_cfg->leb_count == 0)
+		return -EINVAL;
+
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
@@ -204,7 +220,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 		goto exit;
 	}
 
-	if (UBI_VOLUME_TYPE_DYNAMIC != vol->cfg.type) {
+	if (vol->cfg.type != UBI_VOLUME_TYPE_DYNAMIC) {
 		LOG_ERR("Static volume cannot be resized");
 		ret = -ECANCELED;
 		goto exit;
@@ -217,7 +233,8 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 	}
 
 	if (vol_cfg->leb_count > vol->cfg.leb_count) {
-		const size_t avail = ubi->total_data_peb_count - ubi_reserved_peb_count(ubi);
+		const size_t avail = ubi->total_data_peb_count - ubi->bad_peb_count -
+				     ubi_reserved_peb_count(ubi);
 		const size_t diff = vol_cfg->leb_count - vol->cfg.leb_count;
 
 		if (diff > avail) {
@@ -225,30 +242,9 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 			ret = -ENOSPC;
 			goto exit;
 		}
-	} else {
-		const size_t diff = vol->cfg.leb_count - vol_cfg->leb_count;
-
-		if (diff == 0) {
-			LOG_ERR("Cannot resize volume to zero LEBs");
-			ret = -ECANCELED;
-			goto exit;
-		}
-
-		for (size_t lnum = (vol->cfg.leb_count - diff); lnum < vol->cfg.leb_count; ++lnum) {
-			struct ubi_rbt_item *item = ubi_cache_search(&vol->eba_tbl, lnum);
-
-			if (item) {
-				rb_remove(&vol->eba_tbl, &item->node);
-				vol->eba_tbl_count -= 1;
-
-				ret = reclaim_peb_to_dirty(ubi, item);
-
-				if (ret != 0)
-					goto exit;
-			}
-		}
 	}
 
+	/* Commit metadata to flash BEFORE any in-RAM state mutation. */
 	struct ubi_dev_hdr dev_hdr = { 0 };
 	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 0);
 
@@ -272,6 +268,23 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 	if (ret != 0) {
 		LOG_ERR("Volume header update failure");
 		goto exit;
+	}
+
+	/* Flash commit succeeded -- now safe to mutate in-RAM state. */
+	if (vol_cfg->leb_count < vol->cfg.leb_count) {
+		for (size_t lnum = vol_cfg->leb_count; lnum < vol->cfg.leb_count; ++lnum) {
+			struct ubi_rbt_item *item = ubi_cache_search(&vol->eba_tbl, lnum);
+
+			if (item) {
+				rb_remove(&vol->eba_tbl, &item->node);
+				vol->eba_tbl_count -= 1;
+
+				ret = reclaim_peb_to_dirty(ubi, item);
+
+				if (ret != 0)
+					goto exit;
+			}
+		}
 	}
 
 	vol->cfg.leb_count = vol_cfg->leb_count;
@@ -318,6 +331,11 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 		goto exit;
 	}
 
+	/*
+	 * Flash commit succeeded -- volume is removed from persistent storage.
+	 * Reclaim mapped PEBs best-effort; errors here must not abort since the
+	 * volume is already gone on flash.
+	 */
 	struct rbnode *eba_node = NULL;
 
 	while ((eba_node = rb_get_min(&vol->eba_tbl))) {
@@ -326,11 +344,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 		rb_remove(&vol->eba_tbl, &item->node);
 		vol->eba_tbl_count -= 1;
 
-		ret = reclaim_peb_to_dirty(ubi, item);
-
-		if (ret != 0) {
-			goto exit;
-		}
+		(void)reclaim_peb_to_dirty(ubi, item);
 	}
 
 	rb_remove(&ubi->vols, &entry->node);
@@ -339,26 +353,28 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	k_free(entry->value.vol);
 	k_free(entry);
 
+	/* Re-index remaining volumes to match flash layout. */
 	for (size_t vol_idx = 0; vol_idx < dev_hdr.vol_count; ++vol_idx) {
 		struct ubi_vol_hdr vol_hdr = { 0 };
-		ret = ubi_vol_hdr_read(&ubi->mtd, vol_idx, &vol_hdr);
+		int idx_ret = ubi_vol_hdr_read(&ubi->mtd, vol_idx, &vol_hdr);
 
-		if (ret != 0) {
-			LOG_ERR("Volume header read failure");
-			goto exit;
+		if (idx_ret != 0) {
+			LOG_ERR("Volume header read failure during re-index");
+			continue;
 		}
 
 		entry = ubi_cache_search(&ubi->vols, vol_hdr.vol_id);
 
 		if (!entry) {
 			LOG_ERR("Inconsistency between cache and nvm");
-			ret = -EIO;
-			goto exit;
+			continue;
 		}
 
 		vol = entry->value.vol;
 		vol->vol_idx = vol_idx;
 	}
+
+	ret = 0;
 
 exit:
 	k_mutex_unlock(&ubi->mutex);

@@ -331,6 +331,93 @@ int ubi_device_deinit(struct ubi_device *ubi)
 
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 
+static size_t rbt_count_nodes(struct rbtree *tree)
+{
+	size_t count = 0;
+	struct ubi_rbt_item *entry = NULL;
+
+	RB_FOR_EACH_CONTAINER(tree, entry, node)
+	{
+		count++;
+	}
+	return count;
+}
+
+int ubi_device_check_invariants(struct ubi_device *ubi)
+{
+	if (!ubi)
+		return -EINVAL;
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	int ret = 0;
+
+	/* Count all tracked PEBs. */
+	const size_t free_actual = rbt_count_nodes(&ubi->free_pebs);
+	const size_t dirty_actual = rbt_count_nodes(&ubi->dirty_pebs);
+
+	size_t bad_actual = 0;
+	struct ubi_list_item *bad_entry = NULL;
+
+	SYS_SLIST_FOR_EACH_CONTAINER(&ubi->bad_pebs, bad_entry, node)
+	{
+		bad_actual++;
+	}
+
+	size_t mapped_total = 0;
+	size_t reserved_sum = 0;
+	struct ubi_rbt_item *vol_entry = NULL;
+
+	RB_FOR_EACH_CONTAINER(&ubi->vols, vol_entry, node)
+	{
+		struct ubi_volume *vol = vol_entry->value.vol;
+		const size_t eba_actual = rbt_count_nodes(&vol->eba_tbl);
+
+		if (eba_actual != vol->eba_tbl_count) {
+			LOG_ERR("Invariant: vol %zu eba_tbl_count=%zu actual=%zu", vol->vol_id,
+				vol->eba_tbl_count, eba_actual);
+			ret = -EIO;
+		}
+
+		mapped_total += eba_actual;
+		reserved_sum += vol->cfg.leb_count;
+	}
+
+	if (free_actual != ubi->free_peb_count) {
+		LOG_ERR("Invariant: free_peb_count=%zu actual=%zu", ubi->free_peb_count,
+			free_actual);
+		ret = -EIO;
+	}
+
+	if (dirty_actual != ubi->dirty_peb_count) {
+		LOG_ERR("Invariant: dirty_peb_count=%zu actual=%zu", ubi->dirty_peb_count,
+			dirty_actual);
+		ret = -EIO;
+	}
+
+	if (bad_actual != ubi->bad_peb_count) {
+		LOG_ERR("Invariant: bad_peb_count=%zu actual=%zu", ubi->bad_peb_count, bad_actual);
+		ret = -EIO;
+	}
+
+	const size_t total_tracked = free_actual + dirty_actual + bad_actual + mapped_total;
+
+	if (total_tracked != ubi->total_data_peb_count) {
+		LOG_ERR("Invariant: tracked PEBs=%zu != total_data_peb_count=%zu", total_tracked,
+			ubi->total_data_peb_count);
+		ret = -EIO;
+	}
+
+	if (reserved_sum != ubi_reserved_peb_count(ubi)) {
+		LOG_ERR("Invariant: reserved_peb_count mismatch: computed=%zu helper=%zu",
+			reserved_sum, ubi_reserved_peb_count(ubi));
+		ret = -EIO;
+	}
+
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
+}
+
 int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 {
 	int ret = -EIO;

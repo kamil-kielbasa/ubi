@@ -68,8 +68,17 @@ source "subsys/logging/Kconfig.template.log_config"
 config UBI_TEST_API_ENABLE
 	bool "Enable internal UBI test API"
 	help
-	  Expose ubi_device_get_peb_ec() which returns per-PEB
-	  erase counters. Intended for test suites only; do not
-	  enable in production builds.
+	  Expose ubi_device_get_peb_ec() and
+	  ubi_device_check_invariants() for test suites.
+	  Do not enable in production builds.
+
+config UBI_TEST_FAULT_INJECTION
+	bool "Enable UBI fault injection hooks"
+	depends on UBI_TEST_API_ENABLE
+	help
+	  Wraps k_malloc with a test-controllable hook that can be
+	  configured to fail after N calls. Used for testing
+	  transactional safety under allocation failures.
+	  Do not enable in production builds.
 
 endif # UBI_ENABLE

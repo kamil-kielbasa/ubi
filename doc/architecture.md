@@ -97,7 +97,7 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | `lib/src/ubi_core_init.c` | Device initialization — format, scan, mount |
 | `lib/src/ubi_core_runtime.c` | Device runtime — get_info, erase_peb, deinit, test API |
 | `lib/src/ubi_volume.c` | Volume management — create, resize, remove, get_info |
-| `lib/src/ubi_leb.c` | LEB operations — read, write, map, unmap, is_mapped, get_size |
+| `lib/src/ubi_leb.c` | LEB operations — read, write (copy-on-write), map, unmap (idempotent), is_mapped, get_size |
 | `lib/src/ubi_cache.c` | Red-black tree comparator and search helpers |
 | `lib/src/ubi_internal.h` | Shared internal types (`ubi_device`, `ubi_volume`) and helpers |
 | `lib/src/ubi_cache.h` | RBT and linked-list item types |
@@ -106,6 +106,8 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | `lib/src/ubi_io_data.c` | Data I/O — EC/VID header and LEB data read/write |
 | `lib/src/ubi_flash_res_peb.h` | Reserved PEB state types and API declarations |
 | `lib/src/ubi_flash_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
+| `lib/src/ubi_test_hooks.h` | Fault injection API (requires `CONFIG_UBI_TEST_FAULT_INJECTION`) |
+| `lib/src/ubi_test_hooks.c` | Fault injection implementation — controllable `k_malloc` hook |
 
 ---
 
@@ -563,31 +565,33 @@ This two-sided greedy approach naturally distributes wear across all PEBs:
 
 ### Write Flow (Mermaid)
 
+Copy-on-write: the new PEB is fully written before the old mapping is swapped. On write failure, the previous mapping and data remain intact.
+
 ```mermaid
 flowchart TD
     Start["ubi_leb_write(vol_id, lnum, buf, len)"]
     Lookup["Look up LEB in volume EBA table"]
-    Mapped{"LEB already mapped?"}
-    OldDirty["Move old PEB to dirty_pebs"]
     SelectFree["Select free PEB with lowest EC\n(rb_get_min on free_pebs)"]
     NoFree{"Free PEB available?"}
     ErrNospc["Return -ENOSPC"]
-    WriteEC["Write EC header (ec + 1)"]
+    WriteEC["Write EC header on new PEB"]
     WriteVID["Write VID header\n(vol_id, lnum, sqnum++, data_size)"]
     WriteData["Write user data payload"]
     WriteFail{"Write succeeded?"}
-    MarkBad["Mark PEB as bad\nRetry with next free PEB"]
-    UpdateEBA["Update EBA: LEB → new PEB"]
+    MarkBad["Mark new PEB as bad\nRetry with next free PEB"]
+    SwapEBA["Swap EBA: LEB → new PEB"]
+    WasOverwrite{"Was overwrite?"}
+    OldDirty["Move old PEB to dirty_pebs"]
     Done["Return 0"]
 
-    Start --> Lookup --> Mapped
-    Mapped -- Yes --> OldDirty --> SelectFree
-    Mapped -- No --> SelectFree
+    Start --> Lookup --> SelectFree
     SelectFree --> NoFree
     NoFree -- No --> ErrNospc
     NoFree -- Yes --> WriteEC --> WriteVID --> WriteData --> WriteFail
-    WriteFail -- Yes --> UpdateEBA --> Done
     WriteFail -- No --> MarkBad --> SelectFree
+    WriteFail -- Yes --> SwapEBA --> WasOverwrite
+    WasOverwrite -- Yes --> OldDirty --> Done
+    WasOverwrite -- No --> Done
 ```
 
 ### Read Flow (Mermaid)
@@ -746,13 +750,13 @@ When only 1 active PEB remains and 0 spares are available, the system enters **r
 
 `ubi_volume_create()` assigns a unique volume ID, writes a new volume header to both active reserved PEBs (incrementing the device revision), and adds the volume to the in-RAM `vols` RBT. The PEBs for the volume are **not** pre-allocated — they are claimed from `free_pebs` on-demand when LEBs are written or mapped.
 
-If a volume with the same name already exists, the function returns successfully with the existing volume's ID (idempotent behavior).
+If a volume with the same name and identical configuration (type, leb_count) already exists, the function returns successfully with the existing volume's ID (idempotent behavior). If a volume with the same name but different configuration exists, the function returns `-EEXIST`. Volume creation is transactional: RAM structures are allocated before the flash commit, so a failed create leaves no persistent metadata.
 
 ### Resize
 
-`ubi_volume_resize()` is only supported for dynamic volumes. It updates the `leb_count` in the volume header on both active reserved PEBs and adjusts the in-RAM configuration. If the volume is shrunk, LEBs beyond the new limit are unmapped and their PEBs are moved to `dirty_pebs`.
+`ubi_volume_resize()` is only supported for dynamic volumes and rejects `leb_count == 0`. It updates the `leb_count` in the volume header on both active reserved PEBs and adjusts the in-RAM configuration. Shrink is transactional: the flash metadata update commits before trimming EBA entries and reclaiming PEBs to dirty. Grow checks capacity accounting (`bad_peb_count` subtracted from usable PEBs).
 
 ### Remove
 
-`ubi_volume_remove()` unmaps all LEBs (moving their PEBs to `dirty_pebs`), removes the volume header from the active reserved PEBs, and frees the in-RAM structures.
+`ubi_volume_remove()` removes the volume header from the active reserved PEBs, then reclaims mapped PEBs to `dirty_pebs` and frees in-RAM structures. Reclaim and index cleanup after a successful metadata remove are best-effort — errors are logged but the operation returns success once the flash metadata is gone.
 

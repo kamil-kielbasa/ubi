@@ -163,6 +163,80 @@ static inline bool ubi_validate_volume_name(const char *name)
 }
 
 /**
+ * \brief Validate a full volume configuration.
+ *
+ * Checks name validity, volume type enumerator, and that leb_count > 0.
+ *
+ * \param[in] cfg  Volume configuration to validate.
+ *
+ * \retval true  Configuration is valid.
+ * \retval false One or more fields are invalid.
+ */
+static inline bool ubi_volume_config_is_valid(const struct ubi_volume_config *cfg)
+{
+	if (!ubi_validate_volume_name(cfg->name))
+		return false;
+	if (cfg->type != UBI_VOLUME_TYPE_STATIC && cfg->type != UBI_VOLUME_TYPE_DYNAMIC)
+		return false;
+	if (cfg->leb_count == 0)
+		return false;
+	return true;
+}
+
+/**
+ * \brief Validate a device header beyond CRC -- check field semantics.
+ *
+ * A CRC-valid header may still contain nonsensical values. This helper
+ * rejects headers with bad magic, unknown version, or offsets/sizes
+ * that don't match the flash geometry.
+ *
+ * \param[in] hdr      Device header (CRC already verified).
+ * \param erase_block_size  Erase block size of the underlying flash.
+ *
+ * \retval true  Header is semantically valid.
+ * \retval false One or more fields are out of range.
+ */
+static inline bool ubi_dev_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
+						  size_t erase_block_size)
+{
+	if (hdr->magic != UBI_DEV_HDR_MAGIC)
+		return false;
+	if (hdr->version != UBI_DEV_HDR_VERSION)
+		return false;
+	if (hdr->offset == 0 || hdr->offset > erase_block_size)
+		return false;
+	if (hdr->size == 0)
+		return false;
+	return true;
+}
+
+/**
+ * \brief Validate a volume header beyond CRC -- check field semantics.
+ *
+ * Rejects headers with bad magic, unknown version, invalid volume type,
+ * zero LEB count, or name without NUL terminator.
+ *
+ * \param[in] hdr  Volume header (CRC already verified).
+ *
+ * \retval true  Header is semantically valid.
+ * \retval false One or more fields are out of range.
+ */
+static inline bool ubi_vol_hdr_semantically_valid(const struct ubi_vol_hdr *hdr)
+{
+	if (hdr->magic != UBI_VOL_HDR_MAGIC)
+		return false;
+	if (hdr->version != UBI_VOL_HDR_VERSION)
+		return false;
+	if (hdr->vol_type != UBI_VOLUME_TYPE_STATIC && hdr->vol_type != UBI_VOLUME_TYPE_DYNAMIC)
+		return false;
+	if (hdr->leb_count == 0)
+		return false;
+	if (strnlen((const char *)hdr->name, UBI_VOLUME_NAME_MAX_LEN) == 0)
+		return false;
+	return true;
+}
+
+/**
  * \brief Safely copy a volume name from a RAM source into an on-flash header field.
  *
  * Zeroes the destination first, then copies up to UBI_VOLUME_NAME_MAX_LEN - 1 bytes.

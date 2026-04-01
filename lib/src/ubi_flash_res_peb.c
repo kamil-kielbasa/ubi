@@ -9,8 +9,9 @@
 
 /* Include files ------------------------------------------------------------------------------- */
 
-/* Internal header: */
+/* Internal headers: */
 #include "ubi_flash_res_peb.h"
+#include "ubi_internal.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
@@ -262,6 +263,12 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 							    sizeof(vhdr) - sizeof(vhdr.hdr_crc));
 
 			if (vol_crc != vhdr.hdr_crc) {
+				vol_hdrs_valid = false;
+				break;
+			}
+
+			if (!ubi_vol_hdr_semantically_valid(&vhdr)) {
+				LOG_WRN("Vol header %u in PEB %zu semantically invalid", v, i);
 				vol_hdrs_valid = false;
 				break;
 			}

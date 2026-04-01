@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-04-01
+
+### Added
+
+- **Volume configuration validation**: `ubi_volume_config_is_valid()` in `lib/src/ubi_internal.h` — enforces valid name, `UBI_VOLUME_TYPE_STATIC` / `DYNAMIC`, and `leb_count > 0` for `ubi_volume_create()`.
+- **Metadata semantic checks**: `ubi_dev_hdr_semantically_valid()` and `ubi_vol_hdr_semantically_valid()` — reject CRC-valid but invalid on-flash fields; used in reserved PEB scan (`lib/src/ubi_flash_res_peb.c`) and volume collection (`lib/src/ubi_core_init.c`).
+- **Test API**: `ubi_device_check_invariants()` when `CONFIG_UBI_TEST_API_ENABLE` — verifies PEB accounting, tree sizes vs counters, and reserved PEB sum (`lib/src/ubi_core_runtime.c`, `lib/include/ubi.h`).
+- **Fault injection (Kconfig)**: `UBI_TEST_FAULT_INJECTION` (requires `UBI_TEST_API_ENABLE`) — controllable `k_malloc` hook API (`ubi_test_malloc()`, `ubi_test_fault_reset()`, `ubi_test_fault_set_malloc_fail_after()`) in `lib/src/ubi_test_hooks.h` / `ubi_test_hooks.c`.
+- **Shared test headers**: `tests/src/ubi_test_fixture.h`, `ubi_test_memory.h`, `ubi_test_raw_flash.h` for MTD setup, partition erase, heap snapshots, and raw EC/VID writes.
+- **New test suites**: `tests/src/tests_ubi_fault_injection.c`, `tests_ubi_stress_longrun.c` (with `CONFIG_FLASH_SIMULATOR`), `tests_ubi_hil_smoke.c`; contract tests in `tests_ubi_error_handling.c` (invalid type, zero LEBs, idempotent unmap, no-op map, static volume write).
+
+### Changed
+
+- **Transactional `ubi_volume_create()`**: Allocate `struct ubi_volume` and rbt item before flash append; on failure, no persistent volume is written without matching RAM state (`lib/src/ubi_volume.c`).
+- **Transactional shrink in `ubi_volume_resize()`**: Flash metadata update (`ubi_vol_hdr_update`) completes before trimming EBA entries and reclaiming PEBs to dirty.
+- **`ubi_volume_remove()`**: After successful flash remove, reclaim and vol_idx re-index are best-effort (errors logged, operation still completes with success when metadata removal succeeded).
+- **Capacity accounting**: `ubi_volume_create()` and resize-grow path subtract `bad_peb_count` from usable PEBs before comparing to requested `leb_count`.
+- **`ubi_volume_resize()`**: Rejects `vol_cfg->leb_count == 0` with `-EINVAL`; shrink loop uses `lnum` from new count upward (removed dead `diff == 0` branch).
+- **Copy-on-write `leb_write()`**: New PEB is written before the old EBA mapping is removed; on write failure the previous mapping and data remain (`lib/src/ubi_leb.c`).
+- **`reclaim_peb_to_dirty()`**: If EC read fails and bad-block list allocation fails, PEB is kept in the dirty pool with average EC key instead of being dropped from tracking.
+- **`resolve_duplicate_leb()`**: When the existing mapping’s headers are unreadable, replace EBA with the current PEB after marking the old PEB bad (`lib/src/ubi_core_init.c`).
+- **`ubi_leb_unmap()`**: Idempotent — unmapped LEB returns `0`.
+- **`ubi_leb_map()`**: No-op when already mapped; otherwise uses `leb_prepare_new_mapping()` + `leb_commit_mapping_swap()` (no longer delegates through `leb_write()`).
+- **Refactor**: `leb_prepare_new_mapping()`, `leb_commit_mapping_swap()`, `leb_mark_peb_bad()` extracted in `ubi_leb.c`.
+- **Documentation** (`lib/include/ubi.h`): `ubi_volume_create` / `resize` `-EINVAL` details; `ubi_leb_write` for static and dynamic volumes; `ubi_volume_get_info` documents `-ENOENT` for missing volume.
+
+### Fixed
+
+- **PEB tracking**: Eliminated loss of PEB from all trees when `reclaim_peb_to_dirty()` hit `-ENOMEM` on bad-block allocation after EC read failure.
+
 ## [0.18.0] - 2026-04-01
 
 ### Added

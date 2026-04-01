@@ -20,12 +20,13 @@ CONFIG_UBI_ENABLE=y
 |--------|------|---------|-------|-------------|
 | `CONFIG_UBI_ENABLE` | bool | n | — | Enable the UBI subsystem |
 | `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` | int | 2 | 2–4 | Number of reserved PEBs for device/volume metadata |
-| `CONFIG_UBI_MAX_NR_OF_VOLUMES` | int | 10 | — | Maximum number of volumes per device |
+| `CONFIG_UBI_MAX_NR_OF_VOLUMES` | int | 10 | 1–128 | Maximum number of volumes per device |
 | `CONFIG_UBI_PEB_WRITE_RETRY_COUNT` | int | 3 | 1–5 | Flash write retries on data PEBs before marking bad |
 | `CONFIG_UBI_BAD_PEB_TORTURE_CYCLES` | int | 3 | 1–10 | Bad PEBs tortured per `erase_peb()` call |
 | `CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE` | int | 1 | 1–10 | Max erase attempts per bad PEB during torture |
 | `CONFIG_UBI_LOG_LEVEL_*` | choice | INF | — | Log verbosity: OFF, ERR, WRN, INF, DBG |
-| `CONFIG_UBI_TEST_API_ENABLE` | bool | n | — | Enable test-only APIs (`ubi_device_get_peb_ec`) |
+| `CONFIG_UBI_TEST_API_ENABLE` | bool | n | — | Enable test-only APIs (`ubi_device_get_peb_ec`, `ubi_device_check_invariants`) |
+| `CONFIG_UBI_TEST_FAULT_INJECTION` | bool | n | — | Wraps `k_malloc` with a test-controllable hook for simulating allocation failures. Depends on `CONFIG_UBI_TEST_API_ENABLE`. |
 
 ### Impact Analysis
 
