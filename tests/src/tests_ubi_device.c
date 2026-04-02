@@ -117,8 +117,11 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	zassert_equal(bi->free_bytes, ad->free_bytes);
 	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
 
+#if defined(CONFIG_UBI_MEM_BACKEND_HEAP)
+	/* Under the heap backend, init must consume heap memory. */
 	zassert_not_equal(ai->free_bytes, ad->free_bytes);
 	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
+#endif
 
 	memset(bi, 0, sizeof(*bi));
 	memset(ai, 0, sizeof(*ai));

@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
 /* Zephyr headers: */
@@ -122,27 +123,19 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 				continue;
 			}
 
-			struct ubi_rbt_item *free_item = k_malloc(sizeof(*free_item));
-
-			if (!free_item) {
-				LOG_ERR("Heap allocation failure during torture recovery");
-				prev = &item->node;
-				tortured += 1;
-				continue;
-			}
+			const size_t recovered_pnum = item->pnum;
 
 			sys_slist_remove(&ubi->bad_pebs, prev, &item->node);
 			ubi->bad_peb_count -= 1;
 
+			struct ubi_rbt_item *free_item = ubi_leaf_as_rbt(item);
 			free_item->key = ec_avg;
-			free_item->value.pnum = item->pnum;
+			free_item->value.pnum = recovered_pnum;
 			rb_insert(&ubi->free_pebs, &free_item->node);
 			ubi->free_peb_count += 1;
 
 			ubi->ec_sum += ec_avg;
 			ubi->ec_count += 1;
-
-			k_free(item);
 
 			LOG_INF("Torture recovered PEB %u", free_item->value.pnum);
 		} else {
@@ -174,22 +167,17 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		if (ret != 0) {
 			LOG_ERR("EC header read failure");
 
-			struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
-
-			if (!bad_item) {
-				LOG_ERR("Heap allocation failure");
-				ret = -ENOMEM;
-				goto exit;
-			}
+			const size_t pnum = entry->value.pnum;
+			const size_t ec = entry->key;
 
 			rb_remove(&ubi->dirty_pebs, &entry->node);
 			ubi->dirty_peb_count -= 1;
 
-			ubi->ec_sum -= entry->key;
+			ubi->ec_sum -= ec;
 			ubi->ec_count -= 1;
 
-			ubi_move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
-			k_free(entry);
+			struct ubi_list_item *bad_item = ubi_leaf_as_list(entry);
+			ubi_move_to_bad_blocks(ubi, pnum, ec, bad_item);
 
 			goto exit;
 		}
@@ -209,22 +197,17 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		if (ret != 0) {
 			LOG_ERR("Flash erase failure");
 
-			struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
-
-			if (!bad_item) {
-				LOG_ERR("Heap allocation failure");
-				ret = -ENOMEM;
-				goto exit;
-			}
+			const size_t pnum = entry->value.pnum;
+			const size_t ec = entry->key;
 
 			rb_remove(&ubi->dirty_pebs, &entry->node);
 			ubi->dirty_peb_count -= 1;
 
-			ubi->ec_sum -= entry->key;
+			ubi->ec_sum -= ec;
 			ubi->ec_count -= 1;
 
-			ubi_move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
-			k_free(entry);
+			struct ubi_list_item *bad_item = ubi_leaf_as_list(entry);
+			ubi_move_to_bad_blocks(ubi, pnum, ec, bad_item);
 
 			goto exit;
 		}
@@ -237,22 +220,17 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		if (ret != 0) {
 			LOG_ERR("EC header write failure");
 
-			struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
-
-			if (!bad_item) {
-				LOG_ERR("Heap allocation failure");
-				ret = -ENOMEM;
-				goto exit;
-			}
+			const size_t pnum = entry->value.pnum;
+			const size_t ec = entry->key;
 
 			rb_remove(&ubi->dirty_pebs, &entry->node);
 			ubi->dirty_peb_count -= 1;
 
-			ubi->ec_sum -= entry->key;
+			ubi->ec_sum -= ec;
 			ubi->ec_count -= 1;
 
-			ubi_move_to_bad_blocks(ubi, entry->value.pnum, entry->key, bad_item);
-			k_free(entry);
+			struct ubi_list_item *bad_item = ubi_leaf_as_list(entry);
+			ubi_move_to_bad_blocks(ubi, pnum, ec, bad_item);
 
 			goto exit;
 		}
@@ -293,21 +271,21 @@ int ubi_device_deinit(struct ubi_device *ubi)
 	while ((node = rb_get_min(&ubi->free_pebs))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
 		rb_remove(&ubi->free_pebs, &rbt_item->node);
-		k_free(rbt_item);
+		ubi_mem_leaf_free(rbt_item);
 		ubi->free_peb_count -= 1;
 	}
 
 	while ((node = rb_get_min(&ubi->dirty_pebs))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
 		rb_remove(&ubi->dirty_pebs, &rbt_item->node);
-		k_free(rbt_item);
+		ubi_mem_leaf_free(rbt_item);
 		ubi->dirty_peb_count -= 1;
 	}
 
 	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, list_item, list_next, node)
 	{
 		sys_slist_remove(&ubi->bad_pebs, NULL, &list_item->node);
-		k_free(list_item);
+		ubi_mem_leaf_free(list_item);
 		ubi->bad_peb_count -= 1;
 	}
 
@@ -319,18 +297,18 @@ int ubi_device_deinit(struct ubi_device *ubi)
 		while ((node = rb_get_min(&vol->eba_tbl))) {
 			vol_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
 			rb_remove(&vol->eba_tbl, &vol_item->node);
-			k_free(vol_item);
+			ubi_mem_leaf_free(vol_item);
 			vol->eba_tbl_count -= 1;
 		}
 
-		k_free(rbt_item->value.vol);
-		k_free(rbt_item);
+		ubi_mem_volume_free(rbt_item->value.vol);
+		ubi_mem_leaf_free(rbt_item);
 		ubi->vol_count -= 1;
 	}
 
 	ubi_partition_release(ubi->mtd.partition_id);
 
-	k_free(ubi);
+	ubi_mem_device_free(ubi);
 	return 0;
 }
 
@@ -446,11 +424,11 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 
 	flash_area_close(fa);
 
-	size_t *_peb_ec = k_malloc(nr_of_pebs * sizeof(*_peb_ec));
+	size_t *_peb_ec = NULL;
+	ret = ubi_mem_diag_alloc(nr_of_pebs * sizeof(*_peb_ec), (void **)&_peb_ec);
 
-	if (!_peb_ec) {
-		LOG_ERR("Heap allocation failure");
-		ret = -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Diagnostic allocation failure");
 		goto exit;
 	}
 
@@ -460,7 +438,7 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 
 		if (ret != 0) {
 			LOG_ERR("EC header read failure");
-			k_free(_peb_ec);
+			ubi_mem_diag_free(_peb_ec);
 			goto exit;
 		}
 

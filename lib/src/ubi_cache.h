@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 /* Defines ------------------------------------------------------------------------------------- */
 
@@ -63,6 +64,42 @@ struct ubi_list_item {
 };
 
 BUILD_ASSERT(sizeof(struct ubi_list_item) == 12);
+
+/**
+ * \brief Unified PEB tracking item — shares a single 16-byte slab block.
+ *
+ * Both `ubi_rbt_item` (16 B) and `ubi_list_item` (12 B) fit within this
+ * union.  The `ubi_mem` layer allocates 16-byte blocks from the leaf slab;
+ * the caller casts to the appropriate type via the helpers below.
+ */
+union ubi_leaf_item {
+	struct ubi_rbt_item rbt;
+	struct ubi_list_item list;
+};
+
+BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be exactly 16 bytes");
+
+/**
+ * \brief Re-type a leaf-slab block as a `struct ubi_rbt_item`.
+ *
+ * Zeroes the memory before returning.
+ */
+static inline struct ubi_rbt_item *ubi_leaf_as_rbt(void *ptr)
+{
+	memset(ptr, 0, sizeof(union ubi_leaf_item));
+	return (struct ubi_rbt_item *)ptr;
+}
+
+/**
+ * \brief Re-type a leaf-slab block as a `struct ubi_list_item`.
+ *
+ * Zeroes the memory before returning.
+ */
+static inline struct ubi_list_item *ubi_leaf_as_list(void *ptr)
+{
+	memset(ptr, 0, sizeof(union ubi_leaf_item));
+	return (struct ubi_list_item *)ptr;
+}
 
 /* Module interface function declarations ------------------------------------------------------ */
 

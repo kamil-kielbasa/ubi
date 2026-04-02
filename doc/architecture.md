@@ -108,8 +108,8 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | `lib/src/ubi_flash_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
 | `lib/src/ubi_partition_guard.h` | Single-handle-per-partition registry API |
 | `lib/src/ubi_partition_guard.c` | Static bitfield registry preventing double-init of the same partition |
-| `lib/src/ubi_test_hooks.h` | Fault injection API (requires `CONFIG_UBI_TEST_FAULT_INJECTION`) |
-| `lib/src/ubi_test_hooks.c` | Fault injection implementation — controllable `k_malloc` hook |
+| `lib/src/ubi_mem.h` | Memory abstraction layer API — device, volume, leaf, scratch allocators |
+| `lib/src/ubi_mem.c` | Static (k_mem_slab) and heap (k_malloc) backend implementations |
 
 ---
 
@@ -349,14 +349,35 @@ Every PEB on flash is tracked by exactly one of these structures at any time:
 
 ### Memory Usage
 
-| Structure | Size per entry | Allocated |
-|-----------|---------------|-----------|
-| `ubi_device` | 112 B | Once per device |
-| `ubi_rbt_item` | 16 B | Once per PEB + once per volume |
-| `ubi_volume` | 48 B | Once per volume |
-| `ubi_list_item` | 12 B | Once per bad PEB |
+| Structure | Size per entry | Allocated via |
+|-----------|---------------|---------------|
+| `ubi_device` | 112 B | `ubi_mem_device_alloc` → device slab (static) / k_malloc (heap) |
+| `ubi_volume` | 48 B | `ubi_mem_volume_alloc` → volume slab (static) / k_malloc (heap) |
+| `ubi_rbt_item` | 16 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
+| `ubi_list_item` | 12 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
 
-All allocations are dynamic (`k_malloc`). Static RAM usage is zero.
+Under the static backend (`CONFIG_UBI_MEM_BACKEND_STATIC`, default), all pools are pre-allocated at compile time. Under the heap backend, allocations are dynamic. See [Configuration — Memory Sizing Guide](configuration.md#memory-sizing-guide) for pool sizing details.
+
+### Memory Backends
+
+All UBI runtime allocations route through the `ubi_mem` abstraction layer (`lib/src/ubi_mem.h`), which supports two backends selected via Kconfig:
+
+```
+ubi_mem (CONFIG_UBI_MEM_BACKEND_STATIC)
+|
+|-- device_slab    [K_MEM_SLAB: D blocks of sizeof(ubi_device)]
+|-- volume_slab    [K_MEM_SLAB: D×V blocks of sizeof(ubi_volume)]
+|-- leaf_slab      [K_MEM_SLAB: D×(P+V) blocks of sizeof(ubi_leaf_item)]
+`-- scratch_slab   [K_MEM_SLAB: 1 block of DEV_HDR_SIZE + V×VOL_HDR_SIZE]
+
+    D = CONFIG_UBI_MAX_NR_OF_DEVICES
+    V = CONFIG_UBI_MAX_NR_OF_VOLUMES
+    P = CONFIG_UBI_MAX_NR_OF_DATA_PEBS
+```
+
+`ubi_rbt_item` (16 B) and `ubi_list_item` (12 B) share 16-byte blocks via `union ubi_leaf_item`. PEB state transitions (dirty→bad, bad→free, mapped→bad) retype items in-place rather than freeing and re-allocating, eliminating allocation failures on critical error paths.
+
+When the static backend is used, `ubi_device_init()` validates that the flash geometry fits within the configured pool limits before scanning PEBs.
 
 ---
 

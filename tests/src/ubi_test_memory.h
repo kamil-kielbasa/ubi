@@ -1,6 +1,10 @@
 /**
  * \file    ubi_test_memory.h
- * \brief   Shared heap-tracking helpers for leak detection.
+ * \brief   Shared memory-tracking helpers for leak detection.
+ *
+ * Under the heap backend, tracks `sys_heap` runtime stats.
+ * Under the static backend, the heap is not used for UBI allocations,
+ * so memory checking is a no-op.
  *
  * \copyright Copyright (c) 2026
  */
@@ -11,7 +15,7 @@
 #include <zephyr/ztest.h>
 #include <zephyr/sys/sys_heap.h>
 
-#if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
+#if defined(CONFIG_UBI_MEM_BACKEND_HEAP) && defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 
 extern struct sys_heap _system_heap;
 
@@ -29,8 +33,6 @@ static inline void ubi_test_memory_check_no_leak(const struct sys_memory_stats *
 
 #else
 
-struct sys_memory_stats { size_t free_bytes; };
-
 static inline void ubi_test_memory_snapshot(struct sys_memory_stats *stats)
 {
 	(void)stats;
@@ -43,6 +45,6 @@ static inline void ubi_test_memory_check_no_leak(const struct sys_memory_stats *
 	(void)after;
 }
 
-#endif /* CONFIG_SYS_HEAP_RUNTIME_STATS */
+#endif
 
 #endif /* UBI_TEST_MEMORY_H */

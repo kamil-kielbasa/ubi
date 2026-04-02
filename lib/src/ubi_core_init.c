@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
 /* Zephyr headers: */
@@ -146,14 +147,13 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 			return -EIO;
 		}
 
-		struct ubi_volume *vol = k_malloc(sizeof(*vol));
+		struct ubi_volume *vol = NULL;
+		ret = ubi_mem_volume_alloc(&vol);
 
-		if (!vol) {
-			LOG_ERR("Heap allocation failure");
-			return -ENOMEM;
+		if (ret != 0) {
+			LOG_ERR("Volume allocation failure");
+			return ret;
 		}
-
-		memset(vol, 0, sizeof(*vol));
 		vol->vol_idx = vol_idx;
 		vol->vol_id = vol_hdr.vol_id;
 		ubi_copy_name_from_hdr(vol->cfg.name, vol_hdr.name);
@@ -162,15 +162,15 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 		vol->eba_tbl_count = 0;
 		vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
 
-		struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+		struct ubi_rbt_item *item = NULL;
+		ret = ubi_mem_leaf_alloc((void **)&item);
 
-		if (!item) {
-			LOG_ERR("Heap allocation failure");
-			k_free(vol);
-			return -ENOMEM;
+		if (ret != 0) {
+			LOG_ERR("Leaf item allocation failure");
+			ubi_mem_volume_free(vol);
+			return ret;
 		}
 
-		memset(item, 0, sizeof(*item));
 		item->key = vol->vol_id;
 		item->value.vol = vol;
 
@@ -231,11 +231,12 @@ static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg
 	int ret = ubi_ec_hdr_read(&dev->mtd, pnum, ec_hdr);
 
 	if (ret != 0) {
-		struct ubi_list_item *item = k_malloc(sizeof(*item));
+		struct ubi_list_item *item = NULL;
+		ret = ubi_mem_leaf_alloc((void **)&item);
 
-		if (!item) {
-			LOG_ERR("Heap allocation failure");
-			return -ENOMEM;
+		if (ret != 0) {
+			LOG_ERR("Leaf item allocation failure");
+			return ret;
 		}
 
 		ubi_move_to_bad_blocks(dev, pnum, ec_avg, item);
@@ -257,11 +258,12 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 	int ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, false);
 
 	if (ret != 0) {
-		struct ubi_list_item *item = k_malloc(sizeof(*item));
+		struct ubi_list_item *item = NULL;
+		ret = ubi_mem_leaf_alloc((void **)&item);
 
-		if (!item) {
-			LOG_ERR("Heap allocation failure");
-			return -ENOMEM;
+		if (ret != 0) {
+			LOG_ERR("Leaf item allocation failure");
+			return ret;
 		}
 
 		ubi_move_to_bad_blocks(dev, pnum, ec_hdr->ec, item);
@@ -272,11 +274,12 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 	memset(&empty, 0xff, sizeof(empty));
 
 	if (memcmp(vid_hdr, &empty, sizeof(empty)) == 0) {
-		struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+		struct ubi_rbt_item *item = NULL;
+		ret = ubi_mem_leaf_alloc((void **)&item);
 
-		if (!item) {
-			LOG_ERR("Heap allocation failure");
-			return -ENOMEM;
+		if (ret != 0) {
+			LOG_ERR("Leaf item allocation failure");
+			return ret;
 		}
 
 		item->key = ec_hdr->ec;
@@ -292,11 +295,12 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 	ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, true);
 
 	if (ret != 0) {
-		struct ubi_list_item *item = k_malloc(sizeof(*item));
+		struct ubi_list_item *item = NULL;
+		ret = ubi_mem_leaf_alloc((void **)&item);
 
-		if (!item) {
-			LOG_ERR("Heap allocation failure");
-			return -ENOMEM;
+		if (ret != 0) {
+			LOG_ERR("Leaf item allocation failure");
+			return ret;
 		}
 
 		ubi_move_to_bad_blocks(dev, pnum, ec_hdr->ec, item);
@@ -318,11 +322,12 @@ static int classify_orphan_peb(struct ubi_device *dev, size_t pnum, const struct
 		return SCAN_NEXT_STEP;
 	}
 
-	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+	struct ubi_rbt_item *item = NULL;
+	int ret = ubi_mem_leaf_alloc((void **)&item);
 
-	if (!item) {
-		LOG_ERR("Heap allocation failure");
-		return -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Leaf item allocation failure");
+		return ret;
 	}
 
 	item->key = ec_hdr->ec;
@@ -348,11 +353,12 @@ static int map_leb_first_occurrence(struct ubi_device *dev, size_t pnum,
 		return SCAN_NEXT_STEP;
 	}
 
-	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+	struct ubi_rbt_item *item = NULL;
+	int ret = ubi_mem_leaf_alloc((void **)&item);
 
-	if (!item) {
-		LOG_ERR("Heap allocation failure");
-		return -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Leaf item allocation failure");
+		return ret;
 	}
 
 	if (vid_hdr->lnum >= vol->cfg.leb_count) {
@@ -382,30 +388,24 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 				 const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr,
 				 struct ubi_volume *vol, struct ubi_rbt_item *existing)
 {
-	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
+	struct ubi_rbt_item *item = NULL;
+	int ret = ubi_mem_leaf_alloc((void **)&item);
 
-	if (!item) {
-		LOG_ERR("Heap allocation failure");
-		return -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Leaf item allocation failure");
+		return ret;
 	}
 
 	struct ubi_ec_hdr exist_ec = { 0 };
-	int ret = ubi_ec_hdr_read(&dev->mtd, existing->value.pnum, &exist_ec);
+	ret = ubi_ec_hdr_read(&dev->mtd, existing->value.pnum, &exist_ec);
 
 	if (ret != 0) {
-		struct ubi_list_item *bad = k_malloc(sizeof(*bad));
-
-		if (!bad) {
-			LOG_ERR("Heap allocation failure");
-			k_free(item);
-			return -ENOMEM;
-		}
-
 		rb_remove(&vol->eba_tbl, &existing->node);
 		vol->eba_tbl_count -= 1;
 
-		ubi_move_to_bad_blocks(dev, existing->value.pnum, ec_avg, bad);
-		k_free(existing);
+		const size_t bad_pnum = existing->value.pnum;
+		struct ubi_list_item *bad = ubi_leaf_as_list(existing);
+		ubi_move_to_bad_blocks(dev, bad_pnum, ec_avg, bad);
 
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
@@ -419,19 +419,12 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 	ret = ubi_vid_hdr_read(&dev->mtd, existing->value.pnum, &exist_vid, true);
 
 	if (ret != 0) {
-		struct ubi_list_item *bad = k_malloc(sizeof(*bad));
-
-		if (!bad) {
-			LOG_ERR("Heap allocation failure");
-			k_free(item);
-			return -ENOMEM;
-		}
-
 		rb_remove(&vol->eba_tbl, &existing->node);
 		vol->eba_tbl_count -= 1;
 
-		ubi_move_to_bad_blocks(dev, existing->value.pnum, ec_hdr->ec, bad);
-		k_free(existing);
+		const size_t bad_pnum = existing->value.pnum;
+		struct ubi_list_item *bad = ubi_leaf_as_list(existing);
+		ubi_move_to_bad_blocks(dev, bad_pnum, ec_hdr->ec, bad);
 
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
@@ -527,29 +520,30 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	if (!mtd || !ubi)
 		return -EINVAL;
 
-	struct ubi_device *ubi_dev = k_malloc(sizeof(*ubi_dev));
+	/* Check partition availability before allocating — avoids wasting a slab
+	 * block when the partition is already in use. */
+	ret = ubi_partition_acquire(mtd->partition_id);
 
-	if (!ubi_dev) {
-		LOG_ERR("Heap allocation failure");
-		return -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Partition %u already in use by another UBI handle", mtd->partition_id);
+		*ubi = NULL;
+		return -EBUSY;
 	}
 
-	memset(ubi_dev, 0, sizeof(*ubi_dev));
+	struct ubi_device *ubi_dev = NULL;
+	ret = ubi_mem_device_alloc(&ubi_dev);
+
+	if (ret != 0) {
+		LOG_ERR("Device allocation failure");
+		ubi_partition_release(mtd->partition_id);
+		return ret;
+	}
 	k_mutex_init(&ubi_dev->mutex);
 	ubi_dev->mtd = *mtd;
 	ubi_dev->free_pebs.lessthan_fn = ubi_cache_cmp;
 	ubi_dev->dirty_pebs.lessthan_fn = ubi_cache_cmp;
 	sys_slist_init(&ubi_dev->bad_pebs);
 	ubi_dev->vols.lessthan_fn = ubi_cache_cmp;
-
-	ret = ubi_partition_acquire(mtd->partition_id);
-
-	if (ret != 0) {
-		LOG_ERR("Partition %u already in use by another UBI handle", mtd->partition_id);
-		k_free(ubi_dev);
-		*ubi = NULL;
-		return -EBUSY;
-	}
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);
@@ -646,6 +640,22 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	/* Cache geometry for fast internal lookups. */
 	ubi_dev->total_data_peb_count = nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
 	ubi_dev->leb_size = ubi_dev->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+
+#if defined(CONFIG_UBI_MEM_BACKEND_STATIC)
+	if (ubi_dev->total_data_peb_count > CONFIG_UBI_MAX_NR_OF_DATA_PEBS) {
+		LOG_ERR("Flash has %zu data PEBs but CONFIG_UBI_MAX_NR_OF_DATA_PEBS=%d",
+			ubi_dev->total_data_peb_count, CONFIG_UBI_MAX_NR_OF_DATA_PEBS);
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	if (dev_hdr.vol_count > CONFIG_UBI_MAX_NR_OF_VOLUMES) {
+		LOG_ERR("Device has %u volumes but CONFIG_UBI_MAX_NR_OF_VOLUMES=%d",
+			dev_hdr.vol_count, CONFIG_UBI_MAX_NR_OF_VOLUMES);
+		ret = -ENOMEM;
+		goto exit;
+	}
+#endif
 
 	ret = init_collect_volumes(ubi_dev, &dev_hdr);
 

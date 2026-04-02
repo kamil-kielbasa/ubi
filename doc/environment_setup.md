@@ -1,6 +1,13 @@
 # Environment Setup
 
-Build, flash, and debug guide for UBI on Zephyr with the `b_u585i_iot02a` (STM32U5) board.
+Build, flash, and debug guide for UBI on Zephyr.
+
+Supported boards:
+
+| Board | Target | Notes |
+|-------|--------|-------|
+| `native_sim` | Host (x86) | Zephyr simulator — no hardware required |
+| `b_u585i_iot02a` | STM32U585 (Cortex-M33) | ST B-U585I-IOT02A discovery kit |
 
 ## Prerequisites
 
@@ -8,8 +15,8 @@ Build, flash, and debug guide for UBI on Zephyr with the `b_u585i_iot02a` (STM32
 |------|---------|---------|
 | [west](https://docs.zephyrproject.org/latest/develop/west/index.html) | Zephyr meta-tool (build, flash, manage manifests) | `pip install west` |
 | [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html) | Cross-compilation toolchain | See Zephyr docs |
-| [STM32CubeProgrammer CLI](https://www.st.com/en/development-tools/stm32cubeprog.html) | Flash erase and programming | ST website |
-| [picocom](https://github.com/npat-efault/picocom) | Serial terminal for UART output | `sudo apt install picocom` |
+| [STM32CubeProgrammer CLI](https://www.st.com/en/development-tools/stm32cubeprog.html) | Flash erase and programming (STM32 only) | ST website |
+| [picocom](https://github.com/npat-efault/picocom) | Serial terminal for UART output (STM32 only) | `sudo apt install picocom` |
 | [clang-format](https://clang.llvm.org/docs/ClangFormat.html) | Code formatting (optional) | `sudo apt install clang-format` |
 
 ## 1. Initialize Workspace
@@ -31,35 +38,108 @@ Apply the project's `.clang-format` rules to all source files:
 
 ## 3. Build
 
-Build the **test** application:
+### 3.1 native_sim (simulator)
+
+Build tests with the default **static** memory backend:
+
+```sh
+west build -p --build-dir build/native/tests -b native_sim ./tests/
+```
+
+Build tests with the **heap** memory backend:
+
+```sh
+west build -p --build-dir build/native/tests-heap -b native_sim ./tests/ \
+  -- -DCONFIG_UBI_MEM_BACKEND_HEAP=y
+```
+
+Build the sample application:
+
+```sh
+west build -p --build-dir build/native/sample -b native_sim ./sample/
+```
+
+### 3.2 STM32U585 (b_u585i_iot02a)
+
+Build tests with the default **static** memory backend:
 
 ```sh
 west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/
 ```
 
-Build the **sample** application:
+Build tests with the **heap** memory backend:
+
+```sh
+west build -p --build-dir build/stm32u5/tests-heap -b b_u585i_iot02a ./tests/ \
+  -- -DCONFIG_UBI_MEM_BACKEND_HEAP=y
+```
+
+Build the sample application:
 
 ```sh
 west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/
 ```
 
-## 4. Erase Flash
+### 3.3 Memory Backends
 
-Erase all flash contents before programming. This is required on first use or when switching between test and sample builds:
+UBI supports two memory backends selected via Kconfig (see [Configuration](configuration.md)):
+
+| Backend | Kconfig | Description |
+|---------|---------|-------------|
+| Static (default) | `CONFIG_UBI_MEM_BACKEND_STATIC=y` | Fixed-size `k_mem_slab` pools sized at compile time |
+| Heap | `CONFIG_UBI_MEM_BACKEND_HEAP=y` | `k_malloc` / `k_free` from the global Zephyr heap |
+
+To switch backend pass `-DCONFIG_UBI_MEM_BACKEND_HEAP=y` on the `west build` command line (the static backend is the default and requires no extra flags).
+
+## 4. Run Tests
+
+### 4.1 native_sim
+
+The simulator produces a host executable — run it directly:
+
+```sh
+./build/native/tests/zephyr/zephyr.exe
+```
+
+For the heap backend:
+
+```sh
+./build/native/tests-heap/zephyr/zephyr.exe
+```
+
+Test results are printed to `stdout`. Look for `PROJECT EXECUTION SUCCESSFUL` at the end.
+
+### 4.2 STM32U585
+
+Erase all flash contents before programming (required on first use or when switching builds):
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -e all
 ```
 
-## 5. Flash
-
-Flash the **test** application:
+Flash and run:
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/tests/zephyr/zephyr.hex
 ```
 
-Flash the **sample** application:
+Open a serial terminal to observe test output:
+
+```sh
+picocom -b 115200 /dev/ttyACM0
+```
+
+If you get a "permission denied" error, add your user to the `dialout` group:
+
+```sh
+sudo usermod -aG dialout $USER
+```
+
+Then log out and back in for the change to take effect.
+
+## 5. Flash Sample Application
+
+Flash the **sample** application to STM32U585:
 
 ```sh
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/sample/zephyr/zephyr.hex
@@ -81,23 +161,7 @@ arm-none-eabi-size -A build/stm32u5/tests/modules/ubi/lib/lib..__ubi__lib.a
 
 The CI pipeline also collects this measurement automatically (see the `flash-usage` build artifact).
 
-## 7. Serial Console
-
-Open a serial terminal to view log output:
-
-```sh
-picocom -b 115200 /dev/ttyACM0
-```
-
-If you get a "permission denied" error, add your user to the `dialout` group:
-
-```sh
-sudo usermod -aG dialout $USER
-```
-
-Then log out and back in for the change to take effect.
-
-## 8. Resource Reports
+## 7. Resource Reports
 
 Generate flash (ROM) and static RAM usage reports for the whole firmware image:
 

@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_mem.h"
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -62,23 +63,11 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	if (ret != 0) {
 		LOG_WRN("EC header read failure for PEB %zu, marking bad", item->value.pnum);
 
-		struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
-
-		if (!bad_item) {
-			const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) :
-								    0;
-			LOG_WRN("Cannot allocate bad PEB entry, keeping PEB %zu in dirty pool",
-				item->value.pnum);
-			item->key = ec_avg;
-			rb_insert(&ubi->dirty_pebs, &item->node);
-			ubi->dirty_peb_count += 1;
-			return 0;
-		}
-
+		const size_t pnum = item->value.pnum;
 		const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
 
-		ubi_move_to_bad_blocks(ubi, item->value.pnum, ec_avg, bad_item);
-		k_free(item);
+		struct ubi_list_item *bad_item = ubi_leaf_as_list(item);
+		ubi_move_to_bad_blocks(ubi, pnum, ec_avg, bad_item);
 		return 0;
 	}
 
@@ -137,18 +126,18 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	}
 
 	/* Allocate RAM before any flash mutation so failures are side-effect free. */
-	struct ubi_volume *vol = k_malloc(sizeof(*vol));
-	if (!vol) {
-		LOG_ERR("Heap allocation failure");
-		ret = -ENOMEM;
+	struct ubi_volume *vol = NULL;
+	ret = ubi_mem_volume_alloc(&vol);
+	if (ret != 0) {
+		LOG_ERR("Volume allocation failure");
 		goto exit;
 	}
 
-	struct ubi_rbt_item *item = k_malloc(sizeof(*item));
-	if (!item) {
-		LOG_ERR("Heap allocation failure");
-		k_free(vol);
-		ret = -ENOMEM;
+	struct ubi_rbt_item *item = NULL;
+	ret = ubi_mem_leaf_alloc((void **)&item);
+	if (ret != 0) {
+		LOG_ERR("Leaf item allocation failure");
+		ubi_mem_volume_free(vol);
 		goto exit;
 	}
 
@@ -156,8 +145,9 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 1);
 
 	if (ret != 0) {
-		k_free(item);
-		k_free(vol);
+		LOG_ERR("Device header read failure during create");
+		ubi_mem_leaf_free(item);
+		ubi_mem_volume_free(vol);
 		goto exit;
 	}
 
@@ -175,12 +165,11 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	if (ret != 0) {
 		LOG_ERR("Volume header append failure");
-		k_free(item);
-		k_free(vol);
+		ubi_mem_leaf_free(item);
+		ubi_mem_volume_free(vol);
 		goto exit;
 	}
 
-	memset(vol, 0, sizeof(*vol));
 	vol->vol_idx = dev_hdr.vol_count - 1;
 	vol->vol_id = new_vol_hdr.vol_id;
 	ubi_copy_name_from_hdr(vol->cfg.name, new_vol_hdr.name);
@@ -248,8 +237,10 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 	struct ubi_dev_hdr dev_hdr = { 0 };
 	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 0);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Device header read failure during resize");
 		goto exit;
+	}
 
 	struct ubi_vol_hdr vol_hdr = { 0 };
 	ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
@@ -320,8 +311,10 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	struct ubi_dev_hdr dev_hdr = { 0 };
 	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, -1);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Device header read failure during remove");
 		goto exit;
+	}
 
 	struct ubi_volume *vol = entry->value.vol;
 	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_idx);
@@ -350,8 +343,8 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	rb_remove(&ubi->vols, &entry->node);
 	ubi->vol_count -= 1;
 
-	k_free(entry->value.vol);
-	k_free(entry);
+	ubi_mem_volume_free(entry->value.vol);
+	ubi_mem_leaf_free(entry);
 
 	/* Re-index remaining volumes to match flash layout. */
 	for (size_t vol_idx = 0; vol_idx < dev_hdr.vol_count; ++vol_idx) {

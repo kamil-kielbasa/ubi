@@ -63,7 +63,9 @@ UBI is designed for resource-constrained embedded systems. The following measure
 | Metric     | Value    | Notes |
 |------------|----------|-------|
 | Flash      | 8,522 B  | Sample app / production-style Kconfig; `.text` + `.data` in `lib..__ubi__lib.a` |
-| Static RAM | 24 B     | Partition guard (`ubi_partition_guard.c`): `.data` + `.bss` in the same archive; device/volume state remains heap-allocated |
+| Static RAM | 24 B + pools | Partition guard (24 B) + slab pools under `CONFIG_UBI_MEM_BACKEND_STATIC` (see [Memory Sizing Guide](configuration.md#memory-sizing-guide)) |
+
+With `CONFIG_UBI_MEM_BACKEND_STATIC` (default), runtime RAM is fully determined at compile time and isolated from the application heap. Under `CONFIG_UBI_MEM_BACKEND_HEAP` (legacy), static RAM is 24 B and all device/volume state is heap-allocated.
 
 Enabling `CONFIG_UBI_TEST_API_ENABLE` (Ztest builds) pulls in extra code paths and logging; the same archive on the `tests/` app was approximately **16.2 KiB** flash (`.text` + `.data` only) with `CONFIG_DEBUG_OPTIMIZATIONS=y`.
 
@@ -74,15 +76,17 @@ Enabling `CONFIG_UBI_TEST_API_ENABLE` (Ztest builds) pulls in extra code paths a
 | Device (`ubi_device`)      | 112 B            |
 | Volume (`ubi_volume`)      | 48 B             |
 | PEB (free/dirty/mapped)    | 16 B             |
-| Bad PEB                    | 12 B             |
+| Bad PEB                    | 16 B (shared slab block) |
+| Volume tree node           | 16 B             |
 
-All allocations are dynamic (`k_malloc`). Runtime RAM is proportional to the number of PEBs and volumes.
+Under the static backend, all pools are pre-allocated at compile time. Under the heap backend, allocations are dynamic (`k_malloc`). Runtime RAM is proportional to the number of PEBs and volumes.
 
 ### Example: Typical Deployment
 
 For a device with 16 PEBs (8 KB erase blocks, 128 KB partition) and 2 volumes:
 
 - Device: 112 B
-- PEB tracking: 14 data PEBs x 16 B = 224 B
-- Volumes: 2 x 48 B = 96 B
-- **Total runtime RAM: ~432 B**
+- PEB tracking: 14 data PEBs × 16 B = 224 B
+- Volumes: 2 × 48 B = 96 B
+- Volume tree nodes: 2 × 16 B = 32 B
+- **Total runtime RAM: ~464 B**

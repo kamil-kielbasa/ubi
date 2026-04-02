@@ -61,6 +61,62 @@ config UBI_BAD_PEB_TORTURE_MAX_PER_ERASE
 	  the PEB is considered healthy and returned to the free
 	  pool. If all attempts fail, the PEB stays bad.
 
+choice UBI_MEM_BACKEND
+	prompt "UBI memory backend"
+	default UBI_MEM_BACKEND_STATIC
+	help
+	  Select the memory allocation backend for UBI runtime
+	  data structures. The static backend uses k_mem_slab
+	  pools sized at compile time; the heap backend uses
+	  k_malloc / k_free from the global Zephyr heap.
+
+config UBI_MEM_BACKEND_STATIC
+	bool "Static (k_mem_slab)"
+	help
+	  All UBI allocations come from fixed-size slab pools.
+	  Provides deterministic RAM budget and isolates UBI
+	  from the application heap. Requires setting
+	  CONFIG_UBI_MAX_NR_OF_DEVICES and
+	  CONFIG_UBI_MAX_NR_OF_DATA_PEBS to match the flash
+	  geometry.
+
+config UBI_MEM_BACKEND_HEAP
+	bool "Heap (k_malloc)"
+	help
+	  UBI allocations use the global Zephyr heap.
+	  No compile-time pool sizing required, but memory
+	  is shared with the rest of the application.
+
+endchoice
+
+config UBI_MAX_NR_OF_DEVICES
+	int "Maximum number of concurrent UBI devices"
+	default 1
+	range 1 4
+	help
+	  Upper limit on the number of UBI device handles that
+	  can exist simultaneously. Multiplies all slab pool
+	  sizes when the static backend is selected.
+
+config UBI_MAX_NR_OF_DATA_PEBS
+	int "Maximum number of data PEBs per device"
+	default 14
+	range 1 4096
+	help
+	  Upper limit on the number of data PEBs (total PEBs
+	  minus reserved PEBs) for a single UBI device. Used
+	  by the static backend to size the small-item slab
+	  pool. Must be >= total_data_peb_count of every flash
+	  partition managed by UBI.
+
+config UBI_MEM_STATS
+	bool "Enable UBI memory pool statistics"
+	default n
+	depends on UBI_MEM_BACKEND_STATIC
+	help
+	  When enabled, UBI logs slab pool high-water marks
+	  during device deinit for diagnostic purposes.
+
 module = UBI
 module-str = ubi
 source "subsys/logging/Kconfig.template.log_config"

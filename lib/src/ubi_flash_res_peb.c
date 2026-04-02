@@ -12,6 +12,7 @@
 /* Internal headers: */
 #include "ubi_flash_res_peb.h"
 #include "ubi_internal.h"
+#include "ubi_mem.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
@@ -481,23 +482,24 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 	}
 
 	const size_t content_len = UBI_DEV_HDR_SIZE + (scan.hdr.vol_count * UBI_VOL_HDR_SIZE);
-	uint8_t *content = k_malloc(content_len);
+	uint8_t *content = NULL;
+	ret = ubi_mem_scratch_alloc(content_len, &content);
 
-	if (!content) {
-		LOG_ERR("Heap allocation failed for recovery content (%zu bytes)", content_len);
-		return -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Scratch allocation failed for recovery content (%zu bytes)", content_len);
+		return ret;
 	}
 
 	ret = ubi_flash_res_peb_read_content(mtd, canonical, content, content_len);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB %zu content read failed: %d", canonical, ret);
-		k_free(content);
+		ubi_mem_scratch_free(content);
 		return ret;
 	}
 
 	ret = flash_res_peb_recover(mtd, &scan, content, content_len);
-	k_free(content);
+	ubi_mem_scratch_free(content);
 
 	if (ret != 0) {
 		/* Recovery failed but we still have 1 active PEB — read-only degraded mode */

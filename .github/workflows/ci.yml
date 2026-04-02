@@ -23,23 +23,38 @@ jobs:
           west init -l ubi
           west update --narrow -o=--depth=1
 
-      - name: Build tests (native_sim)
+      - name: Build tests (native_sim, static)
         run: |
           west build -p --build-dir build/native_sim/tests \
             -b native_sim ubi/tests/
 
-      - name: Run tests (native_sim)
+      - name: Run tests (native_sim, static)
         run: ./build/native_sim/tests/zephyr/zephyr.exe
+
+      - name: Build tests (native_sim, heap)
+        run: |
+          west build -p --build-dir build/native_sim/tests-heap \
+            -b native_sim ubi/tests/ \
+            -- -DCONFIG_UBI_MEM_BACKEND_HEAP=y
+
+      - name: Run tests (native_sim, heap)
+        run: ./build/native_sim/tests-heap/zephyr/zephyr.exe
 
       - name: Build sample (native_sim)
         run: |
           west build -p --build-dir build/native_sim/sample \
             -b native_sim ubi/sample/
 
-      - name: Build tests (b_u585i_iot02a)
+      - name: Build tests (b_u585i_iot02a, static)
         run: |
           west build -p --build-dir build/b_u585i_iot02a/tests \
             -b b_u585i_iot02a ubi/tests/
+
+      - name: Build tests (b_u585i_iot02a, heap)
+        run: |
+          west build -p --build-dir build/b_u585i_iot02a/tests-heap \
+            -b b_u585i_iot02a ubi/tests/ \
+            -- -DCONFIG_UBI_MEM_BACKEND_HEAP=y
 
       - name: Build sample (b_u585i_iot02a)
         run: |

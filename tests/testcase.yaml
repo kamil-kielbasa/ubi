@@ -3,6 +3,7 @@ common:
   timeout: 300
 
 tests:
+  # STATIC backend (default)
   ubi.functional:
     platform_allow:
       - native_sim
@@ -16,3 +17,22 @@ tests:
     harness: ztest
     tags: ubi slow
     timeout: 600
+
+  # HEAP backend
+  ubi.functional.heap:
+    platform_allow:
+      - native_sim
+      - b_u585i_iot02a
+    harness: ztest
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+
+  ubi.stress.heap:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y

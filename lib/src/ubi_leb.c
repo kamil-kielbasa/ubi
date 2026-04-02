@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_mem.h"
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -110,24 +111,18 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 
 /**
  * Mark a PEB that failed a write as bad.
- * Frees the rbt item. Caller must hold ubi->mutex.
+ * Retypes the rbt item to a list item in-place. Caller must hold ubi->mutex.
  */
 static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node)
 {
 	const size_t failed_pnum = node->value.pnum;
 	const size_t failed_ec = node->key;
 
-	k_free(node);
+	struct ubi_list_item *bad_item = ubi_leaf_as_list(node);
 
-	struct ubi_list_item *bad_item = k_malloc(sizeof(*bad_item));
-
-	if (bad_item) {
-		ubi->ec_sum -= failed_ec;
-		ubi->ec_count -= 1;
-		ubi_move_to_bad_blocks(ubi, failed_pnum, failed_ec, bad_item);
-	} else {
-		LOG_WRN("Cannot allocate bad PEB entry, PEB %zu lost from tracking", failed_pnum);
-	}
+	ubi->ec_sum -= failed_ec;
+	ubi->ec_count -= 1;
+	ubi_move_to_bad_blocks(ubi, failed_pnum, failed_ec, bad_item);
 }
 
 static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)

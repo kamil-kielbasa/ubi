@@ -228,6 +228,36 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len);
 
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+
+/**
+ * \brief Reset all fault injection state.
+ *
+ * Must be called between test cases to ensure a clean starting state.
+ */
+void ubi_test_fault_reset(void);
+
+/**
+ * \brief Configure allocations to fail after \p n successful calls.
+ *
+ * Pass 0 to fail on the very next call. Pass -1 (or a very large value)
+ * to disable injection. The counter is checked inside ubi_mem_*_alloc().
+ */
+void ubi_test_fault_set_malloc_fail_after(int n);
+
+#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
+
+static inline void ubi_test_fault_reset(void)
+{
+}
+
+static inline void ubi_test_fault_set_malloc_fail_after(int n)
+{
+	(void)n;
+}
+
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
+
 /** \} name ubi_device */
 
 /**

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-04-02
+
+### Added
+
+- **Static memory backend** (`CONFIG_UBI_MEM_BACKEND_STATIC`, default): all UBI runtime allocations use `k_mem_slab` pools (device, volume, leaf, scratch) instead of the global Zephyr heap.
+- **Memory abstraction layer** (`ubi_mem.h` / `ubi_mem.c`): encapsulates all UBI memory operations behind a single API, supporting heap and static backends via Kconfig.
+- **Kconfig options**: `UBI_MEM_BACKEND` (STATIC/HEAP), `UBI_MAX_NR_OF_DEVICES`, `UBI_MAX_NR_OF_DATA_PEBS`, `UBI_MEM_STATS`.
+- **Init-time validation**: static backend verifies flash geometry fits within configured pool limits.
+- **Dual-backend CI**: `testcase.yaml` runs all suites under both backends.
+
+### Changed
+
+- **PEB tracking**: `ubi_rbt_item` and `ubi_list_item` share `union ubi_leaf_item` (16 B), enabling in-place retyping during state transitions.
+- **Fault injection**: operates through `ubi_mem` layer; declarations moved from deleted `ubi_test_hooks.h` to `ubi.h`.
+- **Partition guard ordering**: `ubi_device_init()` acquires partition before device allocation.
+- **Error logging**: all allocation and metadata error paths now emit `LOG_ERR`.
+
+### Removed
+
+- `ubi_test_hooks.h` / `ubi_test_hooks.c` — fault injection API moved to `ubi.h`, implementation to `ubi_mem.c`.
+
+### Fixed
+
+- **Fault injection broken**: all allocations now route through `ubi_mem`, making the fault counter functional.
+- **Runtime RAM example**: corrected from ~432 B to ~464 B (missing volume tree nodes).
+
 ## [0.20.1] - 2026-04-02
 
 ### Fixed
@@ -42,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Volume configuration validation**: `ubi_volume_config_is_valid()` in `lib/src/ubi_internal.h` — enforces valid name, `UBI_VOLUME_TYPE_STATIC` / `DYNAMIC`, and `leb_count > 0` for `ubi_volume_create()`.
 - **Metadata semantic checks**: `ubi_dev_hdr_semantically_valid()` and `ubi_vol_hdr_semantically_valid()` — reject CRC-valid but invalid on-flash fields; used in reserved PEB scan (`lib/src/ubi_flash_res_peb.c`) and volume collection (`lib/src/ubi_core_init.c`).
 - **Test API**: `ubi_device_check_invariants()` when `CONFIG_UBI_TEST_API_ENABLE` — verifies PEB accounting, tree sizes vs counters, and reserved PEB sum (`lib/src/ubi_core_runtime.c`, `lib/include/ubi.h`).
-- **Fault injection (Kconfig)**: `UBI_TEST_FAULT_INJECTION` (requires `UBI_TEST_API_ENABLE`) — controllable `k_malloc` hook API (`ubi_test_malloc()`, `ubi_test_fault_reset()`, `ubi_test_fault_set_malloc_fail_after()`) in `lib/src/ubi_test_hooks.h` / `ubi_test_hooks.c`.
+- **Fault injection (Kconfig)**: `UBI_TEST_FAULT_INJECTION` (requires `UBI_TEST_API_ENABLE`) — controllable allocation hook API (`ubi_test_fault_reset()`, `ubi_test_fault_set_malloc_fail_after()`) in `lib/include/ubi.h`, implemented in `lib/src/ubi_mem.c`.
 - **Shared test headers**: `tests/src/ubi_test_fixture.h`, `ubi_test_memory.h`, `ubi_test_raw_flash.h` for MTD setup, partition erase, heap snapshots, and raw EC/VID writes.
 - **New test suites**: `tests/src/tests_ubi_fault_injection.c`, `tests_ubi_stress_longrun.c` (with `CONFIG_FLASH_SIMULATOR`), `tests_ubi_hil_smoke.c`; contract tests in `tests_ubi_error_handling.c` (invalid type, zero LEBs, idempotent unmap, no-op map, static volume write).
 

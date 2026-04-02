@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_io.h"
+#include "ubi_mem.h"
 #include "ubi_flash_res_peb.h"
 
 /* Zephyr headers: */
@@ -165,31 +166,34 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		return -EINVAL;
 
 	int ret = -EIO;
-	uint8_t *content = NULL;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
 	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB validation failed");
 		goto exit;
 	}
 
 	if (cur_hdr.vol_count >= CONFIG_UBI_MAX_NR_OF_VOLUMES) {
+		LOG_ERR("Volume count exceeds maximum");
 		ret = -ENOSPC;
 		goto exit;
 	}
 
 	if (cur_hdr.vol_count + 1 != dev_hdr->vol_count) {
+		LOG_ERR("Volume count mismatch in append");
 		ret = -EACCES;
 		goto exit;
 	}
 
 	const size_t content_len = UBI_DEV_HDR_SIZE + ((cur_hdr.vol_count + 1) * UBI_VOL_HDR_SIZE);
 
-	content = k_malloc(content_len);
+	uint8_t *content = NULL;
+	ret = ubi_mem_scratch_alloc(content_len, &content);
 
-	if (!content) {
-		ret = -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Scratch allocation failed");
 		goto exit;
 	}
 
@@ -198,10 +202,12 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB scan failed");
 		goto exit;
 	}
 
 	if (scan.active_count == 0) {
+		LOG_ERR("No active reserved PEBs found");
 		ret = -EIO;
 		goto exit;
 	}
@@ -210,6 +216,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 					     content_len - UBI_VOL_HDR_SIZE);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB content read failed");
 		goto exit;
 	}
 
@@ -219,9 +226,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
 
 exit:
-	if (content) {
-		k_free(content);
-	}
+	ubi_mem_scratch_free(content);
 
 	return ret;
 }
@@ -239,25 +244,30 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB validation failed");
 		goto exit;
 	}
 
 	if (cur_hdr.vol_count == 0) {
+		LOG_ERR("No volumes to remove");
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	if (index > (cur_hdr.vol_count - 1)) {
+		LOG_ERR("Volume index out of range");
 		ret = -EACCES;
 		goto exit;
 	}
 
 	if (cur_hdr.revision + 1 != dev_hdr->revision) {
+		LOG_ERR("Revision mismatch in remove");
 		ret = -EACCES;
 		goto exit;
 	}
 
 	if (cur_hdr.vol_count - 1 != dev_hdr->vol_count) {
+		LOG_ERR("Volume count mismatch in remove");
 		ret = -EACCES;
 		goto exit;
 	}
@@ -265,10 +275,10 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	const size_t content_len = UBI_DEV_HDR_SIZE + (dev_hdr->vol_count * UBI_VOL_HDR_SIZE);
 	size_t content_off = 0;
 
-	content = k_malloc(content_len);
+	ret = ubi_mem_scratch_alloc(content_len, &content);
 
-	if (!content) {
-		ret = -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Scratch allocation failed");
 		goto exit;
 	}
 
@@ -281,6 +291,7 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 			ret = ubi_vol_hdr_read(mtd, vol_idx, &exist_vol_hdr);
 
 			if (ret != 0) {
+				LOG_ERR("Volume header read failed during remove");
 				goto exit;
 			}
 
@@ -292,9 +303,7 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
 
 exit:
-	if (content) {
-		k_free(content);
-	}
+	ubi_mem_scratch_free(content);
 
 	return ret;
 }
@@ -313,20 +322,24 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB validation failed");
 		goto exit;
 	}
 
 	if (cur_hdr.vol_count == 0) {
+		LOG_ERR("No volumes to update");
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	if (index > (cur_hdr.vol_count - 1)) {
+		LOG_ERR("Volume index out of range");
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	if (cur_hdr.revision + 1 != dev_hdr->revision) {
+		LOG_ERR("Revision mismatch in update");
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -334,10 +347,10 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	const size_t content_len = UBI_DEV_HDR_SIZE + (cur_hdr.vol_count * UBI_VOL_HDR_SIZE);
 	size_t content_off = 0;
 
-	content = k_malloc(content_len);
+	ret = ubi_mem_scratch_alloc(content_len, &content);
 
-	if (!content) {
-		ret = -ENOMEM;
+	if (ret != 0) {
+		LOG_ERR("Scratch allocation failed");
 		goto exit;
 	}
 
@@ -350,6 +363,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 			ret = ubi_vol_hdr_read(mtd, vol_idx, &exist_vol_hdr);
 
 			if (ret != 0) {
+				LOG_ERR("Volume header read failed during update");
 				goto exit;
 			}
 
@@ -362,6 +376,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	}
 
 	if (content_off != content_len) {
+		LOG_ERR("Content size mismatch after update assembly");
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -369,9 +384,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
 
 exit:
-	if (content) {
-		k_free(content);
-	}
+	ubi_mem_scratch_free(content);
 
 	return ret;
 }
