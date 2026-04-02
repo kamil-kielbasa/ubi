@@ -126,7 +126,7 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 | Bad block detection and isolation | Replace a hardware FTL (eMMC, SD) |
 | Multiple named logical volumes | Offer encryption (crypto layer is planned, see [Roadmap](https://kamil-kielbasa.github.io/ubi/roadmap.html)) |
 | Crash-safe metadata via dual-bank | Guarantee power-loss atomicity for user data writes |
-| Dynamic volume resize | Support read-write lock differentiation (mutex only; planned) |
+| Dynamic volume resize | Shell commands for interactive device management (planned) |
 
 ## License
 

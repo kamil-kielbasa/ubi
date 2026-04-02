@@ -537,8 +537,6 @@ Only one `struct ubi_device *` handle may be active per flash partition at any t
 
 `ubi_device_deinit()` acquires the device mutex before freeing resources. Any in-flight operations that already hold the mutex will complete before teardown proceeds. The caller must ensure that no other thread will **start** new operations after calling `deinit`.
 
-See the [Roadmap](roadmap.md) for the planned upgrade to a fair read-write lock.
-
 ---
 
 ## Wear-Leveling

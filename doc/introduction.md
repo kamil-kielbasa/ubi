@@ -52,7 +52,7 @@ UBI intentionally does **not** provide:
 | FTL replacement for eMMC / SD | Managed flash has its own translation layer. UBI adds no value. |
 | Power-loss atomicity for user data | UBI protects metadata (dual-bank + sqnum). User data writes are not journaled — a power loss mid-write may leave a LEB partially written. |
 | Encryption | Planned as an optional `CONFIG_UBI_CRYPTO` layer (AES-128-CCM). See the [Roadmap](roadmap.md). |
-| Read-write lock differentiation | Current locking is a simple mutex. A fair read-write lock is planned. |
+
 
 ## Resource Usage
 

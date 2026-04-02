@@ -7,8 +7,7 @@ Planned features and improvements for UBI on Zephyr. Items are listed by priorit
 | Feature | Priority | Status | Description |
 |---------|----------|--------|-------------|
 | Crypto layer (authenticated encryption) | High | Design | AES-128-CCM encryption of all on-flash structures via PSA Crypto |
-| Read-write locking | Medium | Planned | Allow concurrent readers with exclusive writer access |
-| User-space tools | Low | Planned | Port Linux UBI CLI utilities to Zephyr shell |
+| Shell commands | Low | Planned | Port Linux UBI CLI utilities to Zephyr shell commands |
 
 ## Details
 
@@ -24,10 +23,6 @@ Key capabilities:
 
 Full design: [design_proposal_crypto.md](design_proposal_crypto.md).
 
-### Read-Write Locking
-
-The current mutex provides mutual exclusion but does not differentiate between readers and writers. A fair read-write lock would allow multiple concurrent readers while ensuring writers eventually gain access without starvation.
-
-### User-Space Tools
+### Shell Commands
 
 Port the essential Linux UBI user-space utilities (`ubinfo`, `ubimkvol`, `ubirmvol`, `ubiattach`) to Zephyr shell commands, giving developers familiar tools for interactive device management during development and debugging.

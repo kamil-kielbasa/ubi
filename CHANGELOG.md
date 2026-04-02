@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-04-02
+
+### Fixed
+
+- **Doxygen: test API functions missing**: Added `PREDEFINED = CONFIG_UBI_TEST_API_ENABLE` to `doc/Doxyfile` so that `ubi_device_check_invariants()` and `ubi_device_get_peb_ec()` (guarded by `#if defined(CONFIG_UBI_TEST_API_ENABLE)`) are extracted into the Doxygen XML and rendered by Breathe.
+
+### Changed
+
+- **Roadmap: removed read-write locking**: Dropped the planned read-write lock feature from the roadmap, README, introduction, and architecture docs. The current per-device mutex is sufficient.
+- **Roadmap: renamed user-space tools to shell commands**: Replaced "User-space tools" with "Shell commands" across roadmap and README to better reflect the Zephyr shell integration.
+
 ## [0.20.0] - 2026-04-01
 
 ### Added
