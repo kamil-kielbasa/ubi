@@ -56,48 +56,34 @@ Defines
 Data Structures
 ---------------
 
-.. doxygenstruct:: ubi_mtd
-   :members:
-
-.. doxygenstruct:: ubi_device_info
-   :members:
-
-.. doxygenenum:: ubi_volume_type
-
-.. doxygenstruct:: ubi_volume_config
+.. doxygengroup:: ubi_structs
+   :project: ubi
    :members:
 
 Device Management
 -----------------
 
-.. doxygenfunction:: ubi_device_init
-.. doxygenfunction:: ubi_device_get_info
-.. doxygenfunction:: ubi_device_erase_peb
-.. doxygenfunction:: ubi_device_deinit
+.. doxygengroup:: ubi_device
+   :project: ubi
+   :members:
 
 Volume Management
 -----------------
 
-.. doxygenfunction:: ubi_volume_create
-.. doxygenfunction:: ubi_volume_resize
-.. doxygenfunction:: ubi_volume_remove
-.. doxygenfunction:: ubi_volume_get_info
+.. doxygengroup:: ubi_volumes
+   :project: ubi
+   :members:
 
 LEB I/O
 -------
 
-.. doxygenfunction:: ubi_leb_write
-.. doxygenfunction:: ubi_leb_read
-.. doxygenfunction:: ubi_leb_map
-.. doxygenfunction:: ubi_leb_unmap
-.. doxygenfunction:: ubi_leb_is_mapped
-.. doxygenfunction:: ubi_leb_get_size
+.. doxygengroup:: ubi_io
+   :project: ubi
+   :members:
 
 Test API (CONFIG_UBI_TEST_API_ENABLE)
 -------------------------------------
 
 These functions are only available when ``CONFIG_UBI_TEST_API_ENABLE=y``.
-Do not enable in production builds.
-
-.. doxygenfunction:: ubi_device_check_invariants
-.. doxygenfunction:: ubi_device_get_peb_ec
+Do not enable in production builds. They are included in the Device Management
+group above.

@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Sphinx: `design_proposal_crypto` orphan warning**: added document to `index.rst` toctree.
+- **Docs: Breathe + Doxygen 1.9.8 compatibility**: switched `api.rst` from `doxygenfunction`/`doxygenstruct` directives to `doxygengroup`, matching the approach used in libedhoc. Breathe's function finder filter excludes group compounds, so when Doxygen ≥ 1.9.8 places functions only in group XML files (not file XML), `doxygenfunction` fails. Using `doxygengroup` reads group XML directly and works with both Doxygen 1.9.1 and 1.9.8.
 
 ## [0.21.0] - 2026-04-02
 
