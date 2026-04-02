@@ -48,5 +48,6 @@ New to UBI? Read these pages first:
    :caption: Project
 
    roadmap
+   design_proposal_crypto
    contributing
    changelog

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-04-02
+
+### Added
+
+- **Docs: `-W` flag**: `docs.yml` now runs `sphinx-build -W` so Sphinx warnings fail the build.
+
+### Changed
+
+- **Doxygen invocation**: `conf.py` uses `subprocess.check_call` instead of `subprocess.call` — Doxygen failures now break the build.
+
+### Fixed
+
+- **Sphinx: `design_proposal_crypto` orphan warning**: added document to `index.rst` toctree.
+
 ## [0.21.0] - 2026-04-02
 
 ### Added
