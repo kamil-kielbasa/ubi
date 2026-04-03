@@ -14,6 +14,7 @@
 
 /* Public header: */
 #include "ubi.h"
+#include "ubi_test.h"
 
 /* Internal headers: */
 #include "ubi_cache.h"

@@ -14,22 +14,24 @@
 | `ubi_write_read` | `tests_ubi_write_read.c` | 5 | LEB write, read, get_size | native_sim |
 | `ubi_erase` | `tests_ubi_erase.c` | 2 | PEB erase, dirty-to-free recycling | native_sim |
 | `ubi_mixed` | `tests_ubi_mixed.c` | 1 | Multi-volume cross-functional workflows | native_sim |
-| `ubi_error_handling` | `tests_ubi_error_handling.c` | 62 | NULL params, out-of-range, no-space, contract tests (idempotent unmap, no-op map, static write, invalid type, zero LEBs, capacity) | native_sim |
+| `ubi_error_handling` | `tests_ubi_error_handling.c` | 96 | NULL params, out-of-range, no-space, contract tests, corrupt headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
 | `ubi_boundary` | `tests_ubi_boundary.c` | 6 | Max LEB capacity, alignment, sqnum persistence | native_sim |
-| `ubi_recovery` | `tests_ubi_recovery.c` | 21 | Corruption, dual-bank, sqnum conflicts, degraded mode | native_sim |
+| `ubi_recovery` | `tests_ubi_recovery.c` | 27 | Corruption, dual-bank, sqnum conflicts, degraded mode, multi-volume recovery | native_sim |
 | `ubi_fault_injection` | `tests_ubi_fault_injection.c` | 4 | Transactional safety under allocation failures, COW overwrite, invariant checks | native_sim |
+| `ubi_io_faults` | `tests_ubi_io_faults.c` | 24 | Malloc/flash-write/flash-erase fault sweeps across init, volume, and I/O paths | native_sim |
+| `ubi_init_errors` | `tests_ubi_init_errors.c` | 33 | Geometry validation, partition guard, format failures, header corruption at init | native_sim |
 | `ubi_stress` | `tests_ubi_stress.c` | 4 | Full utilization, init cycling, wear leveling | native_sim (simulator only) |
-| `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | 3 | Randomized churn with reboots, multi-volume operations, persistence across reinit | native_sim (simulator only) |
+| `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | 4 | Randomized churn with reboots, multi-volume operations, persistence across reinit, EC counter equality after 500 cycles | native_sim (simulator only) |
 | `ubi_torture` | `tests_ubi_torture.c` | 5 | Bad-block torture, erase retry, degraded transitions | native_sim (simulator only) |
 | `ubi_hil_smoke` | `tests_ubi_hil_smoke.c` | 3 | Basic lifecycle, persistence, stress cycles (board-portable smoke) | native_sim |
 | `ubi_concurrency` | `tests_ubi_concurrency.c` | 5 | Multi-threaded readers/writers, deinit quiescence, partition guard | native_sim |
-| **Total** | | **132** | | |
+| **Total** | | **228** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a) |
 |--------|----------------------|--------------------------|
-| Functional correctness | Full — all 132 tests run (15 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 228 tests run (17 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |
@@ -55,7 +57,7 @@ Core API verification organized by functional area:
 
 | Suite | File | Focus |
 |-------|------|-------|
-| `ubi_error_handling` | `tests_ubi_error_handling.c` | NULL parameters, out-of-range LEB numbers, no-space conditions, resize edge cases, overwrite semantics, no-volumes paths, contract tests (idempotent unmap, no-op map, static volume write, invalid type, zero LEBs, capacity accounting) |
+| `ubi_error_handling` | `tests_ubi_error_handling.c` | NULL parameters, out-of-range LEB numbers, no-space conditions, resize edge cases, overwrite semantics, no-volumes paths, contract tests (idempotent unmap, no-op map, static volume write, invalid type, zero LEBs, capacity accounting), corrupt EC/VID headers, reserved PEB corruption, degraded recovery, LEB edge cases, wrong vol_id removal |
 
 ### 3. Boundary Tests
 
@@ -67,7 +69,7 @@ Core API verification organized by functional area:
 
 | Suite | File | Focus |
 |-------|------|-------|
-| `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header -> bad PEB, corrupt VID CRC -> bad PEB, valid EC + empty VID -> free PEB, orphan vol_id -> dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean |
+| `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header -> bad PEB, corrupt VID CRC -> bad PEB, valid EC + empty VID -> free PEB, orphan vol_id -> dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean, dual-bank recovery during resize, degraded-mode blocking, multi-volume recovery |
 
 ### 5. Fault Injection Tests
 
@@ -75,12 +77,24 @@ Core API verification organized by functional area:
 |-------|------|-------|
 | `ubi_fault_injection` | `tests_ubi_fault_injection.c` | Transactional safety: malloc failure during create (P0.2), COW overwrite preserves old data on failure (P0.7), invariant checker after create/write/remove and resize/shrink cycles. Requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`. |
 
+### 5b. I/O Fault Injection Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_io_faults` | `tests_ubi_io_faults.c` | Systematic malloc-failure sweeps (init with no volumes, with volume, with orphans, with duplicates, with bad VID CRC, with bad EC), scratch alloc faults, diag alloc fault, volume create/remove alloc sweeps, flash erase failure -> bad PEB transition. Requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`. |
+
+### 5c. Init Error Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_init_errors` | `tests_ubi_init_errors.c` | Geometry validation (erase block size, write block size, partition size), partition guard (`-EBUSY`), format error paths, corrupt EC/VID headers at init time, PEB classification under various corruption scenarios. |
+
 ### 6. Stress Tests (simulator only)
 
 | Suite | File | Focus |
 |-------|------|-------|
 | `ubi_stress` | `tests_ubi_stress.c` | Full volume utilization, init-deinit cycling, PEB wear leveling, multi-volume concurrent usage |
-| `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | Randomized churn with reboots, multi-volume mixed operations, persistence across reinit |
+| `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | Randomized churn with reboots, multi-volume mixed operations, persistence across reinit, EC counter equality after 500 cycles |
 
 ### 7. Torture Tests (simulator only)
 
@@ -119,10 +133,10 @@ Core API verification organized by functional area:
 
 ### Targets
 
-| Metric | Target |
-|--------|--------|
-| Line coverage | >= 80% |
-| Branch coverage | >= 70% |
+| Metric | Target | Achieved (v0.22.0) |
+|--------|--------|--------------------|
+| Line coverage | >= 80% | 85.2% (1517/1781) |
+| Branch coverage | >= 70% | 54.2% (754/1390) |
 
 ### Tooling
 
@@ -197,8 +211,7 @@ Tests build with strict warnings to catch issues at compile time:
 | Gap | Impact | Mitigation |
 |-----|--------|------------|
 | No power-loss simulation | Interrupted writes and metadata commits not tested | Recovery logic is tested via corruption injection (corrupt headers, duplicate LEBs) |
-| No real flash erase failures | `ubi_device_erase_peb` bad-block torture path (`-ENOSYS`) not exercised | Torture tests use simulator flags; path is code-reviewed |
-| Partial heap exhaustion coverage | `k_malloc` failure hook (`CONFIG_UBI_TEST_FAULT_INJECTION`) covers volume create; not yet wired through all allocation sites | `ubi_fault_injection` suite validates transactional safety for create; remaining paths are code-reviewed |
+| Partial flash write failure coverage | Flash write fault injection covers `flash_write_with_retry`; not all write call-sites are individually swept | `ubi_io_faults` suite validates erase failure -> bad PEB; write retry logic is code-reviewed |
 | HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 | Manual hardware testing during development; HIL CI planned |
 
 ## How to Add a New Test

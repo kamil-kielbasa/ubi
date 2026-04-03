@@ -30,6 +30,52 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
+/* Flash I/O fault injection ------------------------------------------------------------------- */
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+
+static int flash_write_remaining = -1;
+static int flash_erase_remaining = -1;
+
+void ubi_test_fault_set_flash_write_fail_after(int n)
+{
+	flash_write_remaining = n;
+}
+
+void ubi_test_fault_set_flash_erase_fail_after(int n)
+{
+	flash_erase_remaining = n;
+}
+
+static inline bool flash_write_should_fail(void)
+{
+	if (flash_write_remaining == 0) {
+		return true;
+	}
+	if (flash_write_remaining > 0) {
+		flash_write_remaining--;
+	}
+	return false;
+}
+
+static inline bool flash_erase_should_fail(void)
+{
+	if (flash_erase_remaining == 0) {
+		return true;
+	}
+	if (flash_erase_remaining > 0) {
+		flash_erase_remaining--;
+	}
+	return false;
+}
+
+bool ubi_test_flash_erase_check_fail(void)
+{
+	return flash_erase_should_fail();
+}
+
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
+
 /* Static function declarations ---------------------------------------------------------------- */
 
 static int flash_write_with_retry(const struct flash_area *fa, off_t offset, const void *data,
@@ -43,6 +89,13 @@ static int flash_write_with_retry(const struct flash_area *fa, off_t offset, con
 	int ret = -EIO;
 
 	for (size_t attempt = 1; attempt <= CONFIG_UBI_PEB_WRITE_RETRY_COUNT; attempt++) {
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+		if (flash_write_should_fail()) {
+			LOG_WRN("Flash write fault injected at offset 0x%lx",
+				(unsigned long)offset);
+			return -EIO;
+		}
+#endif
 		ret = flash_area_write(fa, offset, data, len);
 
 		if (ret == 0) {

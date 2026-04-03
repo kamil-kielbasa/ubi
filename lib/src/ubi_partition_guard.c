@@ -58,3 +58,10 @@ void ubi_partition_release(uint8_t partition_id)
 	active_partitions &= ~((uint32_t)1U << partition_id);
 	k_mutex_unlock(&guard_mutex);
 }
+
+void ubi_partition_force_release_all(void)
+{
+	k_mutex_lock(&guard_mutex, K_FOREVER);
+	active_partitions = 0;
+	k_mutex_unlock(&guard_mutex);
+}

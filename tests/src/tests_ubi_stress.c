@@ -18,6 +18,7 @@
 
 /* UBI header: */
 #include <ubi.h>
+#include <ubi_test.h>
 #include "arrays.h"
 
 /* Zephyr headers: */
@@ -91,6 +92,7 @@ static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
 
+	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 
 	return;
@@ -127,7 +129,7 @@ ZTEST(ubi_stress, wear_leveling_distribution)
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 1,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	struct ubi_device_info info = { 0 };
@@ -200,7 +202,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0x01, 0x02, 0x03, 0x04 };
@@ -222,7 +224,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 		zassert_ok(ubi_leb_unmap(ubi, vol_id, 1));
 
 		/* Erase all dirty PEBs */
-		struct ubi_device_info info;
+		struct ubi_device_info info = { 0 };
 		zassert_ok(ubi_device_get_info(ubi, &info));
 
 		for (size_t d = 0; d < info.dirty_peb_count; d++) {
@@ -259,7 +261,7 @@ ZTEST(ubi_stress, fill_entire_partition)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&mtd, &ubi));
 
-	struct ubi_device_info info;
+	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(info.ec_avg, 0, "Fresh device should have ec_avg=0");
 
@@ -268,7 +270,7 @@ ZTEST(ubi_stress, fill_entire_partition)
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = info.total_peb_count,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0xFF, 0x00, 0xAA, 0x55 };
@@ -322,14 +324,14 @@ ZTEST(ubi_stress, multiple_init_deinit_cycles)
 				.type = UBI_VOLUME_TYPE_STATIC,
 				.leb_count = 2,
 			};
-			int vol_id;
+			int vol_id = -1;
 			zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 			const uint8_t data[] = { 0xAB, 0xCD };
 			zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 		} else {
 			/* Verify data persists across init/deinit cycles */
-			struct ubi_device_info info;
+			struct ubi_device_info info = { 0 };
 			zassert_ok(ubi_device_get_info(ubi, &info));
 			zassert_equal(1, info.volume_count);
 			zassert_equal(0, info.ec_avg, "No erases performed, ec_avg should be 0");

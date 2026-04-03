@@ -18,6 +18,7 @@
 
 /* UBI header: */
 #include <ubi.h>
+#include <ubi_test.h>
 
 /* Zephyr headers: */
 #include <zephyr/ztest.h>
@@ -81,6 +82,7 @@ static void ztest_suite_after(void *ctx)
 static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
+	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 

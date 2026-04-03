@@ -103,7 +103,7 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 | `lib/src/ubi_cache.h` | RBT and linked-list item types |
 | `lib/src/ubi_io.h` | On-flash header structures and constants |
 | `lib/src/ubi_io_metadata.c` | Metadata I/O — device and volume header read/write |
-| `lib/src/ubi_io_data.c` | Data I/O — EC/VID header and LEB data read/write |
+| `lib/src/ubi_io_data.c` | Data I/O — EC/VID header and LEB data read/write, flash write/erase fault injection |
 | `lib/src/ubi_flash_res_peb.h` | Reserved PEB state types and API declarations |
 | `lib/src/ubi_flash_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
 | `lib/src/ubi_partition_guard.h` | Single-handle-per-partition registry API |

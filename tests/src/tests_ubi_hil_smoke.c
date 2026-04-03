@@ -56,7 +56,7 @@ ZTEST(ubi_hil_smoke, hil_basic_lifecycle)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0xCA, 0xFE, 0xBA, 0xBE };
@@ -87,7 +87,7 @@ ZTEST(ubi_hil_smoke, hil_persistence)
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 1,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 };
@@ -115,7 +115,7 @@ ZTEST(ubi_hil_smoke, hil_stress_cycles)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	uint8_t wbuf[16];

@@ -67,7 +67,7 @@ ZTEST(ubi_stress_longrun, randomized_churn_with_reboots)
 			.type = UBI_VOLUME_TYPE_DYNAMIC,
 			.leb_count = 3,
 		};
-		int vol_id;
+		int vol_id = -1;
 		zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 		for (size_t lnum = 0; lnum < 3; lnum++) {
@@ -106,7 +106,7 @@ ZTEST(ubi_stress_longrun, persistence_across_reinit)
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE };
@@ -116,7 +116,7 @@ ZTEST(ubi_stress_longrun, persistence_across_reinit)
 
 	ubi = ubi_test_init_device(&mtd);
 
-	struct ubi_device_info info;
+	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(1, info.volume_count);
 
@@ -166,7 +166,7 @@ ZTEST(ubi_stress_longrun, mixed_multi_volume_operations)
 
 	zassert_ok(ubi_volume_remove(ubi, id_b));
 
-	struct ubi_device_info info;
+	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(1, info.volume_count);
 
@@ -175,4 +175,84 @@ ZTEST(ubi_stress_longrun, mixed_multi_volume_operations)
 #endif
 
 	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify EC counter equality after 500 write-erase cycles.
+ *
+ * \details Perform 500 write-unmap-erase cycles on a single-LEB volume.
+ *          After all cycles complete, retrieve per-PEB erase counters and
+ *          verify that the maximum deviation between any two counters is
+ *          at most 2 (greedy wear-leveling guarantee). Also verify ec_avg
+ *          matches the expected value.
+ *
+ * \expect All EC counters are within 2 of each other after 500 cycles.
+ *         ec_avg matches total_erases / total_data_pebs.
+ */
+ZTEST(ubi_stress_longrun, ec_counters_equal_after_500_cycles)
+{
+#if defined(CONFIG_UBI_TEST_API_ENABLE)
+	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+
+	const struct ubi_volume_config cfg = {
+		.name = "ec500",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int vol_id = -1;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const uint8_t data[] = { 0xEC, 0x50, 0x00, 0xFF };
+	const size_t nr_cycles = 500;
+
+	for (size_t i = 0; i < nr_cycles; i++) {
+		zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+		zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
+
+		struct ubi_device_info info = { 0 };
+		zassert_ok(ubi_device_get_info(ubi, &info));
+
+		for (size_t d = 0; d < info.dirty_peb_count; d++) {
+			zassert_ok(ubi_device_erase_peb(ubi));
+		}
+	}
+
+	/* Retrieve per-PEB erase counters */
+	size_t *peb_ec = NULL;
+	size_t peb_ec_len = 0;
+	zassert_ok(ubi_device_get_peb_ec(ubi, &peb_ec, &peb_ec_len));
+
+	size_t min_ec = SIZE_MAX;
+	size_t max_ec = 0;
+	size_t sum_ec = 0;
+
+	for (size_t i = 0; i < peb_ec_len; i++) {
+		if (peb_ec[i] < min_ec) {
+			min_ec = peb_ec[i];
+		}
+		if (peb_ec[i] > max_ec) {
+			max_ec = peb_ec[i];
+		}
+		sum_ec += peb_ec[i];
+	}
+
+	zassert_true(max_ec <= min_ec + 2, "EC imbalance after %zu cycles: min=%zu max=%zu",
+		     nr_cycles, min_ec, max_ec);
+
+	/* Verify ec_avg matches */
+	struct ubi_device_info final_info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &final_info));
+
+	const size_t expected_avg = sum_ec / peb_ec_len;
+	zassert_equal(final_info.ec_avg, expected_avg, "ec_avg mismatch: got %zu, expected %zu",
+		      final_info.ec_avg, expected_avg);
+
+	/* Verify invariants hold after sustained workload */
+	zassert_ok(ubi_device_check_invariants(ubi));
+
+	k_free(peb_ec);
+	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
 }

@@ -82,11 +82,11 @@ static void reader_entry(void *p1, void *p2, void *p3)
 	(void)p3;
 
 	for (int i = 0; i < READER_ITERATIONS && !(*ctx->stop); i++) {
-		struct ubi_device_info info;
+		struct ubi_device_info info = { 0 };
 		int ret = ubi_device_get_info(ctx->ubi, &info);
 		zassert_ok(ret);
 
-		struct ubi_volume_config vol_cfg;
+		struct ubi_volume_config vol_cfg = { 0 };
 		size_t alloc_lebs = 0;
 		ret = ubi_volume_get_info(ctx->ubi, ctx->vol_id, &vol_cfg, &alloc_lebs);
 		zassert_ok(ret);
@@ -109,7 +109,7 @@ ZTEST(ubi_concurrency, concurrent_readers)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0xAA, 0xBB };
@@ -165,7 +165,7 @@ ZTEST(ubi_concurrency, reader_writer_interleave)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0xDE, 0xAD };
@@ -213,7 +213,7 @@ ZTEST(ubi_concurrency, deinit_after_quiescence)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	volatile bool stop = false;

@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_io.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
@@ -191,7 +192,15 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 		}
 
 		const size_t offset = entry->value.pnum * ubi->mtd.erase_block_size;
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+		if (ubi_test_flash_erase_check_fail()) {
+			ret = -EIO;
+		} else {
+			ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+		}
+#else
 		ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+#endif
 		flash_area_close(fa);
 
 		if (ret != 0) {
@@ -452,6 +461,11 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 exit:
 	k_mutex_unlock(&ubi->mutex);
 	return ret;
+}
+
+void ubi_test_partition_force_release_all(void)
+{
+	ubi_partition_force_release_all();
 }
 
 #endif /* CONFIG_UBI_TEST_API_ENABLE */

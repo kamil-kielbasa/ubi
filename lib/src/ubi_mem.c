@@ -13,6 +13,9 @@
 #include "ubi_internal.h"
 #include "ubi_cache.h"
 
+/* Public headers: */
+#include <ubi_test.h>
+
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -34,16 +37,18 @@ BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes"
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 
-static int malloc_remaining = -1;
+static int alloc_remaining = -1;
 
 void ubi_test_fault_reset(void)
 {
-	malloc_remaining = -1;
+	alloc_remaining = -1;
+	ubi_test_fault_set_flash_write_fail_after(-1);
+	ubi_test_fault_set_flash_erase_fail_after(-1);
 }
 
-void ubi_test_fault_set_malloc_fail_after(int n)
+void ubi_test_fault_set_alloc_fail_after(int n)
 {
-	malloc_remaining = n;
+	alloc_remaining = n;
 }
 
 /**
@@ -54,11 +59,11 @@ void ubi_test_fault_set_malloc_fail_after(int n)
  */
 static inline bool fault_should_fail(void)
 {
-	if (malloc_remaining == 0) {
+	if (alloc_remaining == 0) {
 		return true;
 	}
-	if (malloc_remaining > 0) {
-		malloc_remaining--;
+	if (alloc_remaining > 0) {
+		alloc_remaining--;
 	}
 	return false;
 }
@@ -66,7 +71,7 @@ static inline bool fault_should_fail(void)
 #endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 /* ========================================================================= */
-/* Static backend (k_mem_slab)                                                */
+/* Static backend (k_mem_slab)                                               */
 /* ========================================================================= */
 
 #if defined(CONFIG_UBI_MEM_BACKEND_STATIC)
@@ -277,7 +282,7 @@ void ubi_mem_diag_free(void *ptr)
 #endif /* CONFIG_UBI_MEM_BACKEND_STATIC */
 
 /* ========================================================================= */
-/* Heap backend (k_malloc / k_free)                                           */
+/* Heap backend (k_malloc / k_free)                                          */
 /* ========================================================================= */
 
 #if defined(CONFIG_UBI_MEM_BACKEND_HEAP)

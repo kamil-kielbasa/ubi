@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-04-02
+
+### Added
+
+- **Flash I/O fault injection**: `ubi_test_fault_set_flash_write_fail_after()` and `ubi_test_fault_set_flash_erase_fail_after()` enable controllable flash write and erase failures (requires `CONFIG_UBI_TEST_FAULT_INJECTION`). Flash write faults hook into the internal `flash_write_with_retry()` wrapper. Flash erase faults hook into `ubi_device_erase_peb()` via `ubi_test_flash_erase_check_fail()` (declared in `ubi_io.h`).
+- **Test suite: `ubi_io_faults`** (`tests_ubi_io_faults.c`, 24 tests): Flash I/O and malloc fault injection sweep tests — allocation failure sweeps during init with various flash states (empty, volumes, orphans, duplicates, bad VID CRC, bad EC), scratch allocation faults during volume operations, diagnostic allocation faults, and flash erase failure handling.
+- **Test suite: `ubi_init_errors`** (`tests_ubi_init_errors.c`, 33 tests): Device initialization error paths — invalid geometry (zero erase/write block size, unaligned partition, oversized write block, too-small partition, erase block smaller than headers), partition guard (`-EBUSY` on double init), format failure propagation, device header corruption, volume header corruption, and `CONFIG_UBI_MEM_BACKEND_STATIC` limit checks.
+- **34 new error-handling tests** in `ubi_error_handling` (62 → 96 tests): Corrupt EC/VID header paths in LEB and PEB operations, reserved PEB corruption during create/remove/resize, degraded-mode bank recovery, orphan PEB classification, write-retry exhaustion, `get_peb_ec` with corrupt PEB, invariant checks after bad PEB erase, LEB map/unmap edge cases, volume remove with wrong vol_id, and re-index with corrupt vol headers.
+- **6 new recovery tests** in `ubi_recovery` (21 → 27 tests): Dual-bank recovery during resize, degraded-mode mutation blocking, multi-volume bank recovery, corrupt EC with valid VID classification, multiple corrupt PEB classification, and fresh partition spare PEB formatting.
+- **Fault reset covers all counters**: `ubi_test_fault_reset()` now resets flash write and erase fault counters in addition to the malloc counter.
+- **Long-term EC counter equality test** (`tests_ubi_stress_longrun.c`): 500 write-erase cycle test verifying that erase counters across all PEBs remain balanced (max deviation ≤ 2). Runs on native_sim only. Requires `CONFIG_UBI_TEST_API_ENABLE`.
+
+### Changed
+
+- **Test configuration**: `CONFIG_UBI_TEST_FAULT_INJECTION=y` enabled in `tests/prj.conf` by default for all test builds.
+- **Fault injection declarations**: `ubi_test_fault_set_flash_write_fail_after()` and `ubi_test_fault_set_flash_erase_fail_after()` moved from internal scope to public API in `ubi.h` (with no-op stubs when `CONFIG_UBI_TEST_FAULT_INJECTION` is disabled).
+- **Source module roles**: `ubi_io_data.c` now also hosts flash write/erase fault injection counters and check functions.
+- **Coverage**: Line coverage increased from ~80% to 85.2% (1517/1781 lines). 17 test suites, 228 tests total.
+
+### Fixed
+
+- **Test description ordering**: All test Doxygen comments now consistently use `\brief` → `\details` → `\expect` order (previously some used `\brief` → `\expect` → `\details`).
+- **Test descriptions: removed source line references**: Removed direct references to source file line numbers (e.g. "Covers ubi_leb.c lines 237-238") from test Doxygen comments — line numbers change across refactors and become stale.
+
 ## [0.21.1] - 2026-04-02
 
 ### Added

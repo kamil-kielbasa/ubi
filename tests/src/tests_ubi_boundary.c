@@ -16,6 +16,7 @@
 
 /* UBI header: */
 #include <ubi.h>
+#include <ubi_test.h>
 
 /* Zephyr headers: */
 #include <zephyr/ztest.h>
@@ -88,6 +89,7 @@ static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
 
+	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 
 	return;
@@ -125,7 +127,7 @@ ZTEST(ubi_boundary, write_max_leb_data)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const size_t max_data = mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
@@ -181,7 +183,7 @@ ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const size_t max_data = mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
@@ -217,7 +219,7 @@ ZTEST(ubi_boundary, read_at_exact_boundary)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t pattern[] = { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 };
@@ -252,7 +254,7 @@ ZTEST(ubi_boundary, write_alignment_boundary)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	/* Write exactly 16 bytes (aligned) */
@@ -298,7 +300,7 @@ ZTEST(ubi_boundary, write_sub_alignment)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	/* Write 1 byte — minimum possible write */
@@ -358,7 +360,7 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data1[] = { 0xAA };
@@ -372,7 +374,7 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 
 	/* Re-read vol_id after remount. */
 	struct ubi_volume_config cfg2;
-	size_t alloc;
+	size_t alloc = 0;
 	zassert_ok(ubi_volume_get_info(ubi, vol_id, &cfg2, &alloc));
 
 	const uint8_t data2[] = { 0xBB };

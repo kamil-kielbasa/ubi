@@ -308,4 +308,14 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
 
 /** \} name ubi_io_data */
 
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+/**
+ * \brief Check and consume flash erase fault injection counter.
+ *
+ * \retval true  Erase should be faulted.
+ * \retval false Erase proceeds normally.
+ */
+bool ubi_test_flash_erase_check_fail(void);
+#endif
+
 #endif /* UBI_IO_H */

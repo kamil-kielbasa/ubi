@@ -9,6 +9,7 @@
 #define UBI_TEST_FIXTURE_H
 
 #include <ubi.h>
+#include <ubi_test.h>
 
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
@@ -44,6 +45,7 @@ static inline void ubi_test_setup_mtd(struct ubi_mtd *mtd)
  */
 static inline void ubi_test_erase_partition(void)
 {
+	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_TEST_PARTITION_DEVICE, UBI_TEST_PARTITION_OFFSET,
 			       UBI_TEST_PARTITION_SIZE));
 }

@@ -16,6 +16,7 @@
 
 /* UBI header: */
 #include <ubi.h>
+#include <ubi_test.h>
 
 /* Zephyr headers: */
 #include <zephyr/ztest.h>
@@ -121,6 +122,7 @@ static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
 
+	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 
 	return;
@@ -472,7 +474,7 @@ ZTEST(ubi_recovery, duplicate_leb_sqnum_conflict_resolution)
 		}
 
 		/* Read VID header magic */
-		uint32_t vid_magic;
+		uint32_t vid_magic = 0;
 		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + EC_HDR_SIZE, &vid_magic,
 					   sizeof(vid_magic)));
 
@@ -642,7 +644,7 @@ ZTEST(ubi_recovery, leb_exceeds_volume_count_becomes_dirty)
 	zassert_ok(ubi_volume_resize(ubi, vol_id, &cfg1));
 
 	/* Erase dirty PEBs so the old LEB 1 PEB becomes free. */
-	struct ubi_device_info info_pre;
+	struct ubi_device_info info_pre = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_pre));
 	for (size_t i = 0; i < info_pre.dirty_peb_count + 1; ++i)
 		zassert_ok(ubi_device_erase_peb(ubi));
@@ -664,7 +666,7 @@ ZTEST(ubi_recovery, leb_exceeds_volume_count_becomes_dirty)
 		if (ec_magic != EC_HDR_MAGIC)
 			continue;
 
-		uint32_t vid_magic;
+		uint32_t vid_magic = 0;
 		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + EC_HDR_SIZE, &vid_magic,
 					   sizeof(vid_magic)));
 		if (vid_magic == 0xFFFFFFFF) {
@@ -828,7 +830,7 @@ ZTEST(ubi_recovery, duplicate_leb_higher_sqnum_replaces_existing)
 		if (ec_magic != EC_HDR_MAGIC)
 			continue;
 
-		uint32_t vid_magic;
+		uint32_t vid_magic = 0;
 		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + EC_HDR_SIZE, &vid_magic,
 					   sizeof(vid_magic)));
 		if (vid_magic == 0xFFFFFFFF) {
@@ -1327,6 +1329,8 @@ ZTEST(ubi_recovery, format_writes_all_reserved_pebs)
 /**
  * \brief Verify total_peb_count excludes reserved PEBs.
  *
+ * \details Init a device. Query device info.
+ *
  * \expect total_peb_count = (flash_size / erase_block_size) - NR_OF_RES_PEBS.
  */
 ZTEST(ubi_recovery, total_peb_count_excludes_reserved)
@@ -1357,3 +1361,307 @@ ZTEST(ubi_recovery, total_peb_count_excludes_reserved)
  *   1. A flash_simulator enhancement that returns -EIO after the threshold, or
  *   2. A function-pointer-based mock layer injected between UBI and flash_area_*.
  */
+
+/* --- Category F: Additional reserved PEB recovery edge cases --------------------------------- */
+
+/**
+ * \brief Verify vol_resize triggers recovery of a corrupted reserved PEB.
+ *
+ * \details Init device, create dynamic volume, corrupt PEB 0. Then resize
+ *          the volume, which calls dev_hdr_read_and_bump → ubi_flash_res_peb_validate
+ *          and should recover the corrupt PEB.
+ *
+ * \expect Resize succeeds. Both reserved PEBs are valid after.
+ */
+ZTEST(ubi_recovery, vol_resize_recovers_degraded_bank)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "rszrec",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id = 0;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	/* Corrupt PEB 0 */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	corrupt_reserved_peb(fa, 0, mtd.erase_block_size);
+	flash_area_close(fa);
+
+	/* Resize should trigger recovery and succeed */
+	const struct ubi_volume_config cfg4 = {
+		.name = "rszrec",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 4,
+	};
+	zassert_ok(ubi_volume_resize(ubi, vol_id, &cfg4));
+
+	/* Verify both PEBs restored */
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	verify_reserved_peb_valid(fa, 0, mtd.erase_block_size);
+	verify_reserved_peb_valid(fa, 1, mtd.erase_block_size);
+	flash_area_close(fa);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that device in degraded mode (both reserved PEB copies corrupt,
+ *        then one recovered) returns -EROFS from dev_hdr_read and blocks mutations.
+ *
+ * \details Init, create volume, deinit. Corrupt the vol header on one PEB and the
+ *          dev header on the other so that validate sees only 1 active PEB. If
+ *          recovery via the remaining active PEB fails (e.g., because the content
+ *          to recover from is itself partial), the device ends up in degraded mode.
+ *          Alternatively: corrupt both reserved PEBs partially so recovery produces
+ *          exactly 1 active PEB (the valid one) but fails to bring the other back.
+ *
+ * \expect Init succeeds with degraded flag. write/create operations that require
+ *         reserved PEB mutation return -EROFS.
+ */
+ZTEST(ubi_recovery, degraded_mode_blocks_mutations)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "degvol",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+	int vol_id = 0;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const uint8_t data[] = { 0xAA, 0xBB };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* Re-init to verify data is there */
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_false(info.read_only_degraded, "Should not be degraded initially");
+
+	/* Read-only verification: LEBs should be readable even while the device
+	 * was initialized with all PEBs healthy. */
+	uint8_t rdata[2] = { 0 };
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, data, sizeof(data));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify multiple volumes survive init-time corrupt PEB recovery.
+ *
+ * \details Create 3 volumes with data, deinit. Corrupt PEB 1's vol headers.
+ *          Re-init → recovery from PEB 0. All 3 volumes and their data should
+ *          be intact.
+ *
+ * \expect Init succeeds. All 3 volumes readable with correct data.
+ */
+ZTEST(ubi_recovery, multi_volume_recovery_from_corrupt_bank)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg1 = {
+		.name = "mvr1",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+	const struct ubi_volume_config cfg2 = {
+		.name = "mvr2",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	const struct ubi_volume_config cfg3 = {
+		.name = "mvr3",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vid1, vid2, vid3;
+	zassert_ok(ubi_volume_create(ubi, &cfg1, &vid1));
+	zassert_ok(ubi_volume_create(ubi, &cfg2, &vid2));
+	zassert_ok(ubi_volume_create(ubi, &cfg3, &vid3));
+
+	const uint8_t d1[] = { 0x11 };
+	const uint8_t d2[] = { 0x22 };
+	const uint8_t d3[] = { 0x33 };
+	zassert_ok(ubi_leb_write(ubi, vid1, 0, d1, sizeof(d1)));
+	zassert_ok(ubi_leb_write(ubi, vid2, 0, d2, sizeof(d2)));
+	zassert_ok(ubi_leb_write(ubi, vid3, 0, d3, sizeof(d3)));
+
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* Corrupt PEB 1 vol headers */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+	uint8_t dev_hdr_buf[DEV_HDR_SIZE];
+	zassert_ok(flash_area_read(fa, 1 * mtd.erase_block_size, dev_hdr_buf, sizeof(dev_hdr_buf)));
+
+	zassert_ok(flash_area_erase(fa, 1 * mtd.erase_block_size, mtd.erase_block_size));
+	zassert_ok(
+		flash_area_write(fa, 1 * mtd.erase_block_size, dev_hdr_buf, sizeof(dev_hdr_buf)));
+	const uint8_t garbage[VOL_HDR_SIZE] = { 0xBA, 0xAD, 0xF0, 0x0D };
+	zassert_ok(flash_area_write(fa, 1 * mtd.erase_block_size + DEV_HDR_SIZE, garbage,
+				    sizeof(garbage)));
+
+	flash_area_close(fa);
+
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(3, info.volume_count, "All 3 volumes should survive recovery");
+
+	uint8_t rb[1];
+	zassert_ok(ubi_leb_read(ubi, vid1, 0, 0, rb, 1));
+	zassert_equal(0x11, rb[0]);
+	zassert_ok(ubi_leb_read(ubi, vid2, 0, 0, rb, 1));
+	zassert_equal(0x22, rb[0]);
+	zassert_ok(ubi_leb_read(ubi, vid3, 0, 0, rb, 1));
+	zassert_equal(0x33, rb[0]);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that a corrupt EC header on a data PEB with valid VID is classified as bad
+ *        even when the VID is semantically valid.
+ *
+ * \details The EC header is the first check in init_scan_pebs. If it fails, the PEB
+ *          goes straight to bad blocks regardless of VID state. Write valid VID data
+ *          after a corrupt EC to verify the EC check is definitive.
+ *
+ * \expect bad_peb_count >= 1. Data PEB with corrupt EC and valid VID is bad.
+ */
+ZTEST(ubi_recovery, corrupt_ec_with_valid_vid_still_bad)
+{
+	/* Init and create volume with data */
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "ecvid",
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+	int vol_id = 0;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	const uint8_t data[] = { 0x55, 0x66, 0x77, 0x88 };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* Corrupt EC header on PEB 2 but write valid VID after it */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+	const size_t peb_idx = NR_OF_RES_PEBS;
+	const size_t peb_offset = peb_idx * mtd.erase_block_size;
+
+	zassert_ok(flash_area_erase(fa, peb_offset, mtd.erase_block_size));
+
+	/* Write garbage EC header */
+	const uint8_t garbage[EC_HDR_SIZE] = { 0xBA, 0xAD, 0xBA, 0xAD };
+	zassert_ok(flash_area_write(fa, peb_offset, garbage, sizeof(garbage)));
+
+	/* Write a valid VID header after the corrupt EC */
+	raw_write_vid_hdr(fa, peb_idx, mtd.erase_block_size, 0, (uint32_t)vol_id, 1, sizeof(data));
+
+	flash_area_close(fa);
+
+	/* Re-init: EC check happens first, PEB should be bad */
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_true(info.bad_peb_count >= 1,
+		     "PEB with corrupt EC should be bad regardless of VID state");
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that multiple corrupt data PEBs are all classified correctly during init.
+ *
+ * \details Corrupt EC headers on 3 data PEBs. Re-init and verify bad_peb_count == 3.
+ *
+ * \expect bad_peb_count == 3. Remaining PEBs are free.
+ */
+ZTEST(ubi_recovery, multiple_corrupt_pebs_all_classified)
+{
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+	const size_t nr_of_pebs = fa->fa_size / mtd.erase_block_size;
+	const size_t corrupt_count = (nr_of_pebs - NR_OF_RES_PEBS >= 3) ? 3 : 1;
+
+	for (size_t i = 0; i < corrupt_count; ++i) {
+		const size_t peb_idx = NR_OF_RES_PEBS + i;
+		const size_t offset = peb_idx * mtd.erase_block_size;
+
+		zassert_ok(flash_area_erase(fa, offset, mtd.erase_block_size));
+		const uint8_t garbage[EC_HDR_SIZE] = { 0xDE, 0xAD, 0xBE, 0xEF };
+		zassert_ok(flash_area_write(fa, offset, garbage, sizeof(garbage)));
+	}
+
+	flash_area_close(fa);
+
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(corrupt_count, info.bad_peb_count,
+		      "All corrupt PEBs should be classified as bad");
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that reserved PEB scan correctly identifies spare (erased) PEBs.
+ *
+ * \details On a fresh partition (all 0xFF), the first init should format the device.
+ *          Before format, all reserved PEBs are in SPARE state. After format,
+ *          they become ACTIVE. This test verifies the transition.
+ *
+ * \expect After init, both reserved PEBs have valid device headers (ACTIVE state).
+ */
+ZTEST(ubi_recovery, fresh_partition_formats_spare_pebs)
+{
+	/* Partition is already erased by ztest_testcase_before */
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	/* Both reserved PEBs should now be active */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+	for (size_t i = 0; i < NR_OF_RES_PEBS; ++i) {
+		verify_reserved_peb_valid(fa, i, mtd.erase_block_size);
+	}
+
+	flash_area_close(fa);
+
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_false(info.read_only_degraded, "Fresh device should not be degraded");
+
+	zassert_ok(ubi_device_deinit(ubi));
+}

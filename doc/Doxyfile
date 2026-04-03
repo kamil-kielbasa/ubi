@@ -5,7 +5,7 @@
 PROJECT_NAME           = "UBI"
 PROJECT_BRIEF          = "Unsorted Block Images for Zephyr RTOS"
 
-INPUT                  = ../lib/include/ubi.h
+INPUT                  = ../lib/include/ubi.h ../lib/include/ubi_test.h
 RECURSIVE              = NO
 
 OUTPUT_DIRECTORY       = ../build/doc/doxygen
@@ -20,8 +20,11 @@ EXTRACT_STATIC         = YES
 OPTIMIZE_OUTPUT_FOR_C  = YES
 TYPEDEF_HIDES_STRUCT   = YES
 
-PREDEFINED             = CONFIG_UBI_TEST_API_ENABLE
+PREDEFINED             = CONFIG_UBI_TEST_API_ENABLE \
+                         CONFIG_UBI_TEST_FAULT_INJECTION
 
 QUIET                  = YES
 WARNINGS               = YES
 WARN_IF_UNDOCUMENTED   = YES
+
+ALIASES                += expect="\par Expected behavior:\n"

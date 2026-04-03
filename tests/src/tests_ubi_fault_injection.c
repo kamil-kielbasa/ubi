@@ -4,7 +4,7 @@
  * \brief   Transactional safety tests using fault injection.
  *
  * These tests verify that UBI operations remain transactionally safe
- * when k_malloc or flash I/O fails at critical points.
+ * when memory allocation or flash I/O fails at critical points.
  *
  * Requires CONFIG_UBI_TEST_FAULT_INJECTION=y and CONFIG_UBI_TEST_API_ENABLE=y.
  *
@@ -48,14 +48,14 @@ ZTEST_SUITE(ubi_fault_injection, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
 /**
- * \brief Verify that volume create with malloc failure after flash commit
+ * \brief Verify that volume create with alloc failure after flash commit
  *        does NOT leave a persistent volume (P0.2 validation).
  *
  * Since P0.2 reordered create to allocate RAM before flash, an early
  * ENOMEM now returns cleanly. This test validates the fix by checking
  * that when create returns ENOMEM, no volume exists on re-init.
  */
-ZTEST(ubi_fault_injection, create_malloc_fail_no_persistent_volume)
+ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
 {
 	struct ubi_device *ubi = ubi_test_init_device(&mtd);
 
@@ -64,7 +64,7 @@ ZTEST(ubi_fault_injection, create_malloc_fail_no_persistent_volume)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	int ret = ubi_volume_create(ubi, &cfg, &vol_id);
 
 	if (ret == -ENOMEM) {
@@ -72,7 +72,7 @@ ZTEST(ubi_fault_injection, create_malloc_fail_no_persistent_volume)
 
 		ubi = ubi_test_init_device(&mtd);
 
-		struct ubi_device_info info;
+		struct ubi_device_info info = { 0 };
 		zassert_ok(ubi_device_get_info(ubi, &info));
 		zassert_equal(0, info.volume_count, "No volume should persist after failed create");
 	} else {
@@ -97,7 +97,7 @@ ZTEST(ubi_fault_injection, overwrite_preserves_old_data_on_failure)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t original[] = { 0xDE, 0xAD, 0xBE, 0xEF };
@@ -125,7 +125,7 @@ ZTEST(ubi_fault_injection, invariants_hold_after_create_write_remove)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 	zassert_ok(ubi_device_check_invariants(ubi));
 
@@ -158,7 +158,7 @@ ZTEST(ubi_fault_injection, invariants_hold_after_resize_shrink)
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 4,
 	};
-	int vol_id;
+	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
 	const uint8_t data[] = { 0xAA };

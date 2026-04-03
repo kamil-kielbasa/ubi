@@ -132,9 +132,9 @@ config UBI_TEST_FAULT_INJECTION
 	bool "Enable UBI fault injection hooks"
 	depends on UBI_TEST_API_ENABLE
 	help
-	  Wraps k_malloc with a test-controllable hook that can be
-	  configured to fail after N calls. Used for testing
-	  transactional safety under allocation failures.
+	  Wraps memory allocations with a test-controllable hook
+	  that can be configured to fail after N calls. Used for
+	  testing transactional safety under allocation failures.
 	  Do not enable in production builds.
 
 endif # UBI_ENABLE

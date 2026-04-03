@@ -11,6 +11,7 @@
 #ifndef UBI_PARTITION_GUARD_H
 #define UBI_PARTITION_GUARD_H
 
+/* Include files ------------------------------------------------------------------------------- */
 #include <stdint.h>
 
 /**
@@ -29,5 +30,14 @@ int ubi_partition_acquire(uint8_t partition_id);
  * \param partition_id  Flash partition identifier.
  */
 void ubi_partition_release(uint8_t partition_id);
+
+/**
+ * \brief Force-release all partitions (test-only).
+ *
+ * Unconditionally clears the entire active-partitions bitfield.
+ * Intended for test teardown to prevent cascading EBUSY failures
+ * when a prior test assertion aborts before reaching ubi_device_deinit.
+ */
+void ubi_partition_force_release_all(void);
 
 #endif /* UBI_PARTITION_GUARD_H */
