@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-04-03
+
+### Added
+
+- **Design proposal: crypto layer** (`doc/design_proposal_crypto.md`): Full architecture for authenticated encryption of all UBI on-flash structures (device headers, volume headers, EC headers, VID headers, LEB payloads) using AES-128-CCM via PSA Crypto API. Covers ESSIV nonce construction, per-domain key derivation from a versioned root IKM, anti-rollback via persisted global sequence number, crash-safe key rotation, and external AAD callback for application-specific binding. Linked from [roadmap](roadmap.md).
+
 ## [0.23.0] - 2026-04-03
 
 ### Added
