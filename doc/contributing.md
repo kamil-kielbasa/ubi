@@ -88,7 +88,7 @@ scripts/                     CI, coverage, formatting, and test runner scripts
 | Every change | `west build` + run tests on `native_sim` |
 | API or logic changes | `bash scripts/coverage.sh` — verify line >= 80%, branch >= 70% |
 | New test cases | Add to the appropriate `tests/src/tests_ubi_*.c` file |
-| Cross-compilation check | `west build -b b_u585i_iot02a ./tests/` (build only) |
+| Cross-compilation check | `west build -b b_u585i_iot02a ./tests/` and `west build -b nrf5340dk/nrf5340/cpuapp ./tests/` (build only) |
 | Stress / torture tests | Only on `native_sim` with `CONFIG_FLASH_SIMULATOR=y` |
 
 ## Documentation Expectations

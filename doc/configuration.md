@@ -129,12 +129,32 @@ UBI requires a named flash partition defined in a DeviceTree overlay. The partit
 };
 ```
 
+### nrf5340dk/nrf5340/cpuapp (nRF5340 DK)
+
+```dts
+&flash0 {
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        ubi_partition: partition@f0000 {
+            label = "ubi_partition";
+            reg = <0x000f0000 DT_SIZE_K(64)>;
+        };
+    };
+};
+```
+
+nRF5340 has 4 KB erase blocks (vs 8 KB on STM32U5). With 64 KB the partition yields 16 PEBs (2 reserved, 14 data), matching the default `CONFIG_UBI_MAX_NR_OF_DATA_PEBS`.
+
 ### Sizing Guidelines
 
 - **Minimum**: At least `N + 2` PEBs (N reserved + 2 data), where N = `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS`. In practice, use >= 8 PEBs.
 - **Reserved PEBs**: The first N PEBs are reserved for device/volume metadata (configurable via `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS`, default 2). Only PEBs N..total-1 are available for volume data.
 - **LEB size**: `erase_block_size - 48` bytes (48 bytes are consumed by EC + VID headers on each data PEB).
-- **Example**: With 8 KB erase blocks and 128 KB partition: 16 total PEBs, 2 reserved, 14 data PEBs, each with 8144 B usable per LEB.
+- **Example (STM32U5)**: With 8 KB erase blocks and 128 KB partition: 16 total PEBs, 2 reserved, 14 data PEBs, each with 8144 B usable per LEB.
+- **Example (nRF5340)**: With 4 KB erase blocks and 64 KB partition: 16 total PEBs, 2 reserved, 14 data PEBs, each with 4048 B usable per LEB.
 
 ## Zephyr Module Integration
 

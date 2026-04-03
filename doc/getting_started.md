@@ -10,7 +10,7 @@
 |------|-------------------|
 | **Quick evaluation** | Build for `native_sim`, run the sample, see UBI in action — no hardware needed. |
 | **Project integration** | Add UBI as a west module, configure via Kconfig and DeviceTree. See [Configuration](configuration.md). |
-| **Hardware testing** | Build for `b_u585i_iot02a`, flash, and observe via serial. Requires STM32CubeProgrammer. |
+| **Hardware testing** | Build for `b_u585i_iot02a` or `nrf5340dk/nrf5340/cpuapp`, flash, and observe via serial. Requires STM32CubeProgrammer or nrfjprog. |
 
 ## Quick Start
 
@@ -107,6 +107,26 @@ Erase flash and program:
 ```sh
 STM32_Programmer_CLI -c port=SWD -e all
 STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/tests/zephyr/zephyr.hex
+```
+
+Open a serial terminal to view output:
+
+```sh
+picocom -b 115200 /dev/ttyACM0
+```
+
+### Build for nRF5340 DK (Hardware)
+
+Build the test application:
+
+```sh
+west build -p --build-dir build/nrf5340dk/tests -b nrf5340dk/nrf5340/cpuapp ./tests/
+```
+
+Flash:
+
+```sh
+west flash --build-dir build/nrf5340dk/tests
 ```
 
 Open a serial terminal to view output:

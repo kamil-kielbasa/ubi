@@ -8,6 +8,7 @@ tests:
     platform_allow:
       - native_sim
       - b_u585i_iot02a
+      - nrf5340dk/nrf5340/cpuapp
     harness: ztest
 
   ubi.stress:
@@ -23,6 +24,7 @@ tests:
     platform_allow:
       - native_sim
       - b_u585i_iot02a
+      - nrf5340dk/nrf5340/cpuapp
     harness: ztest
     extra_configs:
       - CONFIG_UBI_MEM_BACKEND_HEAP=y

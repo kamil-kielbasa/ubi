@@ -3,18 +3,40 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'doc/**'
+      - '**.md'
+      - '.github/workflows/docs.yml'
+      - 'LICENSE'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'doc/**'
+      - '**.md'
+      - '.github/workflows/docs.yml'
+      - 'LICENSE'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  native-tests:
     runs-on: ubuntu-latest
     container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
+    strategy:
+      fail-fast: true
+      matrix:
+        mem: [static, heap]
+    name: native-tests (${{ matrix.mem }})
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           path: ubi
 
@@ -23,66 +45,77 @@ jobs:
           west init -l ubi
           west update --narrow -o=--depth=1
 
-      - name: Build tests (native_sim, static)
+      - name: Build tests (native_sim, ${{ matrix.mem }})
         run: |
           west build -p --build-dir build/native_sim/tests \
-            -b native_sim ubi/tests/
+            -b native_sim ubi/tests/ \
+            ${{ matrix.mem == 'heap' && '-- -DCONFIG_UBI_MEM_BACKEND_HEAP=y' || '' }}
 
-      - name: Run tests (native_sim, static)
+      - name: Run tests (native_sim, ${{ matrix.mem }})
         run: ./build/native_sim/tests/zephyr/zephyr.exe
 
-      - name: Build tests (native_sim, heap)
+  cross-build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [b_u585i_iot02a, nrf5340dk/nrf5340/cpuapp]
+        mem: [static, heap]
+        app: [tests, sample]
+        include:
+          - board: b_u585i_iot02a
+            board-slug: b_u585i_iot02a
+          - board: nrf5340dk/nrf5340/cpuapp
+            board-slug: nrf5340dk_cpuapp
+    name: cross-build (${{ matrix.board-slug }}, ${{ matrix.app }}, ${{ matrix.mem }})
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: ubi
+
+      - name: Initialize west workspace
         run: |
-          west build -p --build-dir build/native_sim/tests-heap \
-            -b native_sim ubi/tests/ \
-            -- -DCONFIG_UBI_MEM_BACKEND_HEAP=y
+          west init -l ubi
+          west update --narrow -o=--depth=1
 
-      - name: Run tests (native_sim, heap)
-        run: ./build/native_sim/tests-heap/zephyr/zephyr.exe
-
-      - name: Build sample (native_sim)
+      - name: Build ${{ matrix.app }} (${{ matrix.board-slug }}, ${{ matrix.mem }})
         run: |
-          west build -p --build-dir build/native_sim/sample \
-            -b native_sim ubi/sample/
+          west build -p \
+            --build-dir build/${{ matrix.board-slug }}/${{ matrix.app }} \
+            -b ${{ matrix.board }} ubi/${{ matrix.app }}/ \
+            ${{ matrix.mem == 'heap' && '-- -DCONFIG_UBI_MEM_BACKEND_HEAP=y' || '' }}
 
-      - name: Build tests (b_u585i_iot02a, static)
-        run: |
-          west build -p --build-dir build/b_u585i_iot02a/tests \
-            -b b_u585i_iot02a ubi/tests/
-
-      - name: Build tests (b_u585i_iot02a, heap)
-        run: |
-          west build -p --build-dir build/b_u585i_iot02a/tests-heap \
-            -b b_u585i_iot02a ubi/tests/ \
-            -- -DCONFIG_UBI_MEM_BACKEND_HEAP=y
-
-      - name: Build sample (b_u585i_iot02a)
-        run: |
-          west build -p --build-dir build/b_u585i_iot02a/sample \
-            -b b_u585i_iot02a ubi/sample/
-
-      - name: Measure flash usage (ARM, -Os)
+      - name: Measure flash usage
+        if: matrix.app == 'sample' && matrix.mem == 'static'
         run: |
           SIZE_TOOL=$(find /opt/toolchains -name "arm-zephyr-eabi-size" -type f | head -1)
-          ${SIZE_TOOL} build/b_u585i_iot02a/sample/zephyr/zephyr.elf
+          echo "=== ${{ matrix.board-slug }} flash usage ==="
+          ${SIZE_TOOL} build/${{ matrix.board-slug }}/sample/zephyr/zephyr.elf
           ${SIZE_TOOL} -A \
-            build/b_u585i_iot02a/sample/modules/ubi/lib/lib..__ubi__lib.a \
+            build/${{ matrix.board-slug }}/sample/modules/ubi/lib/lib..__ubi__lib.a \
             | tee flash_usage.txt
 
       - name: Upload flash usage report
-        uses: actions/upload-artifact@v4
+        if: matrix.app == 'sample' && matrix.mem == 'static'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: flash-usage
+          name: flash-usage-${{ matrix.board-slug }}
           path: flash_usage.txt
+          retention-days: 14
 
   coverage:
+    needs: native-tests
     runs-on: ubuntu-latest
     container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           path: ubi
 
@@ -125,13 +158,17 @@ jobs:
           lcov --summary coverage_lines_filtered.info
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report
           path: coverage_html/
+          retention-days: 14
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        if: >-
+          github.event_name == 'push' ||
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: codecov/codecov-action@aa56896cf108bd10b5eb883cd1d24196da57f695 # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage_lines_filtered.info

@@ -114,9 +114,9 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 | Test suites | 17 suites, 228 tests |
 | Line coverage | 85.2% (target ≥ 80%) |
 | Branch coverage target | ≥ 70% |
-| CI | GitHub Actions — build, test, coverage, cross-compile STM32U5 |
+| CI | GitHub Actions — build, test, coverage, cross-compile STM32U5 + nRF5340 |
 | Primary test platform | Zephyr `native_sim` with flash simulator |
-| Hardware validation | `b_u585i_iot02a` (STM32U5 Cortex-M33) cross-compilation |
+| Hardware validation | `b_u585i_iot02a` (STM32U5), `nrf5340dk` (nRF5340) cross-compilation |
 
 ## Design Trade-offs
 

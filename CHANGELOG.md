@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-04-03
+
+### Added
+
+- **nRF5340 DK board support**: DeviceTree overlays for `nrf5340dk/nrf5340/cpuapp` (tests and sample). UBI partition: 64 KB at 0xF0000 (16 PEBs × 4 KB erase blocks). Added `hal_nordic` to `west.yml` module allowlist.
+- **nRF5340 in test matrix**: `testcase.yaml` now lists `nrf5340dk/nrf5340/cpuapp` in `ubi.functional` and `ubi.functional.heap` platform_allow.
+
+### Changed
+
+- **CI: split into granular jobs**: Monolithic `build-and-test` job replaced with three parallel jobs: `native-tests` (matrix: static/heap), `cross-build` (matrix: 2 boards × 2 memory backends × 2 apps = 8 variants), and `coverage` (depends on native-tests). Errors are now reported per-variant with faster feedback.
+- **CI: concurrency control**: Added `concurrency` group with `cancel-in-progress: true` — new pushes to the same branch cancel older CI runs.
+- **CI: least-privilege permissions**: Workflow-level `permissions: { contents: read }` replaces implicit defaults.
+- **CI: path filters**: CI skips runs for documentation-only changes (`doc/**`, `*.md`, `LICENSE`).
+- **CI: artifact retention**: `flash-usage` and `coverage-report` artifacts now expire after 14 days (was 90 days default).
+- **CI: conditional Codecov upload**: Codecov step is skipped for fork PRs and Dependabot PRs where `CODECOV_TOKEN` is unavailable.
+- **CI: SHA-pinned actions**: All GitHub Actions (`actions/checkout`, `actions/upload-artifact`, `codecov/codecov-action`) pinned to full commit SHA instead of mutable tags.
+- **CI: flash usage per board**: Flash usage measured and uploaded separately for each board (`flash-usage-b_u585i_iot02a`, `flash-usage-nrf5340dk_cpuapp`).
+
 ## [0.22.0] - 2026-04-02
 
 ### Added

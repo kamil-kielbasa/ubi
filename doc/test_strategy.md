@@ -29,8 +29,8 @@
 
 ## What native_sim Proves vs. What Hardware Proves
 
-| Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a) |
-|--------|----------------------|--------------------------|
+| Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
+|--------|----------------------|--------------------------------------|
 | Functional correctness | Full — all 228 tests run (17 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
@@ -126,7 +126,12 @@ Core API verification organized by functional area:
 
 ### Secondary: `b_u585i_iot02a`
 
-- **Platform**: STM32U585AI hardware target
+- **Platform**: STM32U585AI hardware target (8 KB erase blocks, 128 KB UBI partition)
+- **Usage**: Cross-compilation verification (build only in CI)
+
+### Secondary: `nrf5340dk/nrf5340/cpuapp`
+
+- **Platform**: Nordic nRF5340 DK, application core (4 KB erase blocks, 64 KB UBI partition)
 - **Usage**: Cross-compilation verification (build only in CI)
 
 ## Coverage
@@ -135,8 +140,8 @@ Core API verification organized by functional area:
 
 | Metric | Target | Achieved (v0.22.0) |
 |--------|--------|--------------------|
-| Line coverage | >= 80% | 85.2% (1517/1781) |
-| Branch coverage | >= 70% | 54.2% (754/1390) |
+| Line coverage | >= 80% | 85.2% (1517/1781) (v0.22.0) |
+| Branch coverage | >= 70% | 54.2% (754/1390) (v0.22.0) |
 
 ### Tooling
 
@@ -212,7 +217,7 @@ Tests build with strict warnings to catch issues at compile time:
 |-----|--------|------------|
 | No power-loss simulation | Interrupted writes and metadata commits not tested | Recovery logic is tested via corruption injection (corrupt headers, duplicate LEBs) |
 | Partial flash write failure coverage | Flash write fault injection covers `flash_write_with_retry`; not all write call-sites are individually swept | `ubi_io_faults` suite validates erase failure -> bad PEB; write retry logic is code-reviewed |
-| HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 | Manual hardware testing during development; HIL CI planned |
+| HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 and nRF5340 | Manual hardware testing during development; HIL CI planned |
 
 ## How to Add a New Test
 
