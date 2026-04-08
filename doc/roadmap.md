@@ -7,6 +7,7 @@ Planned features and improvements for UBI on Zephyr. Items are listed by priorit
 | Feature | Priority | Status | Description |
 |---------|----------|--------|-------------|
 | Crypto layer (authenticated encryption) | High | Design | AES-128-CCM encryption of all on-flash structures via PSA Crypto |
+| Recovery correctness for data PEB commit order | High | Planned | Change data-PEB write order to EC → DATA → VID and fix init classification of free versus uncommitted PEBs |
 | Shell commands | Low | Planned | Port Linux UBI CLI utilities to Zephyr shell commands |
 
 ## Details
@@ -26,3 +27,31 @@ Full design: [design_proposal_crypto.md](design_proposal_crypto.md).
 ### Shell Commands
 
 Port the essential Linux UBI user-space utilities (`ubinfo`, `ubimkvol`, `ubirmvol`, `ubiattach`) to Zephyr shell commands, giving developers familiar tools for interactive device management during development and debugging.
+
+## Recovery correctness for data PEB commit order
+
+### Make VID the commit-visible mapping record
+
+- Change the data-PEB write sequence to:
+
+  ```text
+  EC -> DATA -> VID
+  ```
+
+- Treat `VID` as the only commit-visible record that makes a new mapping live.
+
+### Fix init classification of "free" versus "uncommitted"
+
+Current init logic should not assume that:
+
+```text
+EC valid + VID erased == free
+```
+
+That rule is unsafe once the write order becomes `EC -> DATA -> VID`, because a power cut after DATA and before VID leaves:
+
+```text
+EC valid + VID erased + data present
+```
+
+This is **not free**. It is an interrupted write and must be reclaimed through erase.

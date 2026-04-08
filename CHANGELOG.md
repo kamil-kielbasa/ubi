@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-04-08
+
+### Changed
+
+- **Design proposal: crypto layer v3** (`doc/design_proposal_crypto.md`): Major revision of the secure on-flash architecture. Restructured specification into 18 sections plus appendices. Key changes: new secure init classification rules with decision table and recovery flow diagram for data PEBs (section 10); secure write paths covering reserved metadata update, key rotation, data write and erase/reclaim (section 11); secure read paths for metadata, single-tag and chunked LEB reads (section 12); key lifecycle, inventory and retirement with refcount-based runtime retirement detection (section 13); explicit events, policy and read-only transition table (section 14); Kconfig surface (section 15); API shape summary (section 16); cost model with flash overhead tables (section 17). Replaced inline C API with Appendix A containing illustrative Doxygen-documented API surface (PSA key IDs, event types, rollback verdict, policy struct, callbacks, config struct). Added Appendix B with suggested roadmap items outside the spec.
+- **Roadmap** (`doc/roadmap.md`): Added "Recovery correctness for data PEB commit order" feature to the overview matrix and detailed description covering the EC → DATA → VID write order change and init classification fix for free versus uncommitted PEBs.
+
 ## [0.24.0] - 2026-04-03
 
 ### Added
 
-- **Design proposal: crypto layer** (`doc/design_proposal_crypto.md`): Full architecture for authenticated encryption of all UBI on-flash structures (device headers, volume headers, EC headers, VID headers, LEB payloads) using AES-128-CCM via PSA Crypto API. Covers ESSIV nonce construction, per-domain key derivation from a versioned root IKM, anti-rollback via persisted global sequence number, crash-safe key rotation, and external AAD callback for application-specific binding. Linked from [roadmap](roadmap.md).
+- **Design proposal: crypto layer v2** (`doc/design_proposal_crypto.md`): Full architecture for authenticated encryption of all UBI on-flash structures (device headers, volume headers, EC headers, VID headers, LEB payloads) using AES-128-CCM via PSA Crypto API. Covers ESSIV nonce construction, per-domain key derivation from a versioned root IKM, anti-rollback via persisted global sequence number, crash-safe key rotation, and external AAD callback for application-specific binding. Linked from [roadmap](roadmap.md).
 
 ## [0.23.0] - 2026-04-03
 
