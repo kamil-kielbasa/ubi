@@ -60,9 +60,10 @@ struct ubi_mtd {
  * Snapshot of the current device state returned by ubi_device_get_info().
  */
 struct ubi_device_info {
-	bool read_only_degraded; /*!< True when reserved PEB redundancy is lost
-	                              (metadata is read-only; volume create/resize/remove
-	                              will fail with -EROFS). */
+	bool read_only_degraded; /*!< True when reserved PEB redundancy is lost.
+	                              Metadata mutations (create/resize/remove) return
+	                              -EROFS. Call ubi_device_erase_peb() periodically
+	                              to attempt self-healing recovery. */
 
 	size_t reserved_peb_count; /*!< Sum of leb_count across all volumes
 	                                (PEBs reserved by volume configuration). */
@@ -159,18 +160,27 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi);
 int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);
 
 /**
- * \brief Reclaim one dirty PEB by erasing it.
+ * \brief Reclaim one dirty PEB and attempt reserved PEB bank recovery.
  *
- * Erases the highest-priority dirty PEB and moves it to the free pool.
- * Also attempts to recover bad PEBs via erase torture (up to
- * CONFIG_UBI_BAD_PEB_TORTURE_CYCLES per call). If no dirty PEBs exist,
- * returns 0 immediately.
+ * Normal path: erases the highest-priority dirty PEB and moves it to the
+ * free pool. Also attempts to recover bad PEBs via erase torture.
+ *
+ * Recovery path: when the device is in degraded read-only mode
+ * (\c read_only_degraded is true), this function additionally attempts
+ * to recover the reserved PEB bank after its normal maintenance cycle.
+ * If recovery succeeds (corrupt reserved PEB erased and rewritten from
+ * the surviving copy), the degraded flag is cleared and the device
+ * returns to read-write operation. The application should keep calling
+ * this function periodically (e.g. in a GC loop) so that transient
+ * flash errors can self-heal without a reboot.
+ *
+ * If no dirty PEBs exist and the device is healthy, returns 0 immediately.
  *
  * \param[in] ubi 		UBI device handle.
  *
  * \retval 0       Success (or no dirty PEBs to reclaim).
  * \retval -EINVAL  NULL pointer.
- * \retval -ENOMEM  Allocation failure during bad-block handling.
+ * \retval -EROFS   Blocked by test write-shutdown (test builds only).
  * \retval -EIO     Flash erase/write failure.
  */
 int ubi_device_erase_peb(struct ubi_device *ubi);

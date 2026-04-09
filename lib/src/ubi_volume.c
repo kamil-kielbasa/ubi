@@ -27,20 +27,20 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ---------------------------------------------------------------- */
 
-static int dev_hdr_read_and_bump(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr,
+static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 int vol_count_delta);
 static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item);
 
 /* Static function definitions ----------------------------------------------------------------- */
 
-static int dev_hdr_read_and_bump(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr,
+static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 int vol_count_delta)
 {
-	int ret = ubi_dev_hdr_read(mtd, hdr);
+	int ret = ubi_dev_hdr_read(&ubi->mtd, hdr);
 
 	if (ret == -EROFS) {
-		LOG_ERR("Device in degraded read-only mode");
-		return -EROFS;
+		LOG_WRN("Reserved PEB bank degraded at runtime");
+		ubi->read_only_degraded = true;
 	}
 
 	if (ret != 0) {
@@ -92,6 +92,13 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
+	ret = ubi_mutation_allowed(ubi, UBI_MUT_RESERVED_METADATA);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: reserved metadata writes not allowed");
+		goto exit;
+	}
+
 	/* Return existing volume if name already exists with identical config. */
 	const size_t name_len = strnlen(vol_cfg->name, UBI_VOLUME_NAME_MAX_LEN);
 
@@ -142,7 +149,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 1);
+	ret = dev_hdr_read_and_bump(ubi, &dev_hdr, 1);
 
 	if (ret != 0) {
 		LOG_ERR("Device header read failure during create");
@@ -162,6 +169,11 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 					 sizeof(new_vol_hdr) - sizeof(new_vol_hdr.hdr_crc));
 
 	ret = ubi_vol_hdr_append(&ubi->mtd, &dev_hdr, &new_vol_hdr);
+
+	if (ret == -EROFS) {
+		LOG_WRN("Reserved PEB bank degraded during create commit");
+		ubi->read_only_degraded = true;
+	}
 
 	if (ret != 0) {
 		LOG_ERR("Volume header append failure");
@@ -202,6 +214,13 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
+	ret = ubi_mutation_allowed(ubi, UBI_MUT_RESERVED_METADATA);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: reserved metadata writes not allowed");
+		goto exit;
+	}
+
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
@@ -235,7 +254,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 
 	/* Commit metadata to flash BEFORE any in-RAM state mutation. */
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, 0);
+	ret = dev_hdr_read_and_bump(ubi, &dev_hdr, 0);
 
 	if (ret != 0) {
 		LOG_ERR("Device header read failure during resize");
@@ -255,6 +274,11 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 		crc32_ieee((const uint8_t *)&vol_hdr, sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
 
 	ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
+
+	if (ret == -EROFS) {
+		LOG_WRN("Reserved PEB bank degraded during resize commit");
+		ubi->read_only_degraded = true;
+	}
 
 	if (ret != 0) {
 		LOG_ERR("Volume header update failure");
@@ -294,6 +318,13 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
+	ret = ubi_mutation_allowed(ubi, UBI_MUT_RESERVED_METADATA);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: reserved metadata writes not allowed");
+		goto exit;
+	}
+
 	if (ubi->vol_count == 0) {
 		LOG_ERR("No volumes present on device");
 		ret = -ENOENT;
@@ -309,7 +340,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = dev_hdr_read_and_bump(&ubi->mtd, &dev_hdr, -1);
+	ret = dev_hdr_read_and_bump(ubi, &dev_hdr, -1);
 
 	if (ret != 0) {
 		LOG_ERR("Device header read failure during remove");
@@ -318,6 +349,11 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	struct ubi_volume *vol = entry->value.vol;
 	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_idx);
+
+	if (ret == -EROFS) {
+		LOG_WRN("Reserved PEB bank degraded during remove commit");
+		ubi->read_only_degraded = true;
+	}
 
 	if (ret != 0) {
 		LOG_ERR("Volume header remove failure");

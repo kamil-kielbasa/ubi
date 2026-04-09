@@ -730,20 +730,27 @@ Volume operations (`ubi_vol_hdr_append`, `ubi_vol_hdr_remove`, `ubi_vol_hdr_upda
 
 ### Read-Only Degraded Mode
 
-When only 1 active PEB remains and 0 spares are available, the system enters **read-only degraded mode**:
+When only 1 active PEB remains and 0 spares are available, the system enters **read-only degraded mode**.
 
-- Volume data remains readable (`ubi_leb_read`, `ubi_dev_hdr_read`, `ubi_vol_hdr_read` work normally)
-- Metadata-mutating operations (`ubi_volume_create`, `ubi_volume_remove`, `ubi_volume_resize`) return `-EROFS`
-- The system refuses to erase the last surviving copy to prevent total data loss
+All public mutators pass through a **central mutation gate** (`ubi_mutation_allowed()` in `ubi_internal.h`) before performing any flash I/O. The gate classifies each operation into one of three mutation classes and applies the degraded-mode policy:
+
+| Mutation class | Operations | Degraded-mode policy |
+|----------------|-----------|---------------------|
+| `UBI_MUT_RESERVED_METADATA` | `ubi_volume_create`, `ubi_volume_resize`, `ubi_volume_remove` | Blocked (`-EROFS`) |
+| `UBI_MUT_DATA_PATH` | `ubi_leb_write`, `ubi_leb_map`, `ubi_leb_unmap` | Allowed |
+| `UBI_MUT_MAINTENANCE` | `ubi_device_erase_peb` | Allowed |
+
+`ubi_device_erase_peb()` is intentionally allowed in degraded mode. After its normal dirty-PEB maintenance cycle, it attempts to recover the reserved PEB bank by calling `ubi_dev_hdr_read()`, which internally scans all reserved PEBs and attempts erase+rewrite of any corrupt copies. If recovery succeeds, the `read_only_degraded` flag is cleared and the device returns to normal operation. This allows self-healing without requiring a reboot — the application's regular garbage-collection loop serves as the recovery trigger.
+
+Read-only operations are not gated and always succeed:
 
 | Operation | Degraded mode behavior |
 |-----------|----------------------|
 | `ubi_leb_read` | Works normally |
-| `ubi_leb_write` | Works normally (data PEBs are unaffected) |
+| `ubi_leb_is_mapped` | Works normally |
+| `ubi_leb_get_size` | Works normally |
 | `ubi_device_get_info` | Works normally (`read_only_degraded = true`) |
-| `ubi_volume_create` | Returns `-EROFS` |
-| `ubi_volume_resize` | Returns `-EROFS` |
-| `ubi_volume_remove` | Returns `-EROFS` |
+| `ubi_volume_get_info` | Works normally |
 
 ### State Summary
 

@@ -88,6 +88,18 @@ int ubi_test_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val);
  */
 bool ubi_test_buf_is_erased(const void *buf, size_t len, uint8_t erased_val);
 
+/**
+ * \brief Enable or disable a global write shutdown (test API).
+ *
+ * When enabled, the central mutation gate blocks all mutations (reserved
+ * metadata, data-path, and maintenance) with -EROFS. This allows tests
+ * to verify that every public mutator passes through the central gate.
+ *
+ * \param[in] ubi       UBI device handle.
+ * \param     shutdown  true to block all mutations, false to restore normal operation.
+ */
+void ubi_test_set_write_shutdown(struct ubi_device *ubi, bool shutdown);
+
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
 /* Fault injection API ------------------------------------------------------------------------- */

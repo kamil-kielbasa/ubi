@@ -31,7 +31,8 @@ target_sources(app PRIVATE
                src/tests_ubi_init_errors.c
                src/tests_ubi_hil_smoke.c
                src/tests_ubi_concurrency.c
-               src/tests_ubi_erased_val.c)
+               src/tests_ubi_erased_val.c
+               src/tests_ubi_mutation_gate.c)
 
 if(CONFIG_FLASH_SIMULATOR)
     target_sources(app PRIVATE src/tests_ubi_stress.c

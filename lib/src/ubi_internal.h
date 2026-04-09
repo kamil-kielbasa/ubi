@@ -91,10 +91,70 @@ struct ubi_device {
 	struct rbtree vols; /**< Red-black tree of volumes:
 			       - Key: Volume identifier
 			       - Value: Volume pointer */
+
+#if defined(CONFIG_UBI_TEST_API_ENABLE)
+	bool test_write_shutdown; /**< Test-only: when true, all mutations are blocked. */
+#endif
 };
 
 /* Size varies by platform (pointer width, mutex implementation). */
 BUILD_ASSERT(sizeof(struct ubi_device) > 0);
+
+/* Mutation gate ------------------------------------------------------------------------------ */
+
+/**
+ * \brief Classification of UBI mutation operations.
+ *
+ * Every public function that mutates flash or persistent state declares its
+ * mutation class. The central gate ubi_mutation_allowed() uses this class to
+ * decide whether the operation is currently permitted.
+ */
+enum ubi_mutation_class {
+	/** Volume create / resize / remove — writes to reserved PEB metadata. */
+	UBI_MUT_RESERVED_METADATA,
+
+	/** leb_write / leb_map / leb_unmap — writes to data PEBs. */
+	UBI_MUT_DATA_PATH,
+
+	/** erase_peb — maintenance / garbage collection. */
+	UBI_MUT_MAINTENANCE,
+};
+
+/**
+ * \brief Central mutation gate — check whether a mutation is allowed.
+ *
+ * All public mutators call this function before performing any flash I/O.
+ * The gate centralizes the read-only / degraded-mode policy in one place.
+ *
+ * Current policy (plain UBI):
+ *   - UBI_MUT_RESERVED_METADATA: blocked when read_only_degraded is true.
+ *   - UBI_MUT_DATA_PATH: always allowed.
+ *   - UBI_MUT_MAINTENANCE: always allowed.
+ *
+ * Under CONFIG_UBI_TEST_API_ENABLE, the test_write_shutdown flag blocks
+ * all mutation classes regardless of degraded state.
+ *
+ * \param[in] ubi       UBI device (caller holds mutex).
+ * \param     op_class  Mutation class of the requested operation.
+ *
+ * \retval 0       Mutation is allowed.
+ * \retval -EROFS  Mutation is blocked.
+ */
+static inline int ubi_mutation_allowed(const struct ubi_device *ubi,
+				       enum ubi_mutation_class op_class)
+{
+#if defined(CONFIG_UBI_TEST_API_ENABLE)
+	if (ubi->test_write_shutdown) {
+		return -EROFS;
+	}
+#endif
+
+	if (op_class == UBI_MUT_RESERVED_METADATA && ubi->read_only_degraded) {
+		return -EROFS;
+	}
+
+	return 0;
+}
 
 /**
  * \brief Compute the total number of PEBs reserved by all volumes.

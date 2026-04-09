@@ -112,7 +112,9 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
  * \param[in] content	Buffer with new headers.
  * \param content_len	Size of \p content in bytes.
  *
- * \return 0 on success, negative error code on failure.
+ * \retval 0       All required active PEBs healthy after commit.
+ * \retval -EROFS  Data committed but bank is degraded (fewer active PEBs than required).
+ * \retval <0      Commit or verification failed entirely (no active PEBs remain).
  */
 int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content, size_t content_len);
 

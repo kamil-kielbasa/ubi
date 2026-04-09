@@ -147,7 +147,12 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
-	int ret = -EIO;
+	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: data-path writes not allowed");
+		goto exit;
+	}
 
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
@@ -264,7 +269,12 @@ int ubi_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
-	int ret = -EIO;
+	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: data-path writes not allowed");
+		goto exit;
+	}
 
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
@@ -306,12 +316,17 @@ exit:
 
 int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 {
-	int ret = -EIO;
-
 	if (!ubi || vol_id < 0)
 		return -EINVAL;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: data-path writes not allowed");
+		goto exit;
+	}
 
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 

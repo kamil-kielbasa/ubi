@@ -156,7 +156,12 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
-	int ret = 0;
+	int ret = ubi_mutation_allowed(ubi, UBI_MUT_MAINTENANCE);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: maintenance operations not allowed");
+		goto exit;
+	}
 
 	if (ubi->dirty_peb_count > 0) {
 		struct rbnode *node = rb_get_min(&ubi->dirty_pebs);
@@ -257,6 +262,19 @@ int ubi_device_erase_peb(struct ubi_device *ubi)
 exit:
 	if (ubi->bad_peb_count > 0) {
 		torture_bad_blocks(ubi);
+	}
+
+	/* If the reserved PEB bank is degraded, attempt recovery.
+	 * validate() scans all reserved PEBs and tries to erase+rewrite
+	 * any that are not active. If recovery succeeds, clear the flag. */
+	if (ubi->read_only_degraded) {
+		struct ubi_dev_hdr dev_hdr = { 0 };
+		int rc = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+
+		if (rc == 0) {
+			LOG_INF("Reserved PEB bank recovered, leaving degraded mode");
+			ubi->read_only_degraded = false;
+		}
 	}
 
 	k_mutex_unlock(&ubi->mutex);
@@ -476,6 +494,15 @@ int ubi_test_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val)
 bool ubi_test_buf_is_erased(const void *buf, size_t len, uint8_t erased_val)
 {
 	return ubi_buf_is_erased(buf, len, erased_val);
+}
+
+void ubi_test_set_write_shutdown(struct ubi_device *ubi, bool shutdown)
+{
+	__ASSERT_NO_MSG(ubi);
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+	ubi->test_write_shutdown = shutdown;
+	k_mutex_unlock(&ubi->mutex);
 }
 
 #endif /* CONFIG_UBI_TEST_API_ENABLE */

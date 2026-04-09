@@ -12,6 +12,7 @@
 /* Internal headers: */
 #include "ubi_flash_res_peb.h"
 #include "ubi_internal.h"
+#include "ubi_io.h"
 #include "ubi_mem.h"
 
 /* Zephyr headers: */
@@ -118,6 +119,13 @@ static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res
 		}
 
 		const size_t offset = i * mtd->erase_block_size;
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+		if (ubi_test_flash_erase_check_fail()) {
+			LOG_WRN("Reserved PEB %zu erase faulted (injected)", i);
+			continue;
+		}
+#endif
 
 		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
 
@@ -548,6 +556,12 @@ int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content,
 	if (verify.active_count == 0) {
 		LOG_ERR("Commit verification failed: no active PEBs after write");
 		return -EIO;
+	}
+
+	if (verify.active_count < UBI_FLASH_RES_PEB_NR_ACTIVE) {
+		LOG_WRN("Commit succeeded but bank is degraded: %zu/%d active PEBs",
+			verify.active_count, UBI_FLASH_RES_PEB_NR_ACTIVE);
+		return -EROFS;
 	}
 
 	return 0;

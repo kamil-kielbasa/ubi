@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-04-09
+
+### Added
+
+- **Central mutation gate** (`ubi_internal.h`): `ubi_mutation_allowed()` checks a per-device `read_only_degraded` flag (and optional test-only `write_shutdown` flag) before every public mutator. Three mutation classes: `RESERVED_METADATA`, `DATA_PATH`, `MAINTENANCE`.
+- **Runtime degradation detection**: `ubi_flash_res_peb_commit()` returns `-EROFS` when data is committed but the bank lost redundancy. `dev_hdr_read_and_bump()` and volume callers set `read_only_degraded` and propagate `-EROFS`.
+- **Self-healing via `ubi_device_erase_peb()`**: In degraded mode, `erase_peb()` attempts reserved PEB bank recovery after its normal maintenance cycle. On success the flag is cleared and the device returns to read-write.
+- **Test-only write-shutdown API** (`ubi_test.h`): `ubi_test_set_write_shutdown()` blocks all mutations with `-EROFS`.
+- **Reserved PEB recovery participates in erase fault injection** (`ubi_flash_res_peb.c`).
+- **Test suite `ubi_mutation_gate`** (5 tests): write-shutdown, init degradation, runtime transparent recovery, runtime degradation with flag verification, erase_peb bank recovery.
+
+### Changed
+
+- All 7 public mutators wired through the gate before any flash I/O.
+- Removed ad-hoc `-EROFS` check from `dev_hdr_read_and_bump()`.
+- Updated `doc/architecture.md`: degraded-mode policy table, erase_peb self-healing.
+- Updated `doc/test_strategy.md`: 247 tests across 20 suites.
+
 ## [0.27.0] - 2026-04-10
 
 ### Changed
