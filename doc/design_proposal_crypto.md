@@ -62,6 +62,18 @@ In plain language, this means:
 - it is recovered from the **secure VID record** that already acts as the mapping commit record,
 - therefore init does **not** need to trust unauthenticated LEB-local metadata in order to continue writing safely.
 
+### 1.1 Plain-core baseline assumed by this document
+
+This specification assumes that the plain UBI core already provides these baseline properties:
+
+- data-PEB commit order is `EC -> DATA -> VID`,
+- initialization distinguishes `free` from `uncommitted` by checking both the VID area and the beginning of the LEB area,
+- erased-state checks use the runtime flash erased value and never hardcode `0xFF`,
+- all commit-visible mutating operations pass through one central mutation gate,
+- `vol_idx` remains a dense slot index, while `volume_id` is a durable, monotonically allocated identifier that is not reused during the lifetime of one formatted device.
+
+Those assumptions matter because SECURE mode reuses the same logical object model and the same recovery points. In particular, the secure design relies on `VID` being the commit-visible mapping record and on `volume_id` being a stable namespace input for per-volume key derivation and usage recovery.
+
 ---
 
 ## 2. High-level picture
@@ -81,20 +93,27 @@ flowchart TB
     DATA --> UBI
 ```
 
+
 What crosses the boundary:
 
 - **Application → UBI**
-  - versioned root key material,
+  - PSA key identifiers for versioned root keys,
   - allowlist of acceptable key versions,
-  - rollback policy,
-  - optional PSA key handles.
+  - write-active key version,
+  - init-time freshness policy callback,
+  - optional post-commit freshness-sync callback and its sync cadence policy,
+  - event callback.
 
 - **UBI → Application**
-  - `device_revision`,
-  - `global_sqnum`,
+  - authenticated freshness descriptor:
+    - `device_revision`,
+    - `global_sqnum`,
   - key lifecycle events,
   - security events,
-  - retirement notifications.
+  - retirement notifications,
+  - post-commit freshness-sync requests.
+
+SECURE mode assumes that the plain-core central mutation gate already exists. The secure policy hooks described later attach to that same gate so that all commit-visible mutating operations are observed at one place.
 
 ### 2.2 Flash view
 
@@ -151,6 +170,7 @@ For the base single-tag layout, secure data-PEB metadata consumes **208 B**:
 
 ---
 
+
 ## 3. What SECURE mode guarantees
 
 SECURE mode is designed to provide:
@@ -160,20 +180,25 @@ SECURE mode is designed to provide:
 - location binding to physical flash placement,
 - parent/child data binding between authenticated records,
 - authenticated recovery state for future writes,
-- exported freshness signals for the application,
+- authenticated freshness signals for the application,
 - fail-closed write behavior when required entropy or keying material is unavailable.
 
-SECURE mode intentionally keeps one boundary clear:
+SECURE mode intentionally keeps one boundary explicit:
 
-- UBI **does not assume** an external journal or monotonic secure counter,
-- UBI **does use** fresh RNG salt in every write nonce to keep the design lightweight,
-- the application decides whether a rollback happened by evaluating the authenticated values that UBI exports:
+- UBI **does not** assume an external journal or hardware monotonic counter,
+- UBI **does** require fresh cryptographic randomness for every secure write,
+- UBI **does** export authenticated freshness values:
   - `device_revision`,
-  - `global_sqnum`.
+  - `global_sqnum`,
+- the application decides how those values are checked and how often they are synchronized to any external trusted freshness store.
 
-This document is therefore a specification for **authenticated on-flash object encryption for UBI**, plus the recovery state that such a format needs.
+This means:
 
----
+- SECURE mode alone does **not** provide complete anti-rollback or anti-replay protection,
+- complete rollback prevention requires an external trusted freshness store or equivalent trust anchor,
+- if the product performs a commit-visible UBI write and updates the trusted freshness store as a separate step, there is an unavoidable window between those two operations.
+
+This document is therefore a specification for **authenticated on-flash object encryption for UBI**, plus the recovery state and policy hooks that such a format needs. It is not a claim that rollback can be prevented without some external source of trusted freshness.
 
 ## 4. Terminology and invariants
 
@@ -197,11 +222,18 @@ The winning `(volume_id, lnum)` mapping selected by the highest authenticated `v
 **Dirty PEB**  
 A data PEB that still contains stale or interrupted state and must be erased before reuse.
 
+
 **Free data PEB**  
-A data PEB with a valid secure EC header, an erased secure VID area, and an erased secure LEB-prefix area. In practice, the first 32 bytes of the secure LEB region must still be `0xFF`.
+A data PEB with a valid secure EC header, an erased secure VID area, and an erased secure LEB-prefix area. "Erased" always means equal to the flash device's configured erased value. It must never be hardcoded to `0xFF`.
 
 **Uncommitted data PEB**  
 A data PEB with a valid secure EC header and an erased secure VID area, but with non-erased bytes in the secure LEB-prefix area. This represents an interrupted `DATA -> VID` write and must not be classified as free.
+
+**Volume slot index (`vol_idx`)**  
+A dense slot index used by the plain UBI core to address the volume table in RAM and in reserved metadata. `vol_idx` may be reused after volume deletion.
+
+**Volume identifier (`volume_id`)**  
+A durable identifier assigned when a volume is created. `volume_id` is monotonic, persists across reboot, and is not reused during the lifetime of one formatted device. SECURE mode uses `volume_id`, not `vol_idx`, as the per-volume cryptographic identity.
 
 ### 4.2 Core invariants
 
@@ -212,8 +244,10 @@ After successful initialization:
 3. A dirty PEB must be erased before it can re-enter the free pool.
 4. Reserved PEBs are used only for secure device/volume metadata.
 5. For secure LEB writes, the authoritative next write counter and total written bytes are recovered from authenticated VID-side metadata.
-6. A key version becomes **retirable** only when no authenticated on-flash object still references it.
-7. The device must not perform a secure write if it cannot construct a fresh nonce.
+6. `volume_id` is unique for the lifetime of one formatted device. `vol_idx` may be reused, but it must never be used as the secure LEB identity.
+7. A key version becomes **retirable** only when no authenticated on-flash object still references it.
+8. The device must not perform a secure write if it cannot construct a fresh nonce from cryptographically secure randomness.
+9. All commit-visible mutating operations pass through one central mutation gate so that secure policy and freshness hooks observe the same transition points.
 
 ---
 
@@ -221,7 +255,7 @@ After successful initialization:
 
 ### 5.1 Algorithm choice
 
-UBI SECURE uses **AES-CCM**.
+UBI SECURE v1 uses **AES-128-CCM** for all authenticated-encryption records.
 
 This is a good match for UBI because UBI stores explicit records, not streams:
 
@@ -229,7 +263,15 @@ This is a good match for UBI because UBI stores explicit records, not streams:
 - AAD is explicit,
 - the nonce is explicit,
 - the format naturally fits the "authenticate then decrypt one complete record" model,
-- most embedded platforms that expose hardware AEAD support tend to support CCM well enough for this workload.
+- embedded platforms that expose hardware AEAD support commonly support CCM for this workload.
+
+The child AEAD key size is therefore fixed in v1:
+
+```text
+AES child key size = 128 bits
+```
+
+This is independent from the root-key requirement for `IKM[v]`.
 
 ### 5.2 CCM parameters
 
@@ -283,25 +325,60 @@ Both are recovered from authenticated VID-side metadata and both are checked bef
 
 For metadata keys, the payload size is fixed and small, so UBI tracks only **operation count**.
 
+### 5.4 Entropy source requirement
+
+Every secure record prefix carries a fresh 6-byte salt. That salt must come from a **cryptographically secure random source**.
+
+The architectural requirement is:
+
+- SECURE writes use PSA random generation or an equivalent cryptographically secure RNG,
+- non-cryptographic RNG APIs and test RNG backends are forbidden for secure nonce construction,
+- if secure randomness is unavailable, the write must fail closed.
+
+In other words, the device must not attempt a secure write unless it can produce a fresh unpredictable nonce salt for that write.
+
 ---
 
 ## 6. Key material and key hierarchy
 
-### 6.1 Root key requirement
+### 6.1 Root key model and minimum requirement
 
-The root key material for one key version is written as:
+The root key material for one key version is written conceptually as:
 
 ```text
 IKM[v]
 ```
 
-The contract is:
+In v1, SECURE mode is **PSA-only**. `IKM[v]` remains a conceptual term in the architecture, but the normal implementation contract is:
 
+- the application provides a **PSA key identifier** for key version `v`,
+- that PSA key refers to device-unique secret root material,
+- UBI does not receive raw root-key bytes through its normal API surface,
+- child keys should remain non-exportable PSA keys whenever the platform supports that flow.
+
+The root-key requirement is:
+
+- `IKM[v]` shall represent at least **256 bits** of secret, device-unique input key material,
+- `IKM[v]` must have high effective entropy,
 - `IKM[v]` must be unique per device,
 - the application may satisfy that by provisioning a device-unique root secret directly,
 - or by deriving `IKM[v]` from a device-unique secret such as HUK/DHUK.
 
+The following are **not** acceptable by themselves:
+
+- serial number,
+- MAC address,
+- UUID,
+- devicetree data,
+- any other low-entropy identifier.
+
 This is mandatory. Without device-unique keying, a full flash clone could be readable on another device with the same root key material.
+
+If a platform cannot provide all of the following, SECURE mode is unsupported on that platform:
+
+- PSA AEAD for `AES-128-CCM`,
+- PSA key derivation for `HKDF-SHA-256`,
+- cryptographically secure random generation.
 
 ### 6.2 Child keys
 
@@ -328,6 +405,8 @@ The LEB key is volume-specific. That is why the LEB usage budget is tracked per:
 ```text
 {key_version, volume_id}
 ```
+
+This depends on one plain-core rule: `volume_id` is durable and never reused, while `vol_idx` remains only a dense slot index. `vol_idx` must never appear in LEB key derivation, in LEB usage recovery state, or in any secure retirement decision.
 
 ### 6.3 Optional chunk subkeys
 
@@ -380,14 +459,14 @@ Every secure record begins with the same **32-byte prefix**:
 
 ```c
 struct ubi_crypto_prefix32_v1 {
-    uint32_t magic;            /* format magic */
-    uint8_t  wrapper_version;  /* secure wrapper version */
-    uint8_t  domain;           /* DEV / VOL / EC / VID / LEB */
-    uint8_t  key_version;      /* version of IKM[v] */
-    uint8_t  flags;            /* record flags */
-    uint8_t  salt[6];          /* fresh RNG salt */
-    uint8_t  counter[6];       /* monotonically increasing per usage state */
-    uint8_t  reserved[12];     /* zero in v1 */
+    uint32_t magic;           /* format magic */
+    uint8_t  wrapper_version; /* secure wrapper version */
+    uint8_t  domain;          /* DEV / VOL / EC / VID / LEB */
+    uint8_t  key_version;     /* version of IKM[v] */
+    uint8_t  flags;           /* record flags */
+    uint8_t  salt[6];         /* fresh RNG salt */
+    uint8_t  counter[6];      /* monotonically increasing per usage state */
+    uint8_t  reserved[12];    /* zero in v1 */
 };
 ```
 
@@ -417,8 +496,7 @@ The document uses these names consistently:
 +----------+------------------------+--------+
 | prefix32 | ciphertext(dev_hdr)    | tag16  |
 +----------+------------------------+--------+
-32 B       32 B                     16 B
-total = 80 B
+  32 B              32 B               16 B     total = 80 B
 ```
 
 ### 7.4 Secure volume header
@@ -427,8 +505,7 @@ total = 80 B
 +----------+------------------------+--------+
 | prefix32 | ciphertext(vol_hdr)    | tag16  |
 +----------+------------------------+--------+
-32 B       48 B                     16 B
-total = 96 B
+  32 B              48 B               16 B     total = 96 B
 ```
 
 ### 7.5 Secure EC header
@@ -437,8 +514,7 @@ total = 96 B
 +----------+------------------------+--------+
 | prefix32 | ciphertext(ec_hdr)     | tag16  |
 +----------+------------------------+--------+
-32 B       16 B                     16 B
-total = 64 B
+  32 B              16 B               16 B     total = 64 B
 ```
 
 ### 7.6 Secure VID header
@@ -459,8 +535,7 @@ struct ubi_vid_secure_meta_v1 {
 +----------+----------------------------------------+--------+
 | prefix32 | ciphertext(vid_hdr + vid_secure_meta)  | tag16  |
 +----------+----------------------------------------+--------+
-32 B       48 B                                     16 B
-total = 96 B
+  32 B                     48 B                        16 B      total = 96 B
 ```
 
 These two fields are the **authoritative** write-usage recovery state for:
@@ -474,7 +549,9 @@ They exist for one reason:
 - init already needs to authenticate secure VID records,
 - therefore init can recover future LEB write state without reading and authenticating every LEB payload.
 
-In v1, every committed secure VID record and its corresponding secure LEB record use the same `key_version`. That invariant lets init reconstruct LEB key inventory and retirement state from authenticated VID information without having to authenticate every payload during initialization.
+In v1, every committed secure VID record and its corresponding secure LEB record use the same `key_version`.
+
+In v1, `vid_hdr.volume_id` is also assumed to be the durable, never-reused volume identity provided by the plain core. It is not a dense slot index.
 
 ### 7.7 Secure LEB record (single-tag mode)
 
@@ -493,13 +570,11 @@ Important points:
 
 ### 7.8 Secure LEB record (chunked mode)
 
-Chunked mode keeps the same prefix and the same secure VID metadata.
-
-Only the payload body changes:
+Chunked mode keeps the same prefix and the same secure VID metadata. Only the payload body changes:
 
 ```text
 +----------+-------------+------+-------------+------+-----+
-| prefix32 | chunk0 ct   | tag0 | chunk1 ct   | tag1 | ... |
+| prefix32 | chunk0 ct   | tag0 | chunk1 ct   | tag1 | ...
 +----------+-------------+------+-------------+------+-----+
 ```
 
@@ -509,9 +584,28 @@ Rules:
 - chunk index starts at `0`,
 - each chunk uses a derived subkey,
 - chunk index is included in AAD,
-- the chunk count is derived from authenticated `vid_hdr.data_size`.
+- the chunk count is derived from authenticated `vid_hdr.data_size`:
+
+```text
+chunk_count = ceil(data_size / chunk_size)
+```
+
+- if chunk ciphertext is written directly to flash, `chunk_size` should be a multiple of the flash write alignment,
+- if one `(chunk ciphertext || tag)` write would violate the target flash alignment rule, the implementation must either use an aligned staging buffer or reject the configuration.
 
 Chunked mode is optional because it trades more flash overhead for better partial-read behavior and lower RAM pressure.
+
+### 7.9 Integrity semantics of inner CRC fields
+
+The inner plain payloads may still contain fields such as `hdr_crc`. In SECURE mode, their meaning is reduced to **compatibility and optional format-consistency**, not primary security.
+
+Normative rule:
+
+- AEAD verification is the authoritative integrity and authenticity decision.
+- Inner CRC fields are not an independent trust primitive in SECURE mode.
+- If retained, inner CRC fields may be recomputed on write so that the embedded plain payload stays self-consistent.
+- If checked on read, an inner CRC mismatch after successful AEAD verification is a **format violation of authenticated plaintext**, not a separate authenticity result.
+- Inner CRC fields must not be used for nonce construction, AAD cross-record binding, rollback logic, or key-retirement logic.
 
 ---
 
@@ -647,7 +741,15 @@ UBI exports that as:
 device_revision
 ```
 
-The application may use it as one rollback input. UBI itself uses it to select the newest authenticated reserved generation.
+In v1, `device_revision` advances on every commit-visible reserved metadata rewrite, including:
+
+- volume create,
+- volume delete,
+- volume resize,
+- write-active key-version change,
+- any other device-header mutation.
+
+UBI itself uses `device_revision` to select the newest authenticated reserved generation.
 
 ### 9.2 Data-area freshness
 
@@ -668,7 +770,35 @@ So:
 - `vid_sqnum` is a field in one secure VID record,
 - `global_sqnum` is the reconstructed device-wide high-watermark exported to the application.
 
-### 9.3 Authoritative LEB high-watermark state
+`global_sqnum` advances only when a data mapping becomes commit-visible. Reserved-only mutations may advance `device_revision` while leaving `global_sqnum` unchanged.
+
+### 9.3 Exported freshness descriptor
+
+The exported freshness state is the pair:
+
+```text
+(device_revision, global_sqnum)
+```
+
+The architecture exports both values because reserved metadata and live data mappings evolve on different timelines.
+
+The architecture **does not impose one mandatory total order** over that pair.
+
+Instead, UBI guarantees only that:
+
+- `device_revision` is authenticated and selected from the winning reserved generation,
+- `global_sqnum` is authenticated and reconstructed from winning live mappings,
+- both values describe the same selected secure device state.
+
+The application may then define product policy, for example by using:
+
+- a lexicographic comparison,
+- per-field minimum accepted values,
+- or stricter product-specific rules.
+
+This keeps the on-flash format simple and keeps anti-rollback policy in the application, where product trust assumptions already live.
+
+### 9.4 Authoritative LEB high-watermark state
 
 For each `{key_version, volume_id}`, UBI needs to continue writing without reusing a nonce and without losing sight of total key usage.
 
@@ -686,7 +816,7 @@ That is why the secure VID header contains more than the plain VID payload: it i
 - the logical mapping record,
 - and the trusted recovery state for future LEB writes.
 
-### 9.4 Where the counters come from
+### 9.5 Where the counters come from
 
 There are two cases.
 
@@ -715,7 +845,7 @@ from the maximum authenticated values found in secure VID metadata for the given
 {key_version, volume_id}
 ```
 
-### 9.5 Why there are two LEB metrics
+### 9.6 Why there are two LEB metrics
 
 `leb_write_counter` answers:
 
@@ -727,7 +857,7 @@ from the maximum authenticated values found in secure VID metadata for the given
 
 UBI keeps both because message count alone is not enough to describe AES-CCM key usage for variable-length LEB writes.
 
-### 9.6 Write-budget enforcement
+### 9.7 Write-budget enforcement
 
 UBI maintains runtime usage state:
 
@@ -747,14 +877,14 @@ projected_counter = next_counter
 For LEB:
 
 ```text
-projected_write_counter     = next_write_counter
-projected_total_payload     = next_total_bytes + payload_bytes
+projected_write_counter = next_write_counter
+projected_total_payload = next_total_bytes + payload_bytes
 ```
 
 Then UBI maps those to usage percentages with implementation policy limits:
 
 ```text
-metadata_pct = projected_counter / metadata_counter_budget
+metadata_pct    = projected_counter / metadata_counter_budget
 leb_counter_pct = projected_write_counter / leb_write_budget
 leb_bytes_pct   = projected_total_payload / leb_total_bytes_budget
 leb_usage_pct   = max(leb_counter_pct, leb_bytes_pct)
@@ -771,7 +901,53 @@ For LEB keys, the decision is based on:
 max(leb_counter_pct, leb_bytes_pct)
 ```
 
-That is the missing link between the two VID-side metrics and key rotation policy.
+### 9.8 External trusted freshness store contract
+
+Complete anti-rollback requires an external trusted freshness store or an equivalent trust anchor.
+
+The architecture therefore defines two separate interactions with the application:
+
+1. **Init-time freshness check**
+   - after UBI selects the authenticated device state,
+   - before UBI enables writes,
+   - UBI calls the freshness-check callback once with the current authenticated descriptor:
+     - `device_revision`,
+     - `global_sqnum`.
+
+2. **Post-commit freshness synchronization**
+   - after a commit-visible mutating operation,
+   - UBI may call a freshness-sync callback so the application can update an external trusted store.
+
+The sync cadence is controlled by `freshness_sync_delta`:
+
+- `freshness_sync_delta == 0`  
+  UBI calls the sync callback after every commit-visible mutating operation.
+- `freshness_sync_delta > 0`  
+  UBI maintains an internal counter of commit-visible mutations since the last successful sync and calls the sync callback when that counter reaches the configured delta.
+
+Important points:
+
+- the sync callback receives the **current** authenticated descriptor, not a delta value,
+- UBI does not mandate how the application persists or compares that descriptor,
+- UBI does not require the application to store both fields if product policy needs only one of them.
+
+If the external freshness update fails **after** a commit-visible UBI mutation:
+
+- UBI does not roll back the already committed flash state,
+- UBI emits `FRESHNESS_SYNC_FAILURE`,
+- and UBI may enter read-only mode if strict policy requires that.
+
+This creates an unavoidable window between:
+
+- the moment when UBI state becomes commit-visible on flash,
+- and the moment when the external trusted freshness store is updated successfully.
+
+That window is a product trade-off:
+
+- smaller delta reduces exposure but increases wear on the trusted store,
+- larger delta reduces trusted-store wear but increases rollback exposure.
+
+That trade-off belongs to the application and product policy, not to the UBI on-flash format itself.
 
 ---
 
@@ -793,7 +969,9 @@ That is the missing link between the two VID-side metrics and key rotation polic
    - global_sqnum
    - per-key usage state
    - per-key object refcounts
-9. Emit policy and lifecycle events
+9. Build exported freshness descriptor
+10. Call init freshness policy
+11. Emit policy and lifecycle events
 ```
 
 ### 10.2 Reserved-area selection
@@ -812,7 +990,7 @@ For every data PEB:
 
 1. authenticate the secure EC header,
 2. inspect the secure VID region,
-3. if needed, inspect the beginning of the secure LEB region.
+3. if needed, inspect the beginning of the secure LEB region using the flash device's erased value.
 
 Classification rules:
 
@@ -882,7 +1060,24 @@ read secure EC
 
 ## 11. Secure write paths
 
-### 11.1 Reserved metadata update
+### 11.1 Central mutation gate
+
+SECURE mode assumes that plain UBI already funnels all commit-visible mutating operations through one central mutation gate.
+
+In SECURE mode, that gate is where UBI:
+
+1. checks that the write-active key version is available,
+2. checks projected key-usage budgets,
+3. checks that fresh cryptographic randomness is available,
+4. executes the commit-visible mutation,
+5. updates the exported freshness descriptor,
+6. schedules or performs post-commit freshness synchronization,
+7. emits lifecycle or security events,
+8. optionally transitions to read-only mode when strict policy requires that.
+
+Read-only operations do not pass through this gate.
+
+### 11.2 Reserved metadata update
 
 When reserved metadata changes, UBI writes a new authenticated reserved generation.
 
@@ -898,9 +1093,11 @@ A reserved metadata update must:
 1. increment `device_header.revision`,
 2. write the new secure device header,
 3. write the new secure volume headers,
-4. switch the selected reserved generation only after the new generation is complete.
+4. switch the selected reserved generation only after the new generation is complete,
+5. update the exported freshness descriptor,
+6. schedule or perform a post-commit freshness sync according to policy.
 
-### 11.2 Key rotation and reserved metadata
+### 11.3 Key rotation and reserved metadata
 
 Changing the write-active key version must itself trigger a reserved metadata rewrite.
 
@@ -911,7 +1108,7 @@ So key rotation is not just "future writes use a new key". It also means:
 - `device_revision` advances,
 - reserved metadata is immediately rewritten under the new key version.
 
-### 11.3 Data write path
+### 11.4 Data write path
 
 For a secure LEB write:
 
@@ -925,11 +1122,13 @@ For a secure LEB write:
    - new `leb_total_payload_bytes`,
 6. write the secure VID header,
 7. update the in-RAM EBA mapping so the new PEB becomes live,
-8. mark the old PEB dirty.
+8. mark the old PEB dirty,
+9. update the exported freshness descriptor,
+10. schedule or perform a post-commit freshness sync according to policy.
 
 At the moment of step 6, the new write becomes commit-visible.
 
-### 11.4 Erase / reclaim path
+### 11.5 Erase / reclaim path
 
 When a dirty data PEB is erased and returned to service:
 
@@ -1067,7 +1266,7 @@ UBI emits:
 UBI_CRYPTO_EVENT_KEY_RETIRABLE
 ```
 
-This may use the same callback channel as security events, but it is a **lifecycle / informational event**, not a tamper event.
+This is a **lifecycle / informational event**, not a tamper event.
 
 ### 13.4 Why runtime retirement detection is possible
 
@@ -1093,6 +1292,37 @@ A previously used `key_version` may be reused only after one of these is true:
 - full device reformat / scrub,
 - or the application has cryptographically and operationally established that no object anywhere on flash still references that version.
 
+### 13.6 Ownership of key destruction and zeroization
+
+In v1, SECURE mode does not expose a raw-root-key API. That keeps raw `IKM[v]` buffers out of the normal UBI interface.
+
+That means the ownership split is:
+
+- UBI detects **when** a key version becomes retirable,
+- the application decides **when** to destroy, purge, or otherwise retire the corresponding PSA-managed key material,
+- zeroization of root material is the responsibility of PSA, the secure element, or the application provisioning system.
+
+UBI should therefore report retirement opportunities, but it should not claim ownership over the lifetime of raw root-key bytes that it never receives.
+
+### 13.7 Lazy rekey versus forced rekey after compromise
+
+If the application considers one root key version compromised, two broad strategies exist:
+
+- **lazy rekey**  
+  future writes use a new key version and old objects age out naturally,
+- **forced rekey**  
+  the application proactively rewrites all live objects under a new key version.
+
+UBI provides the mechanisms needed for either strategy:
+
+- allowlist,
+- write-active key version,
+- usage budgets,
+- retirement detection,
+- crash-safe rewrite paths.
+
+The policy choice between lazy and forced rekey remains with the application.
+
 ---
 
 ## 14. Events, policy, and read-only transitions
@@ -1106,6 +1336,7 @@ Recommended event types:
 - `KEY_VERSION_NOT_ALLOWLISTED`
 - `KEY_VERSION_UNAVAILABLE`
 - `ROLLBACK_POLICY_MISMATCH`
+- `FRESHNESS_SYNC_FAILURE`
 - `RNG_FAILURE`
 - `KEY_ROTATE_SOON`
 - `KEY_ROTATE_NOW`
@@ -1122,7 +1353,8 @@ The architecture should state this explicitly.
 | projected usage crosses `ROTATE_NOW` and no replacement key is provisioned | reject write; optionally enter read-only |
 | no authenticated reserved generation can be selected | init fails |
 | secure-required policy is enabled and required object cannot be authenticated | init fails or read-only, per policy |
-| authenticated rollback callback rejects `(device_revision, global_sqnum)` | init fails or read-only, per policy |
+| authenticated init freshness callback rejects the selected descriptor | init fails or read-only, per policy |
+| post-commit freshness sync callback fails | emit `FRESHNESS_SYNC_FAILURE`; optionally enter read-only, but do not roll back committed flash state |
 
 ### 14.3 Events that imply tamper suspicion
 
@@ -1144,7 +1376,6 @@ Recommended Kconfig knobs for SECURE mode:
 
 ```text
 CONFIG_UBI_CRYPTO
-CONFIG_UBI_CRYPTO_PSA_KEYS
 CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS
 CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT
 CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT
@@ -1153,8 +1384,10 @@ CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET
 CONFIG_UBI_CRYPTO_LEB_TOTAL_BYTES_BUDGET
 CONFIG_UBI_CRYPTO_LEB_CHUNKED
 CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE
+CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA
 CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE
 CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE
+CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE
 ```
 
 Existing plain UBI geometry knobs remain authoritative for:
@@ -1170,24 +1403,44 @@ The current repository already constrains:
 
 The secure format must respect those existing bounds.
 
+### 15.1 Chunked-mode geometry check
+
+If chunked secure LEB mode is enabled, the implementation must verify that the selected geometry still leaves space for user payload.
+
+For a data PEB with physical size `peb_size`, chunk size `C`, tag size `T = 16`, and payload `S`, the secure layout must satisfy:
+
+```text
+64 + 96 + 32 + S + T * ceil(S / C) <= peb_size
+```
+
+Equivalently:
+
+```text
+192 + S + 16 * ceil(S / C) <= peb_size
+```
+
+If this cannot be satisfied for the configured geometry, SECURE chunked mode must be rejected at build time or at initialization time.
+
 ---
 
 ## 16. API shape (summary)
 
 The detailed illustrative API is in Appendix A, but the architectural expectations are:
 
-1. PSA key identifiers should be the preferred way to hand UBI versioned root keys when PSA is available.
-2. A raw-buffer fallback may exist for platforms without PSA.
-3. The application provides:
+1. SECURE mode is **PSA-only** in v1.
+2. The application provides:
+   - a callback that returns the PSA key identifier for one key version,
    - allowlist,
    - write-active key version,
-   - rollback policy callback,
+   - init-time freshness-check callback,
+   - optional post-commit freshness-sync callback,
    - event callback.
-4. UBI exports:
-   - `device_revision`,
-   - `global_sqnum`,
+3. UBI exports:
+   - the authenticated freshness descriptor,
    - lifecycle events such as `KEY_RETIRABLE`,
    - security events such as `AUTH_FAILURE`.
+4. There is no raw `IKM` buffer callback in the normal v1 API surface.
+5. If the application provides no external trusted freshness store, SECURE mode may still provide authenticated encryption and authenticated freshness signals, but it does not provide complete anti-rollback protection.
 
 ---
 
@@ -1199,6 +1452,23 @@ Compared with plain UBI:
 
 - secure device header: `32 B -> 80 B` (**+48 B**)
 - secure volume header: `48 B -> 96 B` (**+48 B**)
+
+One complete secure reserved generation therefore occupies:
+
+```text
+reserved_generation_bytes = 80 + 96 * volume_count
+```
+
+Examples:
+
+| Volume count | Secure reserved generation bytes |
+|---|---:|
+| 1 | 176 B |
+| 8 | 848 B |
+| 32 | 3152 B |
+| 128 | 12368 B |
+
+If an implementation stages one entire reserved generation in RAM before writing it, the same formula is a conservative upper bound for that staging buffer. A streaming implementation may use less.
 
 ### 17.2 Data-area overhead (single-tag mode)
 
@@ -1226,29 +1496,120 @@ Chunked mode adds:
 
 extra tag overhead beyond the base single-tag layout.
 
+The exact maximum payload in chunked mode is the greatest `S` that satisfies:
+
+```text
+192 + S + 16 * ceil(S / chunk_size) <= peb_size
+```
+
 ### 17.4 RAM and latency
 
-The dominant RAM and latency trade-off comes from the secure LEB mode:
+Let:
 
-- **single-tag mode**
-  - simplest format,
-  - cheapest flash overhead,
-  - worst partial-read cost,
-  - requires full-payload authentication before returning data.
+```text
+S = authenticated payload_bytes for one LEB
+C = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE
+N = ceil(S / C)
+T = 16
+```
 
-- **chunked mode**
-  - better partial reads,
-  - lower per-read RAM,
-  - more flash overhead,
-  - more complex key and nonce handling.
+#### Single-tag mode
+
+One secure LEB record occupies:
+
+```text
+LEB_record_single = 32 + S + T
+```
+
+A committed data rewrite writes at least:
+
+```text
+(32 + S + 16) + 96 = S + 144 bytes
+```
+
+of new secure payload and secure VID metadata to the target data PEB, not counting later reclaim of the old PEB.
+
+For reads, the critical property is:
+
+- a partial logical read still requires authenticating the entire secure record,
+- so the flash read cost is the full secure LEB record:
+  - `S + 48` bytes.
+
+RAM implication:
+
+- the relevant data-length bound is `S`, not the physical maximum LEB capacity,
+- but single-tag mode still has an **O(S)** authentication/latency profile for reads,
+- whether the extra RAM is caller-owned, UBI scratch, or crypto-backend scratch depends on the implementation.
+
+#### Chunked mode
+
+One chunked secure LEB record occupies:
+
+```text
+LEB_record_chunked = 32 + S + T * N
+```
+
+The extra overhead beyond single-tag mode is:
+
+```text
+chunked_extra = 16 * (N - 1)
+```
+
+For a logical read of `len` bytes at offset `off`, the number of chunks that must be authenticated is:
+
+```text
+chunks_touched = ceil((off mod C + len) / C)
+```
+
+So chunked mode changes the read profile from "authenticate the whole `S`" to "authenticate only the touched chunks".
+
+A practical upper bound for UBI-owned per-read chunk scratch is:
+
+```text
+chunk_scratch <= C + 16
+```
+
+plus whatever opaque scratch the crypto backend itself needs.
+
+This is why chunked mode trades:
+
+- higher flash overhead,
+- more AEAD calls,
+- more complex geometry checks,
+
+for:
+
+- lower per-read RAM,
+- lower partial-read latency.
+
+### 17.5 Alignment constraints for chunked mode
+
+Chunked mode should state the flash-alignment rules explicitly.
+
+The minimum rule is:
+
+- `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` should be a multiple of the target flash write alignment.
+
+If the implementation writes each `(chunk ciphertext || tag)` tuple directly to flash, it must also ensure that each such write obeys the target flash alignment and write-size rules.
+
+If that is not true for the selected geometry, the implementation must do one of two things:
+
+- use an aligned staging buffer and split or pad writes as needed, or
+- reject the configuration.
+
+This is a write-path constraint. Read alignment is usually less restrictive and does not change the on-flash format.
 
 ---
 
 ## 18. References
 
-- NIST SP 800-38C for AES-CCM.
+- [NIST SP 800-38C](https://csrc.nist.gov/pubs/sp/800/38/c/upd1/final) for AES-CCM.
+- [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) for HKDF.
+- [Zephyr PSA Crypto documentation](https://docs.zephyrproject.org/latest/services/crypto/psa_crypto.html).
+- [Zephyr random number generation documentation](https://docs.zephyrproject.org/latest/services/crypto/random/index.html).
+- [Zephyr flash map alignment API documentation](https://docs.zephyrproject.org/latest/doxygen/html/group__flash__area__api.html).
 - Current UBI architecture guide for plain UBI geometry, `sqnum`, and data-PEB classification assumptions.
-- Current UBI codebase for present plain write order and `device_header.revision` bump behavior.
+- Current UBI codebase for plain-core commit order, reserved-generation revision behavior, and durable `volume_id` assumptions.
 
 ---
 
@@ -1256,13 +1617,27 @@ The dominant RAM and latency trade-off comes from the secure LEB mode:
 
 ```c
 /**
- * @brief Secure root-key handle type used by UBI when PSA-backed keys are enabled.
+ * @brief Secure root-key handle type used by UBI SECURE.
  *
- * When CONFIG_UBI_CRYPTO_PSA_KEYS=y, the preferred way to provide versioned
- * root key material is by PSA key identifier rather than by copying raw key
- * bytes through RAM buffers.
+ * SECURE mode is PSA-only in v1. The application provides PSA key identifiers
+ * for versioned root keys. UBI does not receive raw IKM bytes through its
+ * normal API surface.
  */
 typedef psa_key_id_t ubi_crypto_key_id_t;
+
+/**
+ * @brief Authenticated freshness descriptor exported by UBI SECURE.
+ *
+ * The pair intentionally exposes two dimensions of freshness:
+ * - device_revision for reserved metadata
+ * - global_sqnum for live data mappings
+ *
+ * The application defines the acceptance policy for this pair.
+ */
+struct ubi_crypto_freshness_v1 {
+    uint64_t device_revision;
+    uint64_t global_sqnum;
+};
 
 /**
  * @brief Security and lifecycle event types emitted by UBI SECURE.
@@ -1273,6 +1648,7 @@ enum ubi_crypto_event_type {
     UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED,
     UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE,
     UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,
+    UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE,
     UBI_CRYPTO_EVENT_RNG_FAILURE,
     UBI_CRYPTO_EVENT_KEY_ROTATE_SOON,
     UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
@@ -1289,8 +1665,7 @@ struct ubi_crypto_event {
     enum ubi_crypto_event_type type;
     uint8_t key_version;
     uint32_t volume_id;
-    uint64_t device_revision;
-    uint64_t global_sqnum;
+    struct ubi_crypto_freshness_v1 freshness;
 };
 
 /**
@@ -1312,6 +1687,8 @@ struct ubi_crypto_policy {
     bool secure_required;
     bool strict_ro_on_rng_failure;
     bool strict_ro_on_policy_failure;
+    bool strict_ro_on_freshness_sync_failure;
+    uint32_t freshness_sync_delta;
     uint32_t allowed_key_versions_bitmap[
         (CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS + 31) / 32
     ];
@@ -1331,36 +1708,39 @@ typedef int (*ubi_crypto_get_key_id_cb_t)(uint8_t key_version,
                                           ubi_crypto_key_id_t *key_id_out);
 
 /**
- * @brief Optional fallback callback that returns raw root key material.
+ * @brief Callback that lets the application validate authenticated freshness
+ *        during initialization.
  *
- * This callback is intended only for platforms that do not use PSA-backed
- * keys. The returned buffer content is input key material IKM[v].
+ * This callback is called once after UBI selects the authenticated on-flash
+ * state and before SECURE writes are enabled.
  *
- * @param key_version Requested secure key version.
- * @param buf Output buffer.
- * @param buf_len Size of @p buf in bytes.
- * @param ikm_len_out Returned number of bytes written to @p buf.
- *
- * @retval 0 Success.
- * @retval -ENOENT Key version is not provisioned.
- * @retval negative errno Other failure.
- */
-typedef int (*ubi_crypto_get_ikm_cb_t)(uint8_t key_version,
-                                       uint8_t *buf,
-                                       size_t buf_len,
-                                       size_t *ikm_len_out);
-
-/**
- * @brief Callback that lets the application validate authenticated freshness.
- *
- * @param device_revision Selected authenticated reserved-generation revision.
- * @param global_sqnum Highest authenticated live VID sequence number.
+ * @param freshness Selected authenticated freshness descriptor.
+ * @param user_data User pointer supplied during configuration.
  *
  * @return Application verdict for rollback policy.
  */
 typedef enum ubi_crypto_rollback_verdict
-(*ubi_crypto_check_freshness_cb_t)(uint64_t device_revision,
-                                   uint64_t global_sqnum);
+(*ubi_crypto_check_freshness_cb_t)(const struct ubi_crypto_freshness_v1 *freshness,
+                                   void *user_data);
+
+/**
+ * @brief Callback that lets the application synchronize authenticated
+ *        freshness to an external trusted store after commit-visible writes.
+ *
+ * The callback is called after a commit-visible mutating operation according
+ * to the configured freshness_sync_delta policy.
+ *
+ * Failure does not roll back the already-committed UBI flash state.
+ *
+ * @param freshness Current authenticated freshness descriptor.
+ * @param user_data User pointer supplied during configuration.
+ *
+ * @retval 0 Success.
+ * @retval negative errno Sync failed.
+ */
+typedef int (*ubi_crypto_sync_freshness_cb_t)(
+    const struct ubi_crypto_freshness_v1 *freshness,
+    void *user_data);
 
 /**
  * @brief Callback used for security and lifecycle notifications.
@@ -1377,10 +1757,10 @@ typedef void (*ubi_crypto_event_cb_t)(const struct ubi_crypto_event *event,
 struct ubi_crypto_config {
     struct ubi_crypto_policy policy;
     ubi_crypto_get_key_id_cb_t get_key_id;
-    ubi_crypto_get_ikm_cb_t get_ikm;
     ubi_crypto_check_freshness_cb_t check_freshness;
+    ubi_crypto_sync_freshness_cb_t sync_freshness;
     ubi_crypto_event_cb_t event_cb;
-    void *event_user_data;
+    void *user_data;
 };
 ```
 
@@ -1388,21 +1768,36 @@ struct ubi_crypto_config {
 
 ## Appendix B. Suggested roadmap items outside this spec
 
-These items are not part of the secure on-flash format itself, but they are strongly recommended follow-up work for the plain and secure implementations:
+This specification assumes that the plain-core prerequisites are already implemented.
+
+Remaining follow-up items that still sit outside the on-flash format itself are:
 
 ```text
-1. Data-PEB write order
-   - Change data-PEB commit order to EC -> DATA -> VID.
-   - Make VID the only commit-visible mapping record.
+1. native_sim synthetic power-cut tests
+   - interrupt after DATA but before VID
+   - interrupt reserved-generation writes at deterministic points
+   - reboot and verify selection / classification outcomes
 
-2. Init free/uncommitted classification
-   - During init, do not classify "EC valid + VID erased" as automatically free.
-   - Also inspect the beginning of the data area.
-   - Treat "VID erased + data present" as interrupted / dirty, not free.
+2. secure-mode policy tests
+   - init freshness callback accept / reject
+   - post-commit freshness sync callback success / failure
+   - delta-based freshness sync scheduling
+   - strict read-only transitions on RNG or policy failure
 
-3. Tests
-   - Add power-cut tests for interruption after DATA but before VID.
-   - Add init tests that verify free vs uncommitted classification.
-   - Add secure-mode tests for KEY_RETIRABLE transitions.
-   - Add secure-mode tests for RNG failure and strict read-only behavior.
+3. secure-mode key lifecycle tests
+   - KEY_RETIRABLE transitions
+   - allowlist enforcement
+   - unavailable key-version handling
+   - mixed-key-version recovery during rotation
+
+4. chunked-mode validation
+   - chunked partial-read correctness
+   - chunked geometry guard
+   - chunked alignment guard
+   - chunked cost / latency characterization
+
+5. local hardware validation
+   - flash timing and latency measurements
+   - RAM-footprint measurements
+   - manual power-cut experiments on real boards
 ```

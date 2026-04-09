@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-04-09
+
+### Added
+
+- **"Why UBI for Zephyr" positioning document** (`doc/why_ubi_for_zephyr.md`): covers the gap UBI fills in Zephyr's storage stack, comparison with FCB/NVS/ZMS/LittleFS/Secure Storage, and the upstream argument for plain and secure UBI.
+
+### Changed
+
+- **Secure on-flash architecture rewrite v4** (`doc/design_proposal_crypto.md`): added plain-core baseline assumptions section, reworked application ↔ UBI boundary (PSA key identifiers, freshness callbacks, event callback), clarified SECURE mode guarantees and anti-rollback boundary, expanded key derivation, nonce construction, key rotation, and freshness-sync sections.
+
 ## [0.29.0] - 2026-04-09
 
 ### Added

@@ -25,6 +25,7 @@ New to UBI? Read these pages first:
    :maxdepth: 2
    :caption: Understanding UBI
 
+   why_ubi_for_zephyr
    overview
    introduction
    architecture
