@@ -63,6 +63,31 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len);
  */
 void ubi_test_partition_force_release_all(void);
 
+/**
+ * \brief Get the erased byte value for a flash partition (test API).
+ *
+ * Thin wrapper around the internal ubi_get_erased_val() helper, exposed
+ * for unit testing. See ubi_internal.h for details.
+ *
+ * \param[in] mtd          UBI MTD descriptor.
+ * \param[out] erased_val  Erased byte value for the partition.
+ *
+ * \return 0 on success, or negative errno on failure.
+ */
+int ubi_test_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val);
+
+/**
+ * \brief Check whether a buffer is entirely erased (test API).
+ *
+ * \param[in] buf        Buffer to check.
+ * \param len            Length of the buffer in bytes.
+ * \param erased_val     Expected erased byte value.
+ *
+ * \retval true   Every byte in \p buf equals \p erased_val.
+ * \retval false  At least one byte differs.
+ */
+bool ubi_test_buf_is_erased(const void *buf, size_t len, uint8_t erased_val);
+
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
 /* Fault injection API ------------------------------------------------------------------------- */

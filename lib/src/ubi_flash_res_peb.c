@@ -196,6 +196,11 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 		return ret;
 	}
 
+	/* Build the erased magic pattern from the hardware-reported erased byte. */
+	const uint8_t ev = flash_area_erased_val(fa);
+	uint32_t erased_magic;
+	memset(&erased_magic, ev, sizeof(erased_magic));
+
 	uint32_t highest_revision = 0;
 	bool has_active = false;
 
@@ -211,8 +216,8 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 			continue;
 		}
 
-		/* Check if PEB is erased (all 0xFF) by checking magic field */
-		if (hdr.magic == 0xFFFFFFFF) {
+		/* Check if PEB is erased by comparing magic against erased pattern. */
+		if (hdr.magic == erased_magic) {
 			scan->state[i] = UBI_FLASH_RES_PEB_STATE_SPARE;
 			scan->spare_count++;
 			continue;

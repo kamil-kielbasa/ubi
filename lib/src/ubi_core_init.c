@@ -42,6 +42,24 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 
 /* Internal helper definitions ----------------------------------------------------------------- */
 
+int ubi_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val)
+{
+	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(erased_val);
+
+	const struct flash_area *fa = NULL;
+	int ret = flash_area_open(mtd->partition_id, &fa);
+
+	if (ret != 0) {
+		LOG_ERR("Flash area open failure for erased value query");
+		return ret;
+	}
+
+	*erased_val = flash_area_erased_val(fa);
+	flash_area_close(fa);
+	return 0;
+}
+
 void ubi_move_to_bad_blocks(struct ubi_device *ubi, size_t pnum, size_t erase_count,
 			    struct ubi_list_item *bad_item)
 {
@@ -250,9 +268,11 @@ static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg
  * \brief Read and validate the VID header. Classify PEB as free or bad when appropriate.
  *
  * On return with SCAN_NEXT_STEP, \p vid_hdr contains a CRC-validated VID header.
+ *
+ * \param erased_val  Hardware-reported erased byte value for the flash partition.
  */
 static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
-			       struct ubi_vid_hdr *vid_hdr)
+			       struct ubi_vid_hdr *vid_hdr, uint8_t erased_val)
 {
 	/* First read without CRC — detect empty (free) PEBs. */
 	int ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, false);
@@ -270,10 +290,7 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 		return SCAN_PEB_HANDLED;
 	}
 
-	struct ubi_vid_hdr empty = { 0 };
-	memset(&empty, 0xff, sizeof(empty));
-
-	if (memcmp(vid_hdr, &empty, sizeof(empty)) == 0) {
+	if (ubi_buf_is_erased(vid_hdr, sizeof(*vid_hdr), erased_val)) {
 		struct ubi_rbt_item *item = NULL;
 		ret = ubi_mem_leaf_alloc((void **)&item);
 
@@ -463,6 +480,14 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
  */
 static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg)
 {
+	uint8_t erased_val = 0xFF;
+	int ev_ret = ubi_get_erased_val(&ubi_dev->mtd, &erased_val);
+
+	if (ev_ret != 0) {
+		LOG_ERR("Failed to query erased value");
+		return ev_ret;
+	}
+
 	for (size_t pnum = UBI_DEV_HDR_NR_OF_RES_PEBS; pnum < nr_of_pebs; ++pnum) {
 		struct ubi_ec_hdr ec_hdr = { 0 };
 		int ret = validate_ec_header(ubi_dev, pnum, ec_avg, &ec_hdr);
@@ -473,7 +498,7 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 			continue;
 
 		struct ubi_vid_hdr vid_hdr = { 0 };
-		ret = validate_vid_header(ubi_dev, pnum, &ec_hdr, &vid_hdr);
+		ret = validate_vid_header(ubi_dev, pnum, &ec_hdr, &vid_hdr, erased_val);
 
 		if (ret < 0)
 			return ret;

@@ -30,7 +30,7 @@ These rules hold at all times after a successful `ubi_device_init()`:
 
 Raw flash memory (NAND or NOR) differs from block devices like SD cards or eMMC in several important ways:
 
-- **Erase before write** — a flash cell must be erased before it can be written. Erasing sets all bits to `0xFF`.
+- **Erase before write** — a flash cell must be erased before it can be written. Erasing sets all bytes to the hardware-defined erased value (typically `0xFF` for NOR flash, but this may differ on other technologies).
 - **Erase granularity** — erasure operates on large blocks (erase blocks), typically 4 KB to 256 KB.
 - **Write granularity** — writes operate on smaller units (write blocks), typically 1 to 16 bytes.
 - **Limited endurance** — each erase block supports a finite number of erase cycles (typically 10,000 to 100,000) before it becomes unreliable.
@@ -150,7 +150,7 @@ Offset 0x030  |                      |
               +----------------------+
 ```
 
-When a data PEB is **free** (not assigned to any volume), its VID header area is erased (`0xFF`). The EC header is always present on valid PEBs.
+When a data PEB is **free** (not assigned to any volume), its VID header area is erased (filled with the hardware-reported erased byte value). The EC header is always present on valid PEBs.
 
 ---
 
@@ -494,7 +494,7 @@ ubi_device_init(mtd, &ubi)
   |   3.1  EC header invalid?                  |
   |         --> bad_pebs (ec = ec_avg)         |
   |                                            |
-  |   3.2  EC valid, VID = 0xFF (empty)?       |
+  |   3.2  EC valid, VID erased (empty)?       |
   |         --> free_pebs (key = ec)           |
   |                                            |
   |   3.3  EC valid, VID invalid CRC?          |
@@ -538,6 +538,17 @@ When two PEBs claim the same `(vol_id, leb_num)` pair (e.g., a write was interru
 - The PEB with the **lower** `sqnum` is moved to `dirty_pebs` for later erasure.
 
 This ensures that even after an unexpected power loss, the most recent successful write survives.
+
+---
+
+## Erased-State Detection
+
+UBI does not assume that erased flash reads as `0xFF`. The erased byte value is queried at runtime via Zephyr's `flash_area_erased_val()` API. Two internal helpers abstract all erased-state checks:
+
+- **`ubi_get_erased_val(mtd, &val)`** — queries the hardware-reported erased byte value for the partition, once.
+- **`ubi_buf_is_erased(buf, len, val)`** — returns `true` if every byte in `buf` equals `val`.
+
+During PEB scan, the erased value is obtained once and passed to all classification helpers. Reserved PEB scan likewise derives the erased magic pattern from the actual erased byte value.
 
 ---
 
@@ -674,7 +685,7 @@ UBI stores device and volume metadata on reserved PEBs as mirrors. The number of
 | State | Description |
 |-------|-------------|
 | Active | Contains a valid device header (correct magic + CRC). Participates in dual-bank writes. |
-| Spare | Erased/empty (all `0xFF`). Never written until an active PEB fails. |
+| Spare | Erased/empty (hardware erased value). Never written until an active PEB fails. |
 | Corrupt | Contains invalid data (bad magic or CRC). Candidate for in-place recovery or abandonment. |
 
 ### Write Sequence
@@ -745,7 +756,7 @@ When only 1 active PEB remains and 0 spares are available, the system enters **r
 ```
 +-------------------+
 |   SPARE (empty)   |
-|   all 0xFF        |
+|   erased          |
 +--------+----------+
          |
          | (promoted during recovery

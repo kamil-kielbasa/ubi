@@ -268,4 +268,40 @@ static inline void ubi_copy_name_from_hdr(char *dst, const uint8_t *src)
 	dst[UBI_VOLUME_NAME_MAX_LEN - 1] = '\0';
 }
 
+/**
+ * \brief Get the erased byte value for the flash partition backing a UBI device.
+ *
+ * Opens the flash area, queries the hardware-reported erased value, and closes
+ * the area. The returned value is typically 0xFF for NOR flash but may differ
+ * on other technologies.
+ *
+ * \param[in] mtd          UBI MTD descriptor.
+ * \param[out] erased_val  Erased byte value for the partition.
+ *
+ * \return 0 on success, or negative errno on failure.
+ */
+int ubi_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val);
+
+/**
+ * \brief Check whether a buffer is entirely filled with the erased byte value.
+ *
+ * \param[in] buf        Buffer to check.
+ * \param len            Length of the buffer in bytes.
+ * \param erased_val     Expected erased byte value.
+ *
+ * \retval true   Every byte in \p buf equals \p erased_val.
+ * \retval false  At least one byte differs.
+ */
+static inline bool ubi_buf_is_erased(const void *buf, size_t len, uint8_t erased_val)
+{
+	const uint8_t *p = (const uint8_t *)buf;
+
+	for (size_t i = 0; i < len; ++i) {
+		if (p[i] != erased_val) {
+			return false;
+		}
+	}
+	return true;
+}
+
 #endif /* UBI_INTERNAL_H */

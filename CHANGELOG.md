@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-04-09
+
+### Changed
+
+- **Erased-state detection no longer assumes `0xFF`** (`lib/src/ubi_core_init.c`, `lib/src/ubi_flash_res_peb.c`): All erased-state checks now use the hardware-reported erased byte value obtained via `flash_area_erased_val()`. Two new internal helpers — `ubi_get_erased_val()` and `ubi_buf_is_erased()` — replace hardcoded `0xFF`/`0xFFFFFFFF` comparisons in PEB scan and reserved PEB classification. On-flash layout is unchanged.
+- **Architecture documentation** (`doc/architecture.md`): Updated erased-state descriptions to reflect that the erased byte value is platform-dependent, not universally `0xFF`. Added new "Erased-State Detection" section.
+- **Test strategy** (`doc/test_strategy.md`): Added `ubi_erased_val` suite (6 tests) covering helper unit tests and init regression. Documented known gap for non-`0xFF` end-to-end testing.
+
+### Fixed
+
+- **Non-portable erased-state detection**: `validate_vid_header()` used `memset(&empty, 0xff, ...)` and reserved PEB scan compared `hdr.magic == 0xFFFFFFFF`. Both are now derived from the actual flash erased value.
+
 ## [0.25.0] - 2026-04-08
 
 ### Changed

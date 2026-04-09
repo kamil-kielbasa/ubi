@@ -468,4 +468,14 @@ void ubi_test_partition_force_release_all(void)
 	ubi_partition_force_release_all();
 }
 
+int ubi_test_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val)
+{
+	return ubi_get_erased_val(mtd, erased_val);
+}
+
+bool ubi_test_buf_is_erased(const void *buf, size_t len, uint8_t erased_val)
+{
+	return ubi_buf_is_erased(buf, len, erased_val);
+}
+
 #endif /* CONFIG_UBI_TEST_API_ENABLE */

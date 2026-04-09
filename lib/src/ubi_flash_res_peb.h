@@ -26,7 +26,7 @@
 /** Classification of a reserved PEB after scanning. */
 enum ubi_flash_res_peb_state {
 	UBI_FLASH_RES_PEB_STATE_CORRUPT = 0, /**< Invalid data (bad magic or CRC). */
-	UBI_FLASH_RES_PEB_STATE_SPARE, /**< Erased/empty (all 0xFF), cold spare. */
+	UBI_FLASH_RES_PEB_STATE_SPARE, /**< Erased/empty (hardware erased value), cold spare. */
 	UBI_FLASH_RES_PEB_STATE_ACTIVE, /**< Valid device header (correct magic + CRC). */
 };
 
@@ -61,7 +61,7 @@ struct ubi_flash_res_peb_scan {
  *
  * Reads the device header from each reserved PEB (indices 0..N-1),
  * validates magic and CRC, and populates the scan result. PEBs with
- * all-0xFF content are classified as spares; PEBs with valid headers
+ * erased content are classified as spares; PEBs with valid headers
  * as active; all others as corrupt.
  *
  * \param[in] mtd	UBI MTD device structure.
