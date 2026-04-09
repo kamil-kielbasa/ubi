@@ -111,11 +111,11 @@ ZTEST_SUITE(ubi_io_faults, NULL, ztest_suite_setup, ztest_testcase_before, ztest
 	    ztest_suite_after);
 
 /**
- * \brief Verify that VID header write failure during leb_write marks PEB as bad.
+ * \brief Verify that data write failure during leb_write marks PEB as bad.
  *
  * \details Setup: Initialize device, create volume. Inject write fault so
- *          the VID header write in leb_prepare_new_mapping() fails.
- *          The free PEB should be marked bad.
+ *          the data write in leb_prepare_new_mapping() fails (first flash
+ *          write). The free PEB should be marked bad.
  *
  * \expect leb_write returns error. bad_peb_count increases by 1.
  *         free_peb_count decreases by 1. Device remains consistent.
@@ -136,7 +136,7 @@ ZTEST(ubi_io_faults, vid_hdr_write_failure_marks_peb_bad)
 	struct ubi_device_info info_before = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_before));
 
-	/* Inject fault: next flash write fails (VID header write). */
+	/* Inject fault: next flash write fails (data write — first in sequence). */
 	ubi_test_fault_set_flash_write_fail_after(0);
 
 	const uint8_t data[] = { 0xAA, 0xBB, 0xCC, 0xDD };
@@ -158,11 +158,12 @@ ZTEST(ubi_io_faults, vid_hdr_write_failure_marks_peb_bad)
 }
 
 /**
- * \brief Verify that data write failure marks PEB bad and preserves old mapping.
+ * \brief Verify that VID commit failure preserves old mapping (COW semantics).
  *
  * \details Setup: Write data to LEB 0 successfully. Then inject write fault
- *          after the 1st successful write (VID header succeeds, data write fails).
- *          The old LEB 0 data should remain intact (copy-on-write semantics).
+ *          after the 1st successful write (data write succeeds, VID commit fails).
+ *          VID is the commit point, so the old LEB 0 data should remain
+ *          intact (copy-on-write semantics).
  *
  * \expect Second write returns error. Old data readable. bad_peb_count increases.
  */
@@ -1232,6 +1233,133 @@ ZTEST(ubi_io_faults, erase_peb_flash_erase_failure_moves_to_bad)
 	zassert_not_equal(ret, 0, "erase_peb should fail when erase is faulted");
 
 	/* Invariants must still hold */
+	zassert_ok(ubi_device_check_invariants(ubi));
+
+	g_ubi = NULL;
+	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
+}
+
+/**
+ * \brief Verify overwrite preserves old mapping when VID commit fails.
+ *
+ * \details VID is the commit point. If VID write fails after data has been
+ *          written, the old mapping must remain active and readable.
+ *
+ *          Write order per leb_write with data:
+ *            flash write #0: data payload
+ *            flash write #1: VID header (commit point)
+ *
+ *          Fault: fail_after(1) — let data write succeed, fail VID write.
+ *
+ * \expect  Old data remains readable. New mapping is not active.
+ */
+ZTEST(ubi_io_faults, overwrite_preserves_old_mapping_when_commit_vid_fails)
+{
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
+	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	g_ubi = ubi;
+
+	const struct ubi_volume_config cfg = {
+		.name = "commitA",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id = -1;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	/* First write — establish an old mapping. */
+	const uint8_t old_data[16] = {
+		0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+		0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00,
+	};
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, old_data, sizeof(old_data)));
+
+	struct ubi_device_info info_before = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info_before));
+
+	/* Inject fault: let data write succeed (write #0), fail VID (write #1). */
+	ubi_test_fault_set_flash_write_fail_after(1);
+
+	const uint8_t new_data[16] = {
+		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
+		0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99,
+	};
+	int ret = ubi_leb_write(ubi, vol_id, 0, new_data, sizeof(new_data));
+	zassert_not_equal(0, ret, "Overwrite should fail when VID commit is faulted");
+
+	ubi_test_fault_reset();
+
+	/* Old data must still be readable — the old mapping was not swapped. */
+	uint8_t readback[16] = { 0 };
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
+	zassert_mem_equal(readback, old_data, sizeof(old_data),
+			  "Old data must be preserved when VID commit fails");
+
+	struct ubi_device_info info_after = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info_after));
+	zassert_true(info_after.bad_peb_count > info_before.bad_peb_count,
+		     "Failed PEB should be marked bad");
+
+	zassert_ok(ubi_device_check_invariants(ubi));
+
+	g_ubi = NULL;
+	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
+}
+
+/**
+ * \brief Verify first write to a LEB does not create mapping when VID commit fails.
+ *
+ * \details A freshly created volume has all LEBs unmapped. The first
+ *          ubi_leb_write() to a LEB creates a new PEB mapping. If the VID
+ *          write (commit point) fails after the data payload succeeds, the
+ *          LEB must remain unmapped.
+ *
+ *          Fault: fail_after(1) — let data write succeed, fail VID write.
+ *
+ * \expect  LEB remains unmapped. ubi_leb_is_mapped returns false.
+ */
+ZTEST(ubi_io_faults, new_mapping_not_visible_when_commit_vid_fails)
+{
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
+	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	g_ubi = ubi;
+
+	const struct ubi_volume_config cfg = {
+		.name = "commitB",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id = -1;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	/* LEB 0 is not mapped — volume was just created, no writes yet. */
+	bool is_mapped = true;
+	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, 0, &is_mapped));
+	zassert_false(is_mapped, "LEB 0 should be unmapped initially");
+
+	/* Inject fault: let data write succeed (write #0), fail VID (write #1). */
+	ubi_test_fault_set_flash_write_fail_after(1);
+
+	const uint8_t data[16] = {
+		0xCA, 0xFE, 0xBA, 0xBE, 0xDE, 0xAD, 0xBE, 0xEF,
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+	};
+	int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
+	zassert_not_equal(0, ret, "Write should fail when VID commit is faulted");
+
+	ubi_test_fault_reset();
+
+	/* LEB 0 must still be unmapped — VID commit did not succeed. */
+	is_mapped = true;
+	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, 0, &is_mapped));
+	zassert_false(is_mapped, "LEB 0 must remain unmapped after failed VID commit");
+
 	zassert_ok(ubi_device_check_invariants(ubi));
 
 	g_ubi = NULL;

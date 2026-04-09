@@ -14,11 +14,11 @@
 | `ubi_write_read` | `tests_ubi_write_read.c` | 5 | LEB write, read, get_size | native_sim |
 | `ubi_erase` | `tests_ubi_erase.c` | 2 | PEB erase, dirty-to-free recycling | native_sim |
 | `ubi_mixed` | `tests_ubi_mixed.c` | 1 | Multi-volume cross-functional workflows | native_sim |
-| `ubi_error_handling` | `tests_ubi_error_handling.c` | 96 | NULL params, out-of-range, no-space, contract tests, corrupt headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
+| `ubi_error_handling` | `tests_ubi_error_handling.c` | 97 | NULL params, out-of-range, no-space, contract tests, corrupt headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
 | `ubi_boundary` | `tests_ubi_boundary.c` | 6 | Max LEB capacity, alignment, sqnum persistence | native_sim |
-| `ubi_recovery` | `tests_ubi_recovery.c` | 27 | Corruption, dual-bank, sqnum conflicts, degraded mode, multi-volume recovery | native_sim |
+| `ubi_recovery` | `tests_ubi_recovery.c` | 30 | Corruption, dual-bank, sqnum conflicts, degraded mode, multi-volume recovery, free vs. uncommitted PEB classification | native_sim |
 | `ubi_fault_injection` | `tests_ubi_fault_injection.c` | 4 | Transactional safety under allocation failures, COW overwrite, invariant checks | native_sim |
-| `ubi_io_faults` | `tests_ubi_io_faults.c` | 24 | Malloc/flash-write/flash-erase fault sweeps across init, volume, and I/O paths | native_sim |
+| `ubi_io_faults` | `tests_ubi_io_faults.c` | 26 | Malloc/flash-write/flash-erase fault sweeps across init, volume, and I/O paths; commit-order fault injection (VID write failure preserves old mapping) | native_sim |
 | `ubi_init_errors` | `tests_ubi_init_errors.c` | 33 | Geometry validation, partition guard, format failures, header corruption at init | native_sim |
 | `ubi_stress` | `tests_ubi_stress.c` | 4 | Full utilization, init cycling, wear leveling | native_sim (simulator only) |
 | `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | 4 | Randomized churn with reboots, multi-volume operations, persistence across reinit, EC counter equality after 500 cycles | native_sim (simulator only) |
@@ -26,7 +26,7 @@
 | `ubi_hil_smoke` | `tests_ubi_hil_smoke.c` | 3 | Basic lifecycle, persistence, stress cycles (board-portable smoke) | native_sim |
 | `ubi_concurrency` | `tests_ubi_concurrency.c` | 5 | Multi-threaded readers/writers, deinit quiescence, partition guard | native_sim |
 | `ubi_erased_val` | `tests_ubi_erased_val.c` | 6 | Erased-value helper unit tests (`ubi_buf_is_erased` with 0xFF, 0x00, mixed), `ubi_get_erased_val` integration, init regression | native_sim |
-| **Total** | | **234** | | |
+| **Total** | | **242** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
@@ -70,7 +70,7 @@ Core API verification organized by functional area:
 
 | Suite | File | Focus |
 |-------|------|-------|
-| `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header -> bad PEB, corrupt VID CRC -> bad PEB, valid EC + empty VID -> free PEB, orphan vol_id -> dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean, dual-bank recovery during resize, degraded-mode blocking, multi-volume recovery |
+| `ubi_recovery` | `tests_ubi_recovery.c` | Corrupt EC header -> bad PEB, corrupt VID CRC -> bad PEB, valid EC + erased VID + erased data -> free PEB, valid EC + erased VID + non-erased data -> dirty PEB (uncommitted write), orphan vol_id -> dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean, dual-bank recovery during resize, degraded-mode blocking, multi-volume recovery, reinit after interrupted commit preserves old data |
 
 ### 5. Fault Injection Tests
 
@@ -82,7 +82,7 @@ Core API verification organized by functional area:
 
 | Suite | File | Focus |
 |-------|------|-------|
-| `ubi_io_faults` | `tests_ubi_io_faults.c` | Systematic malloc-failure sweeps (init with no volumes, with volume, with orphans, with duplicates, with bad VID CRC, with bad EC), scratch alloc faults, diag alloc fault, volume create/remove alloc sweeps, flash erase failure -> bad PEB transition. Requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`. |
+| `ubi_io_faults` | `tests_ubi_io_faults.c` | Systematic malloc-failure sweeps (init with no volumes, with volume, with orphans, with duplicates, with bad VID CRC, with bad EC), scratch alloc faults, diag alloc fault, volume create/remove alloc sweeps, flash erase failure -> bad PEB transition, commit-order tests (VID write failure after data write preserves old mapping; unmapped LEB stays unmapped on VID failure). Requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`. |
 
 ### 5c. Init Error Tests
 

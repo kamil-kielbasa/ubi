@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-04-10
+
+### Changed
+
+- **Data PEB write order is now EC → DATA → VID** (`lib/src/ubi_leb.c`): The commit order for `ubi_leb_write()` changed from writing the VID header before the data payload to writing the data payload first and the VID header second. The VID header now serves as the sole commit-visible record that makes a new mapping live. If a power loss occurs after the data write but before the VID write, the PEB will be correctly classified as dirty (uncommitted) during the next init scan rather than being misidentified as free.
+- **Init scan distinguishes free PEBs from uncommitted writes** (`lib/src/ubi_core_init.c`): When a PEB has a valid EC header and an erased VID header, the init scanner now probes the first `write_block_size` bytes of the data area. If the probe is erased, the PEB is classified as free; if the probe contains non-erased bytes, the PEB is classified as dirty (interrupted write). Previously, an erased VID always meant free, which was incorrect under the new write order.
+- **`validate_vid_header()` error paths consolidated** (`lib/src/ubi_core_init.c`): Three identical classify-as-bad error blocks (VID read failure, data probe read failure, VID CRC failure) replaced with a single `classify_bad` label, eliminating code duplication and improving coverage.
+- **Architecture documentation** (`doc/architecture.md`): Updated write flow diagrams and PEB classification tables to reflect the EC → DATA → VID commit order. Added free vs. uncommitted classification rule. Updated Mermaid flowchart.
+- **Roadmap** (`doc/roadmap.md`): "Recovery correctness for data PEB commit order" moved from Planned to Done.
+- **Test strategy** (`doc/test_strategy.md`): Added commit-order fault injection tests and init classification tests. Updated suite counts (242 total).
+
+### Fixed
+
+- **Uncommitted write misclassified as free**: Under the old write order (EC → VID → DATA), this was harmless. Under the new order (EC → DATA → VID), a PEB with data but no VID was wrongly returned to the free pool, risking data corruption on reuse.
+
 ## [0.26.0] - 2026-04-09
 
 ### Changed

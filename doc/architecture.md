@@ -495,7 +495,10 @@ ubi_device_init(mtd, &ubi)
   |         --> bad_pebs (ec = ec_avg)         |
   |                                            |
   |   3.2  EC valid, VID erased (empty)?       |
-  |         --> free_pebs (key = ec)           |
+  |         Probe data area prefix:            |
+  |         - prefix erased → free_pebs        |
+  |         - prefix non-erased → dirty_pebs   |
+  |           (uncommitted write)              |
   |                                            |
   |   3.3  EC valid, VID invalid CRC?          |
   |         --> bad_pebs (ec from EC hdr)      |
@@ -605,7 +608,7 @@ This two-sided greedy approach naturally distributes wear across all PEBs:
 
 ### Write Flow (Mermaid)
 
-Copy-on-write: the new PEB is fully written before the old mapping is swapped. On write failure, the previous mapping and data remain intact.
+Copy-on-write: the new PEB is fully written before the old mapping is swapped. On write failure, the previous mapping and data remain intact. The write order is EC → DATA → VID; the VID header acts as the commit point that makes the new mapping visible.
 
 ```mermaid
 flowchart TD
@@ -615,8 +618,8 @@ flowchart TD
     NoFree{"Free PEB available?"}
     ErrNospc["Return -ENOSPC"]
     WriteEC["Write EC header on new PEB"]
-    WriteVID["Write VID header\n(vol_id, lnum, sqnum++, data_size)"]
     WriteData["Write user data payload"]
+    WriteVID["Write VID header\n(vol_id, lnum, sqnum++, data_size)\n— commit point —"]
     WriteFail{"Write succeeded?"}
     MarkBad["Mark new PEB as bad\nRetry with next free PEB"]
     SwapEBA["Swap EBA: LEB → new PEB"]
@@ -627,7 +630,7 @@ flowchart TD
     Start --> Lookup --> SelectFree
     SelectFree --> NoFree
     NoFree -- No --> ErrNospc
-    NoFree -- Yes --> WriteEC --> WriteVID --> WriteData --> WriteFail
+    NoFree -- Yes --> WriteEC --> WriteData --> WriteVID --> WriteFail
     WriteFail -- No --> MarkBad --> SelectFree
     WriteFail -- Yes --> SwapEBA --> WasOverwrite
     WasOverwrite -- Yes --> OldDirty --> Done

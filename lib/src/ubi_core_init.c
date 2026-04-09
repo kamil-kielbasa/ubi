@@ -265,7 +265,15 @@ static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg
 }
 
 /**
- * \brief Read and validate the VID header. Classify PEB as free or bad when appropriate.
+ * \brief Read and validate the VID header. Classify PEB as free, dirty, or bad.
+ *
+ * An erased VID does not necessarily mean the PEB is free. The VID header is
+ * written last (after the data payload), so an erased VID with non-erased data
+ * indicates an interrupted write that must be classified as dirty.
+ *
+ * Classification when VID is erased:
+ *   - data area prefix erased  -> free (never written)
+ *   - data area prefix present -> dirty/uncommitted (interrupted commit)
  *
  * On return with SCAN_NEXT_STEP, \p vid_hdr contains a CRC-validated VID header.
  *
@@ -274,23 +282,34 @@ static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg
 static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
 			       struct ubi_vid_hdr *vid_hdr, uint8_t erased_val)
 {
-	/* First read without CRC — detect empty (free) PEBs. */
+	/* First read without CRC — detect empty (free/uncommitted) PEBs. */
 	int ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, false);
 
 	if (ret != 0) {
-		struct ubi_list_item *item = NULL;
-		ret = ubi_mem_leaf_alloc((void **)&item);
-
-		if (ret != 0) {
-			LOG_ERR("Leaf item allocation failure");
-			return ret;
-		}
-
-		ubi_move_to_bad_blocks(dev, pnum, ec_hdr->ec, item);
-		return SCAN_PEB_HANDLED;
+		LOG_ERR("VID header read failure for PEB %zu", pnum);
+		goto classify_bad;
 	}
 
 	if (ubi_buf_is_erased(vid_hdr, sizeof(*vid_hdr), erased_val)) {
+		/*
+		 * VID is erased. Probe the beginning of the data area to
+		 * distinguish a truly free PEB from an uncommitted write
+		 * (data was written but VID commit did not complete).
+		 *
+		 * Read min(write_block_size, leb_size) bytes starting at
+		 * offset 0 of the data area. Since writes always start at
+		 * offset 0, a non-erased prefix proves partial data presence.
+		 */
+		const size_t probe_len = MIN(dev->mtd.write_block_size, dev->leb_size);
+		uint8_t probe_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
+
+		ret = ubi_leb_data_read(&dev->mtd, pnum, 0, probe_buf, probe_len);
+
+		if (ret != 0) {
+			LOG_ERR("Data area probe read failure for PEB %zu", pnum);
+			goto classify_bad;
+		}
+
 		struct ubi_rbt_item *item = NULL;
 		ret = ubi_mem_leaf_alloc((void **)&item);
 
@@ -301,8 +320,19 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
-		rb_insert(&dev->free_pebs, &item->node);
-		dev->free_peb_count += 1;
+
+		if (ubi_buf_is_erased(probe_buf, probe_len, erased_val)) {
+			/* VID erased + data erased -> genuinely free. */
+			rb_insert(&dev->free_pebs, &item->node);
+			dev->free_peb_count += 1;
+		} else {
+			/* VID erased + data present -> uncommitted / dirty. */
+			LOG_WRN("PEB %zu: erased VID but non-erased data — "
+				"classifying as dirty (uncommitted write)",
+				pnum);
+			rb_insert(&dev->dirty_pebs, &item->node);
+			dev->dirty_peb_count += 1;
+		}
 
 		return SCAN_PEB_HANDLED;
 	}
@@ -312,19 +342,24 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 	ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, true);
 
 	if (ret != 0) {
-		struct ubi_list_item *item = NULL;
-		ret = ubi_mem_leaf_alloc((void **)&item);
-
-		if (ret != 0) {
-			LOG_ERR("Leaf item allocation failure");
-			return ret;
-		}
-
-		ubi_move_to_bad_blocks(dev, pnum, ec_hdr->ec, item);
-		return SCAN_PEB_HANDLED;
+		LOG_ERR("VID header CRC validation failure for PEB %zu", pnum);
+		goto classify_bad;
 	}
 
 	return SCAN_NEXT_STEP;
+
+classify_bad : {
+	struct ubi_list_item *item = NULL;
+	ret = ubi_mem_leaf_alloc((void **)&item);
+
+	if (ret != 0) {
+		LOG_ERR("Leaf item allocation failure");
+		return ret;
+	}
+
+	ubi_move_to_bad_blocks(dev, pnum, ec_hdr->ec, item);
+	return SCAN_PEB_HANDLED;
+}
 }
 
 /**

@@ -1665,3 +1665,177 @@ ZTEST(ubi_recovery, fresh_partition_formats_spare_pebs)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
+
+/**
+ * \brief Verify that a PEB with valid EC, erased VID, and erased data is classified as free.
+ *
+ * \details Init probes the data area when VID is erased. If the data area
+ *          prefix is also erased, the PEB is genuinely free.
+ *
+ * \expect  PEB is in the free pool. free_peb_count includes this PEB.
+ */
+ZTEST(ubi_recovery, valid_ec_erased_vid_and_erased_data_is_free)
+{
+	/* Normal init so device/volume headers are written. */
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info_baseline = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info_baseline));
+
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* Erase one data PEB, write only EC (VID + data remain erased). */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+	const size_t peb_idx = NR_OF_RES_PEBS;
+	const size_t peb_offset = peb_idx * mtd.erase_block_size;
+
+	zassert_ok(flash_area_erase(fa, peb_offset, mtd.erase_block_size));
+	raw_write_ec_hdr(fa, peb_idx, mtd.erase_block_size, 7);
+
+	flash_area_close(fa);
+
+	/* Re-init: PEB should be classified as free. */
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info_after = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info_after));
+
+	zassert_true(info_after.free_peb_count >= 1,
+		     "PEB with valid EC + erased VID + erased data should be free");
+	/* Fresh device — same as baseline since we only recreated the same PEB state. */
+	zassert_equal(info_after.free_peb_count, info_baseline.free_peb_count,
+		      "Free PEB count should match baseline");
+	zassert_equal(info_after.dirty_peb_count, 0, "No dirty PEBs expected");
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that a PEB with valid EC, erased VID, but non-erased data is dirty.
+ *
+ * \details An interrupted commit can leave data written but VID erased.
+ *          Init must not classify this as free (which would cause data
+ *          corruption when reused). Instead, the PEB must be classified
+ *          as dirty (uncommitted).
+ *
+ * \expect  PEB is in the dirty pool. dirty_peb_count includes this PEB.
+ */
+ZTEST(ubi_recovery, valid_ec_erased_vid_and_present_data_is_dirty)
+{
+	/* Normal init so device/volume headers are written. */
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info_baseline = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info_baseline));
+
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+	const size_t peb_idx = NR_OF_RES_PEBS;
+	const size_t peb_offset = peb_idx * mtd.erase_block_size;
+
+	/* Erase the PEB, write valid EC header. */
+	zassert_ok(flash_area_erase(fa, peb_offset, mtd.erase_block_size));
+	raw_write_ec_hdr(fa, peb_idx, mtd.erase_block_size, 3);
+
+	/* Write a few non-erased bytes at the start of the data area.
+	 * Data area starts at EC_HDR_SIZE + VID_HDR_SIZE = 48 within the PEB. */
+	const uint8_t dirty_data[16] = {
+		0xDE, 0xAD, 0xBE, 0xEF, 0x01, 0x02, 0x03, 0x04,
+		0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C,
+	};
+	const size_t data_area_offset = peb_offset + EC_HDR_SIZE + VID_HDR_SIZE;
+	zassert_ok(flash_area_write(fa, data_area_offset, dirty_data, sizeof(dirty_data)));
+
+	flash_area_close(fa);
+
+	/* Re-init: PEB should be classified as dirty (uncommitted). */
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	struct ubi_device_info info_after = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info_after));
+
+	zassert_true(info_after.dirty_peb_count >= 1,
+		     "PEB with valid EC + erased VID + present data should be dirty");
+	zassert_equal(info_after.free_peb_count, info_baseline.free_peb_count - 1,
+		      "One fewer free PEB (moved to dirty)");
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify that an interrupted commit followed by re-init does not lose data.
+ *
+ * \details Write data to a LEB, then attempt an overwrite with VID fault
+ *          injection. The data payload is written but the VID commit fails,
+ *          so the old mapping stays active. After deinit + re-init, the old
+ *          data must still be readable and the uncommitted PEB must be in
+ *          the dirty pool.
+ *
+ * \expect  Old data readable after re-init. Invariants hold.
+ */
+ZTEST(ubi_recovery, reinit_after_interrupted_commit_preserves_old_data)
+{
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	const struct ubi_volume_config cfg = {
+		.name = "recov",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	int vol_id = -1;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+
+	/* Write original data. */
+	const uint8_t old_data[16] = {
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
+	};
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, old_data, sizeof(old_data)));
+
+	/* Attempt overwrite with VID fault — data succeeds, VID fails. */
+	ubi_test_fault_set_flash_write_fail_after(1);
+
+	const uint8_t new_data[16] = {
+		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
+		0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99,
+	};
+	int ret = ubi_leb_write(ubi, vol_id, 0, new_data, sizeof(new_data));
+	zassert_not_equal(0, ret, "Overwrite should fail with VID fault");
+
+	ubi_test_fault_reset();
+
+	/* Old data should be readable now. */
+	uint8_t readback[16] = { 0 };
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
+	zassert_mem_equal(readback, old_data, sizeof(old_data),
+			  "Old data must survive interrupted commit");
+
+	/* Deinit and re-init the device. */
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	zassert_ok(ubi_device_init(&mtd, &ubi));
+
+	/* Old data should still be readable after re-init. */
+	memset(readback, 0, sizeof(readback));
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
+	zassert_mem_equal(readback, old_data, sizeof(old_data),
+			  "Old data must survive re-init after interrupted commit");
+
+	zassert_ok(ubi_device_check_invariants(ubi));
+	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
+}

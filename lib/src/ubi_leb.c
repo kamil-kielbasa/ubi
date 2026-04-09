@@ -37,7 +37,16 @@ static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node);
 /* Static function definitions ----------------------------------------------------------------- */
 
 /**
- * Allocate a free PEB, write VID header and optional data payload.
+ * Allocate a free PEB, write optional data payload, then write VID header.
+ *
+ * The write order is DATA first, VID second. The VID header is the commit
+ * record — the new mapping becomes live only after a successful VID write.
+ * If the VID write fails, the PEB is marked bad and the old mapping (if any)
+ * remains active in the EBA table.
+ *
+ * For a map without payload (buf == NULL), only the VID header is written;
+ * VID is still the commit record.
+ *
  * On success *out_new_node points to the rbt item (already removed from free pool).
  * On failure the PEB is marked bad and the function returns a negative errno.
  * Caller must hold ubi->mutex.
@@ -51,6 +60,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	rb_remove(&ubi->free_pebs, &new_node->node);
 	ubi->free_peb_count -= 1;
 
+	/* Step 1: Prepare VID header in RAM (not yet written to flash). */
 	struct ubi_vid_hdr vid_hdr = { 0 };
 	vid_hdr.magic = UBI_VID_HDR_MAGIC;
 	vid_hdr.version = UBI_VID_HDR_VERSION;
@@ -61,14 +71,9 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	vid_hdr.hdr_crc =
 		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
 
-	int ret = ubi_vid_hdr_write(&ubi->mtd, new_node->value.pnum, &vid_hdr);
+	int ret = 0;
 
-	if (ret != 0) {
-		LOG_ERR("VID header write failure");
-		leb_mark_peb_bad(ubi, new_node);
-		return ret;
-	}
-
+	/* Step 2: Write data payload first (if any). */
 	if (buf && len > 0) {
 		ret = ubi_leb_data_write(&ubi->mtd, new_node->value.pnum, buf, len);
 
@@ -77,6 +82,15 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 			leb_mark_peb_bad(ubi, new_node);
 			return ret;
 		}
+	}
+
+	/* Step 3: Write VID header — this is the commit point. */
+	ret = ubi_vid_hdr_write(&ubi->mtd, new_node->value.pnum, &vid_hdr);
+
+	if (ret != 0) {
+		LOG_ERR("VID header write failure");
+		leb_mark_peb_bad(ubi, new_node);
+		return ret;
 	}
 
 	*out_new_node = new_node;
