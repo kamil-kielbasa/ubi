@@ -55,11 +55,11 @@ Under the static backend, all pool memory is pre-allocated at compile time. The 
 
 | Pool | Formula | Example (D=14, V=2) |
 |------|---------|---------------------|
-| Device slab | `MAX_NR_OF_DEVICES × sizeof(ubi_device)` | 1 × 112 = 112 B |
-| Volume slab | `MAX_NR_OF_DEVICES × MAX_NR_OF_VOLUMES × sizeof(ubi_volume)` | 1 × 10 × 48 = 480 B |
+| Device slab | `MAX_NR_OF_DEVICES × sizeof(ubi_device)` | 1 × 128 = 128 B |
+| Volume slab | `MAX_NR_OF_DEVICES × MAX_NR_OF_VOLUMES × sizeof(ubi_volume)` | 1 × 10 × 44 = 440 B |
 | Leaf slab | `MAX_NR_OF_DEVICES × (MAX_NR_OF_DATA_PEBS + MAX_NR_OF_VOLUMES) × 16` | 1 × (14+10) × 16 = 384 B |
 | Scratch slab | `UBI_DEV_HDR_SIZE + MAX_NR_OF_VOLUMES × UBI_VOL_HDR_SIZE` (1 block) | 32 + 10 × 48 = 512 B |
-| **Total** | | **~1,488 B** |
+| **Total** | | **~1,464 B** |
 
 At init time, `ubi_device_init()` verifies that the actual flash geometry fits within the configured pools. If the flash partition has more data PEBs than `CONFIG_UBI_MAX_NR_OF_DATA_PEBS`, init returns `-ENOMEM`.
 

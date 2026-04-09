@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-04-09
+
+### Added
+
+- **Persistent vol_id high-watermark** (`ubi_io.h`, `ubi_volume.c`, `ubi_core_init.c`): Volume IDs are never reused. A monotonic `vol_id_watermark` counter is stored in the device header and bumped atomically with each `ubi_volume_create()`.
+- **Overflow guard**: `ubi_volume_create()` returns `-ENOSPC` when the watermark reaches `UINT32_MAX`.
+- **Test suite `ubi_vol_id_watermark`** (4 tests): same-boot reuse prevention, cross-reboot persistence, slot re-indexing stability, overflow fail-closed.
+
+### Changed
+
+- **`vol_idx` field removed from `struct ubi_volume`**: `ubi_vol_hdr_remove()` and `ubi_vol_hdr_update()` now match volumes by `vol_id` instead of positional index. The re-index loop after remove is eliminated.
+
 ## [0.28.0] - 2026-04-09
 
 ### Added
@@ -191,7 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Transactional `ubi_volume_create()`**: Allocate `struct ubi_volume` and rbt item before flash append; on failure, no persistent volume is written without matching RAM state (`lib/src/ubi_volume.c`).
 - **Transactional shrink in `ubi_volume_resize()`**: Flash metadata update (`ubi_vol_hdr_update`) completes before trimming EBA entries and reclaiming PEBs to dirty.
-- **`ubi_volume_remove()`**: After successful flash remove, reclaim and vol_idx re-index are best-effort (errors logged, operation still completes with success when metadata removal succeeded).
+- **`ubi_volume_remove()`**: After successful flash remove, reclaim is best-effort (errors logged, operation still completes with success when metadata removal succeeded).
 - **Capacity accounting**: `ubi_volume_create()` and resize-grow path subtract `bad_peb_count` from usable PEBs before comparing to requested `leb_count`.
 - **`ubi_volume_resize()`**: Rejects `vol_cfg->leb_count == 0` with `-EINVAL`; shrink loop uses `lnum` from new count upward (removed dead `diff == 0` branch).
 - **Copy-on-write `leb_write()`**: New PEB is written before the old EBA mapping is removed; on write failure the previous mapping and data remain (`lib/src/ubi_leb.c`).

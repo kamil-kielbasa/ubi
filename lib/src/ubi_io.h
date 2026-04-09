@@ -64,7 +64,7 @@ struct ubi_dev_hdr {
 	uint32_t size; /*!< Device size */
 	uint32_t revision; /*!< Revision number */
 	uint32_t vol_count; /*!< Number of volumes */
-	uint32_t padding_2; /*!< Reserved */
+	uint32_t vol_id_watermark; /*!< Monotonic volume ID counter (never reused) */
 	uint32_t hdr_crc; /*!< CRC32 of header */
 };
 BUILD_ASSERT(sizeof(struct ubi_dev_hdr) == UBI_DEV_HDR_SIZE);
@@ -189,25 +189,28 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
  *
  * \param[in] mtd     		Pointer to memory technology device.
  * \param[in] dev_hdr 		Pointer to device header.
- * \param index   		Volume index to remove.
+ * \param vol_id  		Volume identifier to remove.
  *
  * \return 0 on success, or negative error code.
  */
 int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
-		       const size_t index);
+		       const uint32_t vol_id);
 
 /**
  * \brief Update an existing UBI volume header.
  *
+ * Reads the existing header for \p vol_id from flash, sets its
+ * \c leb_count to \p new_leb_count, recomputes the CRC, and commits.
+ *
  * \param[in] mtd     		Pointer to memory technology device.
  * \param[in] dev_hdr 		Pointer to device header.
- * \param index   		Volume index to update.
- * \param[in] vol_hdr 		Pointer to new volume header values.
+ * \param vol_id  		Volume identifier to update.
+ * \param new_leb_count		New LEB count value.
  *
  * \return 0 on success, or negative error code.
  */
 int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
-		       const size_t index, const struct ubi_vol_hdr *vol_hdr);
+		       uint32_t vol_id, size_t new_leb_count);
 
 /** \} name ubi_io_volume */
 

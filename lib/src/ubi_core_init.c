@@ -172,7 +172,6 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 			LOG_ERR("Volume allocation failure");
 			return ret;
 		}
-		vol->vol_idx = vol_idx;
 		vol->vol_id = vol_hdr.vol_id;
 		ubi_copy_name_from_hdr(vol->cfg.name, vol_hdr.name);
 		vol->cfg.type = vol_hdr.vol_type;
@@ -194,13 +193,9 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 
 		rb_insert(&ubi_dev->vols, &item->node);
 		ubi_dev->vol_count += 1;
-
-		if (vol->vol_id > ubi_dev->vol_next_id)
-			ubi_dev->vol_next_id = vol->vol_id;
 	}
 
-	if (dev_hdr->vol_count > 0)
-		ubi_dev->vol_next_id += 1;
+	ubi_dev->vol_id_watermark = dev_hdr->vol_id_watermark;
 
 	return 0;
 }

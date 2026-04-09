@@ -158,15 +158,29 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 		goto exit;
 	}
 
+	/* Overflow guard: vol_id space is exhausted. */
+	if (dev_hdr.vol_id_watermark == UINT32_MAX) {
+		LOG_ERR("Volume ID space exhausted");
+		ubi_mem_leaf_free(item);
+		ubi_mem_volume_free(vol);
+		ret = -ENOSPC;
+		goto exit;
+	}
+
+	/* Assign vol_id from the persisted high-watermark and advance it. */
 	struct ubi_vol_hdr new_vol_hdr = { 0 };
 	new_vol_hdr.magic = UBI_VOL_HDR_MAGIC;
 	new_vol_hdr.version = UBI_VOL_HDR_VERSION;
 	new_vol_hdr.vol_type = vol_cfg->type;
-	new_vol_hdr.vol_id = ubi->vol_next_id++;
+	new_vol_hdr.vol_id = dev_hdr.vol_id_watermark;
 	new_vol_hdr.leb_count = vol_cfg->leb_count;
 	ubi_copy_name_to_hdr(new_vol_hdr.name, vol_cfg->name);
 	new_vol_hdr.hdr_crc = crc32_ieee((const uint8_t *)&new_vol_hdr,
 					 sizeof(new_vol_hdr) - sizeof(new_vol_hdr.hdr_crc));
+
+	dev_hdr.vol_id_watermark += 1;
+	dev_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
 
 	ret = ubi_vol_hdr_append(&ubi->mtd, &dev_hdr, &new_vol_hdr);
 
@@ -182,7 +196,6 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 		goto exit;
 	}
 
-	vol->vol_idx = dev_hdr.vol_count - 1;
 	vol->vol_id = new_vol_hdr.vol_id;
 	ubi_copy_name_from_hdr(vol->cfg.name, new_vol_hdr.name);
 	vol->cfg.type = new_vol_hdr.vol_type;
@@ -194,6 +207,7 @@ int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vo
 	item->value.vol = vol;
 	rb_insert(&ubi->vols, &item->node);
 	ubi->vol_count += 1;
+	ubi->vol_id_watermark = dev_hdr.vol_id_watermark;
 
 	*vol_id = vol->vol_id;
 
@@ -261,19 +275,7 @@ int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volum
 		goto exit;
 	}
 
-	struct ubi_vol_hdr vol_hdr = { 0 };
-	ret = ubi_vol_hdr_read(&ubi->mtd, vol->vol_idx, &vol_hdr);
-
-	if (ret != 0) {
-		LOG_ERR("Volume header read failure");
-		goto exit;
-	}
-
-	vol_hdr.leb_count = vol_cfg->leb_count;
-	vol_hdr.hdr_crc =
-		crc32_ieee((const uint8_t *)&vol_hdr, sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
-
-	ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_idx, &vol_hdr);
+	ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_id, vol_cfg->leb_count);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during resize commit");
@@ -348,7 +350,7 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
-	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_idx);
+	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_id);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during remove commit");
@@ -381,27 +383,6 @@ int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	ubi_mem_volume_free(entry->value.vol);
 	ubi_mem_leaf_free(entry);
-
-	/* Re-index remaining volumes to match flash layout. */
-	for (size_t vol_idx = 0; vol_idx < dev_hdr.vol_count; ++vol_idx) {
-		struct ubi_vol_hdr vol_hdr = { 0 };
-		int idx_ret = ubi_vol_hdr_read(&ubi->mtd, vol_idx, &vol_hdr);
-
-		if (idx_ret != 0) {
-			LOG_ERR("Volume header read failure during re-index");
-			continue;
-		}
-
-		entry = ubi_cache_search(&ubi->vols, vol_hdr.vol_id);
-
-		if (!entry) {
-			LOG_ERR("Inconsistency between cache and nvm");
-			continue;
-		}
-
-		vol = entry->value.vol;
-		vol->vol_idx = vol_idx;
-	}
 
 	ret = 0;
 

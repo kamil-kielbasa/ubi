@@ -27,13 +27,14 @@
 | `ubi_concurrency` | `tests_ubi_concurrency.c` | 5 | Multi-threaded readers/writers, deinit quiescence, partition guard | native_sim |
 | `ubi_erased_val` | `tests_ubi_erased_val.c` | 6 | Erased-value helper unit tests (`ubi_buf_is_erased` with 0xFF, 0x00, mixed), `ubi_get_erased_val` integration, init regression | native_sim |
 | `ubi_mutation_gate` | `tests_ubi_mutation_gate.c` | 5 | Central mutation gate: write-shutdown blocks all mutators, degraded mode blocks reserved-metadata only, runtime PEB corruption recovered transparently, runtime degradation sets flag and blocks mutations, erase_peb recovers reserved bank and clears flag | native_sim |
-| **Total** | | **247** | | |
+| `ubi_vol_id_watermark` | `tests_ubi_vol_id_watermark.c` | 4 | Persistent vol_id high-watermark: same-boot reuse prevention, cross-reboot persistence, slot re-indexing stability, overflow fail-closed | native_sim |
+| **Total** | | **251** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
 |--------|----------------------|--------------------------------------|
-| Functional correctness | Full — all 247 tests run (20 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 251 tests run (21 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |
@@ -121,6 +122,12 @@ Core API verification organized by functional area:
 | Suite | File | Focus |
 |-------|------|-------|
 | `ubi_mutation_gate` | `tests_ubi_mutation_gate.c` | Central mutation gate: write-shutdown flag blocks all 7 public mutators (`-EROFS`) while read-only operations succeed; degraded-mode entry blocks reserved-metadata mutators only (skips on simulator when recovery succeeds); runtime reserved PEB corruption triggers transparent recovery during next volume operation; runtime degradation (corrupt PEB + erase fault) sets `read_only_degraded` flag and blocks subsequent mutations; `erase_peb` recovers degraded reserved PEB bank and clears the flag. Requires `CONFIG_UBI_TEST_API_ENABLE=y`. |
+
+### 11. Volume ID Watermark Tests
+
+| Suite | File | Focus |
+|-------|------|-------|
+| `ubi_vol_id_watermark` | `tests_ubi_vol_id_watermark.c` | Persistent vol_id high-watermark: same-boot reuse prevention (create, remove, create → new id), cross-reboot persistence (create, remove, reinit, create → watermark survives), slot re-indexing stability (remove middle volume, remaining vol_ids unchanged), overflow fail-closed (vol_id_watermark = UINT32_MAX → `-ENOSPC`). |
 
 ## Test Environment
 

@@ -129,6 +129,7 @@ int ubi_ec_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_ec_
 	const size_t nr_of_pebs = fa->fa_size / mtd->erase_block_size;
 
 	if (pnum >= nr_of_pebs || pnum < UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("PEB index %zu out of range", pnum);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -136,12 +137,15 @@ int ubi_ec_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_ec_
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	ret = flash_area_read(fa, pnum * mtd->erase_block_size, &ec_hdr, sizeof(ec_hdr));
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("EC header flash read failure for PEB %zu", pnum);
 		goto exit;
+	}
 
 	if (UBI_EC_HDR_MAGIC != ec_hdr.magic ||
 	    ec_hdr.hdr_crc !=
 		    crc32_ieee((const uint8_t *)&ec_hdr, sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc))) {
+		LOG_ERR("EC header corrupt on PEB %zu", pnum);
 		ret = -EBADMSG;
 		goto exit;
 	}
@@ -172,14 +176,17 @@ int ubi_ec_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, const struct 
 	const size_t nr_of_pebs = fa->fa_size / mtd->erase_block_size;
 
 	if (pnum >= nr_of_pebs || pnum < UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("PEB index %zu out of range", pnum);
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	ret = flash_write_with_retry(fa, pnum * mtd->erase_block_size, hdr, sizeof(*hdr));
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("EC header write failure for PEB %zu", pnum);
 		goto exit;
+	}
 
 exit:
 	if (fa)
@@ -205,6 +212,7 @@ int ubi_vid_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_vi
 	const size_t nr_of_pebs = fa->fa_size / mtd->erase_block_size;
 
 	if (pnum >= nr_of_pebs || pnum < UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("PEB index %zu out of range", pnum);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -213,8 +221,10 @@ int ubi_vid_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_vi
 	ret = flash_area_read(fa, (pnum * mtd->erase_block_size) + UBI_EC_HDR_SIZE, &hdr,
 			      sizeof(hdr));
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("VID header flash read failure for PEB %zu", pnum);
 		goto exit;
+	}
 
 	if (vid_hdr)
 		*vid_hdr = hdr;
@@ -223,6 +233,7 @@ int ubi_vid_hdr_read(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_vi
 		if (UBI_VID_HDR_MAGIC != hdr.magic ||
 		    hdr.hdr_crc !=
 			    crc32_ieee((const uint8_t *)&hdr, sizeof(hdr) - sizeof(hdr.hdr_crc))) {
+			LOG_ERR("VID header corrupt on PEB %zu", pnum);
 			ret = -EBADMSG;
 			goto exit;
 		}
@@ -251,6 +262,7 @@ int ubi_vid_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_v
 	const size_t nr_of_pebs = fa->fa_size / mtd->erase_block_size;
 
 	if (pnum >= nr_of_pebs || pnum < UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("PEB index %zu out of range", pnum);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -258,8 +270,10 @@ int ubi_vid_hdr_write(const struct ubi_mtd *mtd, const size_t pnum, struct ubi_v
 	ret = flash_write_with_retry(fa, (pnum * mtd->erase_block_size) + UBI_EC_HDR_SIZE, vid_hdr,
 				     sizeof(*vid_hdr));
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("VID header write failure for PEB %zu", pnum);
 		goto exit;
+	}
 
 exit:
 	if (fa)
@@ -284,11 +298,13 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 	const size_t nr_of_pebs = fa->fa_size / mtd->erase_block_size;
 
 	if (pnum >= nr_of_pebs || pnum < UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("PEB index %zu out of range", pnum);
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	if (len > (mtd->erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
+		LOG_ERR("LEB data write length %zu exceeds capacity", len);
 		ret = -ENOSPC;
 		goto exit;
 	}
@@ -299,8 +315,10 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 	if (len % wbs == 0) {
 		ret = flash_write_with_retry(fa, offset, buf, len);
 
-		if (ret != 0)
+		if (ret != 0) {
+			LOG_ERR("LEB data write failure for PEB %zu", pnum);
 			goto exit;
+		}
 	} else {
 		if (len < wbs) {
 			uint8_t align_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
@@ -308,8 +326,10 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 
 			ret = flash_write_with_retry(fa, offset, align_buf, wbs);
 
-			if (ret != 0)
+			if (ret != 0) {
+				LOG_ERR("LEB data write failure for PEB %zu", pnum);
 				goto exit;
+			}
 		} else {
 			const size_t left_size = len % wbs;
 
@@ -318,13 +338,17 @@ int ubi_leb_data_write(const struct ubi_mtd *mtd, const size_t pnum, const uint8
 
 			ret = flash_write_with_retry(fa, offset, buf, len - left_size);
 
-			if (ret != 0)
+			if (ret != 0) {
+				LOG_ERR("LEB data write failure for PEB %zu", pnum);
 				goto exit;
+			}
 
 			ret = flash_write_with_retry(fa, offset + len - left_size, align_buf, wbs);
 
-			if (ret != 0)
+			if (ret != 0) {
+				LOG_ERR("LEB data write tail failure for PEB %zu", pnum);
 				goto exit;
+			}
 		}
 	}
 
@@ -352,11 +376,13 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
 	const size_t nr_of_pebs = fa->fa_size / mtd->erase_block_size;
 
 	if (pnum >= nr_of_pebs || pnum < UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("PEB index %zu out of range", pnum);
 		ret = -EINVAL;
 		goto exit;
 	}
 
 	if ((offset + len) > (mtd->erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
+		LOG_ERR("LEB data read offset+len exceeds capacity");
 		ret = -ENOSPC;
 		goto exit;
 	}
@@ -366,8 +392,10 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
 
 	ret = flash_area_read(fa, _offset, buf, len);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("LEB data read failure for PEB %zu", pnum);
 		goto exit;
+	}
 
 exit:
 	if (fa)

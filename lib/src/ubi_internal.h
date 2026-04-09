@@ -40,7 +40,6 @@
  * and its associated configuration and erase block mapping.
  */
 struct ubi_volume {
-	size_t vol_idx; /**< Index of the volume within the UBI device. */
 	size_t vol_id; /**< Unique identifier of the volume. */
 	struct ubi_volume_config cfg; /**< Volume configuration parameters. */
 
@@ -49,8 +48,6 @@ struct ubi_volume {
                                      - Key: Logical Erase Block (LEB) index
                                      - Value: Physical Erase Block (PEB) index */
 };
-
-BUILD_ASSERT(sizeof(struct ubi_volume) == 48);
 
 /**
  * \brief UBI device representation.
@@ -86,7 +83,7 @@ struct ubi_device {
 	size_t ec_sum; /**< Sum of all data-PEB erase counters. */
 	size_t ec_count; /**< Number of data PEBs with readable EC headers. */
 
-	size_t vol_next_id; /**< Volume sequence counter. */
+	size_t vol_id_watermark; /**< Monotonic volume ID counter (mirrors dev_hdr). */
 	size_t vol_count; /**< Number of volumes tracked. */
 	struct rbtree vols; /**< Red-black tree of volumes:
 			       - Key: Volume identifier
@@ -96,9 +93,6 @@ struct ubi_device {
 	bool test_write_shutdown; /**< Test-only: when true, all mutations are blocked. */
 #endif
 };
-
-/* Size varies by platform (pointer width, mutex implementation). */
-BUILD_ASSERT(sizeof(struct ubi_device) > 0);
 
 /* Mutation gate ------------------------------------------------------------------------------ */
 

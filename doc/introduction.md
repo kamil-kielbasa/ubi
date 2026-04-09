@@ -73,8 +73,8 @@ Enabling `CONFIG_UBI_TEST_API_ENABLE` (Ztest builds) pulls in extra code paths a
 
 | Runtime Object             | RAM per instance |
 |----------------------------|------------------|
-| Device (`ubi_device`)      | 112 B            |
-| Volume (`ubi_volume`)      | 48 B             |
+| Device (`ubi_device`)      | 128 B            |
+| Volume (`ubi_volume`)      | 44 B             |
 | PEB (free/dirty/mapped)    | 16 B             |
 | Bad PEB                    | 16 B (shared slab block) |
 | Volume tree node           | 16 B             |
@@ -85,8 +85,8 @@ Under the static backend, all pools are pre-allocated at compile time. Under the
 
 For a device with 16 PEBs (8 KB erase blocks, 128 KB partition) and 2 volumes:
 
-- Device: 112 B
+- Device: 128 B
 - PEB tracking: 14 data PEBs × 16 B = 224 B
-- Volumes: 2 × 48 B = 96 B
+- Volumes: 2 × 44 B = 88 B
 - Volume tree nodes: 2 × 16 B = 32 B
-- **Total runtime RAM: ~464 B**
+- **Total runtime RAM: ~472 B**

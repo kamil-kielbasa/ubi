@@ -205,7 +205,7 @@ Offset  Size  Field
 0x0C    4     size        device size
 0x10    4     revision    header revision counter (incremented on each metadata update)
 0x14    4     vol_count   number of volumes
-0x18    4     padding
+0x18    4     vol_id_watermark  monotonic volume ID counter (never reused)
 0x1C    4     hdr_crc     CRC-32 of bytes 0x00..0x1B
 ```
 
@@ -236,7 +236,7 @@ When `ubi_device_init()` runs, it scans the flash and builds an in-RAM cache of 
 ### Overview
 
 ```
-struct ubi_device (112 B)
+struct ubi_device (128 B)
 |
 |-- mutex                       Zephyr mutex for thread safety
 |-- mtd                         Flash partition config (partition_id, block sizes)
@@ -289,10 +289,9 @@ struct ubi_device (112 B)
 |   |  vol_id:1  vol_id:5         .value.vol = &ubi_volume
 |   |                          }
 |   |
-|   `-- Each ubi_volume (48 B) contains:
+|   `-- Each ubi_volume (44 B) contains:
 |
 |       struct ubi_volume
-|       |-- vol_idx         Index in the reserved PEB header table
 |       |-- vol_id          Unique volume identifier
 |       |-- cfg             { name[16], type (static|dynamic), leb_count }
 |       |-- eba_tbl_count   Number of mapped LEBs
@@ -311,7 +310,7 @@ struct ubi_device (112 B)
 |                   leb:5 --> PEB 31 [EC hdr | VID: vol=0,leb=5,sq=55 | payload]
 |
 `-- global_sqnum            Monotonically increasing sequence number for writes
-`-- vol_next_id             Next volume ID to assign
+`-- vol_id_watermark        Monotonic volume ID counter (mirrors dev_hdr.vol_id_watermark)
 ```
 
 ### How the Structures Relate to Flash
@@ -351,8 +350,8 @@ Every PEB on flash is tracked by exactly one of these structures at any time:
 
 | Structure | Size per entry | Allocated via |
 |-----------|---------------|---------------|
-| `ubi_device` | 112 B | `ubi_mem_device_alloc` → device slab (static) / k_malloc (heap) |
-| `ubi_volume` | 48 B | `ubi_mem_volume_alloc` → volume slab (static) / k_malloc (heap) |
+| `ubi_device` | 128 B | `ubi_mem_device_alloc` → device slab (static) / k_malloc (heap) |
+| `ubi_volume` | 44 B | `ubi_mem_volume_alloc` → volume slab (static) / k_malloc (heap) |
 | `ubi_rbt_item` | 16 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
 | `ubi_list_item` | 12 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
 
@@ -798,7 +797,7 @@ Read-only operations are not gated and always succeed:
 
 ### Create
 
-`ubi_volume_create()` assigns a unique volume ID, writes a new volume header to both active reserved PEBs (incrementing the device revision), and adds the volume to the in-RAM `vols` RBT. The PEBs for the volume are **not** pre-allocated — they are claimed from `free_pebs` on-demand when LEBs are written or mapped.
+`ubi_volume_create()` reads the persisted `vol_id_watermark` from the device header, assigns it as the new volume's ID, bumps the watermark, and writes the updated device header plus new volume header to both active reserved PEBs atomically. The watermark is monotonic — IDs are never reused, even after volume removal. If `vol_id_watermark` reaches `UINT32_MAX`, create returns `-ENOSPC`. The volume is then added to the in-RAM `vols` RBT. The PEBs for the volume are **not** pre-allocated — they are claimed from `free_pebs` on-demand when LEBs are written or mapped.
 
 If a volume with the same name and identical configuration (type, leb_count) already exists, the function returns successfully with the existing volume's ID (idempotent behavior). If a volume with the same name but different configuration exists, the function returns `-EEXIST`. Volume creation is transactional: RAM structures are allocated before the flash commit, so a failed create leaves no persistent metadata.
 

@@ -28,10 +28,11 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-BUILD_ASSERT(sizeof(struct ubi_volume) == 48, "ubi_volume must be 48 bytes");
 BUILD_ASSERT(sizeof(struct ubi_rbt_item) == 16, "ubi_rbt_item must be 16 bytes");
 BUILD_ASSERT(sizeof(struct ubi_list_item) == 12, "ubi_list_item must be 12 bytes");
 BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes");
+BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
+BUILD_ASSERT(sizeof(struct ubi_device) == 128, "ubi_device must be 128 bytes");
 
 /* Fault injection support --------------------------------------------------------------------- */
 

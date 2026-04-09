@@ -40,6 +40,7 @@ int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
 	const int ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB scan failure");
 		return ret;
 	}
 
@@ -57,6 +58,7 @@ int ubi_dev_mount(const struct ubi_mtd *mtd)
 	int ret = flash_area_open(mtd->partition_id, &fa);
 
 	if (ret != 0) {
+		LOG_ERR("Flash area open failure");
 		return ret;
 	}
 
@@ -85,6 +87,7 @@ int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
 	const int ret = ubi_flash_res_peb_validate(mtd, &dev_hdr);
 
 	if (ret != 0 && ret != -EROFS) {
+		LOG_ERR("Reserved PEB validation failure");
 		return ret;
 	}
 
@@ -106,6 +109,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 
 	/* Allow reads in read-only degraded mode */
 	if (ret != 0 && ret != -EROFS) {
+		LOG_ERR("Reserved PEB validation failure");
 		return ret;
 	}
 
@@ -114,10 +118,12 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	ret = ubi_flash_res_peb_scan(mtd, &scan);
 
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB scan failure");
 		return ret;
 	}
 
 	if (scan.active_count == 0) {
+		LOG_ERR("No active reserved PEBs found");
 		return -EIO;
 	}
 
@@ -125,6 +131,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	ret = flash_area_open(mtd->partition_id, &fa);
 
 	if (ret != 0) {
+		LOG_ERR("Flash area open failure");
 		return ret;
 	}
 
@@ -136,11 +143,13 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	ret = flash_area_read(fa, offset, &vol_hdr, sizeof(vol_hdr));
 
 	if (ret != 0) {
+		LOG_ERR("Volume header flash read failure");
 		flash_area_close(fa);
 		return ret;
 	}
 
 	if (vol_hdr.magic != UBI_VOL_HDR_MAGIC) {
+		LOG_ERR("Volume header bad magic");
 		flash_area_close(fa);
 		return -EBADMSG;
 	}
@@ -149,6 +158,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 		crc32_ieee((const uint8_t *)&vol_hdr, sizeof(vol_hdr) - sizeof(vol_hdr.hdr_crc));
 
 	if (crc != vol_hdr.hdr_crc) {
+		LOG_ERR("Volume header CRC mismatch");
 		flash_area_close(fa);
 		return -EBADMSG;
 	}
@@ -232,7 +242,7 @@ exit:
 }
 
 int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
-		       const size_t index)
+		       const uint32_t vol_id)
 {
 	if (!mtd || !dev_hdr)
 		return -EINVAL;
@@ -251,12 +261,6 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	if (cur_hdr.vol_count == 0) {
 		LOG_ERR("No volumes to remove");
 		ret = -EINVAL;
-		goto exit;
-	}
-
-	if (index > (cur_hdr.vol_count - 1)) {
-		LOG_ERR("Volume index out of range");
-		ret = -EACCES;
 		goto exit;
 	}
 
@@ -285,16 +289,16 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	memcpy(&content[content_off], dev_hdr, UBI_DEV_HDR_SIZE);
 	content_off += UBI_DEV_HDR_SIZE;
 
-	for (size_t vol_idx = 0; vol_idx < cur_hdr.vol_count; ++vol_idx) {
-		if (vol_idx != index) {
-			struct ubi_vol_hdr exist_vol_hdr = { 0 };
-			ret = ubi_vol_hdr_read(mtd, vol_idx, &exist_vol_hdr);
+	for (size_t i = 0; i < cur_hdr.vol_count; ++i) {
+		struct ubi_vol_hdr exist_vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(mtd, i, &exist_vol_hdr);
 
-			if (ret != 0) {
-				LOG_ERR("Volume header read failed during remove");
-				goto exit;
-			}
+		if (ret != 0) {
+			LOG_ERR("Volume header read failed during remove");
+			goto exit;
+		}
 
+		if (exist_vol_hdr.vol_id != vol_id) {
 			memcpy(&content[content_off], &exist_vol_hdr, UBI_VOL_HDR_SIZE);
 			content_off += UBI_VOL_HDR_SIZE;
 		}
@@ -309,7 +313,7 @@ exit:
 }
 
 int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
-		       const size_t index, const struct ubi_vol_hdr *vol_hdr)
+		       uint32_t vol_id, size_t new_leb_count)
 {
 	if (!mtd || !dev_hdr) {
 		return -EINVAL;
@@ -328,12 +332,6 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 
 	if (cur_hdr.vol_count == 0) {
 		LOG_ERR("No volumes to update");
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	if (index > (cur_hdr.vol_count - 1)) {
-		LOG_ERR("Volume index out of range");
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -357,22 +355,24 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	memcpy(&content[content_off], dev_hdr, UBI_DEV_HDR_SIZE);
 	content_off += UBI_DEV_HDR_SIZE;
 
-	for (size_t vol_idx = 0; vol_idx < cur_hdr.vol_count; ++vol_idx) {
-		if (vol_idx != index) {
-			struct ubi_vol_hdr exist_vol_hdr = { 0 };
-			ret = ubi_vol_hdr_read(mtd, vol_idx, &exist_vol_hdr);
+	for (size_t i = 0; i < cur_hdr.vol_count; ++i) {
+		struct ubi_vol_hdr exist_vol_hdr = { 0 };
+		ret = ubi_vol_hdr_read(mtd, i, &exist_vol_hdr);
 
-			if (ret != 0) {
-				LOG_ERR("Volume header read failed during update");
-				goto exit;
-			}
-
-			memcpy(&content[content_off], &exist_vol_hdr, UBI_VOL_HDR_SIZE);
-			content_off += UBI_VOL_HDR_SIZE;
-		} else {
-			memcpy(&content[content_off], vol_hdr, sizeof(*vol_hdr));
-			content_off += UBI_VOL_HDR_SIZE;
+		if (ret != 0) {
+			LOG_ERR("Volume header read failed during update");
+			goto exit;
 		}
+
+		if (exist_vol_hdr.vol_id == vol_id) {
+			exist_vol_hdr.leb_count = new_leb_count;
+			exist_vol_hdr.hdr_crc =
+				crc32_ieee((const uint8_t *)&exist_vol_hdr,
+					   sizeof(exist_vol_hdr) - sizeof(exist_vol_hdr.hdr_crc));
+		}
+
+		memcpy(&content[content_off], &exist_vol_hdr, UBI_VOL_HDR_SIZE);
+		content_off += UBI_VOL_HDR_SIZE;
 	}
 
 	if (content_off != content_len) {
