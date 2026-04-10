@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-04-10
+
+### Changed
+
+- **Secure on-flash architecture rewrite v5** (`doc/design_proposal_crypto.md`):
+  - added mode detection section (1.2): normative v1 rules for PLAIN vs SECURE format detection, mixed-mode attach rejection, forbidden silent fallback and automatic reformat,
+  - normative KDF encoding: replaced recommended canonical form with exact HKDF-SHA-256 extract/expand labels for all child keys (`K_dev`, `K_vol`, `K_ec`, `K_vid`, `K_leb`), fixed output length and encoding rules,
+  - normative chunk subkey derivation: two-step HKDF with explicit `PRK_leb` extract and per-chunk expand labels,
+  - single-tag CCM payload limit and geometry guard: added `secure_leb_payload_bytes_single` formula, validity condition, and fallback requirement (chunked mode or reject),
+  - zero-length LEB encoding: defined behaviour for `data_size == 0` in both single-tag and chunked mode,
+  - tail-padding and alignment rules for single-tag mode: extra bytes after `tag16` must be flash erased value and lie outside the authenticated record,
+  - added parent secure-EC `key_version` to secure VID and secure LEB AAD binding,
+  - naming note for `volume_id` vs `vol_idx` and export-width note for `device_revision`,
+  - expanded test plan (Appendix B): reorganised from 4 to 7 categories with new items (zero-length record interrupts, rollback freshness-store, forced-rekey, key-usage exhaustion, replay/tamper validation, layout/geometry validation),
+  - added Appendix C – Release checklist for SECURE v1 (critical format constraints, implementation notes, validation checklist).
+
 ## [0.30.0] - 2026-04-09
 
 ### Added

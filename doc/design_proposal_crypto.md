@@ -66,13 +66,28 @@ In plain language, this means:
 
 This specification assumes that the plain UBI core already provides these baseline properties:
 
-- data-PEB commit order is `EC -> DATA -> VID`,
+- reclaimed data PEBs receive a valid EC header before they re-enter the free pool, and the mapping-visible write order on such a PEB is `DATA -> VID`,
 - initialization distinguishes `free` from `uncommitted` by checking both the VID area and the beginning of the LEB area,
 - erased-state checks use the runtime flash erased value and never hardcode `0xFF`,
 - all commit-visible mutating operations pass through one central mutation gate,
 - `vol_idx` remains a dense slot index, while `volume_id` is a durable, monotonically allocated identifier that is not reused during the lifetime of one formatted device.
 
 Those assumptions matter because SECURE mode reuses the same logical object model and the same recovery points. In particular, the secure design relies on `VID` being the commit-visible mapping record and on `volume_id` being a stable namespace input for per-volume key derivation and usage recovery.
+
+### 1.2 Mode detection and out-of-scope transitions
+
+PLAIN and SECURE are different on-flash formats.
+
+Normative v1 rule:
+
+- a SECURE build shall attach only SECURE-formatted media,
+- a plain build shall attach only plain-formatted media,
+- mixed-mode attach is unsupported,
+- silent fallback is forbidden,
+- automatic reformat is forbidden,
+- in-place migration between PLAIN and SECURE is out of scope for v1 and must be rejected.
+
+The practical detection point is the reserved area. SECURE media are identified by the secure wrapper magic at the reserved-header locations. A mode mismatch is a format mismatch, not a conversion opportunity.
 
 ---
 
@@ -235,6 +250,12 @@ A dense slot index used by the plain UBI core to address the volume table in RAM
 **Volume identifier (`volume_id`)**  
 A durable identifier assigned when a volume is created. `volume_id` is monotonic, persists across reboot, and is not reused during the lifetime of one formatted device. SECURE mode uses `volume_id`, not `vol_idx`, as the per-volume cryptographic identity.
 
+**Naming note for v1**  
+The term `volume_id` in this document names the durable per-volume identity currently carried by the plain-core `vol_id` field. The longer name is intentional: it distinguishes that identity from the reusable dense `vol_idx` slot index.
+
+**Export-width note for `device_revision`**  
+The API may expose `device_revision` as a widened integer type for convenience. If a concrete implementation stores a narrower on-flash revision field, widening must preserve the numeric value and ordering semantics.
+
 ### 4.2 Core invariants
 
 After successful initialization:
@@ -303,6 +324,23 @@ This must be enforced both:
 
 - as a compile-time guard for supported geometries, and
 - as a runtime rejection if a larger geometry is somehow presented.
+
+For the base single-tag secure LEB layout, the maximum logical payload on one data PEB is:
+
+```text
+secure_leb_payload_bytes_single = peb_size - 208
+```
+
+Therefore single-tag mode is valid only if:
+
+```text
+peb_size - 208 < 65536
+```
+
+If that condition is false for the selected geometry, SECURE v1 must either:
+
+- require chunked LEB mode for that geometry, or
+- reject SECURE mode at build time or initialization time.
 
 ### 5.3 Why UBI tracks both operations and total bytes
 
@@ -382,23 +420,42 @@ If a platform cannot provide all of the following, SECURE mode is unsupported on
 
 ### 6.2 Child keys
 
-UBI derives child keys from `IKM[v]` using **HKDF-SHA-256** with **canonical binary context strings**.
+UBI derives child keys from `IKM[v]` using **HKDF-SHA-256**.
 
-Recommended canonical form:
+In v1, the KDF encoding is **normative**.
+
+Extract step:
 
 ```text
-info = "UBI" || 0x00 || domain_id || 0x00 || version || optional_domain_context
+PRK[v] = HKDF-Extract(salt = "", IKM[v])
 ```
 
-Derived keys:
+Expand-step output length:
 
 ```text
-K_dev[v]
-K_vol[v]
-K_ec[v]
-K_vid[v]
+L = 16 bytes
+```
+
+Exact v1 expand labels:
+
+```text
+K_dev[v] = HKDF-Expand(PRK[v], "UBI" || 0x00 || "DEV" || 0x00 || 0x01, L)
+K_vol[v] = HKDF-Expand(PRK[v], "UBI" || 0x00 || "VOL" || 0x00 || 0x01, L)
+K_ec[v]  = HKDF-Expand(PRK[v], "UBI" || 0x00 || "EC"  || 0x00 || 0x01, L)
+K_vid[v] = HKDF-Expand(PRK[v], "UBI" || 0x00 || "VID" || 0x00 || 0x01, L)
 K_leb[v][volume_id]
+         = HKDF-Expand(PRK[v],
+                       "UBI" || 0x00 || "LEB" || 0x00 || 0x01 || be32(volume_id),
+                       L)
 ```
+
+Normative rules for v1:
+
+- HKDF salt is the zero-length string in the definitions above.
+- `0x01` is the SECURE v1 wrapper/KDF version byte.
+- all integer fields inside KDF context are big-endian,
+- `volume_id` is encoded as `be32(volume_id)`,
+- the exact label bytes above are part of v1 on-flash compatibility and must not change within wrapper version 1.
 
 The LEB key is volume-specific. That is why the LEB usage budget is tracked per:
 
@@ -416,15 +473,29 @@ If chunked secure LEB mode is enabled, the base LEB key remains:
 K_leb[v][volume_id]
 ```
 
-Each chunk then derives a deterministic subkey:
+Chunk subkeys use a second normative HKDF step.
+
+Let:
 
 ```text
-K_leb_chunk[v][volume_id][chunk_index]
-    = HKDF(K_leb[v][volume_id],
-           info = "UBI\0LEB-CHUNK\0" || be16(chunk_index))
+PRK_leb[v][volume_id] = HKDF-Extract(salt = "", K_leb[v][volume_id])
 ```
 
-This keeps the on-flash prefix unchanged while still giving each chunk its own cryptographic context.
+Then for chunk index `i`:
+
+```text
+K_leb_chunk[v][volume_id][i]
+    = HKDF-Expand(PRK_leb[v][volume_id],
+                  "UBI" || 0x00 || "LEB-CHUNK" || 0x00 || 0x01 || be16(i),
+                  16)
+```
+
+Normative rules:
+
+- `i` is encoded as `be16(i)`,
+- chunk subkeys are derived only when chunked mode is active,
+- implementations should derive chunk subkeys lazily for touched chunks,
+- SECURE v1 does not require pre-deriving or persisting a full per-volume chunk-key table.
 
 ### 6.4 Why secure records are separate types
 
@@ -565,8 +636,13 @@ Important points:
 
 - `payload_bytes` is the current logical payload length,
 - `payload_bytes` is taken from authenticated `vid_hdr.data_size`,
+- if authenticated `vid_hdr.data_size == 0`, SECURE v1 still writes a zero-length secure LEB record using the base `prefix32 || tag16` layout with zero ciphertext bytes,
+- for that zero-length case, `leb_write_counter` still advances while `leb_total_payload_bytes` does not,
+- single-tag mode is valid only when authenticated `payload_bytes < 65536`,
 - the architecture does **not** require buffering the full maximum LEB capacity when the logical payload is shorter,
-- but single-tag mode still requires full authentication of the complete recorded payload before any plaintext may be returned.
+- but single-tag mode still requires full authentication of the complete recorded payload before any plaintext may be returned,
+- if flash write alignment requires a longer terminal write, any extra bytes must appear only after `tag16`, must be written as the flash erased value, and are outside the authenticated record,
+- read-side record length comes only from authenticated `vid_hdr.data_size`; trailing tail bytes after `tag16` are ignored.
 
 ### 7.8 Secure LEB record (chunked mode)
 
@@ -590,10 +666,11 @@ Rules:
 chunk_count = ceil(data_size / chunk_size)
 ```
 
+- if `data_size == 0`, then `chunk_count == 0` and SECURE v1 falls back to the zero-length base record `prefix32 || tag16`; no chunk subkeys are derived and no per-chunk tags are present,
 - if chunk ciphertext is written directly to flash, `chunk_size` should be a multiple of the flash write alignment,
 - if one `(chunk ciphertext || tag)` write would violate the target flash alignment rule, the implementation must either use an aligned staging buffer or reject the configuration.
 
-Chunked mode is optional because it trades more flash overhead for better partial-read behavior and lower RAM pressure.
+Chunked mode is optional only for geometries where single-tag mode is valid. For geometries that violate the single-tag CCM payload limit, chunked mode becomes mandatory if SECURE v1 is supported at all.
 
 ### 7.9 Integrity semantics of inner CRC fields
 
@@ -705,7 +782,8 @@ AAD fields:
 - full `prefix32`,
 - data PEB physical eraseblock index,
 - VID-header flash offset from the start of the UBI partition,
-- authenticated `ec_hdr.ec`.
+- authenticated `ec_hdr.ec`,
+- authenticated parent secure-EC `key_version`.
 
 #### Secure LEB record
 
@@ -715,6 +793,7 @@ AAD fields:
 - data PEB physical eraseblock index,
 - LEB-data flash offset from the start of the UBI partition,
 - authenticated `ec_hdr.ec`,
+- authenticated parent secure-EC `key_version`,
 - authenticated `vid_hdr.volume_id`,
 - authenticated `vid_hdr.lnum`,
 - authenticated `vid_hdr.sqnum`,
@@ -1005,12 +1084,18 @@ This rule is critical.
 
 Without the extra check on the secure LEB start, a `DATA -> VID` interrupted write could be misclassified as free.
 
-### 10.4 Why the write order is EC -> DATA -> VID
+### 10.4 Why the mapping-visible write order is DATA -> VID
 
-The secure data-path commit order is:
+A free data PEB already carries a valid secure EC header before it is selected for a new mapping. Therefore the commit-visible order for one mapping update is:
 
 ```text
-EC -> DATA -> VID
+DATA -> VID
+```
+
+Across the longer PEB lifecycle, reclaim still follows:
+
+```text
+ERASE -> EC -> free-pool -> DATA -> VID
 ```
 
 Reason:
@@ -1114,7 +1199,11 @@ For a secure LEB write:
 
 1. choose a free data PEB,
 2. keep its existing secure EC header,
-3. build the secure LEB record with the next `{key_version, volume_id}` usage state,
+3. choose the secure LEB encoding:
+   - if `payload_bytes == 0`, build the zero-length base record `prefix32 || tag16`,
+   - else if single-tag mode is valid for the selected geometry, build the single-tag secure LEB record,
+   - else if chunked mode is enabled, build the chunked secure LEB record,
+   - else reject the write,
 4. write the secure LEB record,
 5. build the secure VID header using:
    - new `vid_sqnum`,
@@ -1127,6 +1216,8 @@ For a secure LEB write:
 10. schedule or perform a post-commit freshness sync according to policy.
 
 At the moment of step 6, the new write becomes commit-visible.
+
+For zero-length writes, the empty secure LEB record is still written before VID so that the normal `DATA -> VID` classification and nonce/counter semantics remain unchanged.
 
 ### 11.5 Erase / reclaim path
 
@@ -1165,6 +1256,8 @@ So a partial logical read means:
 
 This is why single-tag mode is simple but RAM- and latency-heavy.
 
+If authenticated `data_size == 0`, the read path authenticates the zero-length base record and returns length `0`.
+
 ### 12.3 Chunked LEB reads
 
 In chunked mode, UBI authenticates only the chunks that cover the requested byte range.
@@ -1181,6 +1274,8 @@ The cost is:
 - more flash overhead,
 - more AEAD operations,
 - more implementation complexity.
+
+If authenticated `data_size == 0`, chunked mode derives no chunk subkeys and uses the same zero-length base record as single-tag mode.
 
 ---
 
@@ -1287,10 +1382,9 @@ Normal rule:
 
 - no wrap-around reuse during the lifetime of one formatted device.
 
-A previously used `key_version` may be reused only after one of these is true:
+SECURE v1 does **not** define normal-operation reuse of a previously used `key_version`.
 
-- full device reformat / scrub,
-- or the application has cryptographically and operationally established that no object anywhere on flash still references that version.
+If a future external provisioning or full-device scrub flow ever exists outside this specification, that flow would need to define its own reset semantics explicitly. Until then, a previously used `key_version` is treated as unavailable for reuse.
 
 ### 13.6 Ownership of key destruction and zeroization
 
@@ -1303,6 +1397,12 @@ That means the ownership split is:
 - zeroization of root material is the responsibility of PSA, the secure element, or the application provisioning system.
 
 UBI should therefore report retirement opportunities, but it should not claim ownership over the lifetime of raw root-key bytes that it never receives.
+
+Implementation hygiene requirements:
+
+- any UBI-owned plaintext scratch buffer, aligned staging buffer, or software-derived child key material that exists outside PSA must be zeroized before release or reuse,
+- if derived child keys are cached in RAM, cache lifetime must be bounded to one attach session and entries must be invalidated on device detach, init failure, or when the corresponding key version is no longer usable,
+- platforms that can keep child keys as non-exportable PSA objects should prefer that flow.
 
 ### 13.7 Lazy rekey versus forced rekey after compromise
 
@@ -1321,7 +1421,32 @@ UBI provides the mechanisms needed for either strategy:
 - retirement detection,
 - crash-safe rewrite paths.
 
+A critical operational point is that rewriting all live mappings under a new key version is **not** the same thing as retiring the old key immediately. Old EC headers on free PEBs, stale reserved generations, and dirty data pending erase can still keep the old key version operationally required.
+
+So if a key version is considered compromised and the product wants immediate retirement semantics, the application may need more than ordinary live-data rewrite:
+
+- accelerated reclaim,
+- explicit scrub of stale media state,
+- stricter allowlist changes only after the old key refcount reaches zero.
+
+Lazy rewrite alone is not a sufficient compromise-response guarantee.
+
 The policy choice between lazy and forced rekey remains with the application.
+
+### 13.8 Operational retirement levels
+
+For operator clarity, SECURE v1 should distinguish four states:
+
+1. **soft rotation**  
+   New writes use a newer key version.
+2. **live rewrite completed**  
+   All currently live mappings have been rewritten under the newer key version.
+3. **media scrub completed**  
+   Stale reserved generations, dirty data, and free-PEB EC objects that still reference the old key version have been eliminated.
+4. **key retired**  
+   The old key version has on-flash refcount zero and can be removed from the allowlist.
+
+`KEY_RETIRABLE` corresponds to the transition into state 4.
 
 ---
 
@@ -1403,7 +1528,54 @@ The current repository already constrains:
 
 The secure format must respect those existing bounds.
 
-### 15.1 Chunked-mode geometry check
+### 15.1 Reserved-generation fit check
+
+For one secure reserved generation:
+
+```text
+reserved_generation_bytes = 80 + 96 * volume_count
+```
+
+where `volume_count` means the number of secure volume headers present in that generation.
+
+SECURE v1 is valid only if:
+
+```text
+reserved_generation_bytes <= peb_size
+```
+
+This shall be enforced:
+
+- at build time for fixed geometries,
+- or at initialization time for runtime-discovered geometries.
+
+Example maximum `volume_count` values for one reserved generation:
+
+| Reserved PEB size | Max `volume_count` |
+|---|---:|
+| 4 KiB  | 41 |
+| 8 KiB  | 84 |
+| 16 KiB | 169 |
+
+If the configured or discovered geometry cannot satisfy this bound, SECURE mode must be rejected.
+
+### 15.2 Single-tag CCM geometry check
+
+For single-tag secure LEB mode, the maximum logical payload on one data PEB is:
+
+```text
+secure_leb_payload_bytes_single = peb_size - 208
+```
+
+Because AES-CCM with `nonce_len = 13` implies `q = 2`, single-tag SECURE v1 requires:
+
+```text
+peb_size - 208 < 65536
+```
+
+If this bound is violated for the selected geometry, single-tag mode shall not be used. The implementation must either require chunked mode for that geometry or reject SECURE mode.
+
+### 15.3 Chunked-mode geometry check
 
 If chunked secure LEB mode is enabled, the implementation must verify that the selected geometry still leaves space for user payload.
 
@@ -1470,6 +1642,8 @@ Examples:
 
 If an implementation stages one entire reserved generation in RAM before writing it, the same formula is a conservative upper bound for that staging buffer. A streaming implementation may use less.
 
+This is not only a cost figure. It is also a hard format constraint: one secure reserved generation must fit inside one reserved PEB.
+
 ### 17.2 Data-area overhead (single-tag mode)
 
 Compared with plain UBI:
@@ -1495,6 +1669,8 @@ Chunked mode adds:
 ```
 
 extra tag overhead beyond the base single-tag layout.
+
+For `64 KiB` data PEBs, the base single-tag secure payload is still below the CCM `q = 2` limit. For larger data PEBs, single-tag mode ceases to be valid and chunked mode becomes mandatory if SECURE v1 is supported.
 
 The exact maximum payload in chunked mode is the greatest `S` that satisfies:
 
@@ -1582,11 +1758,17 @@ for:
 - lower per-read RAM,
 - lower partial-read latency.
 
-### 17.5 Alignment constraints for chunked mode
+### 17.5 Alignment constraints for single-tag and chunked mode
 
-Chunked mode should state the flash-alignment rules explicitly.
+Single-tag mode rules:
 
-The minimum rule is:
+- authenticated record length is exactly `32 + data_size + 16`,
+- if flash write alignment requires a longer terminal write, extra bytes may appear only after `tag16`,
+- those tail bytes must be written as the flash erased value,
+- tail bytes are outside ciphertext and AAD,
+- read-side record length is determined only from authenticated `vid_hdr.data_size`.
+
+Chunked mode minimum rules:
 
 - `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` should be a multiple of the target flash write alignment.
 
@@ -1775,12 +1957,14 @@ Remaining follow-up items that still sit outside the on-flash format itself are:
 ```text
 1. native_sim synthetic power-cut tests
    - interrupt after DATA but before VID
+   - interrupt zero-length DATA record before VID
    - interrupt reserved-generation writes at deterministic points
    - reboot and verify selection / classification outcomes
 
 2. secure-mode policy tests
    - init freshness callback accept / reject
    - post-commit freshness sync callback success / failure
+   - rollback freshness-store state older/newer than flash
    - delta-based freshness sync scheduling
    - strict read-only transitions on RNG or policy failure
 
@@ -1789,15 +1973,56 @@ Remaining follow-up items that still sit outside the on-flash format itself are:
    - allowlist enforcement
    - unavailable key-version handling
    - mixed-key-version recovery during rotation
+   - forced-rekey behavior while stale free/dirty/reserved objects still exist
+   - key-usage exhaustion and `ROTATE_NOW`
 
-4. chunked-mode validation
-   - chunked partial-read correctness
+4. replay / tamper validation
+   - replay stale EC / VID / LEB objects into other locations
+   - parent-child AAD binding failures
+   - mode mismatch and wrong-format attach rejection
+
+5. layout and geometry validation
+   - zero-length LEB encoding
+   - reserved-generation fit guard
+   - single-tag CCM-size guard
+   - single-tag tail-padding / alignment guard
    - chunked geometry guard
    - chunked alignment guard
+
+6. chunked-mode validation
+   - chunked partial-read correctness
    - chunked cost / latency characterization
 
-5. local hardware validation
+7. local hardware validation
    - flash timing and latency measurements
    - RAM-footprint measurements
    - manual power-cut experiments on real boards
 ```
+
+
+---
+
+## Appendix C. Release checklist for SECURE v1
+
+### C.1 Critical format constraints
+
+- enforce reserved-generation fit against geometry,
+- enforce the single-tag CCM payload limit and require chunked mode or reject SECURE,
+- keep the zero-length LEB encoding fixed,
+- keep single-tag tail-padding behavior fixed,
+- reject cross-mode attach; mixed-mode migration and automatic reformat remain out of scope for v1.
+
+### C.2 Important implementation notes
+
+- use the operational retirement levels from section 13.8 when describing key lifecycle,
+- include parent secure-EC `key_version` in child AAD binding,
+- zeroize plaintext scratch and software-derived child-key buffers,
+- keep `volume_id` as the durable cryptographic identity and treat `vol_idx` only as a dense slot index,
+- if the API widens `device_revision`, preserve on-flash numeric ordering semantics.
+
+### C.3 Validation expected before upstream
+
+- complete Appendix B,
+- run at least limited manual power-cut testing on real hardware,
+- verify PSA-only failure paths, including RNG failure and missing key material,
+- verify zero-length, mixed-key, and chunked-mode corner cases under recovery.
