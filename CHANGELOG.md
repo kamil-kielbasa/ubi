@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-04-11
+
+### Changed
+
+- **Secure on-flash architecture rewrite v6** (`doc/design_proposal_crypto.md`):
+  - expanded central design ideas from four to six: added "key lifecycle is first-class" and "future-write recovery state lives only in authenticated, commit-visible carriers",
+  - **hidden per-volume anchor PEB** (new sections 7.9, 9.8.2, 9.8.3): each secure volume owns one internal anchor data PEB (`INTERNAL_ANCHOR_LNUM`) that preserves per-volume LEB usage state (`leb_write_counter`, `leb_total_auth_bytes`) when user mappings disappear through unmap, shrink, or erase,
+  - **secure device header now carries crypto metadata** (`ubi_dev_secure_meta`): authenticated `write_active_key_version` and monotonic `vid_next_counter_floor` for global VID-domain continuity; device header size increased from 80 B to 96 B,
+  - **counter continuity framework** (new section 9.8): full continuity matrix for all counter families, hidden-anchor lifecycle diagrams, VID-domain floor snapshot in secure device header, and design rationale for why each domain uses a different continuity mechanism,
+  - renamed child keys to full domain names: `K_dev` → `K_device_header`, `K_vol` → `K_volume_header`, `K_ec` → `K_erase_counter`, `K_vid` → `K_volume_identifier`; added Mermaid key hierarchy diagram,
+  - renamed LEB usage metric: `leb_total_payload_bytes` → `leb_total_auth_bytes` (AAD + payload plaintext bytes) to reflect actual CCM key usage,
+  - **simplified chunked mode**: removed per-chunk HKDF subkey derivation; all chunks reuse the base `K_leb[key_version][volume_id]` with per-chunk nonce counter increments and `chunk_index` in AAD,
+  - **expanded write-budget enforcement**: separate AEAD-invocation and authenticated-byte budgets for metadata, VID, and LEB domains with detailed projected-post-write arithmetic,
+  - **precise AAD byte layouts**: all five record types now have exact AAD specifications with byte sizes (device header 44 B, volume header 53 B, EC 44 B, VID 53 B, LEB single-tag 74 B, LEB chunked 78 B); added parent secure-device `key_version` in volume-header AAD and parent secure-VID `key_version` in LEB AAD,
+  - changed allowlist model from bitmap to explicit `uint8_t` array with `allowed_key_versions_len`,
+  - event callback now returns `ubi_crypto_event_verdict` (CONTINUE or ENTER_READ_ONLY) instead of void,
+  - policy struct redesigned: `write_key_version` → `requested_write_key_version` (optional forward-rotation request), removed `secure_required` and `strict_ro_*` booleans,
+  - new read-only semantics section (14.4): read-only is sticky per attach session, not persisted on flash,
+  - new "who decides whether UBI keeps running" section (14.5): separation of Kconfig, API return codes, and event callback roles,
+  - restructured section 3: new "What SECURE mode gives the application" (3.1) and "Core guarantees and explicit boundary" (3.2),
+  - core invariants expanded from 9 to 12: hidden anchor invariant, secure device header authenticated state, write-active key version monotonicity,
+  - expanded data write path (11.5) with counter arithmetic, 48-bit nonce overflow guard, projected budget checks; new erase/reclaim path with hidden-anchor preservation (11.6); new volume creation with anchor initialization (11.4); new unmap/shrink semantics section (11.7),
+  - added Mermaid sequence diagrams for attach-time and runtime API interaction flows,
+  - new hidden-anchor capacity cost analysis (17.4, 17.5): one data PEB per secure volume, space-for-simplicity trade-off,
+  - new Kconfig table format with descriptions; added `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `CONFIG_UBI_CRYPTO_MAX_ALLOWLIST_LEN`, `CONFIG_UBI_CRYPTO_PEB_CACHE`, `CONFIG_UBI_CRYPTO_PEB_CACHE_STATIC`,
+  - removed `ubi_crypto_key_id_t` typedef, callback directly uses `psa_key_id_t`,
+  - de-versioned struct names: `ubi_crypto_prefix32_v1` → `ubi_crypto_prefix32`, `ubi_vid_secure_meta_v1` → `ubi_vid_secure_meta`, `ubi_crypto_freshness_v1` → `ubi_crypto_freshness`,
+  - de-versioned language throughout: removed "v1" references, uses "current format" or "SECURE",
+  - Mermaid key-lifecycle retirement diagram,
+  - expanded Appendix B: added lifecycle corner cases category and 48-bit counter-overflow test,
+  - updated Appendix C release checklist: hidden-anchor, VID floor reconstruction, refcount-driven retirement verification.
+
 ## [0.31.0] - 2026-04-10
 
 ### Changed
