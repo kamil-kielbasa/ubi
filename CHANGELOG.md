@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-04-11
+
+### Changed
+
+- **Secure architecture promoted to first-class documentation** (`doc/secure_architecture.md`): `doc/design_proposal_crypto.md` renamed to `doc/secure_architecture.md` — the full-flash authenticated encryption design is now a peer architecture document alongside the plain UBI architecture, reflecting its maturity as an implementation-ready specification.
+- **Plain architecture renamed** (`doc/plain_architecture.md`): `doc/architecture.md` renamed to `doc/plain_architecture.md` to distinguish the plain UBI internals from the secure extension. Added cross-reference to the Secure Architecture Guide.
+- **Documentation updated**: README documentation table, Sphinx index, overview, roadmap, and contributing guide updated with the new document names and links. Secure Architecture is now visible alongside Plain Architecture in all navigation paths.
+
 ## [0.32.0] - 2026-04-11
 
 ### Changed

@@ -100,7 +100,8 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 |----------|--------------------|
 | [Overview](https://kamil-kielbasa.github.io/ubi/overview.html) | Mental model, key concepts (PEB/LEB/EC/VID), how it works in 6 steps |
 | [Introduction](https://kamil-kielbasa.github.io/ubi/introduction.html) | Why UBI on Zephyr, feature summary, resource usage profile |
-| [Architecture](https://kamil-kielbasa.github.io/ubi/architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery |
+| [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery |
+| [Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html) | Authenticated encryption of all on-flash structures — key hierarchy, nonce/AAD, counter continuity, anchors, freshness exports |
 | [Getting Started](https://kamil-kielbasa.github.io/ubi/getting_started.html) | Build instructions, test suite, coverage, code formatting |
 | [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) | Kconfig options, DeviceTree overlays, sizing guidelines |
 | [API Reference](https://kamil-kielbasa.github.io/ubi/api.html) | Auto-generated from Doxygen — all public types and functions |
@@ -124,7 +125,7 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 |----------|--------------|
 | Wear-leveling across all PEBs | Provide a filesystem (no files, directories, or POSIX API) |
 | Bad block detection and isolation | Replace a hardware FTL (eMMC, SD) |
-| Multiple named logical volumes | Offer encryption (crypto layer is planned, see [Roadmap](https://kamil-kielbasa.github.io/ubi/roadmap.html)) |
+| Multiple named logical volumes | Offer encryption — see [Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html) |
 | Crash-safe metadata via dual-bank | Guarantee power-loss atomicity for user data writes |
 | Dynamic volume resize | Shell commands for interactive device management (planned) |
 

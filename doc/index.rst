@@ -28,7 +28,8 @@ New to UBI? Read these pages first:
    why_ubi_for_zephyr
    overview
    introduction
-   architecture
+   plain_architecture
+   secure_architecture
 
 .. toctree::
    :maxdepth: 2
@@ -49,6 +50,5 @@ New to UBI? Read these pages first:
    :caption: Project
 
    roadmap
-   design_proposal_crypto
    contributing
    changelog

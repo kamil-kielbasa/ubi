@@ -24,6 +24,8 @@ These rules hold at all times after a successful `ubi_device_init()`:
 | Free pool is EC-ordered | `free_pebs` is a red-black tree keyed by erase count. `rb_get_min()` always returns the least-worn block. |
 | Mutex serialization | All public API calls acquire a per-device mutex. UBI is thread-safe but not ISR-safe. |
 
+**Secure extension:** For authenticated encryption of all on-flash structures, see the [Secure Architecture Guide](secure_architecture.md).
+
 ---
 
 ## Flash Storage Primer

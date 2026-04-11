@@ -4,7 +4,7 @@
 
 **Prerequisites:** None. This is the recommended starting point.
 
-**After reading this:** You will understand UBI's role in the storage stack, its five key concepts, and the basic lifecycle of data. For implementation details, continue to the [Architecture Guide](architecture.md).
+**After reading this:** You will understand UBI's role in the storage stack, its five key concepts, and the basic lifecycle of data. For implementation details, continue to the [Plain Architecture Guide](plain_architecture.md).
 
 ---
 
@@ -93,5 +93,6 @@ See [Configuration](configuration.md) for the full reference.
 ## Next Steps
 
 - [Introduction](introduction.md) — deeper context on why UBI exists, comparison with other Zephyr storage options, and resource usage profile.
-- [Architecture Guide](architecture.md) — on-flash layout, header formats, in-RAM structures, operation flows, dual-bank mechanism, and failure handling.
+- [Plain Architecture Guide](plain_architecture.md) — on-flash layout, header formats, in-RAM structures, operation flows, dual-bank mechanism, and failure handling.
+- [Secure Architecture Guide](secure_architecture.md) — authenticated encryption, key hierarchy, counter continuity, and application-facing freshness.
 - [Getting Started](getting_started.md) — build, test, and evaluate UBI on the simulator in minutes.

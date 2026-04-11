@@ -6,7 +6,7 @@ Planned features and improvements for UBI on Zephyr. Items are listed by priorit
 
 | Feature | Priority | Status | Description |
 |---------|----------|--------|-------------|
-| Crypto layer (authenticated encryption) | High | Design | AES-128-CCM encryption of all on-flash structures via PSA Crypto |
+| Crypto layer (authenticated encryption) | High | Architecture | AES-128-CCM encryption of all on-flash structures via PSA Crypto |
 | Shell commands | Low | Planned | Port Linux UBI CLI utilities to Zephyr shell commands |
 
 ## Details
@@ -21,7 +21,7 @@ Key capabilities:
 - **Key rotation** re-encrypts all PEBs in-place with a new key (crash-safe, PEB-by-PEB).
 - **External AAD callback** lets applications bind LEB data to application-specific context.
 
-Full design: [design_proposal_crypto.md](design_proposal_crypto.md).
+Full design: [secure_architecture.md](secure_architecture.md).
 
 ### Shell Commands
 

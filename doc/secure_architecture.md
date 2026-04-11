@@ -1,19 +1,16 @@
-# UBI Secure On-Flash Architecture
+# UBI Secure Architecture Guide
 
-**Status:** architecture specification  
-**Scope:** secure UBI device format for Zephyr  
-**Audience:** UBI developers, maintainers, and reviewers
+**What this page covers:** SECURE on-flash format for UBI — encrypted device and volume metadata, encrypted EC/VID/data records, key hierarchy, nonce/AAD rules, counter continuity, anchors, and application-facing freshness.  
+**Prerequisites:** Read the [Overview](overview.md) and the [Plain Architecture Guide](plain_architecture.md) first for the plain UBI mental model, `volume_id`, `sqnum`, reserved PEB mirroring, and the `DATA -> VID` crash model.  
+**What you will learn:** What SECURE mode changes, what it gives the application, how rollback detection plugs into UBI, and how future-write counters survive reclaim and volume removal.
 
 ---
 
-## 1. Two-minute overview
+## 1. 30-second summary
 
-A UBI device works in exactly one mode:
+A UBI device works in exactly one mode: **PLAIN** or **SECURE**.
 
-- **PLAIN**
-- **SECURE**
-
-In **SECURE** mode, UBI stores the same logical objects as plain UBI, but each object is wrapped in authenticated encryption:
+SECURE keeps the plain UBI object model and crash model, but wraps every commit-visible object in authenticated encryption:
 
 - secure device header,
 - secure volume header,
@@ -21,53 +18,37 @@ In **SECURE** mode, UBI stores the same logical objects as plain UBI, but each o
 - secure volume-identifier (VID) header,
 - secure LEB record.
 
-The inner meaning of UBI stays the same:
+The inner plain payloads stay the same; only their on-flash representation, keying, authentication, and recovery rules change.
 
-- `struct ubi_dev_hdr` remains the device-level metadata payload,
-- `struct ubi_vol_hdr` remains the volume-level metadata payload,
-- `struct ubi_ec_hdr` remains the erase counter payload,
-- `struct ubi_vid_hdr` remains the live-mapping payload,
-- LEB data remains the user payload.
+### 1.1 What SECURE changes at a glance
 
-SECURE mode adds a versioned on-flash wrapper around those payloads, based on:
+| Pillar | What SECURE changes | What the application gets |
+|--------|---------------------|---------------------------|
+| Same UBI semantics | The secure record wraps the existing plain payload instead of replacing the UBI model. | Wear-leveling, logical volumes, `sqnum`-based recovery, and the plain crash model still apply. |
+| Full encrypted format | Device metadata, volume metadata, EC, VID, and user LEB data are encrypted and authenticated. Only the 32-byte common prefix stays parseable before authentication. | No meaningful UBI metadata or user payload is left in plaintext on flash. |
+| Versioned key hierarchy | One `IKM[key_version]` fans out into device, volume, EC, VID, and per-volume LEB child keys. | Strong domain separation and per-volume isolation for LEB data. |
+| Key lifecycle built into the format | SECURE tracks `write_active_key_version`, allowlisted versions, usage budgets, refcounts, retirement, and continuity floors. | The application does not need to reinvent key-rotation safety inside the filesystem or database. |
+| Freshness exported to the application | UBI exports authenticated `(device_revision, global_sqnum)` and provides freshness callbacks. | The application can implement rollback / replay detection against its own trusted freshness store. |
+| Future-write continuity is explicit | Hidden per-volume anchors preserve per-volume LEB floors, and the secure device header preserves the global VID-domain floor. | Secure writes can continue safely after reclaim, `unmap`, `shrink`, and even after removing all volumes. |
 
-- **AES-CCM**,
-- a **13-byte nonce**,
-- a **16-byte tag**,
-- a **32-byte plaintext common prefix** that is authenticated through AAD.
+### 1.2 Why this is hard to tamper with
 
-The design has six central ideas:
+An attacker who controls raw flash, but does not know an accepted `IKM[key_version]`, cannot make arbitrary modified state look valid to SECURE UBI:
 
-1. **Plain UBI semantics stay intact while every commit-visible object is wrapped in authenticated encryption.**  
-   Secure records are separate record types that carry the existing plain UBI payloads.
+- changing ciphertext or authenticated plaintext fields breaks tag verification,
+- moving a record to another physical location or another logical identity breaks AAD binding,
+- replaying older authenticated state still has to pass the application's freshness policy,
+- an accepted user mapping depends on authenticated secure EC, secure VID, and secure LEB state, not on one ciphertext blob in isolation.
 
-2. **One versioned key hierarchy fans out from `IKM[key_version]` into device, volume, EC, VID, and per-volume LEB keys.**  
-   Each domain gets its own child key, while LEB data additionally bind to durable `volume_id`.
+In practice, accepted reads and writes are protected by:
 
-3. **No meaningful UBI payload is left in plaintext.**  
-   Device metadata, volume metadata, EC, VID, and user LEB data are encrypted and authenticated. Only the common 32-byte prefix remains parseable before authentication.
+- domain-separated child keys,
+- authenticated record linkage,
+- location and identity binding in AAD,
+- monotonic counter usage and usage budgets,
+- application-visible freshness for rollback / replay decisions.
 
-4. **Key lifecycle is a first-class part of the format.**  
-   SECURE tracks the authenticated write-active key version, allowlisted versions, per-domain usage counters, authenticated-byte usage, refcounts, retirement, and counter-continuity floors.
-
-5. **UBI exports authenticated freshness to the application.**  
-   The pair `(device_revision, global_sqnum)` lets the application implement rollback / replay detection with its own trusted freshness store.
-
-6. **Future-write recovery state lives only in authenticated, commit-visible carriers.**  
-   VID remains the commit point for data PEB writes, hidden per-volume anchors preserve per-volume LEB continuity, and the secure device header preserves the global VID-domain floor.
-
-That is why the document says:
-
-> the authoritative LEB usage-recovery state lives in authenticated, commit-visible VID secure metadata, and a hidden per-volume anchor keeps that state alive when user mappings disappear.
-
-In plain language, this means:
-
-- the next secure LEB write counter is **not** recovered from the LEB data area,
-- it is recovered from authenticated secure VID metadata carried either by a live user mapping or by the hidden anchor of that volume,
-- the next secure VID counter for the current write-active key version is additionally floored by authenticated state in the secure device header,
-- therefore init does **not** need to trust unauthenticated LEB-local metadata in order to continue writing safely.
-
-### 1.1 Plain-core baseline assumed by this document
+### 1.3 Plain-core baseline assumed by this document
 
 This specification assumes that the plain UBI core already provides these baseline properties:
 
@@ -79,7 +60,7 @@ This specification assumes that the plain UBI core already provides these baseli
 
 Those assumptions matter because SECURE mode reuses the same logical object model and the same recovery points. In particular, the secure design relies on `VID` being the commit-visible mapping record and on `volume_id` being a stable namespace input for per-volume key derivation, usage recovery, and retirement decisions.
 
-### 1.2 Mode detection and out-of-scope transitions
+### 1.4 Mode detection and out-of-scope transitions
 
 PLAIN and SECURE are different on-flash formats.
 
@@ -100,41 +81,31 @@ The practical detection point is the reserved area. SECURE media are identified 
 
 ### 2.1 Layer view
 
-```mermaid
-flowchart TB
-    APP["Application / trusted platform state"]
-    UBI["UBI secure core"]
-    RES["Reserved PEB area"]
-    DATA["Data PEB area"]
-
-    APP --> UBI
-    UBI --> APP
-    RES --> UBI
-    DATA --> UBI
+```text
++--------------------------------------------------------------------------------------+
+| Application / filesystem / database / trusted freshness store                        |
+| - provides key IDs, allowlist, and policy callbacks                                  |
+| - stores trusted freshness state and decides rollback policy                         |
++--------------------------------------------------------------------------------------+
+| UBI SECURE                                                                           |
+| - same UBI semantics: volume management, EBA mapping, wear-leveling, reclaim         |
+| - secure wrappers: device, volume, EC, VID, LEB                                      |
+| - key hierarchy, nonce/AAD, budgets, refcounts, hidden anchors, VID floor            |
++--------------------------------------------------------------------------------------+
+| Raw flash partition                                                                  |
+| - reserved PEBs: secure device header + secure volume headers                        |
+| - data PEBs: secure EC + secure VID + secure LEB, plus hidden anchors                |
++--------------------------------------------------------------------------------------+
 ```
 
+Boundary summary:
 
-What crosses the boundary:
+| Direction | Interface |
+|-----------|-----------|
+| Application → UBI | PSA key identifiers for versioned root keys, allowlist of acceptable key versions, optional request to advance the write-active key version, init-time freshness policy callback, optional post-commit freshness-sync callback, event callback |
+| UBI → Application | authenticated `write_active_key_version`, authenticated freshness values (`device_revision`, `global_sqnum`), key lifecycle events, security events, retirement notifications, post-commit freshness-sync requests |
 
-- **Application → UBI**
-  - PSA key identifiers for versioned root keys,
-  - allowlist of acceptable key versions,
-  - optional request to advance the write-active key version,
-  - init-time freshness policy callback,
-  - optional post-commit freshness-sync callback and the configured sync cadence,
-  - event callback.
-
-- **UBI → Application**
-  - authenticated policy and freshness state:
-    - `write_active_key_version`,
-    - `device_revision`,
-    - `global_sqnum`,
-  - key lifecycle events,
-  - security events,
-  - retirement notifications,
-  - post-commit freshness-sync requests.
-
-SECURE mode assumes that the plain-core central mutation gate already exists. The secure policy hooks described later attach to that same gate so that all commit-visible mutating operations are observed at one place.
+SECURE mode assumes that the plain-core central mutation gate already exists. Secure policy hooks attach to that same gate so that all commit-visible mutating operations are observed at one place.
 
 ### 2.2 Flash view
 
@@ -142,23 +113,27 @@ SECURE mode assumes that the plain-core central mutation gate already exists. Th
 UBI partition
 ================================================================================
 
-Reserved PEBs (CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS, range 2..4)
-+--------------------------------------------------------------------------------+
-| Reserved PEB 0 | secure device header + secure volume headers                  |
-| Reserved PEB 1 | secure device header + secure volume headers                  |
-| Reserved PEB 2 | optional spare mirror bank                                    |
-| Reserved PEB 3 | optional spare mirror bank                                    |
-+--------------------------------------------------------------------------------+
+Reserved PEB area (CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS, range 2..4)
++--------------------------------------------------------------------------------------+
+| Reserved PEB 0 | secure device header + secure volume headers                        |
+| Reserved PEB 1 | secure device header + secure volume headers                        |
+| Reserved PEB 2 | optional spare mirror bank                                          |
+| Reserved PEB 3 | optional spare mirror bank                                          |
++--------------------------------------------------------------------------------------+
 
-Data PEBs
-+--------------------------------------------------------------------------------+
-| Data PEB N   | secure EC header | secure VID header | secure LEB record        |
-| Data PEB N+1 | secure EC header | secure VID header | secure LEB record        |
-| ...          | ...              | ...               | ...                      |
-+--------------------------------------------------------------------------------+
+Data PEB area
++--------------------------------------------------------------------------------------+
+| Data PEB N   | secure EC header | secure VID header | secure LEB record              |
+| Data PEB N+1 | secure EC header | secure VID header | secure LEB record              |
+| ...          | ...              | ...               | ...                            |
++--------------------------------------------------------------------------------------+
+
+Hidden anchor PEBs
++--------------------------------------------------------------------------------------+
+| Internal per-volume data PEBs using the same secure EC / secure VID / secure LEB    |
+| layout. `vid_hdr.lnum = INTERNAL_ANCHOR_LNUM`; secure LEB payload is zero-length.   |
++--------------------------------------------------------------------------------------+
 ```
-
-Some of those data PEBs may be **hidden anchors**. They use the same secure EC / secure VID / secure LEB layout, but the secure VID carries the dedicated internal anchor logical number and the secure LEB payload is always zero-length.
 
 ### 2.3 One data PEB
 
@@ -166,22 +141,21 @@ Some of those data PEBs may be **hidden anchors**. They use the same secure EC /
 Offset from start of physical eraseblock
 ================================================================================
 
-0x0000  +-----------------------------------------------+
-        | secure EC header                              |
-        | prefix32 | ciphertext(ec_hdr) | tag16         |
-        +-----------------------------------------------+
+0x0000  +---------------------------------------------------------------+
+        | secure EC header                                              |
+        | prefix32 | ciphertext(ec_hdr) | tag16                         |
+        +---------------------------------------------------------------+
 
 0x0040  +---------------------------------------------------------------+
         | secure VID header                                             |
         | prefix32 | ciphertext(vid_hdr + vid_secure_meta) | tag16      |
         +---------------------------------------------------------------+
 
-0x00A0  +-----------------------------------------------------------------------+
-        | secure LEB record                                                      |
-        | prefix32 | ciphertext(payload_bytes) | tag16                           |
-        | or                                                                    |
-        | prefix32 | chunk0 ciphertext | tag0 | chunk1 ciphertext | tag1 | ... |
-        +-----------------------------------------------------------------------+
+0x00A0  +---------------------------------------------------------------+
+        | secure LEB record                                             |
+        | single-tag : prefix32 | ciphertext(payload_bytes) | tag16     |
+        | chunked    : prefix32 | chunk0 ciphertext | tag0 | ...        |
+        +---------------------------------------------------------------+
 ```
 
 For the base single-tag layout, secure data-PEB metadata consumes **208 B**:
@@ -193,68 +167,48 @@ For the base single-tag layout, secure data-PEB metadata consumes **208 B**:
 
 ---
 
-## 3. What SECURE mode guarantees
+## 3. What SECURE mode gives and what it does not
 
-### 3.1 What SECURE mode gives the application
+### 3.1 What the application gets
 
-From the application point of view, SECURE mode provides one storage substrate that combines:
+SECURE UBI combines one secure on-flash format with the existing UBI storage model:
 
-- full at-rest encryption of user data **and** UBI metadata,
-- the existing plain-UBI benefits:
-  - wear-leveling,
-  - bad-block handling,
-  - logical volume management,
-  - crash model based on commit-visible mappings,
-- authenticated freshness exports:
-  - `device_revision`,
-  - `global_sqnum`,
-  so the application can implement rollback / replay checks against its own trusted freshness store,
-- UBI-owned key lifecycle handling:
-  - authenticated `write_active_key_version`,
-  - allowlist enforcement,
-  - per-domain usage budgets,
-  - refcount-based retirement detection,
-  - counter-continuity handling for future writes,
-- a design that remains write-oriented:
-  - repeated secure writes are expected,
-  - usage is budgeted explicitly,
-  - rotation thresholds are part of the architecture rather than an afterthought,
-- end-to-end binding of accepted user data to authenticated storage context:
-  - secure EC parent,
-  - secure VID parent,
-  - secure LEB record,
-  - physical placement and logical identity in AAD.
+| Area | What the application gets |
+|------|---------------------------|
+| Confidentiality at rest | User data and UBI metadata are encrypted. |
+| Integrity and authenticity | Every secure record is authenticated before it is trusted. |
+| Plain UBI behavior | Logical volumes, wear-leveling, bad-block handling, dual-bank reserved metadata, and `sqnum`-based recovery remain. |
+| Rollback / replay hook | UBI exports authenticated `(device_revision, global_sqnum)` so the application can compare them against its trusted freshness store. |
+| Key lifecycle handling | `write_active_key_version`, allowlist enforcement, budgets, refcounts, retirement, and continuity floors live in UBI instead of being rebuilt above it. |
+| High-write orientation | The format is designed for repeated writes; nonce use, authenticated-byte usage, rotation thresholds, and reclaim-time continuity are explicit parts of the architecture. |
 
-A practical consequence is that decrypting a raw LEB ciphertext is **not** the same thing as presenting an accepted logical mapping to UBI. The accepted read path still depends on authenticated secure EC, secure VID, and secure LEB state bound to the correct location and identity.
+### 3.2 Security consequence in plain language
 
-### 3.2 Core guarantees and explicit boundary
+An attacker with raw-flash access but without an accepted root key version cannot:
 
-SECURE mode is designed to provide:
+- read meaningful UBI metadata or user payload from secure ciphertext alone,
+- modify authenticated payload fields, counters, or metadata without failing AEAD verification,
+- move ciphertext to another physical eraseblock, volume, or logical number and still have it accepted,
+- replay older authenticated state without also defeating the application's trusted freshness policy.
 
-- confidentiality of secure payloads,
-- integrity and authenticity of all secure records,
-- location binding to physical flash placement,
-- parent/child data binding between authenticated records,
-- authenticated recovery state for future writes,
-- authenticated freshness signals for the application,
-- fail-closed write behavior when required entropy or keying material is unavailable.
+To make forged user data accepted, the attacker would need at least one of the following:
 
-SECURE mode intentionally keeps one boundary explicit:
+- compromise an accepted `IKM[key_version]`, which yields all child keys for that version,
+- break the relevant AEAD checks across the secure EC -> secure VID -> secure LEB chain,
+- or defeat the application's trusted freshness store so that stale `(device_revision, global_sqnum)` is accepted.
 
-- UBI **does not** assume an external journal or hardware monotonic counter,
-- UBI **does** require fresh cryptographic randomness for every secure write,
-- UBI **does** export authenticated freshness values:
-  - `device_revision`,
-  - `global_sqnum`,
-- the application decides how those values are checked and how often they are synchronized to any external trusted freshness store.
+Knowledge of one child key alone is not sufficient to build a complete accepted mapping; accepted data depends on the authenticated chain and AAD binding, not on one record in isolation.
 
-This means:
+### 3.3 Explicit boundary
 
-- SECURE mode alone does **not** provide complete anti-rollback or anti-replay protection,
-- complete rollback prevention requires an external trusted freshness store or equivalent trust anchor,
-- if the product performs a commit-visible UBI write and updates the trusted freshness store as a separate step, there is an unavoidable window between those two operations.
+SECURE mode is intentionally scoped:
 
-This document is therefore a specification for **authenticated on-flash object encryption for UBI**, plus the recovery state and policy hooks that such a format needs. It is not a claim that rollback can be prevented without some external source of trusted freshness.
+- UBI does not assume a global journal or a hardware monotonic counter,
+- UBI does require fresh cryptographic randomness for every secure write,
+- UBI does export authenticated freshness values to the application,
+- complete anti-rollback still requires an external trusted freshness store or equivalent trust anchor.
+
+So SECURE mode provides authenticated on-flash encryption plus the continuity state and policy hooks needed to keep writing safely. It does not claim that rollback can be prevented without any external trust anchor.
 
 ## 4. Terminology and invariants
 
@@ -311,12 +265,13 @@ After successful initialization:
 6. The authenticated secure device header stores:
    - `write_active_key_version`
    - `vid_next_counter_floor`
-7. For secure LEB writes, the authoritative next write counter and total written bytes are recovered from authenticated VID-side metadata, including the hidden anchor when user mappings disappear.
+7. For secure LEB writes, the authoritative next write counter and total authenticated bytes are recovered from authenticated VID-side metadata, including the hidden anchor when user mappings disappear.
 8. `volume_id` is unique for the lifetime of one formatted device and is the only per-volume cryptographic identity. No reusable RAM index or scan-local ordinal may appear in LEB key derivation, LEB usage recovery state, or retirement logic.
 9. The write-active key version is monotonic and must never move back to an older value on the same formatted device.
 10. A key version becomes **retirable** only when no authenticated on-flash object still references it.
 11. The device must not perform a secure write if it cannot construct a fresh nonce from cryptographically secure randomness.
 12. All commit-visible mutating operations pass through one central mutation gate so that secure policy and freshness hooks observe the same transition points.
+13. SECURE must preserve a path to one emergency free data PEB for hidden-anchor maintenance. It shall either keep one free data PEB available or first reclaim a dirty PEB that is not the last current writable witness before reclaiming a protected witness. It must never erase the last current writable witness first and only afterwards discover that there is nowhere to commit the inherited anchor state.
 
 ---
 
@@ -862,6 +817,13 @@ Because the anchor uses the normal secure VID and secure LEB layouts, it benefit
 - authenticated parent binding,
 - authenticated recovery of `leb_write_counter` and `leb_total_auth_bytes`.
 
+Anchor-liveness policy:
+
+- SECURE shall preserve one emergency free data PEB for secure maintenance writes such as hidden-anchor rescue.
+- If that invariant is temporarily broken, reclaim shall first erase a dirty PEB that is **not** the last current writable witness for any protected per-volume floor in order to re-establish one.
+- SECURE must never erase the last current writable witness and only afterwards discover that no free data PEB exists for the required anchor rewrite.
+- If neither a free data PEB nor a safe non-witness dirty PEB exists, the operation must be deferred or rejected by policy. SECURE does not break counter continuity to make progress.
+
 ### 7.10 Integrity semantics of inner CRC fields
 
 The inner plain payloads may still contain fields such as `hdr_crc`. In SECURE mode, their meaning is reduced to **compatibility and optional format-consistency**, not primary security.
@@ -1374,7 +1336,9 @@ erase of dirty PEB that is the last writable witness
 Normative rule:
 
 - before erasing a dirty PEB that is the **last current writable witness** of the newest per-volume floor, UBI shall first rewrite the hidden anchor so that the anchor inherits that floor,
-- if no free data PEB is available for that anchor rewrite, the erase must be deferred or rejected by policy,
+- SECURE shall keep one emergency free data PEB available for that rewrite whenever possible,
+- if the free pool is empty, reclaim shall first try to erase a dirty PEB that is **not** the last current writable witness for any protected per-volume floor, thereby recreating one free data PEB,
+- if no such safe candidate exists, the protected erase must be deferred or rejected by policy,
 - init reconstructs the per-volume floor as the maximum authenticated value over live user mappings and the live hidden anchor of that volume.
 
 This solves the cases that motivated the anchor:
@@ -1695,12 +1659,18 @@ The hidden anchor:
 
 If anchor creation cannot be completed, the volume creation is not complete for SECURE write purposes. Implementations may fail the create operation or keep the new volume unwritable until the anchor is materialized, but they must not allow ordinary secure user writes to that volume without a live authenticated anchor.
 
+Anchor creation also participates in the emergency-free-PEB policy:
+
+- SECURE should keep one free data PEB available for later hidden-anchor rescue,
+- if creating the new volume's anchor would consume the last free data PEB, reclaim shall first try to refresh the reserve by erasing a dirty PEB that is not a last current writable witness,
+- if that cannot be done safely, volume creation must fail or be deferred.
+
 ### 11.5 Data write path
 
 For a secure LEB write:
 
-1. choose a free data PEB,
-2. keep its existing secure EC header,
+1. choose a free data PEB while preserving the emergency-free-PEB reserve; if the write would consume the last free data PEB, reclaim shall first try to recreate the reserve by erasing a dirty PEB that is not a protected last current writable witness,
+2. keep the chosen PEB's existing secure EC header,
 3. choose the secure LEB encoding:
    - if `payload_bytes == 0`, build the zero-length base record `prefix32 || tag16`,
    - else if single-tag mode is valid for the selected geometry, build the single-tag secure LEB record,
@@ -1763,7 +1733,9 @@ If it **is** the last current writable witness:
 5. decrement refcounts of the old secure objects,
 6. write a fresh secure EC header and return the reclaimed PEB to the free pool.
 
-If no free data PEB is available for the required anchor rewrite, the erase must be deferred or rejected by policy. SECURE must not destroy the last current writable witness and only afterwards discover that there was no place to commit the inherited anchor state.
+SECURE should reach this point with one emergency free data PEB already available. If that reserve is missing, reclaim shall first try to erase a dirty PEB that is **not** the last current writable witness for any protected per-volume floor, write its fresh secure EC header, and return it to the free pool. Only then may reclaim process the protected dirty PEB.
+
+If no such safe candidate exists and no free data PEB is available for the required anchor rewrite, the protected erase must be deferred or rejected by policy. SECURE must not destroy the last current writable witness and only afterwards discover that there was no place to commit the inherited anchor state.
 
 Because the anchor rewrite is a normal secure VID + secure LEB commit, it may also advance `global_sqnum`.
 
@@ -2372,21 +2344,27 @@ The hidden anchor is intentionally simple, but it is not free.
 
 Each secure volume permanently reserves one additional **data PEB** for its hidden anchor.
 
+SECURE also preserves one **global emergency free data PEB** so that reclaim can rewrite a hidden anchor before erasing a protected last current writable witness.
+
 So the structural capacity cost is:
 
 ```text
-anchor_raw_capacity_cost = secure_volume_count * peb_size
+anchor_raw_capacity_cost            = secure_volume_count * peb_size
+emergency_free_reserve_raw_cost     = peb_size
+total_secure_continuity_raw_cost    = (secure_volume_count + 1) * peb_size
 ```
 
 In single-tag terms, the user-visible payload opportunity cost is approximately:
 
 ```text
-anchor_user_payload_cost_single = secure_volume_count * (peb_size - 208)
+anchor_user_payload_cost_single         = secure_volume_count * (peb_size - 208)
+emergency_free_reserve_payload_cost     = peb_size - 208
+total_secure_continuity_payload_cost    = (secure_volume_count + 1) * (peb_size - 208)
 ```
 
-because each hidden anchor PEB could otherwise have hosted one ordinary secure user LEB.
+because each hidden anchor PEB and the emergency free reserve could otherwise have hosted one ordinary secure user LEB.
 
-The hidden anchor therefore trades one full data PEB per secure volume for strict per-volume continuity of:
+The hidden-anchor continuity design therefore trades one full data PEB per secure volume plus one per-device reserve PEB for strict continuity of:
 
 - `leb_write_counter`
 - `leb_total_auth_bytes`
@@ -2401,7 +2379,7 @@ The architecture accepts this cost because it avoids a heavier design:
 - no unauthenticated side channel for counters,
 - no dependence on hidden recovery heuristics after `unmap/shrink -> erase -> reboot`.
 
-The hidden anchor is therefore a deliberate space-for-simplicity trade-off.
+The hidden anchor plus the one-PEB emergency reserve are therefore a deliberate space-for-simplicity trade-off.
 
 For `64 KiB` data PEBs, the base single-tag secure payload is still below the CCM `q = 2` limit. For larger data PEBs, single-tag mode ceases to be valid and chunked mode becomes mandatory if SECURE is supported.
 
