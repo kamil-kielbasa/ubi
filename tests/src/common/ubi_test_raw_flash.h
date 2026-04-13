@@ -34,10 +34,10 @@ struct raw_vid_hdr {
 	uint32_t hdr_crc;
 };
 
-#define RAW_EC_HDR_MAGIC  (0x55424923U)
+#define RAW_EC_HDR_MAGIC (0x55424923U)
 #define RAW_VID_HDR_MAGIC (0x55424921U)
-#define RAW_EC_HDR_SIZE   (16U)
-#define RAW_VID_HDR_SIZE  (32U)
+#define RAW_EC_HDR_SIZE (16U)
+#define RAW_VID_HDR_SIZE (32U)
 
 static inline void ubi_test_raw_write_ec_hdr(const struct flash_area *fa, size_t peb_offset,
 					     uint32_t ec)

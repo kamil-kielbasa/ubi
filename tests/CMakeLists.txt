@@ -17,26 +17,28 @@ target_compile_options(app PRIVATE
 target_compile_definitions(app PRIVATE _POSIX_C_SOURCE=200809L)
 
 target_sources(app PRIVATE
-               src/tests_ubi_device.c
-               src/tests_ubi_volumes.c
-               src/tests_ubi_map_unmap.c
-               src/tests_ubi_write_read.c
-               src/tests_ubi_erase.c
-               src/tests_ubi_mixed.c
-               src/tests_ubi_error_handling.c
-               src/tests_ubi_boundary.c
-               src/tests_ubi_recovery.c
-               src/tests_ubi_fault_injection.c
-               src/tests_ubi_io_faults.c
-               src/tests_ubi_init_errors.c
-               src/tests_ubi_hil_smoke.c
-               src/tests_ubi_concurrency.c
-               src/tests_ubi_erased_val.c
-               src/tests_ubi_mutation_gate.c
-               src/tests_ubi_vol_id_watermark.c)
+               src/plain/tests_ubi_device.c
+               src/plain/tests_ubi_volumes.c
+               src/plain/tests_ubi_map_unmap.c
+               src/plain/tests_ubi_write_read.c
+               src/plain/tests_ubi_erase.c
+               src/plain/tests_ubi_mixed.c
+               src/plain/tests_ubi_error_handling.c
+               src/plain/tests_ubi_boundary.c
+               src/plain/tests_ubi_recovery.c
+               src/plain/tests_ubi_fault_injection.c
+               src/plain/tests_ubi_io_faults.c
+               src/plain/tests_ubi_init_errors.c
+               src/plain/tests_ubi_hil_smoke.c
+               src/plain/tests_ubi_concurrency.c
+               src/plain/tests_ubi_erased_val.c
+               src/plain/tests_ubi_mutation_gate.c
+               src/plain/tests_ubi_vol_id_watermark.c)
 
 if(CONFIG_FLASH_SIMULATOR)
-    target_sources(app PRIVATE src/tests_ubi_stress.c
-                               src/tests_ubi_torture.c
-                               src/tests_ubi_stress_longrun.c)
+    target_sources(app PRIVATE src/plain/tests_ubi_stress.c
+                               src/plain/tests_ubi_torture.c
+                               src/plain/tests_ubi_stress_longrun.c)
 endif()
+
+target_include_directories(app PRIVATE src/common)

@@ -27,8 +27,8 @@ static inline void ubi_test_memory_snapshot(struct sys_memory_stats *stats)
 static inline void ubi_test_memory_check_no_leak(const struct sys_memory_stats *before,
 						 const struct sys_memory_stats *after)
 {
-	zassert_equal(before->free_bytes, after->free_bytes,
-		      "Heap leak: before=%zu after=%zu", before->free_bytes, after->free_bytes);
+	zassert_equal(before->free_bytes, after->free_bytes, "Heap leak: before=%zu after=%zu",
+		      before->free_bytes, after->free_bytes);
 }
 
 #else

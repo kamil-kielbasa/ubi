@@ -1,22 +1,21 @@
 #!/bin/bash
 
-lib_src_dir="./lib/src"
-lib_inc_dir="./lib/include"
-tests_src_dir="./tests/src"
-sample_src_dir="./sample/src"
+set -e
 
-echo "Formating:"
+mode="${1:---fix}"
 
-# Format libedhoc.
-echo "- (lib)    API & source code."
-clang-format -i $lib_inc_dir/*.h
-clang-format -i $lib_src_dir/*.c
-clang-format -i $lib_src_dir/*.h
+echo "Formatting (mode: $mode):"
 
-# Format tests.
-echo "- (tests)  integration tests code."
-clang-format -i $tests_src_dir/*.c
+find_sources() {
+    find lib tests sample -type f \( -name '*.c' -o -name '*.h' \) | sort
+}
 
-# Format sample.
-echo "- (sample) sample tests code."
-clang-format -i $sample_src_dir/*.c
+if [ "$mode" = "--check" ]; then
+    echo "- Checking formatting..."
+    find_sources | xargs clang-format --dry-run --Werror
+    echo "All files formatted correctly."
+else
+    echo "- Formatting all .c and .h files..."
+    find_sources | xargs clang-format -i
+    echo "Done."
+fi

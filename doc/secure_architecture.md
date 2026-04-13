@@ -64,18 +64,29 @@ Those assumptions matter because SECURE mode reuses the same logical object mode
 
 PLAIN and SECURE are different on-flash formats.
 
+The library is **multi-backend capable**: both plain and secure backends may be compiled into the same binary. However, **each `ubi_device` handle operates in exactly one mode** — the mode is selected at runtime during `ubi_device_init()` based on the caller-supplied `crypto_cfg` pointer and the detected on-flash format:
+
+- `crypto_cfg == NULL` requests plain mode,
+- `crypto_cfg != NULL` requests secure mode,
+- for blank media the requested mode determines the format,
+- for non-blank media the detected on-flash format must match the requested mode.
+
+This runtime selection model allows a single firmware image to manage both a plain UBI partition on internal flash and a secure UBI partition on external flash, each with its own independent `ubi_device` handle.
+
 Normative rule:
 
-- a SECURE build shall attach only SECURE-formatted media,
-- a plain build shall attach only plain-formatted media,
-- mixed-mode attach is unsupported,
+- a secure-mode attach shall accept only SECURE-formatted media,
+- a plain-mode attach shall accept only plain-formatted media,
+- a mode mismatch between the caller's request and the detected format is a hard error,
 - silent fallback is forbidden,
 - automatic reformat is forbidden,
 - in-place migration between PLAIN and SECURE is out of scope and must be rejected.
 
-This document intentionally does **not** define mixed-mode operation, automatic reformat, or any attach-time conversion path. If a product ever needs migration, that flow must be an explicit offline tool or explicit maintenance procedure outside the normal attach path.
+This document intentionally does **not** define mixed-mode operation on one partition, automatic reformat, or any attach-time conversion path. If a product ever needs migration, that flow must be an explicit offline tool or explicit maintenance procedure outside the normal attach path.
 
 The practical detection point is the reserved area. SECURE media are identified by the secure wrapper magic at the reserved-header locations. A mode mismatch is a format mismatch, not a conversion opportunity.
+
+Periodic runtime re-audit of the medium against the freshness store is intentionally out of scope. The `check_freshness` callback remains an attach-time-only interaction. If a product needs active periodic auditing, that should be a separate API or maintenance path, not a change to the `check_freshness` semantics.
 
 ## 2. High-level picture
 
@@ -106,6 +117,8 @@ Boundary summary:
 | UBI → Application | authenticated `write_active_key_version`, authenticated freshness values (`device_revision`, `global_sqnum`), key lifecycle events, security events, retirement notifications, post-commit freshness-sync requests |
 
 SECURE mode assumes that the plain-core central mutation gate already exists. Secure policy hooks attach to that same gate so that all commit-visible mutating operations are observed at one place.
+
+Because the library supports runtime backend selection, a single firmware image may hold both a plain and a secure `ubi_device` simultaneously. Each handle uses its own backend, its own configuration, and its own lock. There is no shared mutable state between handles and no cross-talk between the plain and secure backends.
 
 ### 2.2 Flash view
 
@@ -2218,21 +2231,31 @@ If this cannot be satisfied for the configured geometry, SECURE chunked mode mus
 The detailed illustrative API is in Appendix A, but the architectural expectations are:
 
 1. SECURE mode is **PSA-only**.
-2. The application provides:
+2. There is **one public initialization entry point** for both plain and secure mode:
+   ```c
+   int ubi_device_init(const struct ubi_mtd *mtd,
+                       const struct ubi_crypto_config *crypto_cfg,
+                       struct ubi_device **ubi);
+   ```
+   - `crypto_cfg == NULL` → attach or format as plain,
+   - `crypto_cfg != NULL` → attach or format as secure.
+   The public header `ubi.h` forward-declares `struct ubi_crypto_config` so that plain callers do not need to include `ubi_crypto.h`.
+3. The application provides (via `ubi_crypto_config`):
    - a callback that returns the PSA key identifier for one key version,
    - allowlist,
    - an optional request to advance the write-active key version,
    - init-time freshness-check callback,
    - optional post-commit freshness-sync callback,
    - event callback.
-3. UBI exports:
+4. UBI exports:
    - the authenticated `write_active_key_version` from the secure device header,
    - the authenticated freshness descriptor,
    - lifecycle events such as `KEY_RETIRABLE`,
    - security events such as `AUTH_FAILURE`,
    - optional event-driven escalation to read-only mode for future writes.
-4. There is no raw `IKM` buffer callback in the normal API surface.
-5. If the application provides no external trusted freshness store, SECURE mode may still provide authenticated encryption and authenticated freshness signals, but it does not provide complete anti-rollback protection.
+5. There is no raw `IKM` buffer callback in the normal API surface.
+6. If the application provides no external trusted freshness store, SECURE mode may still provide authenticated encryption and authenticated freshness signals, but it does not provide complete anti-rollback protection.
+7. When `CONFIG_UBI_CRYPTO` is not enabled and the caller passes `crypto_cfg != NULL`, the library returns a stable, documented error (`-ENOTSUP`).
 
 The summary below omits a dedicated getter for the authenticated on-flash `write_active_key_version`, but the architecture expects that state to be available to the application.
 
@@ -2508,6 +2531,50 @@ This is a write-path constraint. Read alignment is usually less restrictive and 
 
 ## Appendix A. Illustrative API surface with Doxygen
 
+### A.1 Runtime backend selection
+
+The library uses **one public initialization entry point**. The `crypto_cfg` pointer selects the backend at runtime:
+
+```c
+/**
+ * @brief Initialize a UBI device on the given flash partition.
+ *
+ * Scans the flash partition, formats it on first use, and builds the
+ * in-memory PEB and volume tables. On success, *ubi points to the
+ * allocated device handle; on failure, *ubi is set to NULL.
+ *
+ * Backend selection:
+ * - @p crypto_cfg == NULL  →  attach or format as plain.
+ * - @p crypto_cfg != NULL  →  attach or format as secure.
+ *
+ * If the detected on-flash format does not match the requested mode,
+ * initialization fails with a mode-mismatch error. Silent fallback and
+ * automatic reformat are forbidden.
+ *
+ * Only one active handle per flash partition is allowed.
+ *
+ * @param[in]  mtd        Flash partition descriptor (caller retains ownership).
+ * @param[in]  crypto_cfg SECURE configuration, or NULL for plain mode.
+ *                        The caller retains ownership; UBI copies what it needs.
+ * @param[out] ubi        Pointer to receive the UBI device handle (NULL on failure).
+ *
+ * @retval 0        Success.
+ * @retval -EINVAL  NULL pointer or invalid geometry.
+ * @retval -ENOTSUP crypto_cfg != NULL but CONFIG_UBI_CRYPTO is disabled.
+ * @retval -EBUSY   A handle for this partition is already active.
+ * @retval -EILSEQ  Mode mismatch (plain media vs secure request, or vice versa).
+ * @retval -ENOMEM  Allocation failure.
+ * @retval -EIO     Unrecoverable flash I/O error.
+ */
+int ubi_device_init(const struct ubi_mtd *mtd,
+                    const struct ubi_crypto_config *crypto_cfg,
+                    struct ubi_device **ubi);
+```
+
+The `ubi.h` public header forward-declares `struct ubi_crypto_config` without including `ubi_crypto.h`. Plain callers never see PSA types.
+
+### A.2 Callbacks, types, and configuration
+
 These callbacks remain separate on purpose:
 
 - init-time freshness validation returns an accept/reject verdict before writes are enabled,
@@ -2568,6 +2635,9 @@ enum ubi_crypto_event_type {
 /**
  * @brief One security or lifecycle event emitted by UBI SECURE.
  *
+ * The event uses a tagged union so that each event type carries only the
+ * fields relevant to it. The discriminator is @c type.
+ *
  * @note KEY_RETIRABLE is informational. It indicates that no authenticated
  * on-flash object still references the given key version. The application may
  * then remove that key version from the allowlist and purge the corresponding
@@ -2576,12 +2646,38 @@ enum ubi_crypto_event_type {
 struct ubi_crypto_event {
     /** Event discriminator. */
     enum ubi_crypto_event_type type;
-    /** Key version relevant to the event when the event type carries one; otherwise ignored. */
-    uint8_t key_version;
-    /** Volume identifier relevant to the event when the event type carries one; otherwise ignored. */
-    uint32_t volume_id;
-    /** Authenticated freshness descriptor associated with the event. */
+    /** Authenticated freshness descriptor at the time of the event. */
     struct ubi_crypto_freshness freshness;
+    /** Per-event-type payload. */
+    union {
+        /** Payload for AUTH_FAILURE, FORMAT_VIOLATION. */
+        struct {
+            uint32_t peb_index;   /**< Physical eraseblock where the failure was detected. */
+            uint8_t  domain;      /**< Secure record domain (EC, VID, LEB, DEV, VOL). */
+        } auth;
+        /** Payload for KEY_VERSION_NOT_ALLOWLISTED, KEY_VERSION_UNAVAILABLE, KEY_RETIRABLE. */
+        struct {
+            uint8_t key_version;  /**< Key version relevant to the event. */
+        } key;
+        /** Payload for KEY_ROTATE_SOON, KEY_ROTATE_NOW. */
+        struct {
+            uint8_t  key_version; /**< Key version whose budget is exhausted. */
+            uint32_t volume_id;   /**< Volume ID if LEB budget, or 0 for metadata/VID. */
+            uint8_t  usage_pct;   /**< Projected usage percentage (0..100). */
+        } rotation;
+        /** Payload for FRESHNESS_SYNC_FAILURE. */
+        struct {
+            int sync_errno;       /**< errno returned by the sync callback. */
+        } sync;
+        /** Payload for RNG_FAILURE. */
+        struct {
+            int rng_errno;        /**< errno returned by the RNG subsystem. */
+        } rng;
+        /** Payload for ROLLBACK_POLICY_MISMATCH (informational, no extra fields). */
+        struct {
+            uint8_t _reserved;
+        } rollback;
+    };
 };
 
 /**

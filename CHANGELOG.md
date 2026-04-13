@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-04-13
+
+### Changed
+
+- **Secure architecture: runtime backend model locked** (`doc/secure_architecture.md`): §1.4 rewritten — mode selection is now per `ubi_device` at runtime via `crypto_cfg` pointer, not per build. §2.1 documents multi-backend coexistence. §16 and Appendix A define the unified `ubi_device_init(mtd, crypto_cfg, &ubi)` entry point with forward-declared `struct ubi_crypto_config`. `ubi_crypto_event` changed from flat struct to tagged union (`enum type` + per-event-type payload). `check_freshness` confirmed as attach-time only; periodic runtime audit explicitly out of scope.
+- **Repository layout split into common/plain/secure namespaces**: library sources reorganized from flat `lib/src/` into `lib/src/common/` (cache, memory, partition guard, internal types) and `lib/src/plain/` (core init, runtime, volume, LEB, I/O, reserved PEB). Test sources moved from `tests/src/` into `tests/src/common/` (shared fixtures, arrays) and `tests/src/plain/` (all 20 suites). Empty `lib/src/secure/` and `tests/src/secure/` directories created for the upcoming secure backend. `lib/CMakeLists.txt` and `tests/CMakeLists.txt` updated with new paths and include directories.
+- **Format script made recursive** (`scripts/format.sh`): replaced hardcoded glob paths with `find lib tests sample -type f` to cover all subdirectories. Added `--check` mode for CI dry-run.
+
 ## [0.33.0] - 2026-04-11
 
 ### Changed
