@@ -34,12 +34,18 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 #define DEV_META_OFF_RESERVED_LEN (7)
 #define DEV_META_OFF_COUNTER (DEV_META_OFF_RESERVED + DEV_META_OFF_RESERVED_LEN) /* 8 */
 
+/* VID secure meta field offsets. */
+#define VID_META_OFF_LEB_WRITE_COUNTER (0)
+#define VID_META_OFF_LEB_TOTAL_AUTH_BYTES (VID_META_OFF_LEB_WRITE_COUNTER + sizeof(uint64_t))
+
 /* Module interface function definitions ------------------------------------------------------- */
 
 void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uint8_t *buf)
 {
-	__ASSERT_NO_MSG(prefix != NULL);
-	__ASSERT_NO_MSG(buf != NULL);
+	if (prefix == NULL || buf == NULL) {
+		LOG_ERR("prefix32_serialize: NULL argument");
+		return;
+	}
 
 	sys_put_be32(prefix->magic, &buf[PREFIX32_OFF_MAGIC]);
 	buf[PREFIX32_OFF_VERSION] = prefix->wrapper_version;
@@ -53,8 +59,10 @@ void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uin
 
 void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_crypto_prefix32 *prefix)
 {
-	__ASSERT_NO_MSG(buf != NULL);
-	__ASSERT_NO_MSG(prefix != NULL);
+	if (buf == NULL || prefix == NULL) {
+		LOG_ERR("prefix32_deserialize: NULL argument");
+		return;
+	}
 
 	prefix->magic = sys_get_be32(&buf[PREFIX32_OFF_MAGIC]);
 	prefix->wrapper_version = buf[PREFIX32_OFF_VERSION];
@@ -69,8 +77,10 @@ void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_crypto_prefi
 void ubi_secure_build_dev_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
 				  uint64_t flash_offset, uint8_t aad[UBI_SECURE_DEV_HDR_AAD_SIZE])
 {
-	__ASSERT_NO_MSG(prefix != NULL);
-	__ASSERT_NO_MSG(aad != NULL);
+	if (prefix == NULL || aad == NULL) {
+		LOG_ERR("build_dev_hdr_aad: NULL argument");
+		return;
+	}
 
 	size_t pos = 0;
 
@@ -90,8 +100,10 @@ void ubi_secure_build_vol_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], 
 				  uint64_t flash_offset, uint64_t device_revision,
 				  uint8_t parent_kv, uint8_t aad[UBI_SECURE_VOL_HDR_AAD_SIZE])
 {
-	__ASSERT_NO_MSG(prefix != NULL);
-	__ASSERT_NO_MSG(aad != NULL);
+	if (prefix == NULL || aad == NULL) {
+		LOG_ERR("build_vol_hdr_aad: NULL argument");
+		return;
+	}
 
 	size_t pos = 0;
 
@@ -115,8 +127,10 @@ void ubi_secure_build_vol_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], 
 
 void ubi_secure_dev_meta_serialize(const struct ubi_dev_secure_meta *meta, uint8_t *buf)
 {
-	__ASSERT_NO_MSG(meta != NULL);
-	__ASSERT_NO_MSG(buf != NULL);
+	if (meta == NULL || buf == NULL) {
+		LOG_ERR("dev_meta_serialize: NULL argument");
+		return;
+	}
 
 	buf[DEV_META_OFF_KV] = meta->write_active_key_version;
 	memset(&buf[DEV_META_OFF_RESERVED], 0, DEV_META_OFF_RESERVED_LEN);
@@ -125,8 +139,10 @@ void ubi_secure_dev_meta_serialize(const struct ubi_dev_secure_meta *meta, uint8
 
 void ubi_secure_dev_meta_deserialize(const uint8_t *buf, struct ubi_dev_secure_meta *meta)
 {
-	__ASSERT_NO_MSG(buf != NULL);
-	__ASSERT_NO_MSG(meta != NULL);
+	if (buf == NULL || meta == NULL) {
+		LOG_ERR("dev_meta_deserialize: NULL argument");
+		return;
+	}
 
 	meta->write_active_key_version = buf[DEV_META_OFF_KV];
 	memset(meta->reserved0, 0, sizeof(meta->reserved0));
@@ -135,8 +151,10 @@ void ubi_secure_dev_meta_deserialize(const uint8_t *buf, struct ubi_dev_secure_m
 
 void ubi_secure_encode_counter48(uint64_t value, uint8_t buf[UBI_SECURE_COUNTER_SIZE])
 {
-	__ASSERT_NO_MSG(buf != NULL);
-	__ASSERT_NO_MSG(value <= UBI_SECURE_COUNTER_MAX);
+	if (buf == NULL || value > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("encode_counter48: invalid argument");
+		return;
+	}
 
 	buf[0] = (uint8_t)(value >> 40);
 	buf[1] = (uint8_t)(value >> 32);
@@ -148,8 +166,129 @@ void ubi_secure_encode_counter48(uint64_t value, uint8_t buf[UBI_SECURE_COUNTER_
 
 uint64_t ubi_secure_decode_counter48(const uint8_t buf[UBI_SECURE_COUNTER_SIZE])
 {
-	__ASSERT_NO_MSG(buf != NULL);
+	if (buf == NULL) {
+		LOG_ERR("decode_counter48: NULL argument");
+		return 0;
+	}
 
 	return ((uint64_t)buf[0] << 40) | ((uint64_t)buf[1] << 32) | ((uint64_t)buf[2] << 24) |
 	       ((uint64_t)buf[3] << 16) | ((uint64_t)buf[4] << 8) | ((uint64_t)buf[5]);
+}
+
+void ubi_secure_build_ec_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
+				 uint64_t flash_offset, uint8_t aad[UBI_SECURE_EC_HDR_AAD_SIZE])
+{
+	if (prefix == NULL || aad == NULL) {
+		LOG_ERR("build_ec_hdr_aad: NULL argument");
+		return;
+	}
+
+	size_t pos = 0;
+
+	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	pos += UBI_SECURE_PREFIX_SIZE;
+
+	sys_put_be32(peb_index, &aad[pos]);
+	pos += sizeof(uint32_t);
+
+	sys_put_be64(flash_offset, &aad[pos]);
+	pos += sizeof(uint64_t);
+
+	__ASSERT_NO_MSG(pos == UBI_SECURE_EC_HDR_AAD_SIZE);
+}
+
+void ubi_secure_build_data_vid_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
+				   uint64_t flash_offset, uint64_t ec, uint8_t parent_ec_kv,
+				   uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE])
+{
+	if (prefix == NULL || aad == NULL) {
+		LOG_ERR("build_data_vid_aad: NULL argument");
+		return;
+	}
+
+	size_t pos = 0;
+
+	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	pos += UBI_SECURE_PREFIX_SIZE;
+
+	sys_put_be32(peb_index, &aad[pos]);
+	pos += sizeof(uint32_t);
+
+	sys_put_be64(flash_offset, &aad[pos]);
+	pos += sizeof(uint64_t);
+
+	sys_put_be64(ec, &aad[pos]);
+	pos += sizeof(uint64_t);
+
+	aad[pos] = parent_ec_kv;
+	pos += sizeof(uint8_t);
+
+	__ASSERT_NO_MSG(pos == UBI_SECURE_DATA_VID_AAD_SIZE);
+}
+
+void ubi_secure_build_leb_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
+			      uint64_t flash_offset, uint64_t ec, uint8_t parent_ec_kv,
+			      uint32_t vol_id, uint32_t lnum, uint64_t sqnum, uint32_t data_size,
+			      uint8_t parent_vid_kv, uint8_t aad[UBI_SECURE_LEB_AAD_SIZE])
+{
+	if (prefix == NULL || aad == NULL) {
+		LOG_ERR("build_leb_aad: NULL argument");
+		return;
+	}
+
+	size_t pos = 0;
+
+	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	pos += UBI_SECURE_PREFIX_SIZE;
+
+	sys_put_be32(peb_index, &aad[pos]);
+	pos += sizeof(uint32_t);
+
+	sys_put_be64(flash_offset, &aad[pos]);
+	pos += sizeof(uint64_t);
+
+	sys_put_be64(ec, &aad[pos]);
+	pos += sizeof(uint64_t);
+
+	aad[pos] = parent_ec_kv;
+	pos += sizeof(uint8_t);
+
+	sys_put_be32(vol_id, &aad[pos]);
+	pos += sizeof(uint32_t);
+
+	sys_put_be32(lnum, &aad[pos]);
+	pos += sizeof(uint32_t);
+
+	sys_put_be64(sqnum, &aad[pos]);
+	pos += sizeof(uint64_t);
+
+	sys_put_be32(data_size, &aad[pos]);
+	pos += sizeof(uint32_t);
+
+	aad[pos] = parent_vid_kv;
+	pos += sizeof(uint8_t);
+
+	__ASSERT_NO_MSG(pos == UBI_SECURE_LEB_AAD_SIZE);
+}
+
+void ubi_secure_vid_meta_serialize(const struct ubi_vid_secure_meta *meta, uint8_t *buf)
+{
+	if (meta == NULL || buf == NULL) {
+		LOG_ERR("vid_meta_serialize: NULL argument");
+		return;
+	}
+
+	sys_put_be64(meta->leb_write_counter, &buf[VID_META_OFF_LEB_WRITE_COUNTER]);
+	sys_put_be64(meta->leb_total_auth_bytes, &buf[VID_META_OFF_LEB_TOTAL_AUTH_BYTES]);
+}
+
+void ubi_secure_vid_meta_deserialize(const uint8_t *buf, struct ubi_vid_secure_meta *meta)
+{
+	if (buf == NULL || meta == NULL) {
+		LOG_ERR("vid_meta_deserialize: NULL argument");
+		return;
+	}
+
+	meta->leb_write_counter = sys_get_be64(&buf[VID_META_OFF_LEB_WRITE_COUNTER]);
+	meta->leb_total_auth_bytes = sys_get_be64(&buf[VID_META_OFF_LEB_TOTAL_AUTH_BYTES]);
 }

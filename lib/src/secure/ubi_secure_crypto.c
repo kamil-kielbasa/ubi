@@ -35,8 +35,10 @@ static const char LABEL_LEB[] = "LEB";
 int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, uint8_t *label,
 			   size_t label_cap, size_t *label_len)
 {
-	__ASSERT_NO_MSG(label != NULL);
-	__ASSERT_NO_MSG(label_len != NULL);
+	if (label == NULL || label_len == NULL) {
+		LOG_ERR("build_label: NULL argument");
+		return -EINVAL;
+	}
 
 	const char *domain_name = NULL;
 	size_t domain_name_len = 0;
@@ -109,8 +111,10 @@ int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, ui
 int ubi_secure_derive_child_key(uint32_t root_key_id, const uint8_t *label, size_t label_len,
 				uint32_t *child_key_id)
 {
-	__ASSERT_NO_MSG(label != NULL);
-	__ASSERT_NO_MSG(child_key_id != NULL);
+	if (label == NULL || child_key_id == NULL) {
+		LOG_ERR("derive_child_key: NULL argument");
+		return -EINVAL;
+	}
 
 	psa_status_t status = PSA_ERROR_GENERIC_ERROR;
 	psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
@@ -176,9 +180,10 @@ int ubi_secure_aead_encrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 			    size_t plaintext_len, uint8_t *ciphertext, size_t ciphertext_cap,
 			    size_t *ciphertext_len)
 {
-	__ASSERT_NO_MSG(nonce != NULL);
-	__ASSERT_NO_MSG(ciphertext != NULL);
-	__ASSERT_NO_MSG(ciphertext_len != NULL);
+	if (nonce == NULL || ciphertext == NULL || ciphertext_len == NULL) {
+		LOG_ERR("aead_encrypt: NULL argument");
+		return -EINVAL;
+	}
 
 	const psa_status_t status = psa_aead_encrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len, plaintext,
@@ -197,9 +202,10 @@ int ubi_secure_aead_decrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 			    size_t ciphertext_len, uint8_t *plaintext, size_t plaintext_cap,
 			    size_t *plaintext_len)
 {
-	__ASSERT_NO_MSG(nonce != NULL);
-	__ASSERT_NO_MSG(plaintext != NULL);
-	__ASSERT_NO_MSG(plaintext_len != NULL);
+	if (nonce == NULL || plaintext == NULL || plaintext_len == NULL) {
+		LOG_ERR("aead_decrypt: NULL argument");
+		return -EINVAL;
+	}
 
 	const psa_status_t status = psa_aead_decrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len,
@@ -215,7 +221,10 @@ int ubi_secure_aead_decrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 
 int ubi_secure_generate_salt(uint8_t salt[UBI_SECURE_SALT_SIZE])
 {
-	__ASSERT_NO_MSG(salt != NULL);
+	if (salt == NULL) {
+		LOG_ERR("generate_salt: NULL argument");
+		return -EINVAL;
+	}
 
 	const psa_status_t status = psa_generate_random(salt, UBI_SECURE_SALT_SIZE);
 
@@ -231,11 +240,80 @@ void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_S
 			    const uint8_t counter[UBI_SECURE_COUNTER_SIZE],
 			    uint8_t nonce[UBI_SECURE_NONCE_SIZE])
 {
-	__ASSERT_NO_MSG(salt != NULL);
-	__ASSERT_NO_MSG(counter != NULL);
-	__ASSERT_NO_MSG(nonce != NULL);
+	if (salt == NULL || counter == NULL || nonce == NULL) {
+		LOG_ERR("build_nonce: NULL argument");
+		return;
+	}
 
 	nonce[0] = domain;
 	memcpy(&nonce[1], salt, UBI_SECURE_SALT_SIZE);
 	memcpy(&nonce[1 + UBI_SECURE_SALT_SIZE], counter, UBI_SECURE_COUNTER_SIZE);
+}
+
+int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
+				 enum ubi_secure_domain domain, uint8_t key_version,
+				 uint32_t *child_key_id)
+{
+	if (crypto_cfg == NULL || child_key_id == NULL) {
+		LOG_ERR("derive_domain_key: NULL argument");
+		return -EINVAL;
+	}
+
+	uint32_t root_key_id = 0;
+	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
+
+	if (ret != 0) {
+		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
+		return ret;
+	}
+
+	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };
+	size_t label_len = 0;
+
+	ret = ubi_secure_build_label(domain, 0, label, sizeof(label), &label_len);
+	if (ret != 0) {
+		LOG_ERR("build_label failed for domain %d: %d", (int)domain, ret);
+		return ret;
+	}
+
+	ret = ubi_secure_derive_child_key(root_key_id, label, label_len, child_key_id);
+	if (ret != 0) {
+		LOG_ERR("derive_child_key failed for domain %d: %d", (int)domain, ret);
+	}
+
+	return ret;
+}
+
+int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_t key_version,
+			      uint32_t volume_id, uint32_t *child_key_id)
+{
+	if (crypto_cfg == NULL || child_key_id == NULL) {
+		LOG_ERR("derive_leb_key: NULL argument");
+		return -EINVAL;
+	}
+
+	uint32_t root_key_id = 0;
+	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
+
+	if (ret != 0) {
+		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
+		return ret;
+	}
+
+	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };
+	size_t label_len = 0;
+
+	ret = ubi_secure_build_label(UBI_SECURE_DOMAIN_LEB, volume_id, label, sizeof(label),
+				     &label_len);
+	if (ret != 0) {
+		LOG_ERR("build_label failed for LEB domain vol %u: %d", volume_id, ret);
+		return ret;
+	}
+
+	ret = ubi_secure_derive_child_key(root_key_id, label, label_len, child_key_id);
+	if (ret != 0) {
+		LOG_ERR("derive_child_key failed for LEB domain vol %u: %d", volume_id, ret);
+	}
+
+	return ret;
 }

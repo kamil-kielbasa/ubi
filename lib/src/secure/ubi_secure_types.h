@@ -62,6 +62,42 @@
 /** Size of struct ubi_dev_secure_meta. */
 #define UBI_SECURE_DEV_META_SIZE (16)
 
+/* Data-PEB secure record sizes ------------------------------------------------ */
+
+/** Size of the plain EC header payload in bytes. */
+#define UBI_SECURE_PLAIN_EC_HDR_SIZE (16)
+
+/** Size of the plain VID header payload in bytes. */
+#define UBI_SECURE_PLAIN_VID_HDR_SIZE (32)
+
+/** Size of secure EC header on flash: prefix(32) + ciphertext(ec_hdr=16) + tag(16). */
+#define UBI_SECURE_EC_HDR_SIZE (64)
+
+/** Plaintext payload for EC header: ec_hdr(16). */
+#define UBI_SECURE_EC_PLAINTEXT_SIZE (UBI_SECURE_PLAIN_EC_HDR_SIZE)
+
+/** Ciphertext+tag for EC header: 16 + 16 = 32. */
+#define UBI_SECURE_EC_CT_TAG_SIZE (UBI_SECURE_EC_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
+
+/** Size of struct ubi_vid_secure_meta. */
+#define UBI_SECURE_VID_META_SIZE (16)
+
+/** Size of secure data-PEB VID on flash: prefix(32) + ciphertext(vid_hdr=32 + vid_meta=16) + tag(16). */
+#define UBI_SECURE_DATA_VID_SIZE (96)
+
+/** Plaintext payload for data-PEB VID: vid_hdr(32) + vid_secure_meta(16) = 48. */
+#define UBI_SECURE_DATA_VID_PLAINTEXT_SIZE \
+	(UBI_SECURE_PLAIN_VID_HDR_SIZE + UBI_SECURE_VID_META_SIZE)
+
+/** Ciphertext+tag for data-PEB VID: 48 + 16 = 64. */
+#define UBI_SECURE_DATA_VID_CT_TAG_SIZE (UBI_SECURE_DATA_VID_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
+
+/** Offset of secure LEB data region within a data PEB: EC(64) + VID(96) = 160. */
+#define UBI_SECURE_LEB_OFFSET (UBI_SECURE_EC_HDR_SIZE + UBI_SECURE_DATA_VID_SIZE)
+
+/** Fixed overhead per secure LEB record: prefix(32) + tag(16) = 48. */
+#define UBI_SECURE_LEB_OVERHEAD (UBI_SECURE_PREFIX_SIZE + UBI_SECURE_TAG_SIZE)
+
 /* Crypto domains -------------------------------------------------------------- */
 
 /**
@@ -109,6 +145,41 @@ struct ubi_dev_secure_meta {
 };
 BUILD_ASSERT(sizeof(struct ubi_dev_secure_meta) == UBI_SECURE_DEV_META_SIZE);
 
+/**
+ * \brief Secure VID-side LEB metadata (encrypted alongside vid_hdr in data PEBs).
+ *
+ * These fields are the authoritative write-usage recovery state for
+ * a {key_version, volume_id} pair.
+ */
+struct ubi_vid_secure_meta {
+	uint64_t leb_write_counter; /*!< Next unused AEAD counter for {kv, vol_id}. */
+	uint64_t leb_total_auth_bytes; /*!< Cumulative authenticated bytes (AAD + payload). */
+};
+BUILD_ASSERT(sizeof(struct ubi_vid_secure_meta) == UBI_SECURE_VID_META_SIZE);
+
+/* Parent authentication context structures ------------------------------------ */
+
+/**
+ * \brief Authenticated EC-header context — passed as parent to VID/LEB operations.
+ *
+ * Populated by ubi_secure_ec_hdr_read() on success.
+ */
+struct ubi_secure_ec_auth_ctx {
+	uint64_t ec; /*!< Authenticated erase counter value. */
+	uint8_t key_version; /*!< EC-header prefix key_version. */
+};
+
+/**
+ * \brief Authenticated VID-header context — passed as parent to LEB operations.
+ *
+ * Bundles the EC parent chain and VID-specific fields needed for LEB AAD.
+ */
+struct ubi_secure_vid_auth_ctx {
+	struct ubi_secure_ec_auth_ctx ec_ctx; /*!< Parent EC auth context. */
+	const struct ubi_vid_hdr *vid_hdr; /*!< Authenticated VID header. */
+	uint8_t key_version; /*!< VID-header prefix key_version. */
+};
+
 /* AAD sizes ------------------------------------------------------------------- */
 
 /** AAD size for secure device header: prefix(32) + peb_idx(4) + offset(8). */
@@ -116,5 +187,15 @@ BUILD_ASSERT(sizeof(struct ubi_dev_secure_meta) == UBI_SECURE_DEV_META_SIZE);
 
 /** AAD size for secure volume header: prefix(32) + peb_idx(4) + offset(8) + revision(8) + parent_kv(1). */
 #define UBI_SECURE_VOL_HDR_AAD_SIZE (53)
+
+/** AAD size for secure EC header: prefix(32) + peb_idx(4) + offset(8) = 44. */
+#define UBI_SECURE_EC_HDR_AAD_SIZE (44)
+
+/** AAD size for secure data-VID header: prefix(32) + peb_idx(4) + offset(8) + ec(8) + parent_ec_kv(1) = 53. */
+#define UBI_SECURE_DATA_VID_AAD_SIZE (53)
+
+/** AAD size for secure LEB record (single-tag): prefix(32) + peb_idx(4) + offset(8) + ec(8)
+ *  + parent_ec_kv(1) + vol_id(4) + lnum(4) + sqnum(8) + data_size(4) + parent_vid_kv(1) = 74. */
+#define UBI_SECURE_LEB_AAD_SIZE (74)
 
 #endif /* UBI_SECURE_TYPES_H */

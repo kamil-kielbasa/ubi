@@ -49,6 +49,8 @@ static int secure_op_unsupported(void)
 /* Cast wrappers for ops vtable (all return -ENOTSUP for now). */
 static int secure_get_info(struct ubi_device *u, struct ubi_device_info *i)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(i != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(i);
 	return secure_op_unsupported();
@@ -56,6 +58,8 @@ static int secure_get_info(struct ubi_device *u, struct ubi_device_info *i)
 
 static int secure_deinit(struct ubi_device *u)
 {
+	__ASSERT_NO_MSG(u != NULL);
+
 	k_mutex_lock(&u->mutex, K_FOREVER);
 
 	/* PR5 does not populate PEB trees — only release partition + free device. */
@@ -67,12 +71,16 @@ static int secure_deinit(struct ubi_device *u)
 
 static int secure_erase_peb(struct ubi_device *u)
 {
+	__ASSERT_NO_MSG(u != NULL);
 	ARG_UNUSED(u);
 	return secure_op_unsupported();
 }
 
 static int secure_vol_create(struct ubi_device *u, const struct ubi_volume_config *c, int *id)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(c != NULL);
+	__ASSERT_NO_MSG(id != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(c);
 	ARG_UNUSED(id);
@@ -81,6 +89,8 @@ static int secure_vol_create(struct ubi_device *u, const struct ubi_volume_confi
 
 static int secure_vol_resize(struct ubi_device *u, int id, const struct ubi_volume_config *c)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(c != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(c);
@@ -89,6 +99,7 @@ static int secure_vol_resize(struct ubi_device *u, int id, const struct ubi_volu
 
 static int secure_vol_remove(struct ubi_device *u, int id)
 {
+	__ASSERT_NO_MSG(u != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	return secure_op_unsupported();
@@ -96,6 +107,9 @@ static int secure_vol_remove(struct ubi_device *u, int id)
 
 static int secure_vol_get_info(struct ubi_device *u, int id, struct ubi_volume_config *c, size_t *a)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(c != NULL);
+	__ASSERT_NO_MSG(a != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(c);
@@ -105,6 +119,8 @@ static int secure_vol_get_info(struct ubi_device *u, int id, struct ubi_volume_c
 
 static int secure_leb_write(struct ubi_device *u, int id, size_t l, const void *b, size_t n)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(b != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(l);
@@ -115,6 +131,8 @@ static int secure_leb_write(struct ubi_device *u, int id, size_t l, const void *
 
 static int secure_leb_read(struct ubi_device *u, int id, size_t l, size_t o, void *b, size_t n)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(b != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(l);
@@ -126,6 +144,7 @@ static int secure_leb_read(struct ubi_device *u, int id, size_t l, size_t o, voi
 
 static int secure_leb_map(struct ubi_device *u, int id, size_t l)
 {
+	__ASSERT_NO_MSG(u != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(l);
@@ -134,6 +153,7 @@ static int secure_leb_map(struct ubi_device *u, int id, size_t l)
 
 static int secure_leb_unmap(struct ubi_device *u, int id, size_t l)
 {
+	__ASSERT_NO_MSG(u != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(l);
@@ -142,6 +162,8 @@ static int secure_leb_unmap(struct ubi_device *u, int id, size_t l)
 
 static int secure_leb_is_mapped(struct ubi_device *u, int id, size_t l, bool *m)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(m != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(l);
@@ -151,6 +173,8 @@ static int secure_leb_is_mapped(struct ubi_device *u, int id, size_t l, bool *m)
 
 static int secure_leb_get_size(struct ubi_device *u, int id, size_t l, size_t *s)
 {
+	__ASSERT_NO_MSG(u != NULL);
+	__ASSERT_NO_MSG(s != NULL);
 	ARG_UNUSED(u);
 	ARG_UNUSED(id);
 	ARG_UNUSED(l);
@@ -243,6 +267,7 @@ static int detect_reserved_mode(const struct ubi_mtd *mtd, bool *any_blank, bool
 		const int ret = ubi_secure_res_peb_detect_mode(mtd, peb, &is_secure, &is_blank);
 
 		if (ret != 0) {
+			LOG_ERR("detect_reserved_mode: PEB %zu detection failed: %d", peb, ret);
 			return ret;
 		}
 
@@ -359,7 +384,7 @@ static int secure_attach(const struct ubi_mtd *mtd, const struct ubi_crypto_conf
 	}
 
 	/* Build freshness descriptor and call check_freshness. */
-	struct ubi_crypto_freshness freshness = {
+	const struct ubi_crypto_freshness freshness = {
 		.device_revision = (uint64_t)scan.dev_hdr.revision,
 		.global_sqnum = 0, /* Will be populated after data PEB scan in PR6. */
 	};
@@ -393,6 +418,7 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 	int ret = validate_crypto_cfg(crypto_cfg);
 
 	if (ret != 0) {
+		LOG_ERR("Crypto config validation failed");
 		*ubi = NULL;
 		return ret;
 	}
@@ -468,6 +494,7 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 
 	ret = detect_reserved_mode(mtd, &any_blank, &any_secure, &any_plain);
 	if (ret != 0) {
+		LOG_ERR("Reserved PEB mode detection failed");
 		goto exit;
 	}
 
@@ -487,6 +514,7 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 	}
 
 	if (ret != 0) {
+		LOG_ERR("Secure %s failed: %d", any_secure ? "attach" : "format", ret);
 		goto exit;
 	}
 

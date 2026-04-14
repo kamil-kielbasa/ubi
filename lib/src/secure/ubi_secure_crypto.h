@@ -12,8 +12,15 @@
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_types.h"
 
+#include <ubi_crypto.h>
+
 #include <stddef.h>
 #include <stdint.h>
+
+/* Defines ------------------------------------------------------------------------------------- */
+
+/** Maximum label buffer size for ubi_secure_build_label (longest domain: "VOLUME-IDENTIFIER"). */
+#define UBI_SECURE_MAX_LABEL_SIZE (24)
 
 /* Function declarations ----------------------------------------------------------------------- */
 
@@ -125,5 +132,40 @@ int ubi_secure_generate_salt(uint8_t salt[UBI_SECURE_SALT_SIZE]);
 void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_SIZE],
 			    const uint8_t counter[UBI_SECURE_COUNTER_SIZE],
 			    uint8_t nonce[UBI_SECURE_NONCE_SIZE]);
+
+/**
+ * \brief Derive a child key for a non-LEB domain (DEVICE_HEADER, VOLUME_HEADER, etc.).
+ *
+ * Performs: get_key_id(key_version) → root, build_label(domain, 0) → label,
+ *          derive_child_key(root, label) → child_key_id.
+ *
+ * \param[in]  crypto_cfg   Crypto configuration (for get_key_id callback).
+ * \param      domain       Secure domain identifier (must not be LEB).
+ * \param      key_version  Key version for root key lookup.
+ * \param[out] child_key_id Receives the derived PSA key identifier.
+ *
+ * \retval 0    Success.
+ * \retval -EIO Key derivation failure.
+ */
+int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
+				 enum ubi_secure_domain domain, uint8_t key_version,
+				 uint32_t *child_key_id);
+
+/**
+ * \brief Derive a child key for the LEB domain (keyed per volume_id).
+ *
+ * Performs: get_key_id(key_version) → root, build_label(LEB, volume_id) → label,
+ *          derive_child_key(root, label) → child_key_id.
+ *
+ * \param[in]  crypto_cfg   Crypto configuration (for get_key_id callback).
+ * \param      key_version  Key version for root key lookup.
+ * \param      volume_id    Volume identifier for per-volume keying.
+ * \param[out] child_key_id Receives the derived PSA key identifier.
+ *
+ * \retval 0    Success.
+ * \retval -EIO Key derivation failure.
+ */
+int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_t key_version,
+			      uint32_t volume_id, uint32_t *child_key_id);
 
 #endif /* UBI_SECURE_CRYPTO_H */

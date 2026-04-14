@@ -39,10 +39,6 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ---------------------------------------------------------------- */
 
-static int derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
-			     enum ubi_secure_domain domain, uint8_t key_version,
-			     uint32_t *child_key_id);
-
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
 				struct ubi_dev_secure_meta *dev_meta,
@@ -59,33 +55,6 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key
 			   uint8_t *out_buf);
 
 /* Static function definitions ----------------------------------------------------------------- */
-
-static int derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
-			     enum ubi_secure_domain domain, uint8_t key_version,
-			     uint32_t *child_key_id)
-{
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
-	__ASSERT_NO_MSG(child_key_id != NULL);
-
-	uint32_t root_key_id = 0;
-	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
-
-	if (ret != 0) {
-		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
-		return ret;
-	}
-
-	uint8_t label[32] = { 0 };
-	size_t label_len = 0;
-
-	ret = ubi_secure_build_label(domain, 0, label, sizeof(label), &label_len);
-	if (ret != 0) {
-		LOG_ERR("build_label failed for domain %d: %d", (int)domain, ret);
-		return ret;
-	}
-
-	return ubi_secure_derive_child_key(root_key_id, label, label_len, child_key_id);
-}
 
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
@@ -264,9 +233,10 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key
 int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bool *is_secure,
 				   bool *is_blank)
 {
-	__ASSERT_NO_MSG(mtd != NULL);
-	__ASSERT_NO_MSG(is_secure != NULL);
-	__ASSERT_NO_MSG(is_blank != NULL);
+	if (mtd == NULL || is_secure == NULL || is_blank == NULL) {
+		LOG_ERR("res_peb_detect_mode: NULL argument");
+		return -EINVAL;
+	}
 
 	const struct flash_area *fa = NULL;
 	int ret = flash_area_open(mtd->partition_id, &fa);
@@ -307,9 +277,10 @@ int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bo
 int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
 			    struct ubi_secure_res_peb_scan *scan)
 {
-	__ASSERT_NO_MSG(mtd != NULL);
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
-	__ASSERT_NO_MSG(scan != NULL);
+	if (mtd == NULL || crypto_cfg == NULL || scan == NULL) {
+		LOG_ERR("res_peb_scan: NULL argument");
+		return -EINVAL;
+	}
 
 	memset(scan, 0, sizeof(*scan));
 
@@ -389,8 +360,8 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 		/* Derive child key for this version. */
 		uint32_t child_key_id = 0;
 
-		ret = derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER, kv,
-					&child_key_id);
+		ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER, kv,
+						   &child_key_id);
 		if (ret != 0) {
 			LOG_ERR("Cannot derive key for version %u on PEB %zu", kv, peb);
 			scan->state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
@@ -435,10 +406,10 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
 				     const struct ubi_secure_res_peb_scan *scan,
 				     struct ubi_vol_hdr *vol_hdrs, size_t max_vols)
 {
-	__ASSERT_NO_MSG(mtd != NULL);
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
-	__ASSERT_NO_MSG(scan != NULL);
-	__ASSERT_NO_MSG(vol_hdrs != NULL);
+	if (mtd == NULL || crypto_cfg == NULL || scan == NULL || vol_hdrs == NULL) {
+		LOG_ERR("res_peb_read_vol_hdrs: NULL argument");
+		return -EINVAL;
+	}
 
 	if (scan->dev_hdr.vol_count == 0) {
 		return 0;
@@ -451,10 +422,10 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
 
 	/* Derive volume-header child key. */
 	uint32_t child_key_id = 0;
-	int ret = derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER,
-				    scan->dev_prefix.key_version, &child_key_id);
+	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER,
+					       scan->dev_prefix.key_version, &child_key_id);
 	if (ret != 0) {
-		LOG_ERR("derive_domain_key failed for vol hdr: %d", ret);
+		LOG_ERR("ubi_secure_derive_domain_key failed for vol hdr: %d", ret);
 		return ret;
 	}
 
@@ -540,27 +511,32 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
 			      const struct ubi_vol_hdr *vol_hdrs, size_t vol_count,
 			      uint8_t key_version, uint64_t counter)
 {
-	__ASSERT_NO_MSG(mtd != NULL);
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
-	__ASSERT_NO_MSG(dev_hdr != NULL);
-	__ASSERT_NO_MSG(dev_meta != NULL);
+	if (mtd == NULL || crypto_cfg == NULL || dev_hdr == NULL || dev_meta == NULL) {
+		LOG_ERR("res_peb_commit: NULL argument");
+		return -EINVAL;
+	}
+
+	if (vol_count > 0 && vol_hdrs == NULL) {
+		LOG_ERR("res_peb_commit: vol_hdrs NULL with vol_count > 0");
+		return -EINVAL;
+	}
 
 	/* Derive device-header and volume-header child keys. */
 	uint32_t dev_key_id = 0;
 
-	int ret = derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER, key_version,
-				    &dev_key_id);
+	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER,
+					       key_version, &dev_key_id);
 	if (ret != 0) {
-		LOG_ERR("derive_domain_key failed for dev hdr commit: %d", ret);
+		LOG_ERR("ubi_secure_derive_domain_key failed for dev hdr commit: %d", ret);
 		return ret;
 	}
 
 	uint32_t vol_key_id = 0;
 
-	ret = derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER, key_version,
-				&vol_key_id);
+	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER, key_version,
+					   &vol_key_id);
 	if (ret != 0) {
-		LOG_ERR("derive_domain_key failed for vol hdr commit: %d", ret);
+		LOG_ERR("ubi_secure_derive_domain_key failed for vol hdr commit: %d", ret);
 		ubi_secure_destroy_key(dev_key_id);
 		return ret;
 	}
@@ -645,7 +621,13 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
 		goto cleanup;
 	}
 
-	ret = (active_written < UBI_SECURE_RES_PEB_NR_ACTIVE) ? -EROFS : 0;
+	if (active_written < UBI_SECURE_RES_PEB_NR_ACTIVE) {
+		LOG_ERR("Degraded: only %zu of %u reserved PEBs written", active_written,
+			UBI_SECURE_RES_PEB_NR_ACTIVE);
+		ret = -EROFS;
+	} else {
+		ret = 0;
+	}
 
 cleanup:
 	ubi_secure_destroy_key(dev_key_id);

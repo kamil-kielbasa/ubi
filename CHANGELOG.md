@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-04-14
+
+### Added
+
+- **Secure data-PEB I/O building blocks**: types, serialization, and encrypted read/write functions for single-tag mode. Internal modules:
+  - `lib/src/secure/ubi_secure_types.h` — data-PEB secure record sizes (`UBI_SECURE_EC_HDR_SIZE(64)`, `UBI_SECURE_DATA_VID_SIZE(96)`, `UBI_SECURE_LEB_OFFSET(160)`, `UBI_SECURE_LEB_OVERHEAD(48)`), `struct ubi_vid_secure_meta` with BUILD_ASSERT, AAD size defines for EC (44 B), VID (53 B), and LEB single-tag (74 B), parent authentication context structs (`ubi_secure_ec_auth_ctx`, `ubi_secure_vid_auth_ctx`).
+  - `lib/src/secure/ubi_secure_ser.h/c` — EC-header, data-VID, and LEB single-tag AAD builders with terminal `__ASSERT_NO_MSG` guards, `ubi_secure_vid_meta_serialize`/`deserialize`.
+  - `lib/src/secure/ubi_secure_io.h/c` — 8 public functions: `ubi_secure_ec_hdr_read`/`write`, `ubi_secure_vid_hdr_read`/`write`, `ubi_secure_leb_data_read`/`write`, `ubi_secure_vid_region_is_erased`, `ubi_secure_leb_prefix_is_erased`. LEB read authenticates full payload then returns requested slice (single-tag semantics). LEB write uses scratch allocation via `ubi_mem_scratch_alloc`.
+
+### Changed
+
+- **Centralized key derivation** (`lib/src/secure/ubi_secure_crypto.h/c`): added `ubi_secure_derive_domain_key()` and `ubi_secure_derive_leb_key()` with `UBI_SECURE_MAX_LABEL_SIZE` define. Removed duplicate static `derive_domain_key` from `ubi_secure_reserved.c` and `ubi_secure_io.c`.
+- **Parent chain via context structs**: read functions output typed auth contexts (`ubi_secure_ec_auth_ctx`, `ubi_secure_vid_auth_ctx`) that bundle the authenticated parent fields (ec, key_version, vid_hdr pointer) for chained AAD construction — replacing loose `ec`/`ec_kv`/`vid_kv` parameters.
+- **Public function validation**: all public functions in `ubi_secure_io.c` use `if` + `LOG_ERR` + `return -EINVAL` instead of `__ASSERT_NO_MSG` for argument validation.
+- **Local prefix in read paths**: `ec_hdr_read` and `vid_hdr_read` deserialize prefix into a local variable; output structs are only written on success.
+
 ## [0.38.0] - 2026-04-15
 
 ### Added
