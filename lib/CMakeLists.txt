@@ -23,7 +23,14 @@ zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plain
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/secure
 )
+
+if(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+    zephyr_library_sources(
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_test_hooks.c
+    )
+endif()
 
 target_compile_options(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
     -Werror

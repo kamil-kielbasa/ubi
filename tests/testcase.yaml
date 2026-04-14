@@ -38,3 +38,43 @@ tests:
     timeout: 600
     extra_configs:
       - CONFIG_UBI_MEM_BACKEND_HEAP=y
+
+  # SECURE backend — STATIC
+  ubi.secure.functional:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+
+  ubi.secure.stress:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+
+  # SECURE backend — HEAP
+  ubi.secure.functional.heap:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+
+  ubi.secure.stress.heap:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y

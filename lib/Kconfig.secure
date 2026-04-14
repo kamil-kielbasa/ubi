@@ -1,0 +1,170 @@
+# UBI Secure Backend Kconfig
+#
+# This file is sourced by lib/Kconfig when UBI_ENABLE=y.
+
+menuconfig UBI_CRYPTO
+	bool "Enable UBI secure (authenticated-encryption) backend"
+	depends on UBI_ENABLE
+	depends on MBEDTLS
+	depends on MBEDTLS_PSA_CRYPTO_C
+	select PSA_WANT_ALG_CCM
+	select PSA_WANT_ALG_HKDF
+	select PSA_WANT_ALG_SHA_256
+	select PSA_WANT_KEY_TYPE_AES
+	help
+	  Enable the secure backend for UBI devices. When enabled, devices
+	  initialized with a non-NULL crypto_cfg use AES-128-CCM authenticated
+	  encryption for all on-flash structures. Requires PSA Crypto via
+	  Mbed TLS.
+
+if UBI_CRYPTO
+
+# --- Key version limits ---
+
+config UBI_CRYPTO_MAX_KEY_VERSIONS
+	int "Maximum distinct key versions per attach session"
+	default 4
+	range 1 255
+	help
+	  Upper bound on the number of distinct key versions that may be
+	  active during a single attach session. Determines the size of
+	  per-key-version bookkeeping arrays.
+
+config UBI_CRYPTO_MAX_ALLOWLIST_LEN
+	int "Maximum entries in the key-version allowlist"
+	default 4
+	range 1 255
+	help
+	  Maximum number of entries in the ubi_crypto_policy.allowed_key_versions
+	  array that the secure backend will process.
+
+# --- Budget limits ---
+
+config UBI_CRYPTO_METADATA_COUNTER_BUDGET
+	int "Max metadata AEAD invocations per {domain, key_version}"
+	default 1000000
+	help
+	  Maximum number of AEAD encrypt operations for metadata headers
+	  (device header, volume header) per domain and key version before
+	  a key rotation event is triggered.
+
+config UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET
+	int "Max authenticated metadata bytes per {domain, key_version}"
+	default 100000000
+	help
+	  Maximum cumulative authenticated bytes (AAD + plaintext) for
+	  metadata AEAD operations per domain and key version.
+
+config UBI_CRYPTO_LEB_WRITE_BUDGET
+	int "Max LEB AEAD invocations per {key_version, volume_id}"
+	default 1000000
+	help
+	  Maximum number of AEAD encrypt operations for LEB data records
+	  per key version and volume before a key rotation event is triggered.
+
+config UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET
+	int "Max cumulative authenticated LEB bytes per {key_version, volume_id}"
+	default 100000000
+	help
+	  Maximum cumulative authenticated bytes (AAD + plaintext) for LEB
+	  AEAD operations per key version and volume.
+
+# --- Rotation thresholds ---
+
+config UBI_CRYPTO_ROTATE_SOON_PCT
+	int "Soft rotation threshold (percentage)"
+	default 80
+	range 1 99
+	help
+	  When usage reaches this percentage of any budget, the secure
+	  backend emits KEY_ROTATE_SOON. The application should prepare
+	  a replacement key.
+
+config UBI_CRYPTO_ROTATE_NOW_PCT
+	int "Hard rotation threshold (percentage)"
+	default 95
+	range 1 100
+	help
+	  When usage reaches this percentage of any budget, the secure
+	  backend emits KEY_ROTATE_NOW. If no replacement key is available,
+	  writes may be rejected.
+
+# --- Chunked mode ---
+
+config UBI_CRYPTO_LEB_CHUNKED
+	bool "Enable chunked secure LEB layout"
+	help
+	  Use multiple AEAD tags per LEB for large PEB geometries. Allows
+	  partial-LEB reads without authenticating the entire payload.
+
+config UBI_CRYPTO_LEB_CHUNK_SIZE
+	int "Chunk size in bytes for chunked LEB layout"
+	default 4096
+	range 256 65536
+	depends on UBI_CRYPTO_LEB_CHUNKED
+	help
+	  Size of each independently authenticated chunk within a secure
+	  LEB record. Smaller values allow finer-grained reads but increase
+	  per-LEB overhead (16 bytes tag per chunk).
+
+# --- PEB cache / staging buffer ---
+
+config UBI_CRYPTO_PEB_CACHE
+	bool "Enable PEB-sized staging buffer for secure I/O"
+	default y
+	help
+	  Allocate a reusable eraseblock-sized buffer for encrypt/decrypt
+	  staging. Required for the secure read/write paths.
+
+config UBI_CRYPTO_PEB_CACHE_STATIC
+	bool "Allocate PEB cache statically"
+	depends on UBI_CRYPTO_PEB_CACHE
+	help
+	  Allocate the PEB staging buffer at compile time. When disabled,
+	  the buffer is allocated per-device at init time using the selected
+	  memory backend.
+
+# --- Freshness ---
+
+config UBI_CRYPTO_FRESHNESS_SYNC_DELTA
+	int "Mutations between freshness-sync callbacks"
+	default 0
+	range 0 65535
+	help
+	  Number of flash-mutating operations between sync_freshness
+	  callbacks. 0 means sync after every commit. Higher values reduce
+	  callback frequency at the cost of a larger rollback window.
+
+# --- Strict read-only policies ---
+
+config UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE
+	bool "Enter read-only on RNG failure"
+	default y
+	help
+	  When the platform RNG cannot produce a fresh salt, enter
+	  read-only mode instead of only rejecting the current write.
+
+config UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE
+	bool "Enter read-only on freshness policy rejection"
+	default y
+	help
+	  When the check_freshness callback rejects at attach time or a
+	  rollback policy mismatch is detected, enter read-only mode.
+
+config UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE
+	bool "Enter read-only on freshness sync failure"
+	default n
+	help
+	  When the sync_freshness callback returns an error, enter
+	  read-only mode. The failing commit is NOT rolled back.
+
+config UBI_CRYPTO_TEST_FAULT_INJECTION
+	bool "Enable secure backend fault injection hooks"
+	depends on UBI_TEST_FAULT_INJECTION
+	help
+	  Exposes test hooks for injecting failures into PSA crypto
+	  operations (AEAD encrypt/decrypt, HKDF, RNG, freshness
+	  callbacks). Used for testing secure backend error handling.
+	  Do not enable in production builds.
+
+endif # UBI_CRYPTO

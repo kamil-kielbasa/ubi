@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-04-14
+
+### Added
+
+- **Secure public types** (`lib/include/ubi_crypto.h`): full type definitions for authenticated-encryption backend — `struct ubi_crypto_freshness`, `struct ubi_crypto_policy`, `struct ubi_crypto_event` (tagged union with 10 event types), `struct ubi_crypto_config` with callback typedefs for `get_key_id`, `check_freshness`, `sync_freshness`, and `event_cb`. Plain callers that pass `crypto_cfg == NULL` need not include this header.
+- **Secure Kconfig** (`lib/Kconfig.secure`): `CONFIG_UBI_CRYPTO` master enable with PSA Crypto dependencies (AES-128-CCM, HKDF-SHA-256). Budget limits (`CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET`, `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET`, etc.), rotation thresholds (`CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT`, `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT`), chunked mode (`CONFIG_UBI_CRYPTO_LEB_CHUNKED`), PEB cache, freshness sync delta, and strict read-only policies.
+- **Secure test hook scaffolding** (`lib/src/secure/ubi_secure_test_hooks.h/c`): 7 fault injection stages for crypto operations (get_key_id, RNG, AEAD encrypt/decrypt, HKDF, freshness reject/sync). One-shot arm/disarm pattern matching the existing plain fault injection API.
+- **Secure test profiles** (`tests/testcase.yaml`): `ubi.secure.functional`, `ubi.secure.stress`, `ubi.secure.functional.heap`, `ubi.secure.stress.heap` test configurations.
+- **Secure board configs**: `tests/boards/native_sim_secure.conf` and `native_sim_coverage_secure.conf` with Mbed TLS PSA + `CONFIG_UBI_CRYPTO=y`.
+- **Secure test fixture and stub** (`tests/src/secure/`): mock crypto config with permissive callbacks, tests verifying `-ENOTSUP` for secure init (backend not yet implemented), plain unaffected when secure types included, and crypto type size/layout assertions.
+
 ## [0.36.0] - 2026-04-14
 
 ### Changed

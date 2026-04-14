@@ -12,6 +12,7 @@ manifest:
           - cmsis
           - hal_nordic
           - hal_stm32
+          - mbedtls
 
   self:
     path: module/lib/ubi

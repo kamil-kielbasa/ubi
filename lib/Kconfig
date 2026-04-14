@@ -8,58 +8,8 @@ config UBI_ENABLE
 
 if UBI_ENABLE
 
-config UBI_DEV_HDR_NR_OF_RES_PEBS
-	int "Number of reserved PEBs for device and volume headers"
-	default 2
-	range 2 4
-	help
-	  Number of physical erase blocks reserved for storing
-	  device and volume headers. Two PEBs are always kept
-	  active (dual-bank). Additional PEBs serve as cold spares
-	  that are promoted when an active PEB fails permanently.
-	  Increasing this value reduces the number of data PEBs
-	  available for volumes.
-
-config UBI_MAX_NR_OF_VOLUMES
-	int "Maximum number of volumes per UBI device"
-	default 10
-	range 1 128
-	help
-	  Upper limit on the number of volumes that can be created
-	  on a single UBI device. Each volume header occupies 48 bytes
-	  on the reserved PEBs so this value is constrained by the
-	  erase block size.
-
-config UBI_PEB_WRITE_RETRY_COUNT
-	int "Number of write retries for data PEBs"
-	default 3
-	range 1 5
-	help
-	  Number of times to retry a failed flash write on data PEBs
-	  before propagating the error to the caller. Applies to EC
-	  header, VID header, and LEB data writes performed through
-	  the I/O layer. Reserved PEB writes are excluded because they
-	  use a separate multi-PEB fallback mechanism.
-	  Set to 1 for a single attempt (no retry).
-
-config UBI_BAD_PEB_TORTURE_CYCLES
-	int "Number of bad PEBs to torture per erase_peb call"
-	default 3
-	range 1 10
-	help
-	  Limits the number of bad PEBs processed by the torture
-	  test in a single ubi_device_erase_peb() invocation.
-	  This bounds the worst-case latency of the erase path.
-
-config UBI_BAD_PEB_TORTURE_MAX_PER_ERASE
-	int "Maximum erase attempts per bad PEB during torture"
-	default 1
-	range 1 10
-	help
-	  When a PEB is marked bad at runtime, the torture test
-	  attempts up to this many erases. If any erase succeeds,
-	  the PEB is considered healthy and returned to the free
-	  pool. If all attempts fail, the PEB stays bad.
+rsource "Kconfig.plain"
+rsource "Kconfig.secure"
 
 choice UBI_MEM_BACKEND
 	prompt "UBI memory backend"
