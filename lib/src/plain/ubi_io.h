@@ -21,6 +21,7 @@
 /* Standard library headers */
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 /* Defines ------------------------------------------------------------------------------------- */
 
@@ -320,5 +321,62 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
  */
 bool ubi_test_flash_erase_check_fail(void);
 #endif
+
+/* Inline helpers for on-flash header validation ----------------------------------------------- */
+
+/**
+ * \brief Validate a device header beyond CRC -- check field semantics.
+ */
+static inline bool ubi_dev_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
+						  size_t erase_block_size)
+{
+	if (hdr->magic != UBI_DEV_HDR_MAGIC)
+		return false;
+	if (hdr->version != UBI_DEV_HDR_VERSION)
+		return false;
+	if (hdr->offset == 0 || hdr->offset > erase_block_size)
+		return false;
+	if (hdr->size == 0)
+		return false;
+	return true;
+}
+
+/**
+ * \brief Validate a volume header beyond CRC -- check field semantics.
+ */
+static inline bool ubi_vol_hdr_semantically_valid(const struct ubi_vol_hdr *hdr)
+{
+	if (hdr->magic != UBI_VOL_HDR_MAGIC)
+		return false;
+	if (hdr->version != UBI_VOL_HDR_VERSION)
+		return false;
+	if (hdr->vol_type != UBI_VOLUME_TYPE_STATIC && hdr->vol_type != UBI_VOLUME_TYPE_DYNAMIC)
+		return false;
+	if (hdr->leb_count == 0)
+		return false;
+	if (strnlen((const char *)hdr->name, UBI_VOLUME_NAME_MAX_LEN) == 0)
+		return false;
+	return true;
+}
+
+/**
+ * \brief Safely copy a volume name from a RAM source into an on-flash header field.
+ */
+static inline void ubi_copy_name_to_hdr(uint8_t *dst, const char *src)
+{
+	memset(dst, 0, UBI_VOLUME_NAME_MAX_LEN);
+	const size_t len = strnlen(src, UBI_VOLUME_NAME_MAX_LEN - 1);
+	memcpy(dst, src, len);
+}
+
+/**
+ * \brief Safely copy a volume name from an on-flash header field into a RAM config.
+ */
+static inline void ubi_copy_name_from_hdr(char *dst, const uint8_t *src)
+{
+	memset(dst, 0, UBI_VOLUME_NAME_MAX_LEN);
+	memcpy(dst, src, UBI_VOLUME_NAME_MAX_LEN - 1);
+	dst[UBI_VOLUME_NAME_MAX_LEN - 1] = '\0';
+}
 
 #endif /* UBI_IO_H */

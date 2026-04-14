@@ -12,6 +12,9 @@
 /* Internal headers: */
 #include "ubi_internal.h"
 #include "ubi_backend.h"
+#include "ubi_io.h"
+#include "ubi_flash_res_peb.h"
+#include "ubi_plain_ops.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
@@ -596,6 +599,8 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd, struct ubi_device **
 	}
 	k_mutex_init(&ubi_dev->mutex);
 	ubi_dev->mtd = *mtd;
+	ubi_dev->mode = UBI_MODE_PLAIN;
+	ubi_dev->ops = ubi_plain_backend();
 	ubi_dev->free_pebs.lessthan_fn = ubi_cache_cmp;
 	ubi_dev->dirty_pebs.lessthan_fn = ubi_cache_cmp;
 	sys_slist_init(&ubi_dev->bad_pebs);
@@ -731,9 +736,6 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd, struct ubi_device **
 	/* Ensure next sqnum is strictly greater than any existing one. */
 	ubi_dev->global_sqnum += 1;
 
-	ubi_dev->mode = UBI_MODE_PLAIN;
-	ubi_dev->ops = ubi_plain_backend();
-
 	*ubi = ubi_dev;
 	return 0;
 
@@ -745,6 +747,19 @@ exit:
 
 static const struct ubi_backend_ops plain_ops = {
 	.init = ubi_plain_device_init,
+	.get_info = ubi_plain_device_get_info,
+	.deinit = ubi_plain_device_deinit,
+	.erase_peb = ubi_plain_device_erase_peb,
+	.vol_create = ubi_plain_volume_create,
+	.vol_resize = ubi_plain_volume_resize,
+	.vol_remove = ubi_plain_volume_remove,
+	.vol_get_info = ubi_plain_volume_get_info,
+	.leb_write = ubi_plain_leb_write,
+	.leb_read = ubi_plain_leb_read,
+	.leb_map = ubi_plain_leb_map,
+	.leb_unmap = ubi_plain_leb_unmap,
+	.leb_is_mapped = ubi_plain_leb_is_mapped,
+	.leb_get_size = ubi_plain_leb_get_size,
 };
 
 const struct ubi_backend_ops *ubi_plain_backend(void)

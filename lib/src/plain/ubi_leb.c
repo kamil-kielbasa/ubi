@@ -11,6 +11,8 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_io.h"
+#include "ubi_plain_ops.h"
 #include "ubi_mem.h"
 
 /* Zephyr headers: */
@@ -195,21 +197,16 @@ exit:
 
 /* Module interface function definitions ------------------------------------------------------- */
 
-int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
+int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
+			size_t len)
 {
-	if (!ubi || vol_id < 0 || !buf || len == 0)
-		return -EINVAL;
-
 	return leb_write(ubi, vol_id, lnum, buf, len);
 }
 
-int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
-		 size_t len)
+int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
+		       size_t len)
 {
 	int ret = -EIO;
-
-	if (!ubi || vol_id < 0 || !buf || len == 0)
-		return -EINVAL;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
@@ -262,11 +259,8 @@ exit:
 	return ret;
 }
 
-int ubi_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
+int ubi_plain_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 {
-	if (!ubi || vol_id < 0)
-		return -EINVAL;
-
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
@@ -314,11 +308,8 @@ exit:
 	return ret;
 }
 
-int ubi_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
+int ubi_plain_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 {
-	if (!ubi || vol_id < 0)
-		return -EINVAL;
-
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
@@ -368,11 +359,8 @@ exit:
 	return ret;
 }
 
-int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_mapped)
+int ubi_plain_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_mapped)
 {
-	if (!ubi || vol_id < 0 || !is_mapped)
-		return -EINVAL;
-
 	int ret = -EIO;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
@@ -381,31 +369,28 @@ int ubi_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_
 
 	if (!vol) {
 		ret = -ENOENT;
-		goto exit;
+		goto exit_mapped;
 	}
 
 	if (lnum >= vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
 		ret = -EACCES;
-		goto exit;
+		goto exit_mapped;
 	}
 
 	struct ubi_rbt_item *entry = ubi_cache_search(&vol->eba_tbl, lnum);
 
-	*is_mapped = (NULL == entry) ? false : true;
+	*is_mapped = (entry != NULL);
 	ret = 0;
 
-exit:
+exit_mapped:
 	k_mutex_unlock(&ubi->mutex);
 	return ret;
 }
 
-int ubi_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *size)
+int ubi_plain_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *size)
 {
 	int ret = -EIO;
-
-	if (!ubi || vol_id < 0 || !size)
-		return -EINVAL;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 

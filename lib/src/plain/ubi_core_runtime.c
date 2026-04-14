@@ -12,6 +12,7 @@
 /* Internal headers: */
 #include "ubi_internal.h"
 #include "ubi_io.h"
+#include "ubi_plain_ops.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
@@ -36,11 +37,8 @@ static void torture_bad_blocks(struct ubi_device *ubi);
 
 /* Module interface function definitions ------------------------------------------------------- */
 
-int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
+int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 {
-	if (!ubi || !info)
-		return -EINVAL;
-
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	memset(info, 0, sizeof(*info));
@@ -149,11 +147,8 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 	flash_area_close(fa);
 }
 
-int ubi_device_erase_peb(struct ubi_device *ubi)
+int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 {
-	if (!ubi)
-		return -EINVAL;
-
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	int ret = ubi_mutation_allowed(ubi, UBI_MUT_MAINTENANCE);
@@ -281,11 +276,8 @@ exit:
 	return ret;
 }
 
-int ubi_device_deinit(struct ubi_device *ubi)
+int ubi_plain_device_deinit(struct ubi_device *ubi)
 {
-	if (!ubi)
-		return -EINVAL;
-
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	struct rbnode *node = NULL;

@@ -11,6 +11,8 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_io.h"
+#include "ubi_plain_ops.h"
 #include "ubi_mem.h"
 
 /* Zephyr headers: */
@@ -80,12 +82,10 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 
 /* Module interface function definitions ------------------------------------------------------- */
 
-int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id)
+int ubi_plain_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,
+			    int *vol_id)
 {
 	int ret = -EIO;
-
-	if (!ubi || !vol_cfg || !vol_id)
-		return -EINVAL;
 
 	if (!ubi_volume_config_is_valid(vol_cfg))
 		return -EINVAL;
@@ -216,12 +216,10 @@ exit:
 	return ret;
 }
 
-int ubi_volume_resize(struct ubi_device *ubi, int vol_id, const struct ubi_volume_config *vol_cfg)
+int ubi_plain_volume_resize(struct ubi_device *ubi, int vol_id,
+			    const struct ubi_volume_config *vol_cfg)
 {
 	int ret = -EIO;
-
-	if (!ubi || !vol_cfg)
-		return -EINVAL;
 
 	if (vol_cfg->leb_count == 0)
 		return -EINVAL;
@@ -311,12 +309,9 @@ exit:
 	return ret;
 }
 
-int ubi_volume_remove(struct ubi_device *ubi, int vol_id)
+int ubi_plain_volume_remove(struct ubi_device *ubi, int vol_id)
 {
 	int ret = -EIO;
-
-	if (!ubi)
-		return -EINVAL;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
@@ -391,12 +386,9 @@ exit:
 	return ret;
 }
 
-int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
-			size_t *alloc_lebs)
+int ubi_plain_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
+			      size_t *alloc_lebs)
 {
-	if (!ubi || vol_id < 0 || !vol_cfg || !alloc_lebs)
-		return -EINVAL;
-
 	int ret = -EIO;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);

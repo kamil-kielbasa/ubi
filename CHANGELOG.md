@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-04-14
+
+### Changed
+
+- **Full backend ops dispatch for all public API functions**: expanded `struct ubi_backend_ops` from 1 to 11 function pointers covering device lifecycle, volume management, and LEB operations. All public functions now dispatch through `ubi.c` facade with centralized null checks and `LOG_ERR`. Three read-only functions (`get_info`, `vol_get_info`, `is_mapped`) implemented directly in the facade. Plain backend functions renamed to `ubi_plain_*` with declarations in `lib/src/plain/ubi_plain_ops.h`.
+- **Decoupled `ubi_internal.h` from plain-specific headers**: removed `#include "ubi_io.h"` and `#include "ubi_flash_res_peb.h"` from `lib/src/common/ubi_internal.h`. On-flash header validators and name-copy helpers moved to `lib/src/plain/ubi_io.h`. Plain `.c` files now include `ubi_io.h` directly. `ubi_internal.h` is now backend-agnostic.
+
 ## [0.35.0] - 2026-04-14
 
 ### Changed

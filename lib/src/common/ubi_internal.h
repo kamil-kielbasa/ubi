@@ -19,8 +19,6 @@
 /* Internal headers: */
 #include "ubi_backend.h"
 #include "ubi_cache.h"
-#include "ubi_io.h"
-#include "ubi_flash_res_peb.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>
@@ -240,90 +238,6 @@ static inline bool ubi_volume_config_is_valid(const struct ubi_volume_config *cf
 	if (cfg->leb_count == 0)
 		return false;
 	return true;
-}
-
-/**
- * \brief Validate a device header beyond CRC -- check field semantics.
- *
- * A CRC-valid header may still contain nonsensical values. This helper
- * rejects headers with bad magic, unknown version, or offsets/sizes
- * that don't match the flash geometry.
- *
- * \param[in] hdr      Device header (CRC already verified).
- * \param erase_block_size  Erase block size of the underlying flash.
- *
- * \retval true  Header is semantically valid.
- * \retval false One or more fields are out of range.
- */
-static inline bool ubi_dev_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
-						  size_t erase_block_size)
-{
-	if (hdr->magic != UBI_DEV_HDR_MAGIC)
-		return false;
-	if (hdr->version != UBI_DEV_HDR_VERSION)
-		return false;
-	if (hdr->offset == 0 || hdr->offset > erase_block_size)
-		return false;
-	if (hdr->size == 0)
-		return false;
-	return true;
-}
-
-/**
- * \brief Validate a volume header beyond CRC -- check field semantics.
- *
- * Rejects headers with bad magic, unknown version, invalid volume type,
- * zero LEB count, or name without NUL terminator.
- *
- * \param[in] hdr  Volume header (CRC already verified).
- *
- * \retval true  Header is semantically valid.
- * \retval false One or more fields are out of range.
- */
-static inline bool ubi_vol_hdr_semantically_valid(const struct ubi_vol_hdr *hdr)
-{
-	if (hdr->magic != UBI_VOL_HDR_MAGIC)
-		return false;
-	if (hdr->version != UBI_VOL_HDR_VERSION)
-		return false;
-	if (hdr->vol_type != UBI_VOLUME_TYPE_STATIC && hdr->vol_type != UBI_VOLUME_TYPE_DYNAMIC)
-		return false;
-	if (hdr->leb_count == 0)
-		return false;
-	if (strnlen((const char *)hdr->name, UBI_VOLUME_NAME_MAX_LEN) == 0)
-		return false;
-	return true;
-}
-
-/**
- * \brief Safely copy a volume name from a RAM source into an on-flash header field.
- *
- * Zeroes the destination first, then copies up to UBI_VOLUME_NAME_MAX_LEN - 1 bytes.
- *
- * \param[out] dst  Destination (on-flash header name field, UBI_VOLUME_NAME_MAX_LEN bytes).
- * \param[in]  src  Source name (must be NUL-terminated or at most UBI_VOLUME_NAME_MAX_LEN bytes).
- */
-static inline void ubi_copy_name_to_hdr(uint8_t *dst, const char *src)
-{
-	memset(dst, 0, UBI_VOLUME_NAME_MAX_LEN);
-	const size_t len = strnlen(src, UBI_VOLUME_NAME_MAX_LEN - 1);
-	memcpy(dst, src, len);
-}
-
-/**
- * \brief Safely copy a volume name from an on-flash header field into a RAM config.
- *
- * Zeroes the destination first, copies up to UBI_VOLUME_NAME_MAX_LEN - 1 bytes,
- * and ensures NUL-termination regardless of flash content.
- *
- * \param[out] dst  Destination config name (UBI_VOLUME_NAME_MAX_LEN bytes).
- * \param[in]  src  Source (on-flash header name field, UBI_VOLUME_NAME_MAX_LEN bytes).
- */
-static inline void ubi_copy_name_from_hdr(char *dst, const uint8_t *src)
-{
-	memset(dst, 0, UBI_VOLUME_NAME_MAX_LEN);
-	memcpy(dst, src, UBI_VOLUME_NAME_MAX_LEN - 1);
-	dst[UBI_VOLUME_NAME_MAX_LEN - 1] = '\0';
 }
 
 /**
