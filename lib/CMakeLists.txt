@@ -26,6 +26,16 @@ target_include_directories(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/secure
 )
 
+if(CONFIG_UBI_CRYPTO)
+    zephyr_library_sources(
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_core_init.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_crypto.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_ser.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_reserved.c
+    )
+    zephyr_library_link_libraries(mbedTLS)
+endif()
+
 if(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
     zephyr_library_sources(
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_test_hooks.c

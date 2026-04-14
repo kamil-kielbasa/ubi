@@ -7,6 +7,7 @@ menuconfig UBI_CRYPTO
 	depends on UBI_ENABLE
 	depends on MBEDTLS
 	depends on MBEDTLS_PSA_CRYPTO_C
+	depends on ENTROPY_GENERATOR
 	select PSA_WANT_ALG_CCM
 	select PSA_WANT_ALG_HKDF
 	select PSA_WANT_ALG_SHA_256
@@ -15,7 +16,13 @@ menuconfig UBI_CRYPTO
 	  Enable the secure backend for UBI devices. When enabled, devices
 	  initialized with a non-NULL crypto_cfg use AES-128-CCM authenticated
 	  encryption for all on-flash structures. Requires PSA Crypto via
-	  Mbed TLS.
+	  Mbed TLS and a platform entropy source.
+
+	  Platform prerequisites (set in board .conf):
+	    CONFIG_MBEDTLS=y
+	    CONFIG_MBEDTLS_PSA_CRYPTO_C=y
+	    CONFIG_ENTROPY_GENERATOR=y
+	    CONFIG_MBEDTLS_ENTROPY_POLL_ZEPHYR=y
 
 if UBI_CRYPTO
 

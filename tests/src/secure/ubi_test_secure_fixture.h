@@ -12,6 +12,8 @@
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+#include <psa/crypto.h>
+
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
@@ -20,12 +22,52 @@
 #include <stddef.h>
 #include <string.h>
 
+/* ---- PSA test key management ---------------------------------------------------------------- */
+
+/** 16-byte test root key material (all 0xAA). */
+static const uint8_t UBI_TEST_ROOT_KEY_MATERIAL[16] = {
+	0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+	0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+};
+
+/** Global PSA key ID of the imported test root key. */
+static psa_key_id_t ubi_test_root_key_id = 0;
+
+/**
+ * \brief Import the test root key into PSA.
+ *
+ * Must be called once per test suite setup (after psa_crypto_init).
+ */
+static inline void ubi_test_import_root_key(void)
+{
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+
+	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_DERIVE);
+	psa_set_key_algorithm(&attr, PSA_ALG_HKDF(PSA_ALG_SHA_256));
+	psa_set_key_type(&attr, PSA_KEY_TYPE_DERIVE);
+	psa_set_key_bits(&attr, 128);
+
+	psa_status_t status = psa_import_key(&attr, UBI_TEST_ROOT_KEY_MATERIAL,
+					     sizeof(UBI_TEST_ROOT_KEY_MATERIAL),
+					     &ubi_test_root_key_id);
+	zassert_equal(status, PSA_SUCCESS, "PSA import key failed: %d", (int)status);
+}
+
+/**
+ * \brief Destroy the test root key from PSA.
+ */
+static inline void ubi_test_destroy_root_key(void)
+{
+	psa_destroy_key(ubi_test_root_key_id);
+	ubi_test_root_key_id = 0;
+}
+
 /* ---- Mock callbacks for testing ------------------------------------------------------------- */
 
 static inline int mock_get_key_id(uint8_t key_version, uint32_t *key_id_out)
 {
 	ARG_UNUSED(key_version);
-	*key_id_out = 1;
+	*key_id_out = (uint32_t)ubi_test_root_key_id;
 	return 0;
 }
 

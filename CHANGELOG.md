@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-04-15
+
+### Added
+
+- **Secure reserved-PEB metadata & attach path**: full end-to-end secure init (format-on-blank, attach-to-existing, mode mismatch detection). Internal modules:
+  - `lib/src/secure/ubi_secure_types.h` — on-flash prefix32, dev_secure_meta, domain enum (`UBI_SECURE_DOMAIN_COUNT` as last enumerator), size constants with BUILD_ASSERT.
+  - `lib/src/secure/ubi_secure_crypto.h/c` — PSA Crypto wrappers: HKDF-SHA-256 child key derivation, AES-128-CCM AEAD encrypt/decrypt, salt generation, nonce construction, normative label builder.
+  - `lib/src/secure/ubi_secure_ser.h/c` — prefix32 serialize/deserialize, dev_meta serialize/deserialize, 48-bit counter encode/decode with `UBI_SECURE_COUNTER_MAX` overflow guard, AAD builders for device header (44 B) and volume header (53 B).
+  - `lib/src/secure/ubi_secure_reserved.h/c` — dual-bank reserved-PEB scan/authenticate, mode detection (blank/secure/plain), volume header authentication with `pt_len` validation, encrypted commit.
+  - `lib/src/secure/ubi_core_init.c` — secure backend vtable (`ubi_secure_backend()`), `ubi_secure_init()` entry point with crypto_config validation, PSA crypto init, partition acquire, geometry check, format/attach dispatch, freshness callback, key version allowlist enforcement.
+- **Facade wired for secure backend**: `ubi_device_init()` in `lib/src/ubi.c` dispatches to `ubi_secure_init()` when `crypto_cfg != NULL` (`#ifdef CONFIG_UBI_CRYPTO`).
+- **Secure test suite** (`tests/src/secure/tests_ubi_secure_attach.c`): 8 tests — format on blank, re-attach after format, plain→secure mode mismatch, secure→plain mode mismatch, freshness rejection, NULL callback validation, empty allowlist validation, write key version allowlist check.
+
+### Changed
+
+- **Secure test fixture** (`tests/src/secure/ubi_test_secure_fixture.h`): upgraded mock `get_key_id` to return a real PSA key ID from an imported 128-bit test root key. Added `ubi_test_import_root_key()` / `ubi_test_destroy_root_key()` helpers.
+- **Secure API tests** (`tests/src/secure/tests_ubi_secure_api.c`): replaced `-ENOTSUP` test with `test_secure_format_on_blank` (secure backend now functional). Suite setup initializes PSA and imports test root key.
+- **Board config** (`tests/boards/native_sim_secure.conf`): added entropy source (`CONFIG_ENTROPY_GENERATOR`, `CONFIG_TEST_RANDOM_GENERATOR`, `CONFIG_MBEDTLS_ENTROPY_POLL_ZEPHYR`), entropy init priority before mbedTLS auto-init.
+- **CMakeLists** (`lib/CMakeLists.txt`): secure source files and `zephyr_library_link_libraries(mbedTLS)` gated on `CONFIG_UBI_CRYPTO`.
+- **Backend header** (`lib/src/common/ubi_backend.h`): added `ubi_secure_backend()` and `ubi_secure_init()` declarations (gated on `CONFIG_UBI_CRYPTO`).
+- **Internal secure headers**: removed redundant `#ifdef CONFIG_UBI_CRYPTO` guards from `ubi_secure_types.h`, `ubi_secure_crypto.h`, `ubi_secure_ser.h`, `ubi_secure_reserved.h` (compilation gated by CMakeLists.txt).
+- **Coding standards hardened across all secure sources**: every variable initialized at declaration, `const` on all single-assignment variables, `LOG_ERR` on every error return, `__ASSERT_NO_MSG` preconditions on all static function pointer arguments.
+
 ## [0.37.0] - 2026-04-14
 
 ### Added

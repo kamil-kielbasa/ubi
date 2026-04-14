@@ -19,6 +19,8 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
+#include <psa/crypto.h>
+
 #include <errno.h>
 #include <string.h>
 
@@ -48,6 +50,9 @@ static void *ztest_suite_setup(void)
 	mtd.erase_block_size = page_info.size;
 	mtd.write_block_size = flash_get_write_block_size(flash_dev);
 
+	zassert_equal(psa_crypto_init(), PSA_SUCCESS, "psa_crypto_init failed");
+	ubi_test_import_root_key();
+
 	return NULL;
 }
 
@@ -61,19 +66,16 @@ static void ztest_suite_before(void *ctx)
 /* Tests --------------------------------------------------------------------------------------- */
 
 /**
- * \brief Secure init returns -ENOTSUP when the secure backend is not yet implemented.
- *
- * Even with CONFIG_UBI_CRYPTO=y, the backend ops are not registered yet.
- * This test verifies the facade correctly rejects the request.
+ * \brief Secure init succeeds on blank flash (format-on-first-use).
  */
-ZTEST(ubi_secure_api, test_secure_init_returns_enotsup)
+ZTEST(ubi_secure_api, test_secure_format_on_blank)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	int ret = ubi_device_init(&mtd, &cfg, &ubi);
-	zassert_equal(ret, -ENOTSUP, "Expected -ENOTSUP, got %d", ret);
-	zassert_is_null(ubi);
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_not_null(ubi);
+	zassert_ok(ubi_device_deinit(ubi));
 }
 
 /**

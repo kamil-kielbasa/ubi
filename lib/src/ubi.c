@@ -29,11 +29,15 @@ int ubi_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_config *c
 	}
 
 	if (crypto_cfg != NULL) {
+#ifdef CONFIG_UBI_CRYPTO
+		return ubi_secure_backend()->init(mtd, crypto_cfg, ubi);
+#else
 		LOG_ERR("Secure backend not available");
 		return -ENOTSUP;
+#endif
 	}
 
-	return ubi_plain_backend()->init(mtd, ubi);
+	return ubi_plain_backend()->init(mtd, crypto_cfg, ubi);
 }
 
 int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
