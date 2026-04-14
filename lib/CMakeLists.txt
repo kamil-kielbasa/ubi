@@ -4,6 +4,8 @@ project(ubi)
       
 zephyr_library()
 zephyr_library_sources(
+    # facade
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ubi.c
     # common
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/ubi_cache.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/ubi_mem.c
@@ -18,8 +20,10 @@ zephyr_library_sources(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_flash_res_peb.c
 )
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
-zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/common)
-zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/plain)
+target_include_directories(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain
+)
 
 target_compile_options(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
     -Werror

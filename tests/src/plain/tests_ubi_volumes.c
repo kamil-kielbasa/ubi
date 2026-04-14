@@ -184,7 +184,7 @@ ZTEST(ubi_volumes, create_one_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -219,7 +219,7 @@ ZTEST(ubi_volumes, create_one_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -275,7 +275,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 
 	/* 1. Initialize device */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -315,7 +315,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 
 	/* 5. Initialize device */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volume */
@@ -359,7 +359,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 
 	/* 10. Initialize device */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify removed volume */
@@ -414,7 +414,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -454,7 +454,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volume */
@@ -515,7 +515,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify resized volume */
@@ -589,7 +589,7 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create three volumes */
@@ -656,7 +656,7 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volumes */
@@ -757,7 +757,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create three volumes */
@@ -824,7 +824,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volumes */
@@ -896,7 +896,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify existing volumes */
@@ -946,7 +946,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 14. Verify created volumes */
@@ -1015,7 +1015,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 19. Verify after removed all volumes */
@@ -1107,7 +1107,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create three volumes */
@@ -1174,7 +1174,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volumes */
@@ -1254,7 +1254,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify existing volumes */
@@ -1311,7 +1311,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 14. Verify created volumes */
@@ -1403,7 +1403,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 19. Verify after resizes of all volumes */

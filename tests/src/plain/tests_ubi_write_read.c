@@ -185,7 +185,7 @@ ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -224,7 +224,7 @@ ZTEST(ubi_write_read, one_volume_one_leb_operation_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 7. Read device info */
@@ -286,7 +286,7 @@ ZTEST(ubi_write_read, one_volume_many_leb_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -320,7 +320,7 @@ ZTEST(ubi_write_read, one_volume_many_leb_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Read device info */
@@ -422,7 +422,7 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -488,7 +488,7 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 7. Read device info */
@@ -584,7 +584,7 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -621,7 +621,7 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 7. Read device info */
@@ -667,7 +667,7 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 ZTEST(ubi_write_read, leb_read_rejects_beyond_data_size)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "dsize",

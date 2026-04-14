@@ -17,6 +17,7 @@
 #include "ubi_test.h"
 
 /* Internal headers: */
+#include "ubi_backend.h"
 #include "ubi_cache.h"
 #include "ubi_io.h"
 #include "ubi_flash_res_peb.h"
@@ -57,6 +58,9 @@ struct ubi_volume {
  */
 struct ubi_device {
 	struct k_mutex mutex;
+
+	enum ubi_device_mode mode; /**< Backend mode (plain or secure). */
+	const struct ubi_backend_ops *ops; /**< Backend operations vtable. */
 
 	struct ubi_mtd mtd; /**< Underlying MTD (Memory Technology Device). */
 

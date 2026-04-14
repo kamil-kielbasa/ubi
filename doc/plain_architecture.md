@@ -451,7 +451,7 @@ stateDiagram-v2
 ### Flow Overview
 
 ```
-ubi_device_init(mtd, &ubi)
+ubi_device_init(mtd, NULL, &ubi)
         |
         v
   Allocate ubi_device, init mutex, init RBTs

@@ -640,7 +640,7 @@ ZTEST(ubi_io_faults, vol_create_scratch_alloc_fails_in_append)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -677,7 +677,7 @@ ZTEST(ubi_io_faults, vol_remove_scratch_alloc_fails_in_remove)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -714,7 +714,7 @@ ZTEST(ubi_io_faults, vol_resize_scratch_alloc_fails_in_update)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -756,7 +756,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_no_volumes)
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	/* Format partition with no volumes */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -767,7 +767,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_no_volumes)
 	for (int fail_pos = 0; fail_pos <= 20; ++fail_pos) {
 		ubi_test_fault_set_alloc_fail_after(fail_pos);
 		ubi = NULL;
-		int ret = ubi_device_init(&mtd, &ubi);
+		int ret = ubi_device_init(&mtd, NULL, &ubi);
 		ubi_test_fault_reset();
 
 		if (ret == 0 && ubi != NULL) {
@@ -793,7 +793,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_volume)
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	/* Create a formatted partition with one volume and one written LEB */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -823,7 +823,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_volume)
 	for (int fail_pos = 0; fail_pos <= 25; ++fail_pos) {
 		ubi_test_fault_set_alloc_fail_after(fail_pos);
 		ubi = NULL;
-		int ret = ubi_device_init(&mtd, &ubi);
+		int ret = ubi_device_init(&mtd, NULL, &ubi);
 		ubi_test_fault_reset();
 
 		if (ret == 0 && ubi != NULL) {
@@ -849,7 +849,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_orphans)
 	/* Create partition with volume, write data, then remove volume + deinit.
 	 * The mapped PEBs become orphans on next init. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -875,7 +875,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_orphans)
 	for (int fail_pos = 0; fail_pos <= 25; ++fail_pos) {
 		ubi_test_fault_set_alloc_fail_after(fail_pos);
 		ubi = NULL;
-		int ret = ubi_device_init(&mtd, &ubi);
+		int ret = ubi_device_init(&mtd, NULL, &ubi);
 		ubi_test_fault_reset();
 
 		if (ret == 0 && ubi != NULL) {
@@ -899,7 +899,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_duplicates)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -953,7 +953,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_duplicates)
 	for (int fail_pos = 0; fail_pos <= 25; ++fail_pos) {
 		ubi_test_fault_set_alloc_fail_after(fail_pos);
 		ubi = NULL;
-		int ret = ubi_device_init(&mtd, &ubi);
+		int ret = ubi_device_init(&mtd, NULL, &ubi);
 		ubi_test_fault_reset();
 
 		if (ret == 0 && ubi != NULL) {
@@ -978,7 +978,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_vid_crc)
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	/* Format partition */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1005,7 +1005,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_vid_crc)
 	for (int fail_pos = 0; fail_pos <= 25; ++fail_pos) {
 		ubi_test_fault_set_alloc_fail_after(fail_pos);
 		ubi = NULL;
-		int ret = ubi_device_init(&mtd, &ubi);
+		int ret = ubi_device_init(&mtd, NULL, &ubi);
 		ubi_test_fault_reset();
 
 		if (ret == 0 && ubi != NULL) {
@@ -1030,7 +1030,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_ec)
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	/* Format partition so all data PEBs have valid EC headers */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1056,7 +1056,7 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_ec)
 	for (int fail_pos = 0; fail_pos <= 25; ++fail_pos) {
 		ubi_test_fault_set_alloc_fail_after(fail_pos);
 		ubi = NULL;
-		int ret = ubi_device_init(&mtd, &ubi);
+		int ret = ubi_device_init(&mtd, NULL, &ubi);
 		ubi_test_fault_reset();
 
 		if (ret == 0 && ubi != NULL) {
@@ -1077,7 +1077,7 @@ ZTEST(ubi_io_faults, get_peb_ec_diag_alloc_fault)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Make next alloc fail — get_peb_ec calls ubi_mem_diag_alloc */
@@ -1107,7 +1107,7 @@ ZTEST(ubi_io_faults, vol_create_second_volume_alloc_sweep)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Create first volume normally */
@@ -1158,7 +1158,7 @@ ZTEST(ubi_io_faults, vol_remove_alloc_sweep)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg1 = {
@@ -1207,7 +1207,7 @@ ZTEST(ubi_io_faults, erase_peb_flash_erase_failure_moves_to_bad)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Create a volume, write data, then remove to generate dirty PEBs */

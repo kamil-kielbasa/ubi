@@ -53,7 +53,7 @@ int main(void)
 	mtd.write_block_size = write_block_size;
 
 	struct ubi_device *ubi = NULL;
-	ret = ubi_device_init(&mtd, &ubi);
+	ret = ubi_device_init(&mtd, NULL, &ubi);
 
 	if (ret != 0) {
 		printk("UBI initialization failure\n");

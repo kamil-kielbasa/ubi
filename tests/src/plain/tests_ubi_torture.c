@@ -128,7 +128,7 @@ ZTEST_SUITE(ubi_torture, NULL, ztest_suite_setup, ztest_testcase_before, ztest_t
 ZTEST(ubi_torture, corrupt_peb_recovered_by_torture)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort1",
@@ -147,7 +147,7 @@ ZTEST(ubi_torture, corrupt_peb_recovered_by_torture)
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 
 	/* Re-init: corrupted PEB should be classified as bad. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -178,7 +178,7 @@ ZTEST(ubi_torture, corrupt_peb_recovered_by_torture)
 ZTEST(ubi_torture, recovered_peb_is_writable)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort2",
@@ -193,7 +193,7 @@ ZTEST(ubi_torture, recovered_peb_is_writable)
 	/* Corrupt a data PEB. */
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -227,7 +227,7 @@ ZTEST(ubi_torture, recovered_peb_is_writable)
 ZTEST(ubi_torture, ec_avg_tracking)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -276,7 +276,7 @@ ZTEST(ubi_torture, ec_avg_tracking)
 ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort4",
@@ -299,7 +299,7 @@ ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 	/* Corrupt a PEB. */
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -340,7 +340,7 @@ ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 ZTEST(ubi_torture, max_per_erase_limit)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort5",
@@ -356,7 +356,7 @@ ZTEST(ubi_torture, max_per_erase_limit)
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 	corrupt_peb_ec_header(NR_OF_RES_PEBS + 1);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));

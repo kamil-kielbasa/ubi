@@ -145,7 +145,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 
 	/* Reinit from flash (simulated reboot). */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg_b = {
@@ -216,7 +216,7 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
 	g_ubi = NULL;
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_get_info(ubi, id0, &read_cfg, &alloc));
@@ -280,7 +280,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 	g_ubi = NULL;
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* volume_create must fail. */

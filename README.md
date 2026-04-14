@@ -71,7 +71,7 @@ int main(void)
     };
 
     struct ubi_device *ubi = NULL;
-    ubi_device_init(&mtd, &ubi);
+    ubi_device_init(&mtd, NULL, &ubi);
 
     struct ubi_volume_config cfg = {
         .name = "my_vol",

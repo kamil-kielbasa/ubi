@@ -11,6 +11,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_backend.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
@@ -568,7 +569,7 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 
 /* Module interface function definitions ------------------------------------------------------- */
 
-int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
+static int ubi_plain_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 {
 	int ret = -1;
 
@@ -730,6 +731,9 @@ int ubi_device_init(const struct ubi_mtd *mtd, struct ubi_device **ubi)
 	/* Ensure next sqnum is strictly greater than any existing one. */
 	ubi_dev->global_sqnum += 1;
 
+	ubi_dev->mode = UBI_MODE_PLAIN;
+	ubi_dev->ops = ubi_plain_backend();
+
 	*ubi = ubi_dev;
 	return 0;
 
@@ -737,4 +741,13 @@ exit:
 	ubi_device_deinit(ubi_dev);
 	*ubi = NULL;
 	return ret;
+}
+
+static const struct ubi_backend_ops plain_ops = {
+	.init = ubi_plain_device_init,
+};
+
+const struct ubi_backend_ops *ubi_plain_backend(void)
+{
+	return &plain_ops;
 }

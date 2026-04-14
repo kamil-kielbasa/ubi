@@ -188,7 +188,7 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
@@ -233,7 +233,7 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 7. Unmap LEB */
@@ -260,7 +260,7 @@ ZTEST(ubi_map, one_volume_with_one_leb_operation_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify device infos */
@@ -314,7 +314,7 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
@@ -371,7 +371,7 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 7. Unmap LEBs */
@@ -400,7 +400,7 @@ ZTEST(ubi_map, one_volume_with_many_lebs_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify device infos */
@@ -462,7 +462,7 @@ ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
@@ -537,7 +537,7 @@ ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 7. Unmap LEBs */
@@ -569,7 +569,7 @@ ZTEST(ubi_map, many_volumes_with_many_lebs_operations_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify device infos */

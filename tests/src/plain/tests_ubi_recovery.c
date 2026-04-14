@@ -196,7 +196,7 @@ ZTEST(ubi_recovery, corrupt_ec_header_becomes_bad_peb)
 {
 	/* First, do a normal init + deinit so device/volume headers exist. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rec1",
@@ -227,7 +227,7 @@ ZTEST(ubi_recovery, corrupt_ec_header_becomes_bad_peb)
 	flash_area_close(fa);
 
 	/* Re-init: the corrupted PEB should be classified as bad. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -253,7 +253,7 @@ ZTEST(ubi_recovery, corrupt_vid_crc_becomes_bad_peb)
 {
 	/* Normal init to set up device/volume headers. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rec2",
@@ -299,7 +299,7 @@ ZTEST(ubi_recovery, corrupt_vid_crc_becomes_bad_peb)
 	flash_area_close(fa);
 
 	/* Re-init: PEB with bad VID CRC should be classified as bad. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -326,7 +326,7 @@ ZTEST(ubi_recovery, valid_ec_empty_vid_becomes_free_peb)
 {
 	/* Normal init so device/volume headers are written. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
@@ -343,7 +343,7 @@ ZTEST(ubi_recovery, valid_ec_empty_vid_becomes_free_peb)
 	flash_area_close(fa);
 
 	/* Re-init: PEB should be classified as free. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -369,7 +369,7 @@ ZTEST(ubi_recovery, vid_orphan_volume_becomes_dirty_peb)
 {
 	/* Init and create a volume, then deinit. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rec4",
@@ -398,7 +398,7 @@ ZTEST(ubi_recovery, vid_orphan_volume_becomes_dirty_peb)
 	flash_area_close(fa);
 
 	/* Re-init: PEB should be classified as dirty (orphan volume reference). */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -429,7 +429,7 @@ ZTEST(ubi_recovery, duplicate_leb_sqnum_conflict_resolution)
 {
 	/* Init, create a volume, write data to LEB 0, deinit. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rec5",
@@ -496,7 +496,7 @@ ZTEST(ubi_recovery, duplicate_leb_sqnum_conflict_resolution)
 	flash_area_close(fa);
 
 	/* Re-init: should resolve the conflict in favor of the higher sqnum. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -525,7 +525,7 @@ ZTEST(ubi_recovery, duplicate_leb_sqnum_conflict_resolution)
 ZTEST(ubi_recovery, erase_peb_no_dirty)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -559,7 +559,7 @@ ZTEST(ubi_recovery, erase_peb_no_dirty)
 ZTEST(ubi_recovery, init_recovers_corrupt_vol_header)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "corrvol",
@@ -594,7 +594,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_vol_header)
 	flash_area_close(fa);
 
 	/* Re-init should succeed: recovery reads vol header from bank 0. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Verify volume data is intact after recovery. */
 	uint8_t rdata[4] = { 0 };
@@ -619,7 +619,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_vol_header)
 ZTEST(ubi_recovery, leb_exceeds_volume_count_becomes_dirty)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create volume with 2 LEBs, write to both. */
 	const struct ubi_volume_config cfg2 = {
@@ -685,7 +685,7 @@ ZTEST(ubi_recovery, leb_exceeds_volume_count_becomes_dirty)
 	flash_area_close(fa);
 
 	/* Re-init: The out-of-bounds LEB should be classified as dirty. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -716,7 +716,7 @@ ZTEST(ubi_recovery, leb_exceeds_volume_count_becomes_dirty)
 ZTEST(ubi_recovery, duplicate_leb_with_corrupt_existing_ec)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "dupec",
@@ -776,7 +776,7 @@ ZTEST(ubi_recovery, duplicate_leb_with_corrupt_existing_ec)
 
 	/* Re-init: The corrupt-EC PEB goes to bad blocks (phase 4.1).
 	 * The injected PEB is inserted normally (phase 4.4.5). */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -800,7 +800,7 @@ ZTEST(ubi_recovery, duplicate_leb_with_corrupt_existing_ec)
 ZTEST(ubi_recovery, duplicate_leb_higher_sqnum_replaces_existing)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "duphigh",
@@ -857,7 +857,7 @@ ZTEST(ubi_recovery, duplicate_leb_higher_sqnum_replaces_existing)
 	flash_area_close(fa);
 
 	/* Re-init: higher sqnum PEB should replace existing, old goes dirty. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -919,7 +919,7 @@ static void verify_reserved_peb_valid(const struct flash_area *fa, size_t peb_id
 ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb0)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "devhdr0",
@@ -941,7 +941,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb0)
 	flash_area_close(fa);
 
 	/* Init should recover from PEB 1 */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	uint8_t rdata[4] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
@@ -966,7 +966,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb0)
 ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb1)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "devhdr1",
@@ -988,7 +988,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb1)
 	flash_area_close(fa);
 
 	/* Init should recover from PEB 0 */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	uint8_t rdata[4] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
@@ -1008,7 +1008,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb1)
 ZTEST(ubi_recovery, init_fails_all_dev_hdrs_corrupt)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
@@ -1020,7 +1020,7 @@ ZTEST(ubi_recovery, init_fails_all_dev_hdrs_corrupt)
 	flash_area_close(fa);
 
 	/* Init should fail — no valid headers anywhere */
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail with all headers corrupt");
 	zassert_is_null(ubi, "UBI pointer should be NULL");
 }
@@ -1038,7 +1038,7 @@ ZTEST(ubi_recovery, init_fails_all_dev_hdrs_corrupt)
 ZTEST(ubi_recovery, init_recovers_corrupt_vol_hdr_peb0)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "volhdr0",
@@ -1070,7 +1070,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_vol_hdr_peb0)
 	flash_area_close(fa);
 
 	/* Init should recover from PEB 1's valid vol header */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	uint8_t rdata[4] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
@@ -1104,7 +1104,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_vol_hdr_peb0)
 ZTEST(ubi_recovery, init_fails_both_vol_hdrs_corrupt)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "volboth",
@@ -1137,7 +1137,7 @@ ZTEST(ubi_recovery, init_fails_both_vol_hdrs_corrupt)
 	flash_area_close(fa);
 
 	/* Init should fail — vol headers are corrupt on all PEBs */
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail with all vol headers corrupt");
 	zassert_is_null(ubi, "UBI pointer should be NULL");
 }
@@ -1156,7 +1156,7 @@ ZTEST(ubi_recovery, init_fails_both_vol_hdrs_corrupt)
 ZTEST(ubi_recovery, vol_create_recovers_degraded_bank)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Corrupt PEB 1 */
 	const struct flash_area *fa = NULL;
@@ -1195,7 +1195,7 @@ ZTEST(ubi_recovery, vol_create_recovers_degraded_bank)
 ZTEST(ubi_recovery, vol_write_after_corrupt_peb0)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "runtm2",
@@ -1233,7 +1233,7 @@ ZTEST(ubi_recovery, vol_write_after_corrupt_peb0)
 ZTEST(ubi_recovery, vol_delete_recovers_degraded_bank)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "runtm3",
@@ -1274,7 +1274,7 @@ ZTEST(ubi_recovery, vol_delete_recovers_degraded_bank)
 ZTEST(ubi_recovery, commit_writes_all_reserved_pebs)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "commit",
@@ -1311,7 +1311,7 @@ ZTEST(ubi_recovery, commit_writes_all_reserved_pebs)
 ZTEST(ubi_recovery, format_writes_all_reserved_pebs)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(mtd.partition_id, &fa));
@@ -1336,7 +1336,7 @@ ZTEST(ubi_recovery, format_writes_all_reserved_pebs)
 ZTEST(ubi_recovery, total_peb_count_excludes_reserved)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1376,7 +1376,7 @@ ZTEST(ubi_recovery, total_peb_count_excludes_reserved)
 ZTEST(ubi_recovery, vol_resize_recovers_degraded_bank)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rszrec",
@@ -1426,7 +1426,7 @@ ZTEST(ubi_recovery, vol_resize_recovers_degraded_bank)
 ZTEST(ubi_recovery, degraded_mode_blocks_mutations)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "degvol",
@@ -1442,7 +1442,7 @@ ZTEST(ubi_recovery, degraded_mode_blocks_mutations)
 	ubi = NULL;
 
 	/* Re-init to verify data is there */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_false(info.read_only_degraded, "Should not be degraded initially");
@@ -1468,7 +1468,7 @@ ZTEST(ubi_recovery, degraded_mode_blocks_mutations)
 ZTEST(ubi_recovery, multi_volume_recovery_from_corrupt_bank)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg1 = {
 		.name = "mvr1",
@@ -1517,7 +1517,7 @@ ZTEST(ubi_recovery, multi_volume_recovery_from_corrupt_bank)
 
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1548,7 +1548,7 @@ ZTEST(ubi_recovery, corrupt_ec_with_valid_vid_still_bad)
 {
 	/* Init and create volume with data */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "ecvid",
@@ -1583,7 +1583,7 @@ ZTEST(ubi_recovery, corrupt_ec_with_valid_vid_still_bad)
 	flash_area_close(fa);
 
 	/* Re-init: EC check happens first, PEB should be bad */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1603,7 +1603,7 @@ ZTEST(ubi_recovery, corrupt_ec_with_valid_vid_still_bad)
 ZTEST(ubi_recovery, multiple_corrupt_pebs_all_classified)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
@@ -1624,7 +1624,7 @@ ZTEST(ubi_recovery, multiple_corrupt_pebs_all_classified)
 
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1647,7 +1647,7 @@ ZTEST(ubi_recovery, fresh_partition_formats_spare_pebs)
 {
 	/* Partition is already erased by ztest_testcase_before */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Both reserved PEBs should now be active */
 	const struct flash_area *fa = NULL;
@@ -1678,7 +1678,7 @@ ZTEST(ubi_recovery, valid_ec_erased_vid_and_erased_data_is_free)
 {
 	/* Normal init so device/volume headers are written. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info_baseline = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_baseline));
@@ -1699,7 +1699,7 @@ ZTEST(ubi_recovery, valid_ec_erased_vid_and_erased_data_is_free)
 	flash_area_close(fa);
 
 	/* Re-init: PEB should be classified as free. */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info_after = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_after));
@@ -1728,7 +1728,7 @@ ZTEST(ubi_recovery, valid_ec_erased_vid_and_present_data_is_dirty)
 {
 	/* Normal init so device/volume headers are written. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info_baseline = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_baseline));
@@ -1758,7 +1758,7 @@ ZTEST(ubi_recovery, valid_ec_erased_vid_and_present_data_is_dirty)
 	flash_area_close(fa);
 
 	/* Re-init: PEB should be classified as dirty (uncommitted). */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info_after = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_after));
@@ -1786,7 +1786,7 @@ ZTEST(ubi_recovery, reinit_after_interrupted_commit_preserves_old_data)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "recov",
@@ -1825,7 +1825,7 @@ ZTEST(ubi_recovery, reinit_after_interrupted_commit_preserves_old_data)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Old data should still be readable after re-init. */
 	memset(readback, 0, sizeof(readback));

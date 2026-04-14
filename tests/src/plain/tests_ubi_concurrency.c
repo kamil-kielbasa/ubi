@@ -243,7 +243,7 @@ ZTEST(ubi_concurrency, double_init_same_partition)
 	struct ubi_device *ubi1 = ubi_test_init_device(&mtd);
 
 	struct ubi_device *ubi2 = NULL;
-	int ret = ubi_device_init(&mtd, &ubi2);
+	int ret = ubi_device_init(&mtd, NULL, &ubi2);
 
 	zassert_equal(ret, -EBUSY, "Second init on same partition must return -EBUSY");
 	zassert_is_null(ubi2);

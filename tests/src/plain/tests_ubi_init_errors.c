@@ -143,7 +143,7 @@ ZTEST_SUITE(ubi_init_errors, NULL, ztest_suite_setup, ztest_testcase_before,
 ZTEST(ubi_init_errors, init_null_mtd)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(NULL, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -156,7 +156,7 @@ ZTEST(ubi_init_errors, init_null_mtd)
  */
 ZTEST(ubi_init_errors, init_null_ubi)
 {
-	zassert_equal(-EINVAL, ubi_device_init(&mtd, NULL));
+	zassert_equal(-EINVAL, ubi_device_init(&mtd, NULL, NULL));
 }
 
 /**
@@ -170,11 +170,11 @@ ZTEST(ubi_init_errors, init_null_ubi)
 ZTEST(ubi_init_errors, double_init_returns_ebusy)
 {
 	struct ubi_device *ubi1 = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi1));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi1));
 	g_ubi = ubi1;
 
 	struct ubi_device *ubi2 = NULL;
-	int ret = ubi_device_init(&mtd, &ubi2);
+	int ret = ubi_device_init(&mtd, NULL, &ubi2);
 	zassert_equal(-EBUSY, ret, "Double init should return -EBUSY");
 	zassert_is_null(ubi2, "Second handle should be NULL");
 
@@ -192,7 +192,7 @@ ZTEST(ubi_init_errors, double_init_returns_ebusy)
 ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -209,7 +209,7 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 	g_ubi = NULL;
 
 	/* Re-init should succeed */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	uint8_t rb[1] = { 0 };
@@ -235,14 +235,14 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
 	ubi_test_fault_set_alloc_fail_after(0);
 
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail with device alloc failure");
 	zassert_is_null(ubi);
 
 	ubi_test_fault_reset();
 
 	/* Verify partition was released (can init again) */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -260,7 +260,7 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
 ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -278,14 +278,14 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 	 * but the volume alloc (2nd) inside init_collect_volumes fails. */
 	ubi_test_fault_set_alloc_fail_after(1);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail when volume alloc fails");
 	zassert_is_null(ubi);
 
 	ubi_test_fault_reset();
 
 	/* Clean re-init should work */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -304,7 +304,7 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -321,14 +321,14 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 	/* Fail on the 3rd allocation (device=ok, volume=ok, leaf=fail) */
 	ubi_test_fault_set_alloc_fail_after(2);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail when leaf alloc fails");
 	zassert_is_null(ubi);
 
 	ubi_test_fault_reset();
 
 	/* Clean re-init should work */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -345,7 +345,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -356,7 +356,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 	 * the scan phase. */
 	ubi_test_fault_set_alloc_fail_after(3);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	/* May succeed if it happens to land on a non-leaf alloc, or fail */
 	if (ret != 0) {
 		zassert_is_null(ubi);
@@ -369,7 +369,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 	ubi_test_fault_reset();
 
 	/* Clean re-init should always work */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -390,7 +390,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -438,7 +438,7 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -467,7 +467,7 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -500,7 +500,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -524,7 +524,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -621,7 +621,7 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -667,7 +667,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 	flash_area_close(fa);
 
 	/* Init should fail because vol_type 0xFF is semantically invalid */
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
@@ -688,7 +688,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -753,7 +753,7 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 	flash_area_close(fa);
 
 	/* Re-init: higher sqnum should win */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -779,7 +779,7 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -797,7 +797,7 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 	g_ubi = NULL;
 
 	/* Re-init */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const uint8_t d2[] = { 0x22 };
@@ -832,7 +832,7 @@ ZTEST(ubi_init_errors, geometry_erase_block_size_zero)
 	bad_mtd.erase_block_size = 0;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -849,7 +849,7 @@ ZTEST(ubi_init_errors, geometry_write_block_size_zero)
 	bad_mtd.write_block_size = 0;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -866,7 +866,7 @@ ZTEST(ubi_init_errors, geometry_ebs_not_multiple_of_wbs)
 	bad_mtd.write_block_size = 3;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -883,7 +883,7 @@ ZTEST(ubi_init_errors, geometry_wbs_exceeds_alignment)
 	bad_mtd.write_block_size = 32;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -901,7 +901,7 @@ ZTEST(ubi_init_errors, geometry_ebs_too_small_for_headers)
 	bad_mtd.write_block_size = 1;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -915,7 +915,7 @@ ZTEST(ubi_init_errors, geometry_ebs_too_small_for_headers)
 ZTEST(ubi_init_errors, reserved_peb_crc_corruption_detected)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -935,7 +935,7 @@ ZTEST(ubi_init_errors, reserved_peb_crc_corruption_detected)
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		/* UBI recovered from corruption — still valid test */
 		g_ubi = ubi;
@@ -955,7 +955,7 @@ ZTEST(ubi_init_errors, reserved_peb_crc_corruption_detected)
 ZTEST(ubi_init_errors, reserved_peb_vol_count_exceeds_max)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -976,7 +976,7 @@ ZTEST(ubi_init_errors, reserved_peb_vol_count_exceeds_max)
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		/* UBI treated the high vol_count as valid — still exercises scan path */
 		g_ubi = ubi;
@@ -995,7 +995,7 @@ ZTEST(ubi_init_errors, reserved_peb_vol_count_exceeds_max)
 ZTEST(ubi_init_errors, one_reserved_peb_corrupt_recovers)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1011,7 +1011,7 @@ ZTEST(ubi_init_errors, one_reserved_peb_corrupt_recovers)
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	if (ret == 0) {
 		g_ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
@@ -1033,7 +1033,7 @@ ZTEST(ubi_init_errors, one_reserved_peb_corrupt_recovers)
 ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1050,7 +1050,7 @@ ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
 
 	ubi_test_fault_set_alloc_fail_after(1);
 
-	(void)ubi_device_init(&mtd, &ubi);
+	(void)ubi_device_init(&mtd, NULL, &ubi);
 	ubi_test_fault_reset();
 
 	if (ubi != NULL) {
@@ -1071,7 +1071,7 @@ ZTEST(ubi_init_errors, erased_partition_triggers_format)
 {
 	/* Partition is already erased by testcase_before - just init */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -1096,7 +1096,7 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
 	ubi_test_fault_set_flash_write_fail_after(2);
 
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	ubi_test_fault_reset();
 
 	if (ret == 0 && ubi != NULL) {
@@ -1116,7 +1116,7 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
 ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1133,7 +1133,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 
 	ubi_test_fault_set_alloc_fail_after(2);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 	ubi_test_fault_reset();
 
 	if (ret == 0 && ubi != NULL) {
@@ -1143,7 +1143,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 	}
 
 	ubi_test_erase_partition();
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1164,7 +1164,7 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
 {
 	/* First, do a normal init + deinit to format the partition */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1208,7 +1208,7 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
 	}
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 
 	if (ret == 0 && ubi != NULL) {
 		/* If init somehow succeeded (e.g. the PEBs were classified
@@ -1236,7 +1236,7 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 {
 	/* Format and create a volume with leb_count = 1 */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -1283,7 +1283,7 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 	flash_area_close(fa);
 
 	/* Reinit — scan should classify the out-of-range PEB as dirty */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Device should still work — the out-of-range PEB was moved to dirty */
@@ -1309,7 +1309,7 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 {
 	/* Format and create a volume, write to LEB 0 */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
@@ -1396,7 +1396,7 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 	 * For now, this test still covers the scan path where a PEB with
 	 * garbage EC is classified as bad, and the free PEB with valid
 	 * VID header for the same volume is classified normally. */
-	int ret = ubi_device_init(&mtd, &ubi);
+	int ret = ubi_device_init(&mtd, NULL, &ubi);
 
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
@@ -1419,7 +1419,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 {
 	/* Format and create a volume, write to LEB 0 */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
@@ -1483,7 +1483,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 	flash_area_close(fa);
 
 	/* Reinit — the older PEB should be discarded to dirty pool */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Verify the volume is intact and data matches */
@@ -1506,7 +1506,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 {
 	/* Normal init to format */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1548,7 +1548,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 	flash_area_close(fa);
 
 	/* Reinit — scan should classify the PEB with bad VID CRC as bad */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1571,7 +1571,7 @@ ZTEST(ubi_init_errors, geometry_partition_not_multiple_of_ebs)
 	bad_mtd.erase_block_size = mtd.erase_block_size + 1;
 
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&bad_mtd, &ubi);
+	int ret = ubi_device_init(&bad_mtd, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
 		(void)ubi_device_deinit(ubi);
@@ -1599,7 +1599,7 @@ ZTEST(ubi_init_errors, geometry_partition_too_small)
 
 	bad_mtd.erase_block_size = part_size; /* only 1 PEB, need > 2 */
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&bad_mtd, &ubi);
+	int ret = ubi_device_init(&bad_mtd, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
 		(void)ubi_device_deinit(ubi);

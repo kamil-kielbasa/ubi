@@ -116,7 +116,7 @@ ZTEST_SUITE(ubi_error_handling, NULL, ztest_suite_setup, ztest_testcase_before,
 ZTEST(ubi_error_handling, init_null_mtd)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(NULL, NULL, &ubi));
 }
 
 /**
@@ -128,7 +128,7 @@ ZTEST(ubi_error_handling, init_null_mtd)
  */
 ZTEST(ubi_error_handling, init_null_ubi)
 {
-	zassert_equal(-EINVAL, ubi_device_init(&mtd, NULL));
+	zassert_equal(-EINVAL, ubi_device_init(&mtd, NULL, NULL));
 }
 
 /**
@@ -167,7 +167,7 @@ ZTEST(ubi_error_handling, get_info_null_device)
 ZTEST(ubi_error_handling, get_info_null_info)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	zassert_equal(-EINVAL, ubi_device_get_info(ubi, NULL));
 
@@ -199,7 +199,7 @@ ZTEST(ubi_error_handling, erase_peb_null)
 ZTEST(ubi_error_handling, volume_create_null_params)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	int vol_id = -1;
 	const struct ubi_volume_config cfg = {
@@ -227,7 +227,7 @@ ZTEST(ubi_error_handling, volume_create_null_params)
 ZTEST(ubi_error_handling, volume_create_idempotent)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "idem",
@@ -259,7 +259,7 @@ ZTEST(ubi_error_handling, volume_create_idempotent)
 ZTEST(ubi_error_handling, volume_create_no_space)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -287,7 +287,7 @@ ZTEST(ubi_error_handling, volume_create_no_space)
 ZTEST(ubi_error_handling, volume_remove_nonexistent)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	zassert_equal(-ENOENT, ubi_volume_remove(ubi, 999));
 
@@ -305,7 +305,7 @@ ZTEST(ubi_error_handling, volume_remove_nonexistent)
 ZTEST(ubi_error_handling, volume_get_info_nonexistent)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { 0 };
 	size_t alloc = 0;
@@ -326,7 +326,7 @@ ZTEST(ubi_error_handling, volume_get_info_nonexistent)
 ZTEST(ubi_error_handling, volume_resize_static)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "static",
@@ -354,7 +354,7 @@ ZTEST(ubi_error_handling, volume_resize_static)
 ZTEST(ubi_error_handling, volume_resize_same_size)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "dyn",
@@ -380,7 +380,7 @@ ZTEST(ubi_error_handling, volume_resize_same_size)
 ZTEST(ubi_error_handling, volume_resize_nonexistent)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "none",
@@ -405,7 +405,7 @@ ZTEST(ubi_error_handling, volume_resize_nonexistent)
 ZTEST(ubi_error_handling, leb_write_null_buffer)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "wrtest",
@@ -431,7 +431,7 @@ ZTEST(ubi_error_handling, leb_write_null_buffer)
 ZTEST(ubi_error_handling, leb_write_zero_length)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "zerolen",
@@ -458,7 +458,7 @@ ZTEST(ubi_error_handling, leb_write_zero_length)
 ZTEST(ubi_error_handling, leb_read_unmapped)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rdtest",
@@ -484,7 +484,7 @@ ZTEST(ubi_error_handling, leb_read_unmapped)
 ZTEST(ubi_error_handling, leb_read_null_buffer)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rdnull",
@@ -510,7 +510,7 @@ ZTEST(ubi_error_handling, leb_read_null_buffer)
 ZTEST(ubi_error_handling, leb_unmap_unmapped)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "umtest",
@@ -536,7 +536,7 @@ ZTEST(ubi_error_handling, leb_unmap_unmapped)
 ZTEST(ubi_error_handling, leb_is_mapped_null)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	zassert_equal(-EINVAL, ubi_leb_is_mapped(ubi, 0, 0, NULL));
 
@@ -554,7 +554,7 @@ ZTEST(ubi_error_handling, leb_is_mapped_null)
 ZTEST(ubi_error_handling, leb_get_size_null)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	zassert_equal(-EINVAL, ubi_leb_get_size(ubi, 0, 0, NULL));
 
@@ -576,7 +576,7 @@ ZTEST(ubi_error_handling, leb_get_size_null)
 ZTEST(ubi_error_handling, leb_write_overwrite)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "overwr",
@@ -621,7 +621,7 @@ ZTEST(ubi_error_handling, leb_write_overwrite)
 ZTEST(ubi_error_handling, leb_read_with_offset)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "offrd",
@@ -654,7 +654,7 @@ ZTEST(ubi_error_handling, leb_read_with_offset)
 ZTEST(ubi_error_handling, volume_resize_shrink_with_mapped_lebs)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "shrink",
@@ -700,7 +700,7 @@ ZTEST(ubi_error_handling, volume_resize_shrink_with_mapped_lebs)
 ZTEST(ubi_error_handling, leb_write_out_of_range_lnum)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "oor_w",
@@ -728,7 +728,7 @@ ZTEST(ubi_error_handling, leb_write_out_of_range_lnum)
 ZTEST(ubi_error_handling, leb_read_out_of_range_lnum)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "oor_r",
@@ -758,7 +758,7 @@ ZTEST(ubi_error_handling, leb_read_out_of_range_lnum)
 ZTEST(ubi_error_handling, volume_remove_and_recreate)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rmcrt",
@@ -798,7 +798,7 @@ ZTEST(ubi_error_handling, volume_remove_and_recreate)
 ZTEST(ubi_error_handling, leb_map_then_write)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "maptw",
@@ -837,7 +837,7 @@ ZTEST(ubi_error_handling, leb_map_then_write)
 ZTEST(ubi_error_handling, volume_resize_null_config)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rsnul",
@@ -864,7 +864,7 @@ ZTEST(ubi_error_handling, volume_resize_null_config)
 ZTEST(ubi_error_handling, volume_resize_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "nope",
@@ -889,7 +889,7 @@ ZTEST(ubi_error_handling, volume_resize_no_volumes)
 ZTEST(ubi_error_handling, leb_write_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const uint8_t data[] = { 0xAA };
 	/* No volumes => -ENOENT */
@@ -909,7 +909,7 @@ ZTEST(ubi_error_handling, leb_write_no_volumes)
 ZTEST(ubi_error_handling, leb_read_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	uint8_t rdata[1];
 	/* No volumes => -ENOENT */
@@ -929,7 +929,7 @@ ZTEST(ubi_error_handling, leb_read_no_volumes)
 ZTEST(ubi_error_handling, leb_unmap_out_of_range)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "umoor",
@@ -958,7 +958,7 @@ ZTEST(ubi_error_handling, leb_unmap_out_of_range)
 ZTEST(ubi_error_handling, volume_get_info_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { 0 };
 	size_t alloc = 0;
@@ -978,7 +978,7 @@ ZTEST(ubi_error_handling, volume_get_info_no_volumes)
 ZTEST(ubi_error_handling, volume_remove_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	zassert_equal(-ENOENT, ubi_volume_remove(ubi, 0));
 
@@ -996,7 +996,7 @@ ZTEST(ubi_error_handling, volume_remove_no_volumes)
 ZTEST(ubi_error_handling, leb_unmap_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	zassert_equal(-ENOENT, ubi_leb_unmap(ubi, 0, 0));
 
@@ -1014,7 +1014,7 @@ ZTEST(ubi_error_handling, leb_unmap_no_volumes)
 ZTEST(ubi_error_handling, leb_is_mapped_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	bool mapped;
 	zassert_equal(-ENOENT, ubi_leb_is_mapped(ubi, 0, 0, &mapped));
@@ -1033,7 +1033,7 @@ ZTEST(ubi_error_handling, leb_is_mapped_no_volumes)
 ZTEST(ubi_error_handling, leb_get_size_no_volumes)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	size_t size = 0;
 	zassert_equal(-ENOENT, ubi_leb_get_size(ubi, 0, 0, &size));
@@ -1054,7 +1054,7 @@ ZTEST(ubi_error_handling, leb_get_size_no_volumes)
 ZTEST(ubi_error_handling, leb_write_vol_not_found)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "w_vnf",
@@ -1081,7 +1081,7 @@ ZTEST(ubi_error_handling, leb_write_vol_not_found)
 ZTEST(ubi_error_handling, leb_read_vol_not_found)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "r_vnf",
@@ -1108,7 +1108,7 @@ ZTEST(ubi_error_handling, leb_read_vol_not_found)
 ZTEST(ubi_error_handling, leb_unmap_vol_not_found)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "u_vnf",
@@ -1134,7 +1134,7 @@ ZTEST(ubi_error_handling, leb_unmap_vol_not_found)
 ZTEST(ubi_error_handling, leb_is_mapped_vol_not_found)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "m_vnf",
@@ -1161,7 +1161,7 @@ ZTEST(ubi_error_handling, leb_is_mapped_vol_not_found)
 ZTEST(ubi_error_handling, leb_get_size_vol_not_found)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "s_vnf",
@@ -1190,7 +1190,7 @@ ZTEST(ubi_error_handling, leb_get_size_vol_not_found)
 ZTEST(ubi_error_handling, leb_read_out_of_range)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "roor",
@@ -1217,7 +1217,7 @@ ZTEST(ubi_error_handling, leb_read_out_of_range)
 ZTEST(ubi_error_handling, leb_is_mapped_out_of_range)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "moor",
@@ -1244,7 +1244,7 @@ ZTEST(ubi_error_handling, leb_is_mapped_out_of_range)
 ZTEST(ubi_error_handling, leb_get_size_out_of_range)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "soor",
@@ -1272,7 +1272,7 @@ ZTEST(ubi_error_handling, leb_get_size_out_of_range)
 ZTEST(ubi_error_handling, volume_create_invalid_type)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "badtp",
@@ -1295,7 +1295,7 @@ ZTEST(ubi_error_handling, volume_create_invalid_type)
 ZTEST(ubi_error_handling, volume_create_zero_lebs)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "zero",
@@ -1318,7 +1318,7 @@ ZTEST(ubi_error_handling, volume_create_zero_lebs)
 ZTEST(ubi_error_handling, volume_resize_zero_lebs_rejected)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rzero",
@@ -1350,7 +1350,7 @@ ZTEST(ubi_error_handling, volume_resize_zero_lebs_rejected)
 ZTEST(ubi_error_handling, leb_unmap_unmapped_is_idempotent)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "idem_u",
@@ -1376,7 +1376,7 @@ ZTEST(ubi_error_handling, leb_unmap_unmapped_is_idempotent)
 ZTEST(ubi_error_handling, leb_map_already_mapped_is_noop)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "noop_m",
@@ -1412,7 +1412,7 @@ ZTEST(ubi_error_handling, leb_map_already_mapped_is_noop)
 ZTEST(ubi_error_handling, static_volume_write_allowed)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "stwr",
@@ -1445,7 +1445,7 @@ ZTEST(ubi_error_handling, static_volume_write_allowed)
 ZTEST(ubi_error_handling, leb_get_size_unmapped)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "gsum",
@@ -1475,7 +1475,7 @@ ZTEST(ubi_error_handling, leb_get_size_unmapped)
 ZTEST(ubi_error_handling, volume_create_duplicate_name)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "dup",
@@ -1506,7 +1506,7 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name)
 ZTEST(ubi_error_handling, volume_create_duplicate_name_different_config)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg1 = {
 		.name = "dup2",
@@ -1549,7 +1549,7 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name_different_config)
 ZTEST(ubi_error_handling, volume_create_empty_name)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "",
@@ -1573,7 +1573,7 @@ ZTEST(ubi_error_handling, volume_create_empty_name)
 ZTEST(ubi_error_handling, volume_create_name_no_nul)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = {
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -1599,7 +1599,7 @@ ZTEST(ubi_error_handling, volume_create_name_no_nul)
 ZTEST(ubi_error_handling, volume_create_name_max_valid)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = {
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -1626,7 +1626,7 @@ ZTEST(ubi_error_handling, volume_create_name_max_valid)
 ZTEST(ubi_error_handling, volume_resize_expand_enospc)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1666,7 +1666,7 @@ ZTEST(ubi_error_handling, volume_resize_expand_enospc)
 ZTEST(ubi_error_handling, volume_resize_shrink_trim)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "shrk",
@@ -1726,7 +1726,7 @@ ZTEST(ubi_error_handling, volume_resize_shrink_trim)
 ZTEST(ubi_error_handling, leb_write_all_pebs_exhausted)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1774,7 +1774,7 @@ ZTEST(ubi_error_handling, leb_write_all_pebs_exhausted)
 ZTEST(ubi_error_handling, leb_map_all_pebs_exhausted)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1817,7 +1817,7 @@ ZTEST(ubi_error_handling, leb_map_all_pebs_exhausted)
 ZTEST(ubi_error_handling, volume_create_idempotent_returns_same_id)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "idem",
@@ -1849,7 +1849,7 @@ ZTEST(ubi_error_handling, volume_create_idempotent_returns_same_id)
 ZTEST(ubi_error_handling, volume_create_name_clash_different_config)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg1 = {
 		.name = "clash",
@@ -1881,7 +1881,7 @@ ZTEST(ubi_error_handling, volume_create_name_clash_different_config)
 ZTEST(ubi_error_handling, volume_resize_grow_preserves_data)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "grow",
@@ -1928,7 +1928,7 @@ ZTEST(ubi_error_handling, volume_resize_grow_preserves_data)
 ZTEST(ubi_error_handling, volume_resize_grow_enospc)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -1976,7 +1976,7 @@ ZTEST(ubi_error_handling, volume_resize_grow_enospc)
 ZTEST(ubi_error_handling, leb_read_last_byte_at_boundary)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "bdry",
@@ -2007,7 +2007,7 @@ ZTEST(ubi_error_handling, leb_read_last_byte_at_boundary)
 ZTEST(ubi_error_handling, leb_read_beyond_data_size)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "over",
@@ -2038,7 +2038,7 @@ ZTEST(ubi_error_handling, leb_read_beyond_data_size)
 ZTEST(ubi_error_handling, volume_remove_and_recreate_different_config)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg1 = {
 		.name = "recycle",
@@ -2087,7 +2087,7 @@ ZTEST(ubi_error_handling, volume_remove_and_recreate_different_config)
 ZTEST(ubi_error_handling, leb_unmap_already_unmapped_idempotent)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "unmapr",
@@ -2116,7 +2116,7 @@ ZTEST(ubi_error_handling, leb_unmap_already_unmapped_idempotent)
 ZTEST(ubi_error_handling, volume_get_info_detailed)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "detail",
@@ -2154,7 +2154,7 @@ ZTEST(ubi_error_handling, volume_get_info_detailed)
 ZTEST(ubi_error_handling, volume_create_leaf_alloc_fault)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Fail on the 2nd allocation (leaf, after volume struct succeeds) */
 	ubi_test_fault_set_alloc_fail_after(1);
@@ -2187,7 +2187,7 @@ ZTEST(ubi_error_handling, volume_create_leaf_alloc_fault)
 ZTEST(ubi_error_handling, volume_create_scratch_alloc_fault)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Fail on the 3rd allocation (volume=1, leaf=2, scratch=3) */
 	ubi_test_fault_set_alloc_fail_after(2);
@@ -2222,7 +2222,7 @@ ZTEST(ubi_error_handling, volume_create_scratch_alloc_fault)
 ZTEST(ubi_error_handling, volume_remove_scratch_alloc_fault)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rmscr",
@@ -2259,7 +2259,7 @@ ZTEST(ubi_error_handling, volume_remove_scratch_alloc_fault)
 ZTEST(ubi_error_handling, volume_resize_scratch_alloc_fault)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rsscr",
@@ -2303,7 +2303,7 @@ ZTEST(ubi_error_handling, volume_resize_scratch_alloc_fault)
 ZTEST(ubi_error_handling, erase_peb_ec_read_failure_moves_to_bad)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "ecbad",
@@ -2345,7 +2345,7 @@ ZTEST(ubi_error_handling, erase_peb_ec_read_failure_moves_to_bad)
 ZTEST(ubi_error_handling, write_retry_exhausted)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "retry",
@@ -2382,7 +2382,7 @@ ZTEST(ubi_error_handling, get_peb_ec_with_corrupt_peb)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Corrupt one data PEB's EC header */
 	const struct flash_area *fa = NULL;
@@ -2420,7 +2420,7 @@ ZTEST(ubi_error_handling, get_peb_ec_with_corrupt_peb)
 ZTEST(ubi_error_handling, erase_peb_ec_corrupt_moves_to_bad)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create a volume with 1 LEB, write to it, then remove the volume.
 	 * This leaves the PEB in the dirty pool. */
@@ -2490,7 +2490,7 @@ ZTEST(ubi_error_handling, erase_peb_ec_corrupt_moves_to_bad)
 ZTEST(ubi_error_handling, erase_peb_ec_write_fail_after_erase)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create and remove a volume to get dirty PEBs */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2534,7 +2534,7 @@ ZTEST(ubi_error_handling, erase_peb_ec_write_fail_after_erase)
 ZTEST(ubi_error_handling, orphan_peb_classified_as_dirty_on_reinit)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create volume and write data so PEB gets a VID header */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2586,7 +2586,7 @@ ZTEST(ubi_error_handling, orphan_peb_classified_as_dirty_on_reinit)
 	flash_area_close(fa);
 
 	/* Reinit — the scan should classify the orphan PEB as dirty */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* The device should be usable with 0 volumes and the orphan PEB in dirty pool */
 	struct ubi_device_info info = { 0 };
@@ -2606,7 +2606,7 @@ ZTEST(ubi_error_handling, orphan_peb_classified_as_dirty_on_reinit)
 ZTEST(ubi_error_handling, volume_create_with_corrupt_reserved_peb)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Corrupt both reserved PEBs to make validation fail */
 	const struct flash_area *fa = NULL;
@@ -2638,7 +2638,7 @@ ZTEST(ubi_error_handling, volume_create_with_corrupt_reserved_peb)
 ZTEST(ubi_error_handling, volume_remove_with_corrupt_reserved_peb)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create a volume first */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2672,7 +2672,7 @@ ZTEST(ubi_error_handling, volume_remove_with_corrupt_reserved_peb)
 ZTEST(ubi_error_handling, volume_resize_with_corrupt_reserved_peb)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create a volume */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2713,7 +2713,7 @@ ZTEST(ubi_error_handling, volume_resize_with_corrupt_reserved_peb)
 ZTEST(ubi_error_handling, degraded_peb_recovery_succeeds)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create a volume so we have metadata on reserved PEBs */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2732,7 +2732,7 @@ ZTEST(ubi_error_handling, degraded_peb_recovery_succeeds)
 	flash_area_close(fa);
 
 	/* Reinit — should recover PEB 1 and init normally */
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Verify the volume is still accessible */
 	struct ubi_volume_config info_cfg = { 0 };
@@ -2752,7 +2752,7 @@ ZTEST(ubi_error_handling, degraded_peb_recovery_succeeds)
 ZTEST(ubi_error_handling, volume_remove_corrupt_mapped_peb_reclaim)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create volume and write data */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2806,7 +2806,7 @@ ZTEST(ubi_error_handling, volume_remove_corrupt_mapped_peb_reclaim)
 ZTEST(ubi_error_handling, volume_resize_shrink_corrupt_peb_reclaim)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create volume with 3 LEBs and write to all of them */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 3 };
@@ -2867,7 +2867,7 @@ ZTEST(ubi_error_handling, check_invariants_after_bad_peb)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Corrupt a data PEB's EC header to make it "bad" during erase_peb */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -2922,7 +2922,7 @@ ZTEST(ubi_error_handling, check_invariants_after_bad_peb)
 ZTEST(ubi_error_handling, leb_read_beyond_data_size_returns_einval)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
 	snprintf(cfg.name, sizeof(cfg.name), "readlim");
@@ -2961,7 +2961,7 @@ ZTEST(ubi_error_handling, leb_read_beyond_data_size_returns_einval)
 ZTEST(ubi_error_handling, leb_map_vol_not_found)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	int ret = ubi_leb_map(ubi, 999, 0);
 	zassert_equal(ret, -ENOENT);
@@ -2979,7 +2979,7 @@ ZTEST(ubi_error_handling, leb_map_vol_not_found)
 ZTEST(ubi_error_handling, leb_map_lnum_out_of_range)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
 	snprintf(cfg.name, sizeof(cfg.name), "mapvol");
@@ -3007,7 +3007,7 @@ ZTEST(ubi_error_handling, leb_map_lnum_out_of_range)
 ZTEST(ubi_error_handling, leb_unmap_corrupt_ec_header)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
 	snprintf(cfg.name, sizeof(cfg.name), "unmvol");
@@ -3056,7 +3056,7 @@ ZTEST(ubi_error_handling, leb_unmap_corrupt_ec_header)
 ZTEST(ubi_error_handling, leb_get_size_corrupt_vid)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
 	snprintf(cfg.name, sizeof(cfg.name), "sizvol");
@@ -3105,7 +3105,7 @@ ZTEST(ubi_error_handling, leb_get_size_corrupt_vid)
 ZTEST(ubi_error_handling, leb_read_corrupt_vid_header)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
 	snprintf(cfg.name, sizeof(cfg.name), "rdvol");
@@ -3159,7 +3159,7 @@ ZTEST(ubi_error_handling, volume_remove_reindex_corrupt_vol_hdr)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create 2 volumes */
 	struct ubi_volume_config cfg1 = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -3224,7 +3224,7 @@ ZTEST(ubi_error_handling, volume_remove_reindex_corrupt_vol_hdr)
 ZTEST(ubi_error_handling, volume_remove_wrong_vol_id)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Create a volume so vol_count > 0 */
 	struct ubi_volume_config cfg = {
@@ -3256,7 +3256,7 @@ ZTEST(ubi_error_handling, volume_remove_wrong_vol_id)
 ZTEST(ubi_error_handling, volume_resize_shrink_preserves_data)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "shrink",

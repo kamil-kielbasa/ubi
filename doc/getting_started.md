@@ -35,7 +35,7 @@ int main(void)
     };
 
     struct ubi_device *ubi = NULL;
-    ubi_device_init(&mtd, &ubi);
+    ubi_device_init(&mtd, NULL, &ubi);
 
     /* Create a volume */
     struct ubi_volume_config cfg = {

@@ -120,7 +120,7 @@ ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_
 ZTEST(ubi_boundary, write_max_leb_data)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "max_leb",
@@ -176,7 +176,7 @@ ZTEST(ubi_boundary, write_max_leb_data)
 ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "exceed",
@@ -212,7 +212,7 @@ ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 ZTEST(ubi_boundary, read_at_exact_boundary)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rbound",
@@ -247,7 +247,7 @@ ZTEST(ubi_boundary, read_at_exact_boundary)
 ZTEST(ubi_boundary, write_alignment_boundary)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "align",
@@ -293,7 +293,7 @@ ZTEST(ubi_boundary, write_alignment_boundary)
 ZTEST(ubi_boundary, write_sub_alignment)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "sub",
@@ -353,7 +353,7 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 {
 	/* First session: write LEB 0. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "sqn",
@@ -370,7 +370,7 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 
 	/* Second session: write LEB 1. */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	/* Re-read vol_id after remount. */
 	struct ubi_volume_config cfg2;

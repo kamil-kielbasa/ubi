@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-04-14
+
+### Changed
+
+- **Unified init API with runtime backend dispatch**: `ubi_device_init()` signature changed from 2-arg `(mtd, &ubi)` to 3-arg `(mtd, crypto_cfg, &ubi)`. Passing `crypto_cfg == NULL` selects the plain backend; non-NULL returns `-ENOTSUP` until the secure backend is implemented. New `lib/src/ubi.c` facade, `lib/src/common/ubi_backend.h` backend ops vtable, and `ubi_plain_backend()` getter in `lib/src/plain/ubi_core_init.c`. `struct ubi_device` extended with `mode` and `ops` fields. All callers (tests, sample, docs) updated.
+
 ## [0.34.0] - 2026-04-13
 
 ### Changed

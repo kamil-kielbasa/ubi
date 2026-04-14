@@ -122,7 +122,7 @@ ZTEST_SUITE(ubi_stress, NULL, ztest_suite_setup, ztest_testcase_before, ztest_te
 ZTEST(ubi_stress, wear_leveling_distribution)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "wl",
@@ -195,7 +195,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &mem_before));
 
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "stress",
@@ -259,7 +259,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 ZTEST(ubi_stress, fill_entire_partition)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -316,7 +316,7 @@ ZTEST(ubi_stress, multiple_init_deinit_cycles)
 
 	for (size_t cycle = 0; cycle < 20; cycle++) {
 		struct ubi_device *ubi = NULL;
-		zassert_ok(ubi_device_init(&mtd, &ubi));
+		zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 
 		if (cycle == 0) {
 			const struct ubi_volume_config cfg = {

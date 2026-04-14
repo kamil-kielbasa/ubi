@@ -56,7 +56,7 @@ static inline void ubi_test_erase_partition(void)
 static inline struct ubi_device *ubi_test_init_device(const struct ubi_mtd *mtd)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(mtd, &ubi));
+	zassert_ok(ubi_device_init(mtd, NULL, &ubi));
 	return ubi;
 }
 

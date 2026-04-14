@@ -176,7 +176,7 @@ ZTEST(ubi_device, init_deinit)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	memset(&info, 0, sizeof(info));
@@ -223,7 +223,7 @@ ZTEST(ubi_device, init_deinit_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	memset(&info, 0, sizeof(info));
@@ -250,7 +250,7 @@ ZTEST(ubi_device, init_deinit_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	memset(&info, 0, sizeof(info));

@@ -208,7 +208,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 {
 	/* Normal init with a volume. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &ubi));
+	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -244,7 +244,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 
 	flash_area_close(fa);
 
-	int init_ret = ubi_device_init(&mtd, &ubi);
+	int init_ret = ubi_device_init(&mtd, NULL, &ubi);
 
 	if (init_ret != 0 || ubi == NULL) {
 		/* Init failed entirely — can't test degraded mode. */
