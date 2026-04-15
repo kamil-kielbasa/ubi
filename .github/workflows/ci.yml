@@ -23,12 +23,12 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CI_IMAGE: ghcr.io/zephyrproject-rtos/ci:v0.27.4
+
 jobs:
   native-tests:
     runs-on: ubuntu-latest
-    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
-    env:
-      CMAKE_PREFIX_PATH: /opt/toolchains
     strategy:
       fail-fast: true
       matrix:
@@ -37,6 +37,12 @@ jobs:
         crypto: [plain, secure]
     name: native-tests (${{ matrix.mem }}, ${{ matrix.geometry }}, ${{ matrix.crypto }})
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache
+          sudo docker image prune --all --force
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -44,29 +50,41 @@ jobs:
 
       - name: Initialize west workspace
         run: |
-          west init -l ubi
-          west update --narrow -o=--depth=1
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              git config --global --add safe.directory '*'
+              west init -l ubi
+              west update --narrow -o=--depth=1
+            "
 
       - name: Build tests (native_sim, ${{ matrix.mem }}, ${{ matrix.geometry }}, ${{ matrix.crypto }})
+        env:
+          MEM: ${{ matrix.mem }}
+          GEOMETRY: ${{ matrix.geometry }}
+          CRYPTO: ${{ matrix.crypto }}
         run: |
           EXTRA=""
-          [[ "${{ matrix.mem }}" == "heap" ]] && EXTRA+=" -DCONFIG_UBI_MEM_BACKEND_HEAP=y"
-          [[ "${{ matrix.geometry }}" != "default" ]] && \
-            EXTRA+=" -DDTC_OVERLAY_FILE=ubi/tests/boards/native_sim_${{ matrix.geometry }}.overlay"
-          [[ "${{ matrix.crypto }}" == "secure" ]] && \
-            EXTRA+=" -DOVERLAY_CONFIG=$(pwd)/ubi/tests/boards/native_sim_secure.conf"
-          west build -p --build-dir build/native_sim/tests \
-            -b native_sim ubi/tests/ \
-            ${EXTRA:+-- $EXTRA}
+          [[ "$MEM" == "heap" ]] && EXTRA+=" -DCONFIG_UBI_MEM_BACKEND_HEAP=y"
+          [[ "$GEOMETRY" != "default" ]] && \
+            EXTRA+=" -DDTC_OVERLAY_FILE=ubi/tests/boards/native_sim_${GEOMETRY}.overlay"
+          [[ "$CRYPTO" == "secure" ]] && \
+            EXTRA+=" -DOVERLAY_CONFIG=/ws/ubi/tests/boards/native_sim_secure.conf"
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              west build -p --build-dir build/native_sim/tests \
+                -b native_sim ubi/tests/ \
+                ${EXTRA:+-- $EXTRA}
+            "
 
-      - name: Run tests (native_sim, ${{ matrix.mem }}, ${{ matrix.geometry }})
-        run: ./build/native_sim/tests/zephyr/zephyr.exe
+      - name: Run tests (native_sim, ${{ matrix.mem }}, ${{ matrix.geometry }}, ${{ matrix.crypto }})
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE ./build/native_sim/tests/zephyr/zephyr.exe
 
   cross-build:
     runs-on: ubuntu-latest
-    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
-    env:
-      CMAKE_PREFIX_PATH: /opt/toolchains
     strategy:
       fail-fast: false
       matrix:
@@ -80,6 +98,12 @@ jobs:
             board-slug: nrf5340dk_cpuapp
     name: cross-build (${{ matrix.board-slug }}, ${{ matrix.app }}, ${{ matrix.mem }})
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache
+          sudo docker image prune --all --force
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -87,25 +111,46 @@ jobs:
 
       - name: Initialize west workspace
         run: |
-          west init -l ubi
-          west update --narrow -o=--depth=1
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              git config --global --add safe.directory '*'
+              west init -l ubi
+              west update --narrow -o=--depth=1
+            "
 
       - name: Build ${{ matrix.app }} (${{ matrix.board-slug }}, ${{ matrix.mem }})
+        env:
+          BOARD: ${{ matrix.board }}
+          BOARD_SLUG: ${{ matrix.board-slug }}
+          APP: ${{ matrix.app }}
+          MEM: ${{ matrix.mem }}
         run: |
-          west build -p \
-            --build-dir build/${{ matrix.board-slug }}/${{ matrix.app }} \
-            -b ${{ matrix.board }} ubi/${{ matrix.app }}/ \
-            ${{ matrix.mem == 'heap' && '-- -DCONFIG_UBI_MEM_BACKEND_HEAP=y' || '' }}
+          MEM_FLAG=""
+          [[ "$MEM" == "heap" ]] && MEM_FLAG="-- -DCONFIG_UBI_MEM_BACKEND_HEAP=y"
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              west build -p \
+                --build-dir build/${BOARD_SLUG}/${APP} \
+                -b '${BOARD}' ubi/${APP}/ \
+                ${MEM_FLAG}
+            "
 
       - name: Measure flash usage
         if: matrix.app == 'sample' && matrix.mem == 'static'
+        env:
+          BOARD_SLUG: ${{ matrix.board-slug }}
         run: |
-          SIZE_TOOL=$(find /opt/toolchains -name "arm-zephyr-eabi-size" -type f | head -1)
-          echo "=== ${{ matrix.board-slug }} flash usage ==="
-          ${SIZE_TOOL} build/${{ matrix.board-slug }}/sample/zephyr/zephyr.elf
-          ${SIZE_TOOL} -A \
-            build/${{ matrix.board-slug }}/sample/modules/ubi/lib/lib..__ubi__lib.a \
-            | tee flash_usage.txt
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE bash -c "
+              SIZE_TOOL=\$(find /opt/toolchains -name 'arm-zephyr-eabi-size' -type f | head -1)
+              echo '=== ${BOARD_SLUG} flash usage ==='
+              \${SIZE_TOOL} build/${BOARD_SLUG}/sample/zephyr/zephyr.elf
+              \${SIZE_TOOL} -A \
+                build/${BOARD_SLUG}/sample/modules/ubi/lib/lib..__ubi__lib.a \
+                | tee flash_usage.txt
+            "
 
       - name: Upload flash usage report
         if: matrix.app == 'sample' && matrix.mem == 'static'
@@ -118,10 +163,13 @@ jobs:
   coverage:
     needs: native-tests
     runs-on: ubuntu-latest
-    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
-    env:
-      CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache
+          sudo docker image prune --all --force
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -129,41 +177,53 @@ jobs:
 
       - name: Initialize west workspace
         run: |
-          west init -l ubi
-          west update --narrow -o=--depth=1
-
-      - name: Install lcov and curl
-        run: apt-get update && apt-get install -y lcov curl
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              git config --global --add safe.directory '*'
+              west init -l ubi
+              west update --narrow -o=--depth=1
+            "
 
       - name: Build tests with coverage
         run: |
-          west build -p --build-dir build/coverage \
-            -b native_sim ubi/tests/ \
-            -- -DOVERLAY_CONFIG="$(pwd)/ubi/tests/boards/native_sim_coverage.conf"
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              west build -p --build-dir build/coverage \
+                -b native_sim ubi/tests/ \
+                -- -DOVERLAY_CONFIG=/ws/ubi/tests/boards/native_sim_coverage.conf
+            "
 
       - name: Run tests
-        run: ./build/coverage/zephyr/zephyr.exe
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE ./build/coverage/zephyr/zephyr.exe
 
       - name: Collect coverage
         run: |
-          lcov --capture \
-            --directory build/coverage \
-            --output-file coverage.info \
-            --rc lcov_branch_coverage=1
-          lcov --extract coverage.info '*/lib/src/*' \
-            --output-file coverage_filtered.info \
-            --rc lcov_branch_coverage=1
-          genhtml coverage_filtered.info \
-            --output-directory coverage_html \
-            --branch-coverage \
-            --title "UBI Code Coverage"
-          lcov --summary coverage_filtered.info --rc lcov_branch_coverage=1
-          lcov --capture \
-            --directory build/coverage \
-            --output-file coverage_lines.info
-          lcov --extract coverage_lines.info '*/lib/src/*' \
-            --output-file coverage_lines_filtered.info
-          lcov --summary coverage_lines_filtered.info
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE bash -c "
+              apt-get update -qq && apt-get install -y -qq lcov > /dev/null 2>&1
+              lcov --capture \
+                --directory build/coverage \
+                --output-file coverage.info \
+                --rc lcov_branch_coverage=1
+              lcov --extract coverage.info '*/lib/src/*' \
+                --output-file coverage_filtered.info \
+                --rc lcov_branch_coverage=1
+              genhtml coverage_filtered.info \
+                --output-directory coverage_html \
+                --branch-coverage \
+                --title 'UBI Code Coverage'
+              lcov --summary coverage_filtered.info --rc lcov_branch_coverage=1
+              lcov --capture \
+                --directory build/coverage \
+                --output-file coverage_lines.info
+              lcov --extract coverage_lines.info '*/lib/src/*' \
+                --output-file coverage_lines_filtered.info
+              lcov --summary coverage_lines_filtered.info
+            "
 
       - name: Upload coverage report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -187,10 +247,13 @@ jobs:
   coverage-secure:
     needs: native-tests
     runs-on: ubuntu-latest
-    container: ghcr.io/zephyrproject-rtos/ci:v0.27.4
-    env:
-      CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache
+          sudo docker image prune --all --force
+
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -198,41 +261,53 @@ jobs:
 
       - name: Initialize west workspace
         run: |
-          west init -l ubi
-          west update --narrow -o=--depth=1
-
-      - name: Install lcov and curl
-        run: apt-get update && apt-get install -y lcov curl
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              git config --global --add safe.directory '*'
+              west init -l ubi
+              west update --narrow -o=--depth=1
+            "
 
       - name: Build tests with coverage (secure)
         run: |
-          west build -p --build-dir build/coverage-secure \
-            -b native_sim ubi/tests/ \
-            -- -DOVERLAY_CONFIG="$(pwd)/ubi/tests/boards/native_sim_coverage_secure.conf"
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              west build -p --build-dir build/coverage-secure \
+                -b native_sim ubi/tests/ \
+                -- -DOVERLAY_CONFIG=/ws/ubi/tests/boards/native_sim_coverage_secure.conf
+            "
 
       - name: Run tests (secure)
-        run: ./build/coverage-secure/zephyr/zephyr.exe
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE ./build/coverage-secure/zephyr/zephyr.exe
 
       - name: Collect coverage
         run: |
-          lcov --capture \
-            --directory build/coverage-secure \
-            --output-file coverage_secure.info \
-            --rc lcov_branch_coverage=1
-          lcov --extract coverage_secure.info '*/lib/src/*' \
-            --output-file coverage_secure_filtered.info \
-            --rc lcov_branch_coverage=1
-          genhtml coverage_secure_filtered.info \
-            --output-directory coverage_secure_html \
-            --branch-coverage \
-            --title "UBI Secure Code Coverage"
-          lcov --summary coverage_secure_filtered.info --rc lcov_branch_coverage=1
-          lcov --capture \
-            --directory build/coverage-secure \
-            --output-file coverage_secure_lines.info
-          lcov --extract coverage_secure_lines.info '*/lib/src/*' \
-            --output-file coverage_secure_lines_filtered.info
-          lcov --summary coverage_secure_lines_filtered.info
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE bash -c "
+              apt-get update -qq && apt-get install -y -qq lcov > /dev/null 2>&1
+              lcov --capture \
+                --directory build/coverage-secure \
+                --output-file coverage_secure.info \
+                --rc lcov_branch_coverage=1
+              lcov --extract coverage_secure.info '*/lib/src/*' \
+                --output-file coverage_secure_filtered.info \
+                --rc lcov_branch_coverage=1
+              genhtml coverage_secure_filtered.info \
+                --output-directory coverage_secure_html \
+                --branch-coverage \
+                --title 'UBI Secure Code Coverage'
+              lcov --summary coverage_secure_filtered.info --rc lcov_branch_coverage=1
+              lcov --capture \
+                --directory build/coverage-secure \
+                --output-file coverage_secure_lines.info
+              lcov --extract coverage_secure_lines.info '*/lib/src/*' \
+                --output-file coverage_secure_lines_filtered.info
+              lcov --summary coverage_secure_lines_filtered.info
+            "
 
       - name: Upload coverage report (secure)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
