@@ -1,12 +1,13 @@
 /**
  * \file    tests_ubi_secure_api.c
+ * \author  Kamil Kielbasa
  *
  * \brief   Tests for secure API types, init rejection, and crypto_config validation.
  *
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -24,18 +25,18 @@
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ---------------------------------------------------------------------------- */
+/* ------------------------------------- Static variables -------------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
-/* Suite setup / teardown ---------------------------------------------------------------------- */
+/* ---------------------------------- Suite setup / teardown ----------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -63,10 +64,15 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests --------------------------------------------------------------------------------------- */
+/* ------------------------------------------- Tests ------------------------------------------- */
 
 /**
  * \brief Secure init succeeds on blank flash (format-on-first-use).
+ *
+ * \details Initialize the secure backend on a fully erased partition.
+ *          The backend must detect blank media and format it in secure mode.
+ *
+ * \expected ubi_device_init returns 0, device handle is non-NULL.
  */
 ZTEST(ubi_secure_api, test_secure_format_on_blank)
 {
@@ -81,8 +87,11 @@ ZTEST(ubi_secure_api, test_secure_format_on_blank)
 /**
  * \brief Plain init still works when secure types are included.
  *
- * Ensures that including ubi_crypto.h and having CONFIG_UBI_CRYPTO=y does
- * not break the plain backend path (crypto_cfg == NULL).
+ * \details Initialize the plain backend (crypto_cfg == NULL) while
+ *          CONFIG_UBI_CRYPTO=y is enabled in the build. Validates that
+ *          including ubi_crypto.h does not break the plain code path.
+ *
+ * \expected ubi_device_init returns 0, device info shows > 0 PEBs.
  */
 ZTEST(ubi_secure_api, test_plain_init_unaffected_by_secure_types)
 {
@@ -101,8 +110,11 @@ ZTEST(ubi_secure_api, test_plain_init_unaffected_by_secure_types)
 /**
  * \brief Crypto type sizes and layout are sane.
  *
- * Compile-time verification that the types from ubi_crypto.h have sensible
- * sizes and alignment.
+ * \details Verify struct sizes, enum ranges, and verdict values for all
+ *          public crypto types defined in ubi_crypto.h.
+ *
+ * \expected freshness is 16 bytes, event types span 0..9, verdict enums
+ *           match their documented values.
  */
 ZTEST(ubi_secure_api, test_crypto_type_sizes)
 {
@@ -124,6 +136,6 @@ ZTEST(ubi_secure_api, test_crypto_type_sizes)
 	zassert_equal(UBI_CRYPTO_EVENT_ENTER_READ_ONLY, 1);
 }
 
-/* Suite registration -------------------------------------------------------------------------- */
+/* ------------------------------------ Suite registration ------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_api, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

@@ -1,5 +1,6 @@
 /**
  * \file    ubi_test_fixture.h
+ * \author  Kamil Kielbasa
  * \brief   Shared test helpers: MTD setup, partition erase, device lifecycle.
  *
  * \copyright Copyright (c) 2026

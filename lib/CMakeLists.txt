@@ -33,6 +33,9 @@ if(CONFIG_UBI_CRYPTO)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_ser.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_reserved.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_io.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_runtime.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_volume.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_leb.c
     )
     zephyr_library_link_libraries(mbedTLS)
 endif()

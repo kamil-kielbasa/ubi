@@ -16,6 +16,10 @@
 #include "ubi.h"
 #include "ubi_test.h"
 
+#if defined(CONFIG_UBI_CRYPTO)
+#include <ubi_crypto.h>
+#endif
+
 /* Internal headers: */
 #include "ubi_backend.h"
 #include "ubi_cache.h"
@@ -61,6 +65,11 @@ struct ubi_device {
 	const struct ubi_backend_ops *ops; /**< Backend operations vtable. */
 
 	struct ubi_mtd mtd; /**< Underlying MTD (Memory Technology Device). */
+
+#if defined(CONFIG_UBI_CRYPTO)
+	const struct ubi_crypto_config
+		*crypto_cfg; /**< Secure backend crypto config (NULL for plain). */
+#endif
 
 	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
 

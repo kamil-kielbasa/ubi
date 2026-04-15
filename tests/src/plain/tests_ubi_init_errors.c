@@ -131,7 +131,7 @@ static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t e
 ZTEST_SUITE(ubi_init_errors, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
-/* --- Geometry validation tests --------------------------------------------------------------- */
+/* --------------------------------- Geometry validation tests --------------------------------- */
 
 /**
  * \brief Verify that init with NULL mtd returns -EINVAL.
@@ -220,7 +220,7 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 	g_ubi = NULL;
 }
 
-/* --- Memory allocation failures during init -------------------------------------------------- */
+/* -------------------------- Memory allocation failures during init --------------------------- */
 
 /**
  * \brief Verify that device allocation failure during init is handled safely.
@@ -817,7 +817,7 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 #endif
 }
 
-/* --- Geometry validation tests --------------------------------------------------------------- */
+/* --------------------------------- Geometry validation tests --------------------------------- */
 
 /**
  * \brief Init with erase_block_size=0 returns -EINVAL.

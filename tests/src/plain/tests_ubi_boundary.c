@@ -12,7 +12,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -33,7 +33,7 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -44,13 +44,13 @@
 #define UBI_EC_HDR_SIZE (16)
 #define UBI_VID_HDR_SIZE (32)
 
-/* Module types and type definitiones ---------------------------------------------------------- */
-/* Module interface variables and constants ---------------------------------------------------- */
-/* Static variables and constants -------------------------------------------------------------- */
+/* ---------------------------- Module types and type definitiones ----------------------------- */
+/* ------------------------- Module interface variables and constants -------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -58,7 +58,7 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -101,7 +101,7 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
@@ -327,7 +327,7 @@ ZTEST(ubi_boundary, write_sub_alignment)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Sequence number monotonicity across remount --- */
+/* ------------------------ Sequence number monotonicity across remount ------------------------ */
 
 /* Raw VID header for direct flash reads. */
 struct raw_vid_hdr {

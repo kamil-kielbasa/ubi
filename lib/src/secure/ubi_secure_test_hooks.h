@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_test_hooks.h
+ * \author  Kamil Kielbasa
  * \brief   Secure backend test hooks — fault injection for crypto operations.
  *
  * \details Provides controllable failure stages for secure backend testing.

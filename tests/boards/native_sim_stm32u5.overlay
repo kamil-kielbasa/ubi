@@ -5,13 +5,11 @@
 };
 
 &flash0 {
-	/* Default native_sim geometry: 8 KB erase pages, 1-byte write granularity.
+	/* STM32U5 geometry: 8 KB erase pages, 16-byte write alignment.
 	 * 16 PEBs × 8 KB = 128 KB partition (14 data + 2 reserved).
-	 * For MCU-specific geometries use native_sim_nrf5340.overlay or
-	 * native_sim_stm32u5.overlay via -DDTC_OVERLAY_FILE.
 	 */
 	erase-block-size = <8192>;
-	write-block-size = <1>;
+	write-block-size = <16>;
 
 	partitions {
 		compatible = "fixed-partitions";

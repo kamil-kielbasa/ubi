@@ -78,3 +78,187 @@ tests:
       - boards/native_sim_secure.conf
     extra_configs:
       - CONFIG_UBI_MEM_BACKEND_HEAP=y
+
+  # ---------------------------------------------------------------------------
+  # Geometry variant: nRF5340 (erase 4096 / write-block 4 / partition 64 KB)
+  # ---------------------------------------------------------------------------
+
+  # PLAIN — STATIC — nRF5340
+  ubi.functional.nrf5340:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  ubi.stress.nrf5340:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  # PLAIN — HEAP — nRF5340
+  ubi.functional.heap.nrf5340:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  ubi.stress.heap.nrf5340:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  # SECURE — STATIC — nRF5340
+  ubi.secure.functional.nrf5340:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  ubi.secure.stress.nrf5340:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  # SECURE — HEAP — nRF5340
+  ubi.secure.functional.heap.nrf5340:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  ubi.secure.stress.heap.nrf5340:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_nrf5340.overlay
+
+  # ---------------------------------------------------------------------------
+  # Geometry variant: STM32U5 (erase 8192 / write-block 16 / partition 128 KB)
+  # ---------------------------------------------------------------------------
+
+  # PLAIN — STATIC — STM32U5
+  ubi.functional.stm32u5:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  ubi.stress.stm32u5:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  # PLAIN — HEAP — STM32U5
+  ubi.functional.heap.stm32u5:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  ubi.stress.heap.stm32u5:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  # SECURE — STATIC — STM32U5
+  ubi.secure.functional.stm32u5:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  ubi.secure.stress.stm32u5:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  # SECURE — HEAP — STM32U5
+  ubi.secure.functional.heap.stm32u5:
+    platform_allow:
+      - native_sim
+    harness: ztest
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay
+
+  ubi.secure.stress.heap.stm32u5:
+    platform_allow:
+      - native_sim
+    filter: CONFIG_FLASH_SIMULATOR
+    harness: ztest
+    tags: ubi slow
+    timeout: 600
+    extra_conf_files:
+      - boards/native_sim_secure.conf
+    extra_configs:
+      - CONFIG_UBI_MEM_BACKEND_HEAP=y
+    extra_dtc_overlay_files:
+      - boards/native_sim_stm32u5.overlay

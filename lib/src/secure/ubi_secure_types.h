@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_types.h
+ * \author  Kamil Kielbasa
  * \brief   Internal types for the UBI secure backend.
  *
  * \copyright Copyright (c) 2026

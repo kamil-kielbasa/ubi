@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_reserved.h
+ * \author  Kamil Kielbasa
  * \brief   Secure reserved-PEB management: scan, authenticate, write.
  *
  * \copyright Copyright (c) 2026

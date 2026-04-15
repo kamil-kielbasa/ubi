@@ -12,7 +12,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -32,16 +32,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Module types and type definitiones ---------------------------------------------------------- */
-/* Module interface variables and constants ---------------------------------------------------- */
-/* Static variables and constants -------------------------------------------------------------- */
+/* ---------------------------- Module types and type definitiones ----------------------------- */
+/* ------------------------- Module interface variables and constants -------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
@@ -53,7 +53,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -66,7 +66,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -149,7 +149,7 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 	k_free(peb_ec);
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_device, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);

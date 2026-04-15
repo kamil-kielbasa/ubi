@@ -12,7 +12,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -33,16 +33,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Module types and type definitiones ---------------------------------------------------------- */
-/* Module interface variables and constants ---------------------------------------------------- */
-/* Static variables and constants -------------------------------------------------------------- */
+/* ---------------------------- Module types and type definitiones ----------------------------- */
+/* ------------------------- Module interface variables and constants -------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
@@ -54,7 +54,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -67,7 +67,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -150,7 +150,7 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 	k_free(peb_ec);
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_write_read, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
@@ -360,7 +360,7 @@ ZTEST(ubi_write_read, one_volume_many_leb_operations_with_reboot)
  *
  * \details Scenario: Create three volumes (2, 4, 8 LEBs). Write 14 different
  *          arrays (sizes: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048,
- *          4096, 8000 bytes) sequentially across all LEBs. Read all data back.
+ *          3840, 3907 bytes) sequentially across all LEBs. Read all data back.
  *          Deinitialize, re-initialize, and read everything again.
  *
  * \expect All 14 data patterns are correct after initial write and after
@@ -401,7 +401,7 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 
 	const uint8_t *wdata[] = {
 		array_1,   array_2,   array_4,	 array_8,    array_16,	 array_32,   array_64,
-		array_128, array_256, array_512, array_1024, array_2048, array_4096, array_8000,
+		array_128, array_256, array_512, array_1024, array_2048, array_3840, array_3907,
 	};
 
 	const size_t wdata_size[] = {
@@ -409,7 +409,7 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 		ARRAY_SIZE(array_8),	ARRAY_SIZE(array_16),	ARRAY_SIZE(array_32),
 		ARRAY_SIZE(array_64),	ARRAY_SIZE(array_128),	ARRAY_SIZE(array_256),
 		ARRAY_SIZE(array_512),	ARRAY_SIZE(array_1024), ARRAY_SIZE(array_2048),
-		ARRAY_SIZE(array_4096), ARRAY_SIZE(array_8000),
+		ARRAY_SIZE(array_3840), ARRAY_SIZE(array_3907),
 	};
 
 	zassert_equal(ARRAY_SIZE(wdata), ARRAY_SIZE(wdata_size));
@@ -464,7 +464,7 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 			zassert_ok(ubi_leb_get_size(ubi, volumes_id[vol_idx], lnum, &size));
 			zassert_equal(wdata_size[rdata_idx], size);
 
-			uint8_t rdata[8192] = { 0 };
+			uint8_t rdata[4096] = { 0 };
 			zassert_ok(ubi_leb_read(ubi, volumes_id[vol_idx], lnum, 0, rdata, size));
 			zassert_mem_equal(rdata, wdata[rdata_idx], wdata_size[rdata_idx],
 					  "Memory blocks are not equal");
@@ -510,7 +510,7 @@ ZTEST(ubi_write_read, many_volumes_many_leb_operations_with_reboot)
 			zassert_ok(ubi_leb_get_size(ubi, volumes_id[vol_idx], lnum, &size));
 			zassert_equal(wdata_size[rdata_idx], size);
 
-			uint8_t rdata[8192] = { 0 };
+			uint8_t rdata[4096] = { 0 };
 			zassert_ok(ubi_leb_read(ubi, volumes_id[vol_idx], lnum, 0, rdata, size));
 			zassert_mem_equal(rdata, wdata[rdata_idx], wdata_size[rdata_idx],
 					  "Memory blocks are not equal");
@@ -601,7 +601,7 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 		zassert_ok(ubi_leb_get_size(ubi, vol_id_1, leb[i], &rdata_size));
 		zassert_equal(wdata_size[i], rdata_size);
 
-		uint8_t rdata[8000] = { 0 };
+		uint8_t rdata[4096] = { 0 };
 		zassert_ok(ubi_leb_read(ubi, vol_id_1, leb[i], 0, rdata, rdata_size));
 		zassert_mem_equal(rdata, wdata[i], wdata_size[i], "Memory blocks are not equal");
 	}
@@ -637,7 +637,7 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 		zassert_ok(ubi_leb_get_size(ubi, vol_id_1, leb[i], &rdata_size));
 		zassert_equal(wdata_size[i], rdata_size);
 
-		uint8_t rdata[8000] = { 0 };
+		uint8_t rdata[4096] = { 0 };
 		zassert_ok(ubi_leb_read(ubi, vol_id_1, leb[i], 0, rdata, rdata_size));
 		zassert_mem_equal(rdata, wdata[i], wdata_size[i], "Memory blocks are not equal");
 	}

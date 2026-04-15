@@ -14,7 +14,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -32,7 +32,7 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -43,18 +43,18 @@
 #define EC_HDR_SIZE (16U)
 #define NR_OF_RES_PEBS (2U)
 
-/* Static variables and constants -------------------------------------------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -108,7 +108,7 @@ static void corrupt_peb_ec_header(size_t peb_idx)
 	flash_area_close(fa);
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_torture, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);

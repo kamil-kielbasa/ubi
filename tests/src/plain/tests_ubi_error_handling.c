@@ -12,7 +12,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -35,20 +35,20 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Module types and type definitiones ---------------------------------------------------------- */
-/* Module interface variables and constants ---------------------------------------------------- */
-/* Static variables and constants -------------------------------------------------------------- */
+/* ---------------------------- Module types and type definitiones ----------------------------- */
+/* ------------------------- Module interface variables and constants -------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -56,7 +56,7 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -99,12 +99,12 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_error_handling, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
-/* --- Device init/deinit error paths --- */
+/* ------------------------------ Device init/deinit error paths ------------------------------- */
 
 /**
  * \brief Verify that ubi_device_init() rejects a NULL MTD descriptor.
@@ -186,7 +186,7 @@ ZTEST(ubi_error_handling, erase_peb_null)
 	zassert_equal(-EINVAL, ubi_device_erase_peb(NULL));
 }
 
-/* --- Volume error paths --- */
+/* ------------------------------------ Volume error paths ------------------------------------- */
 
 /**
  * \brief Verify that ubi_volume_create() rejects NULL parameters.
@@ -392,7 +392,7 @@ ZTEST(ubi_error_handling, volume_resize_nonexistent)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- LEB I/O error paths --- */
+/* ------------------------------------ LEB I/O error paths ------------------------------------ */
 
 /**
  * \brief Verify that ubi_leb_write() rejects a NULL data buffer.
@@ -561,7 +561,7 @@ ZTEST(ubi_error_handling, leb_get_size_null)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Functional edge cases --- */
+/* ----------------------------------- Functional edge cases ----------------------------------- */
 
 /**
  * \brief Verify that overwriting an existing LEB moves the old PEB to dirty.
@@ -687,7 +687,7 @@ ZTEST(ubi_error_handling, volume_resize_shrink_with_mapped_lebs)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Additional error handling and edge case tests --- */
+/* ----------------------- Additional error handling and edge case tests ----------------------- */
 
 /**
  * \brief Verify that writing to an out-of-range LEB number is rejected.
@@ -1177,7 +1177,7 @@ ZTEST(ubi_error_handling, leb_get_size_vol_not_found)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- LEB limit exceeded for remaining functions --- */
+/* ------------------------ LEB limit exceeded for remaining functions ------------------------- */
 
 /**
  * \brief Verify that ubi_leb_read() rejects an out-of-range LEB number.
@@ -1432,7 +1432,7 @@ ZTEST(ubi_error_handling, static_volume_write_allowed)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Unmapped LEB paths --- */
+/* ------------------------------------ Unmapped LEB paths ------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_get_size() fails when the LEB is not mapped.
@@ -1461,7 +1461,7 @@ ZTEST(ubi_error_handling, leb_get_size_unmapped)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Volume create duplicate name --- */
+/* ------------------------------- Volume create duplicate name -------------------------------- */
 
 /**
  * \brief Verify that creating a volume with a duplicate name returns the
@@ -1492,7 +1492,7 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Volume create duplicate name with different config --- */
+/* -------------------- Volume create duplicate name with different config --------------------- */
 
 /**
  * \brief Verify that creating a volume with the same name but different
@@ -1537,7 +1537,7 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name_different_config)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Volume create with invalid name --- */
+/* ------------------------------ Volume create with invalid name ------------------------------ */
 
 /**
  * \brief Verify that creating a volume with an empty name returns -EINVAL.
@@ -1650,7 +1650,7 @@ ZTEST(ubi_error_handling, volume_resize_expand_enospc)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Volume resize shrink with mapped LEBs --- */
+/* --------------------------- Volume resize shrink with mapped LEBs --------------------------- */
 
 /**
  * \brief Verify that ubi_volume_resize() can shrink a volume that has mapped
@@ -1710,7 +1710,7 @@ ZTEST(ubi_error_handling, volume_resize_shrink_trim)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- LEB write when all PEBs exhausted --- */
+/* ----------------------------- LEB write when all PEBs exhausted ----------------------------- */
 
 /**
  * \brief Verify that ubi_leb_write() returns -ENOSPC when all free PEBs
@@ -1760,7 +1760,7 @@ ZTEST(ubi_error_handling, leb_write_all_pebs_exhausted)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- LEB map when all PEBs exhausted --- */
+/* ------------------------------ LEB map when all PEBs exhausted ------------------------------ */
 
 /**
  * \brief Verify that ubi_leb_map() returns -ENOSPC when free PEBs
@@ -1804,7 +1804,7 @@ ZTEST(ubi_error_handling, leb_map_all_pebs_exhausted)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Additional error paths for coverage ----------------------------------------------------- */
+/* ---------------------------- Additional error paths for coverage ---------------------------- */
 
 /**
  * \brief Verify that volume_create with identical config returns existing vol_id.

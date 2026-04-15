@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_io.c
+ * \author  Kamil Kielbasa
  * \brief   Secure data-PEB I/O: encrypted EC, VID, and LEB record operations.
  *
  * \copyright Copyright (c) 2026
@@ -18,6 +19,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/util.h>
 
 #include <errno.h>
 #include <string.h>
@@ -603,13 +605,19 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 
 	/* Encrypt. */
 	const size_t ct_tag_size = len + UBI_SECURE_TAG_SIZE;
+	const size_t ct_write_size = ROUND_UP(ct_tag_size, mtd->write_block_size);
 	uint8_t *ct_buf = NULL;
 
-	ret = ubi_mem_scratch_alloc(ct_tag_size, &ct_buf);
+	ret = ubi_mem_scratch_alloc(ct_write_size, &ct_buf);
 	if (ret != 0) {
-		LOG_ERR("Cannot allocate %zu bytes for LEB encrypt", ct_tag_size);
+		LOG_ERR("Cannot allocate %zu bytes for LEB encrypt", ct_write_size);
 		ubi_secure_destroy_key(child_key_id);
 		return -ENOMEM;
+	}
+
+	/* Zero-fill padding region so flash sees deterministic bytes. */
+	if (ct_write_size > ct_tag_size) {
+		memset(&ct_buf[ct_tag_size], 0, ct_write_size - ct_tag_size);
 	}
 
 	size_t ct_len = 0;
@@ -643,7 +651,7 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 		return -EIO;
 	}
 
-	ret = flash_area_write(fa, leb_offset + UBI_SECURE_PREFIX_SIZE, ct_buf, ct_tag_size);
+	ret = flash_area_write(fa, leb_offset + UBI_SECURE_PREFIX_SIZE, ct_buf, ct_write_size);
 	if (ret != 0) {
 		LOG_ERR("Flash write failure at PEB %zu LEB data", peb_idx);
 		flash_area_close(fa);

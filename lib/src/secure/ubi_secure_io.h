@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_io.h
+ * \author  Kamil Kielbasa
  * \brief   Secure data-PEB I/O: encrypted EC, VID, and LEB record operations.
  *
  * \copyright Copyright (c) 2026

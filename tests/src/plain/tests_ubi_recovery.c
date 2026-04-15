@@ -12,7 +12,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -34,7 +34,7 @@
 #include <stddef.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -52,7 +52,7 @@
 #define VOL_HDR_SIZE (48U)
 #define NR_OF_RES_PEBS (2U)
 
-/* Module types and type definitiones ---------------------------------------------------------- */
+/* ---------------------------- Module types and type definitiones ----------------------------- */
 
 /* Packed representations of on-flash headers for raw writes. */
 struct raw_ec_hdr {
@@ -74,12 +74,12 @@ struct raw_vid_hdr {
 	uint32_t hdr_crc;
 };
 
-/* Module interface variables and constants ---------------------------------------------------- */
-/* Static variables and constants -------------------------------------------------------------- */
+/* ------------------------- Module interface variables and constants -------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -91,7 +91,7 @@ static void raw_write_ec_hdr(const struct flash_area *fa, size_t pnum, size_t er
 static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t erase_block_size,
 			      uint32_t lnum, uint32_t vol_id, uint64_t sqnum, uint32_t data_size);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -175,7 +175,7 @@ static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t e
 	zassert_ok(flash_area_write(fa, offset, &hdr, sizeof(hdr)));
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_recovery, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);

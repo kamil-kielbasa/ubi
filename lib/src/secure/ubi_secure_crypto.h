@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_crypto.h
+ * \author  Kamil Kielbasa
  * \brief   PSA Crypto wrappers for HKDF key derivation and AEAD operations.
  *
  * \copyright Copyright (c) 2026

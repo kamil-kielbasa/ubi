@@ -46,5 +46,12 @@ target_include_directories(app PRIVATE src/secure)
 
 if(CONFIG_UBI_CRYPTO)
     target_sources(app PRIVATE src/secure/tests_ubi_secure_api.c
-                               src/secure/tests_ubi_secure_attach.c)
+                               src/secure/tests_ubi_secure_attach.c
+                               src/secure/tests_ubi_secure_device.c
+                               src/secure/tests_ubi_secure_volumes.c
+                               src/secure/tests_ubi_secure_write_read.c
+                               src/secure/tests_ubi_secure_map_unmap.c
+                               src/secure/tests_ubi_secure_erase.c
+                               src/secure/tests_ubi_secure_mixed.c
+                               src/secure/tests_ubi_secure_tamper.c)
 endif()

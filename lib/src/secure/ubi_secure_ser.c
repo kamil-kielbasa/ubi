@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_ser.c
+ * \author  Kamil Kielbasa
  * \brief   Serialization and AAD construction for secure on-flash records.
  *
  * \copyright Copyright (c) 2026

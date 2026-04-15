@@ -28,7 +28,24 @@
 | `ubi_erased_val` | `tests_ubi_erased_val.c` | 6 | Erased-value helper unit tests (`ubi_buf_is_erased` with 0xFF, 0x00, mixed), `ubi_get_erased_val` integration, init regression | native_sim |
 | `ubi_mutation_gate` | `tests_ubi_mutation_gate.c` | 5 | Central mutation gate: write-shutdown blocks all mutators, degraded mode blocks reserved-metadata only, runtime PEB corruption recovered transparently, runtime degradation sets flag and blocks mutations, erase_peb recovers reserved bank and clears flag | native_sim |
 | `ubi_vol_id_watermark` | `tests_ubi_vol_id_watermark.c` | 4 | Persistent vol_id high-watermark: same-boot reuse prevention, cross-reboot persistence, slot re-indexing stability, overflow fail-closed | native_sim |
-| **Total** | | **251** | | |
+| **Total (plain)** | | **251** | | |
+
+### Secure Backend Parity Tests
+
+All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test root key.
+
+| Suite | File | Tests | Focus | Environment |
+|-------|------|------:|-------|-------------|
+| `ubi_secure_api` | `tests_ubi_secure_api.c` | 3 | Crypto type sizes, secure format on blank, plain unaffected by secure types | native_sim |
+| `ubi_secure_attach` | `tests_ubi_secure_attach.c` | 8 | Format/attach, mode mismatch, freshness rejection, NULL callbacks, allowlist validation | native_sim |
+| `ubi_secure_device` | `tests_ubi_secure_device.c` | 2 | Secure init/deinit, info sane, reboot persistence | native_sim |
+| `ubi_secure_volumes` | `tests_ubi_secure_volumes.c` | 4 | Create, remove, resize, multi-volume persistence (parity with `ubi_volumes`) | native_sim |
+| `ubi_secure_write_read` | `tests_ubi_secure_write_read.c` | 3 | Single/multi LEB write/read, overwrite (parity with `ubi_write_read`) | native_sim |
+| `ubi_secure_map` | `tests_ubi_secure_map_unmap.c` | 2 | Map/unmap lifecycle, dirty PEB accounting (parity with `ubi_map`) | native_sim |
+| `ubi_secure_erase` | `tests_ubi_secure_erase.c` | 1 | Fill-unmap-erase cycle (parity with `ubi_erase`) | native_sim |
+| `ubi_secure_mixed` | `tests_ubi_secure_mixed.c` | 1 | Multi-volume create/write/remove/resize/map/reboot (parity with `ubi_mixed`) | native_sim |
+| `ubi_secure_tamper` | `tests_ubi_secure_tamper.c` | 2 | LEB data tampering smoke, reserved PEB tampering smoke | native_sim |
+| **Total (secure)** | | **26** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
@@ -134,10 +151,40 @@ Core API verification organized by functional area:
 ### Primary: `native_sim`
 
 - **Platform**: Zephyr `native_sim` board with flash simulator
-- **Erase block**: 8192 bytes (matches STM32U5 geometry)
-- **Partition**: 128 KB at offset 0x0 (`ubi_partition`)
 - **Config**: `CONFIG_FLASH_SIMULATOR=y`, `CONFIG_FLASH_SIMULATOR_DOUBLE_WRITES=y`, `CONFIG_FLASH_SIMULATOR_EXPLICIT_ERASE=y`
 - **Usage**: All test suites run here; stress and torture tests are simulator-only
+
+### Flash Geometry Variants
+
+All functional and stress tests run against three flash geometries to exercise
+different erase-block sizes, write-block alignment requirements, and partition
+capacities. The geometry is selected via DTC overlay files in `tests/boards/`.
+
+| Variant | Overlay file | Erase block | Write block | Partition | PEB count |
+|---------|-------------|------------:|------------:|----------:|----------:|
+| Default | `native_sim.overlay` | 8192 B | 1 B | 128 KB | 16 |
+| nRF5340 | `native_sim_nrf5340.overlay` | 4096 B | 4 B | 64 KB | 16 |
+| STM32U5 | `native_sim_stm32u5.overlay` | 8192 B | 16 B | 128 KB | 16 |
+
+**Running locally with a geometry overlay:**
+
+```bash
+# nRF5340 geometry
+west build -p always -b native_sim ubi/tests -- \
+  -DDTC_OVERLAY_FILE="boards/native_sim_nrf5340.overlay"
+./build/zephyr/zephyr.exe
+
+# STM32U5 geometry
+west build -p always -b native_sim ubi/tests -- \
+  -DDTC_OVERLAY_FILE="boards/native_sim_stm32u5.overlay"
+./build/zephyr/zephyr.exe
+```
+
+**CI:** The `native-tests` job matrix includes `geometry: [default, nrf5340, stm32u5]`,
+producing 6 jobs (2 mem backends × 3 geometries).
+
+**Twister:** `testcase.yaml` contains 16 geometry-specific scenarios using
+`extra_dtc_overlay_files` (8 per geometry variant).
 
 ### Secondary: `b_u585i_iot02a`
 
@@ -234,6 +281,8 @@ Tests build with strict warnings to catch issues at compile time:
 | Partial flash write failure coverage | Flash write fault injection covers `flash_write_with_retry`; not all write call-sites are individually swept | `ubi_io_faults` suite validates erase failure -> bad PEB; write retry logic is code-reviewed |
 | HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 and nRF5340 | Manual hardware testing during development; HIL CI planned |
 | Non-0xFF erased value end-to-end | Erased-value helpers are unit-tested for 0x00, but the flash simulator only supports 0xFF | Helpers are trivial; integration tests on 0xFF backend cover the full scan path |
+| Secure tamper detection precision | Tamper tests verify no-crash and graceful handling but do not assert specific AUTH_FAILURE events (depends on PEB layout) | Full tamper detection with forensic scan planned for PR9 |
+| Secure data size limit | Secure LEB read requires scratch memory for decryption (`ct_tag_size + data_size`); data exceeding ~248 bytes may exceed default scratch budget (512 bytes) | Use data within scratch budget in tests; increase `CONFIG_UBI_MAX_NR_OF_VOLUMES` to enlarge scratch, or use chunked mode (PR9) |
 
 ## How to Add a New Test
 

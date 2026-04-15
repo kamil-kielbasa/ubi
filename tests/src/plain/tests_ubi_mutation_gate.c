@@ -14,7 +14,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -29,26 +29,26 @@
 /* Standard headers: */
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define DEV_HDR_SIZE (32U)
 #define VOL_HDR_SIZE (48U)
 #define NR_OF_RES_PEBS (2U)
 
-/* Module types and type definitiones ---------------------------------------------------------- */
-/* Module interface variables and constants ---------------------------------------------------- */
-/* Static variables and constants -------------------------------------------------------------- */
+/* ---------------------------- Module types and type definitiones ----------------------------- */
+/* ------------------------- Module interface variables and constants -------------------------- */
+/* ------------------------------ Static variables and constants ------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* ------------------------------- Static function declarations -------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* -------------------------------- Static function definitions -------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -79,7 +79,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* --------------------------- Module interface function definitions --------------------------- */
 
 ZTEST_SUITE(ubi_mutation_gate, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, NULL);

@@ -1,5 +1,6 @@
 /**
  * \file    ubi_secure_test_hooks.c
+ * \author  Kamil Kielbasa
  * \brief   Secure backend test hooks — fault injection for crypto operations.
  *
  * \copyright Copyright (c) 2026

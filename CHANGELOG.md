@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-04-15
+
+### Added
+
+- **Secure data-PEB scan & runtime operations**: complete secure backend implementation enabling full volume/LEB lifecycle on encrypted flash. New internal modules:
+  - `lib/src/secure/ubi_secure_ops.h` — secure backend operation declarations (14 functions) for the ops vtable.
+  - `lib/src/secure/ubi_secure_runtime.c` — device-level ops: `ubi_secure_device_get_info`, `ubi_secure_device_erase_peb` (reads authentic EC, erases, increments counter, writes new secure EC header), `ubi_secure_device_deinit` (frees all trees, volumes, partition).
+  - `lib/src/secure/ubi_secure_volume.c` — volume ops: `ubi_secure_volume_create` / `resize` / `remove` / `get_info`. Reservoir commit via `ubi_secure_res_peb_commit` with full vol-header list rebuild.
+  - `lib/src/secure/ubi_secure_leb.c` — LEB ops: `ubi_secure_leb_write` / `read` / `map` / `unmap` / `is_mapped` / `get_size`. Write commits VID header after data; read authenticates full EC→VID→LEB chain.
+- **Data-PEB scan pipeline** in `ubi_core_init.c`: `init_scan_data_pebs` with helpers `scan_validate_ec`, `scan_classify_vid_region`, `scan_classify_orphan`, `scan_map_first`, `scan_resolve_dup`. Classifies PEBs into free/dirty/bad pools and builds EBA tables.
+- **Data-PEB format** in `ubi_core_init.c`: `init_format_data_pebs` erases all data PEBs and writes secure EC headers on fresh format.
+- **Secure parity test suites** (7 new files, 26 total tests): full functional parity with plain backend, exercising the secure runtime through the standard UBI API with `crypto_cfg != NULL`:
+  - `tests_ubi_secure_device.c` (2 tests) — init/deinit info, reboot persistence.
+  - `tests_ubi_secure_volumes.c` (4 tests) — create, remove, resize, multi-volume with reboot persistence.
+  - `tests_ubi_secure_write_read.c` (3 tests) — single/multi LEB write/read, overwrite.
+  - `tests_ubi_secure_map_unmap.c` (2 tests) — map/unmap lifecycle with dirty PEB accounting.
+  - `tests_ubi_secure_erase.c` (1 test) — fill-unmap-erase cycle with counter validation.
+  - `tests_ubi_secure_mixed.c` (1 test) — multi-volume create/write/remove/resize/map/reboot end-to-end scenario.
+  - `tests_ubi_secure_tamper.c` (2 tests) — LEB data and reserved PEB tampering smoke tests.
+- **Test infrastructure**: `g_ubi` safety pattern in tamper tests prevents slab leaks on assertion failures; `after_each` callback cleans up orphaned devices.
+- **Flash geometry overlays** for `native_sim`: `native_sim_nrf5340.overlay` (erase 4096 / write-block 4 / partition 64 KB) and `native_sim_stm32u5.overlay` (erase 8192 / write-block 16 / partition 128 KB). Default overlay updated with explicit `write-block-size = <1>`.
+- **Multi-geometry CI**: `native-tests` matrix now includes `geometry: [default, nrf5340, stm32u5]`, running all tests against three flash geometries. Twister `testcase.yaml` extended with 16 geometry-specific scenarios.
+- **Test data `array_3840`** (`tests/src/common/arrays.h`): 3840-byte array that fits in a plain LEB at 4096 erase-block size.
+
+### Fixed
+
+- **C1: vid_meta counters hardcoded to 0** (`ubi_secure_leb.c`): `leb_write_counter` and `leb_total_auth_bytes` are now recovered from the existing VID header via `leb_recover_old_counters()` before a write. Counter monotonicity: `leb_write_counter = counter_base + 1`, `leb_total_auth_bytes = old + AAD_SIZE + payload_bytes`.
+- **C2: Nonce counter always 0** (`ubi_secure_leb.c`): LEB data encryption now uses `counter_base` (recovered from existing mapping) and VID header uses `counter_base + 1`, ensuring monotonically increasing nonce counters per §11.5 of the spec.
+- **M1: Missing torture_bad_blocks** (`ubi_secure_runtime.c`): ported `torture_bad_blocks()` from plain backend, adapted to use `ubi_secure_ec_hdr_write` with derived write key. Called from `erase_peb` exit path when bad PEB count > 0.
+- **M2: Missing degraded-mode recovery** (`ubi_secure_runtime.c`): added reserved PEB re-scan after erase via `ubi_secure_res_peb_scan`, clears `read_only_degraded` if authenticated PEB count >= `UBI_SECURE_RES_PEB_NR_ACTIVE`.
+- **M3: vol_count pre-set before init_collect_volumes** (`ubi_core_init.c`): `vol_count` is now incremented per-insert in `init_collect_volumes` instead of being pre-set from the device header, consistent with plain backend behavior.
+- **M4: Missing geometry checks** (`ubi_core_init.c`): added `erase_block_size % write_block_size != 0` and `write_block_size > WRITE_BLOCK_SIZE_ALIGNMENT` validation during secure init.
+- **L1: device_revision hardcoded to 0** (`ubi_core_init.c`): `secure_attach` now outputs `device_revision` from the authenticated reserved PEB scan via an output parameter, used in the freshness check instead of hardcoded 0.
+- **L2: -EROFS handling undocumented** (`ubi_secure_volume.c`): added explanatory comments at all three -EROFS handling sites (vol_create, vol_resize, vol_remove) documenting the deliberate difference from plain backend: secure continues past -EROFS to update RAM state because at least one reserved PEB accepted the commit.
+- **L3: Unused crc.h include** (`ubi_secure_runtime.c`): removed `#include <zephyr/sys/crc.h>` from runtime.c where it was unused. (Kept in `ubi_secure_leb.c` where `crc32_ieee` is actually needed for VID header CRC.)
+- **Write-block alignment in secure LEB write** (`ubi_secure_io.c`): ciphertext+tag buffer is now padded to `ROUND_UP(ct_tag_size, write_block_size)` with zero-fill, fixing flash write failures on devices with `write-block-size > 1`.
+- **Test data overflow at 4096 erase**: replaced `array_4096` → `array_3840` and `array_8000` → `array_3907` in write/read, mixed, and erase test suites; shrunk `rdata` buffers from 8192/8000 to 4096 bytes.
+
+### Changed
+
+- `lib/src/common/ubi_internal.h` — added `crypto_cfg` field to `struct ubi_device` under `CONFIG_UBI_CRYPTO` guard, enabling secure runtime ops to access crypto config.
+- `lib/src/common/ubi_mem.c` — conditional `BUILD_ASSERT` for `struct ubi_device` size (140 bytes with crypto, 136 without).
+- `lib/src/secure/ubi_core_init.c` — replaced all 13 stub ops (`-ENOTSUP`) with real implementations via vtable; init error path now calls `ubi_secure_device_deinit` for proper cleanup; freshness check moved after data-PEB scan to use real `global_sqnum`; geometry validation cached early (`total_data_peb_count`, `leb_size`).
+- `lib/CMakeLists.txt` — added `ubi_secure_runtime.c`, `ubi_secure_volume.c`, `ubi_secure_leb.c` to `CONFIG_UBI_CRYPTO` section.
+- `tests/CMakeLists.txt` — added 7 new secure test files to `CONFIG_UBI_CRYPTO` section.
+- `doc/test_strategy.md` — added secure backend test matrix (26 tests across 9 suites), updated known gaps with secure-specific entries; added flash geometry variants section.
+- `tests/testcase.yaml` — added 16 geometry-specific twister scenarios (nRF5340, STM32U5 × plain/secure × static/heap × functional/stress).
+- `.github/workflows/ci.yml` — `native-tests` matrix expanded with `geometry: [default, nrf5340, stm32u5]` dimension (2 × 3 = 6 jobs).
+- `lib/src/secure/ubi_secure_io.c` — added `<zephyr/sys/util.h>` include for `ROUND_UP` macro.
+- `tests/src/plain/tests_ubi_write_read.c`, `tests_ubi_mixed.c`, `tests_ubi_erase.c` — test data refactored for 4096 erase-block compatibility; `rdata` buffers reduced from 8192 to 4096.
+
 ## [0.39.0] - 2026-04-14
 
 ### Added

@@ -1,5 +1,6 @@
 /**
  * \file    ubi_crypto.h
+ * \author  Kamil Kielbasa
  *
  * \brief   UBI secure backend public types and callback definitions.
  *

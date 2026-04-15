@@ -6,7 +6,7 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 
 #include <ubi.h>
 #include <ubi_test.h>
@@ -22,12 +22,12 @@
 #include "ubi_test_fixture.h"
 #include "ubi_test_memory.h"
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 static struct ubi_device *g_ubi = NULL;
 
-/* Suite setup / teardown ---------------------------------------------------------------------- */
+/* ---------------------------------- Suite setup / teardown ----------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -54,7 +54,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* Test definitions ---------------------------------------------------------------------------- */
+/* ------------------------------------- Test definitions -------------------------------------- */
 
 /**
  * \brief ubi_test_buf_is_erased detects a buffer filled with 0xFF.

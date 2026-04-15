@@ -1,12 +1,13 @@
 /**
  * \file    tests_ubi_secure_attach.c
+ * \author  Kamil Kielbasa
  *
  * \brief   Tests for secure backend mode detection, format, and attach.
  *
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* --------------------------------------- Include files --------------------------------------- */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -24,18 +25,18 @@
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* -------------------------------------- Module defines --------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ---------------------------------------------------------------------------- */
+/* ------------------------------------- Static variables -------------------------------------- */
 
 static struct ubi_mtd mtd = { 0 };
 
-/* Suite setup / teardown ---------------------------------------------------------------------- */
+/* ---------------------------------- Suite setup / teardown ----------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -63,7 +64,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests --------------------------------------------------------------------------------------- */
+/* ------------------------------------------- Tests ------------------------------------------- */
 
 static enum ubi_crypto_rollback_verdict
 mock_reject_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
@@ -75,6 +76,11 @@ mock_reject_freshness(const struct ubi_crypto_freshness *freshness, void *user_d
 
 /**
  * \brief Blank flash + secure config → format succeeds.
+ *
+ * \details Erase the full partition, then call ubi_device_init with a valid
+ *          crypto_cfg. The backend detects blank media and formats in secure mode.
+ *
+ * \expected ubi_device_init returns 0, device handle is non-NULL.
  */
 ZTEST(ubi_secure_attach, test_format_blank_device)
 {
@@ -88,6 +94,11 @@ ZTEST(ubi_secure_attach, test_format_blank_device)
 
 /**
  * \brief Format + deinit + re-init → attach succeeds.
+ *
+ * \details Format a blank device in secure mode, deinit, then re-init.
+ *          The second init must attach to the existing secure metadata.
+ *
+ * \expected Both ubi_device_init calls return 0.
  */
 ZTEST(ubi_secure_attach, test_attach_after_format)
 {
@@ -108,6 +119,12 @@ ZTEST(ubi_secure_attach, test_attach_after_format)
 
 /**
  * \brief Plain-formatted media + secure config → mode mismatch (-EPROTO).
+ *
+ * \details Format a device as plain (crypto_cfg == NULL), then attempt
+ *          to re-init with a secure crypto_cfg. The backend must reject
+ *          the mixed-mode attach.
+ *
+ * \expected Second ubi_device_init returns -EPROTO, device handle is NULL.
  */
 ZTEST(ubi_secure_attach, test_plain_then_secure_mismatch)
 {
@@ -129,6 +146,12 @@ ZTEST(ubi_secure_attach, test_plain_then_secure_mismatch)
 
 /**
  * \brief Secure-formatted media + plain config → mode mismatch.
+ *
+ * \details Format a device in secure mode, then attempt to re-init with
+ *          crypto_cfg == NULL. The plain backend must reject the non-standard
+ *          on-flash magic.
+ *
+ * \expected Second ubi_device_init returns non-zero, device handle is NULL.
  */
 ZTEST(ubi_secure_attach, test_secure_then_plain_mismatch)
 {
@@ -151,6 +174,11 @@ ZTEST(ubi_secure_attach, test_secure_then_plain_mismatch)
 
 /**
  * \brief Freshness check rejecting → attach fails with -EACCES.
+ *
+ * \details Format a device, deinit, then re-init with a check_freshness
+ *          callback that always returns UBI_CRYPTO_ROLLBACK_REJECT.
+ *
+ * \expected ubi_device_init returns -EACCES, device handle is NULL.
  */
 ZTEST(ubi_secure_attach, test_freshness_reject)
 {
@@ -172,6 +200,10 @@ ZTEST(ubi_secure_attach, test_freshness_reject)
 
 /**
  * \brief NULL callbacks in crypto config → -EINVAL.
+ *
+ * \details Pass a crypto_cfg with get_key_id set to NULL.
+ *
+ * \expected ubi_device_init returns -EINVAL, device handle is NULL.
  */
 ZTEST(ubi_secure_attach, test_null_callback_rejected)
 {
@@ -186,6 +218,10 @@ ZTEST(ubi_secure_attach, test_null_callback_rejected)
 
 /**
  * \brief Empty allowlist → -EINVAL.
+ *
+ * \details Pass a crypto_cfg with allowed_key_versions_len == 0.
+ *
+ * \expected ubi_device_init returns -EINVAL, device handle is NULL.
  */
 ZTEST(ubi_secure_attach, test_empty_allowlist_rejected)
 {
@@ -200,6 +236,11 @@ ZTEST(ubi_secure_attach, test_empty_allowlist_rejected)
 
 /**
  * \brief Write key version not in allowlist → -EINVAL.
+ *
+ * \details Pass a crypto_cfg whose requested_write_key_version (99)
+ *          is absent from the allowed_key_versions array.
+ *
+ * \expected ubi_device_init returns -EINVAL, device handle is NULL.
  */
 ZTEST(ubi_secure_attach, test_write_key_version_not_in_allowlist)
 {
@@ -212,6 +253,6 @@ ZTEST(ubi_secure_attach, test_write_key_version_not_in_allowlist)
 	zassert_is_null(ubi);
 }
 
-/* Suite registration -------------------------------------------------------------------------- */
+/* ------------------------------------ Suite registration ------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_attach, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
