@@ -67,7 +67,7 @@ jobs:
           EXTRA=""
           [[ "$MEM" == "heap" ]] && EXTRA+=" -DCONFIG_UBI_MEM_BACKEND_HEAP=y"
           [[ "$GEOMETRY" != "default" ]] && \
-            EXTRA+=" -DDTC_OVERLAY_FILE=ubi/tests/boards/native_sim_${GEOMETRY}.overlay"
+            EXTRA+=" -DDTC_OVERLAY_FILE=/ws/ubi/tests/boards/native_sim_${GEOMETRY}.overlay"
           [[ "$CRYPTO" == "secure" ]] && \
             EXTRA+=" -DOVERLAY_CONFIG=/ws/ubi/tests/boards/native_sim_secure.conf"
           docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
