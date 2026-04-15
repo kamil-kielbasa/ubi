@@ -179,6 +179,7 @@ struct ubi_secure_vid_auth_ctx {
 	struct ubi_secure_ec_auth_ctx ec_ctx; /*!< Parent EC auth context. */
 	const struct ubi_vid_hdr *vid_hdr; /*!< Authenticated VID header. */
 	uint8_t key_version; /*!< VID-header prefix key_version. */
+	uint64_t vid_counter; /*!< VID-domain AEAD counter from prefix32 (§9.8). */
 };
 
 /* AAD sizes ------------------------------------------------------------------- */
@@ -198,5 +199,11 @@ struct ubi_secure_vid_auth_ctx {
 /** AAD size for secure LEB record (single-tag): prefix(32) + peb_idx(4) + offset(8) + ec(8)
  *  + parent_ec_kv(1) + vol_id(4) + lnum(4) + sqnum(8) + data_size(4) + parent_vid_kv(1) = 74. */
 #define UBI_SECURE_LEB_AAD_SIZE (74)
+
+/**
+ * Sentinel LEB number for hidden per-volume anchor PEBs.
+ * This value must never collide with user-visible lnum range [0, leb_count).
+ */
+#define UBI_SECURE_INTERNAL_ANCHOR_LNUM (UINT32_MAX)
 
 #endif /* UBI_SECURE_TYPES_H */

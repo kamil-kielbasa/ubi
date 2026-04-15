@@ -205,6 +205,7 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_vol
 		vol->cfg.leb_count = vh->leb_count;
 		vol->eba_tbl_count = 0;
 		vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
+		vol->anchor_pnum = SIZE_MAX;
 
 		struct ubi_rbt_item *item = NULL;
 
@@ -348,6 +349,9 @@ classify_bad : {
 
 /**
  * \brief Classify an orphan PEB (volume deleted) by moving it to the dirty pool.
+ *
+ * Hidden anchor PEBs (INTERNAL_ANCHOR_LNUM) for deleted volumes are also
+ * classified as orphans and sent to the dirty pool.
  */
 static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
 				const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr)
@@ -380,6 +384,9 @@ static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
 
 /**
  * \brief Map a LEB that appears for the first time into the volume EBA table.
+ *
+ * Hidden anchor PEBs (lnum == INTERNAL_ANCHOR_LNUM) are bound to the
+ * volume via vol->anchor_pnum instead of the EBA table.
  */
 static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
 			  const struct ubi_vid_hdr *vid_hdr, struct ubi_volume *vol)
@@ -388,6 +395,68 @@ static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_
 	__ASSERT_NO_MSG(ec_hdr != NULL);
 	__ASSERT_NO_MSG(vid_hdr != NULL);
 	__ASSERT_NO_MSG(vol != NULL);
+
+	/* Hidden anchor PEB — track in volume, not in EBA table. */
+	if (vid_hdr->lnum == UBI_SECURE_INTERNAL_ANCHOR_LNUM) {
+		if (vol->anchor_pnum != SIZE_MAX) {
+			/* Duplicate anchor — keep the one with higher sqnum. */
+			struct ubi_ec_hdr old_ec = { 0 };
+			struct ubi_secure_ec_auth_ctx old_ec_ctx = { 0 };
+			struct ubi_vid_hdr old_vid = { 0 };
+			struct ubi_vid_secure_meta old_vid_meta = { 0 };
+			struct ubi_secure_vid_auth_ctx old_vid_ctx = { 0 };
+
+			int ret = ubi_secure_ec_hdr_read(&dev->mtd, dev->crypto_cfg,
+							 vol->anchor_pnum, &old_ec, &old_ec_ctx);
+			if (ret != 0) {
+				/* Old anchor unreadable — replace with current. */
+				goto replace_anchor;
+			}
+
+			ret = ubi_secure_vid_hdr_read(&dev->mtd, dev->crypto_cfg, vol->anchor_pnum,
+						      &old_ec_ctx, &old_vid, &old_vid_meta,
+						      &old_vid_ctx);
+			if (ret != 0) {
+				goto replace_anchor;
+			}
+
+			if (vid_hdr->sqnum > old_vid.sqnum) {
+				goto replace_anchor;
+			}
+
+			/* Current PEB is older — discard to dirty. */
+			struct ubi_rbt_item *item = NULL;
+
+			ret = ubi_mem_leaf_alloc((void **)&item);
+			if (ret != 0) {
+				return ret;
+			}
+
+			item->key = ec_hdr->ec;
+			item->value.pnum = pnum;
+			rb_insert(&dev->dirty_pebs, &item->node);
+			dev->dirty_peb_count++;
+			return SCAN_PEB_HANDLED;
+
+replace_anchor : {
+	/* Move old anchor PEB to dirty. */
+	struct ubi_rbt_item *old_item = NULL;
+
+	ret = ubi_mem_leaf_alloc((void **)&old_item);
+	if (ret != 0) {
+		return ret;
+	}
+
+	old_item->key = (ret == 0) ? old_ec.ec : ec_hdr->ec;
+	old_item->value.pnum = vol->anchor_pnum;
+	rb_insert(&dev->dirty_pebs, &old_item->node);
+	dev->dirty_peb_count++;
+}
+		}
+
+		vol->anchor_pnum = pnum;
+		return SCAN_PEB_HANDLED;
+	}
 
 	const struct ubi_rbt_item *existing = ubi_cache_search(&vol->eba_tbl, vid_hdr->lnum);
 
@@ -565,6 +634,14 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 			ubi_dev->global_sqnum = vid_hdr.sqnum;
 		}
 
+		/* Track max VID counter for write-active key version (§9.8). */
+		if (vid_ctx.key_version ==
+		    ubi_dev->crypto_cfg->policy.requested_write_key_version) {
+			if (vid_ctx.vid_counter >= ubi_dev->next_vid_counter) {
+				ubi_dev->next_vid_counter = vid_ctx.vid_counter + 1;
+			}
+		}
+
 		/* Check if volume exists — orphan PEBs go to dirty. */
 		ret = scan_classify_orphan(ubi_dev, pnum, &ec_hdr, &vid_hdr);
 		if (ret < 0) {
@@ -710,6 +787,7 @@ static int secure_attach(const struct ubi_mtd *mtd, const struct ubi_crypto_conf
 	/* Populate device state from authenticated headers. */
 	ubi_dev->vol_id_watermark = scan.dev_hdr.vol_id_watermark;
 	ubi_dev->read_only_degraded = (scan.auth_count < UBI_SECURE_RES_PEB_NR_ACTIVE);
+	ubi_dev->next_vid_counter = scan.dev_meta.vid_next_counter_floor;
 	*out_device_revision = scan.dev_hdr.revision;
 
 	/* Collect volumes into RAM — vol_count is incremented per-insert. */

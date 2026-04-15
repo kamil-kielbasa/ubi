@@ -126,11 +126,10 @@ ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info_after_init = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-
-	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* 2. Verify LEBs are not mapped. */
 	for (size_t i = 0; i < vol_cfg.leb_count; ++i) {
@@ -214,11 +213,10 @@ ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
 
 	/* 1. Init, create volume. */
 	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info_after_init = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-
-	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* 2. Map all LEBs. */
 	for (size_t i = 0; i < vol_cfg.leb_count; ++i) {
@@ -253,6 +251,135 @@ ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
 	struct ubi_device_info info_after_unmap = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_after_unmap));
 	zassert_equal(vol_cfg.leb_count, info_after_unmap.dirty_peb_count);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify unmap before erase does not persist across reboot.
+ *
+ * \details Create a 2-LEB static volume, write data to LEB 0, then unmap
+ *          LEB 0 without erasing.  Deinit, re-init — the old authenticated
+ *          VID still exists on flash, so the LEB is rediscovered and the
+ *          data is accessible again.  Tests §11.7: unmap is an in-memory
+ *          transition only; until physical erase, reboot reconstructs the
+ *          old mapping.
+ *
+ * \expected After unmap + reboot (no erase): LEB 0 is mapped again with
+ *           original data intact.
+ */
+ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'r', 'b', 'e' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+	const size_t lnum = 0;
+	const uint8_t data[] = { 0xAA, 0xBB, 0xCC, 0xDD };
+
+	/* 1. Create volume, write LEB 0. */
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_leb_write(ubi, vol_id, lnum, data, sizeof(data)));
+
+	/* Verify data written. */
+	uint8_t rdata[sizeof(data)] = { 0 };
+	size_t rsize = 0;
+	zassert_ok(ubi_leb_get_size(ubi, vol_id, lnum, &rsize));
+	zassert_equal(sizeof(data), rsize);
+	zassert_ok(ubi_leb_read(ubi, vol_id, lnum, 0, rdata, rsize));
+	zassert_mem_equal(rdata, data, sizeof(data));
+
+	/* 2. Unmap LEB 0 (in-memory only, no erase). */
+	zassert_ok(ubi_leb_unmap(ubi, vol_id, lnum));
+
+	bool is_mapped = true;
+	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, lnum, &is_mapped));
+	zassert_false(is_mapped, "LEB should be unmapped in RAM");
+
+	/* 3. Deinit → reboot (no erase performed). */
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* 4. Re-init — old VID survives, mapping reconstructed. */
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+
+	is_mapped = false;
+	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, lnum, &is_mapped));
+	zassert_true(is_mapped, "LEB should be remapped after reboot (§11.7)");
+
+	/* 5. Verify original data is intact. */
+	memset(rdata, 0, sizeof(rdata));
+	rsize = 0;
+	zassert_ok(ubi_leb_get_size(ubi, vol_id, lnum, &rsize));
+	zassert_equal(sizeof(data), rsize);
+	zassert_ok(ubi_leb_read(ubi, vol_id, lnum, 0, rdata, rsize));
+	zassert_mem_equal(rdata, data, sizeof(data));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Verify unmap + erase persists across reboot (LEB gone).
+ *
+ * \details Same setup as test_unmap_reboot_before_erase, but dirty PEBs
+ *          are erased before reboot.  After reinit the LEB should remain
+ *          unmapped — the physical PEB is gone so no mapping is recovered.
+ *
+ * \expected After unmap + erase + reboot: LEB 0 is not mapped.
+ */
+ZTEST(ubi_secure_map, test_unmap_erase_reboot)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'e', 'r' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+	const size_t lnum = 0;
+	const uint8_t data[] = { 0x11, 0x22 };
+
+	/* 1. Create volume, write, unmap. */
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_leb_write(ubi, vol_id, lnum, data, sizeof(data)));
+	zassert_ok(ubi_leb_unmap(ubi, vol_id, lnum));
+
+	/* 2. Erase all dirty PEBs. */
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+
+	while (info.dirty_peb_count > 0) {
+		zassert_ok(ubi_device_erase_peb(ubi));
+		memset(&info, 0, sizeof(info));
+		zassert_ok(ubi_device_get_info(ubi, &info));
+	}
+
+	/* 3. Deinit → reboot. */
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* 4. Re-init — PEB is erased, no mapping reconstructed. */
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+
+	bool is_mapped = true;
+	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, lnum, &is_mapped));
+	zassert_false(is_mapped, "LEB should stay unmapped after erase + reboot");
+
+	/* Volume still valid, just no data on LEB 0. */
+	memset(&info, 0, sizeof(info));
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(1, info.volume_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }

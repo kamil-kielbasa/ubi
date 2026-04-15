@@ -5,7 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.41.0] - 2026-04-15
+
+### Added
+
+- **Hidden per-volume anchor PEBs (§7.9)**: each secure volume now allocates a hidden anchor PEB at creation time, carrying a zero-length LEB with monotonic counter metadata (`leb_write_counter`, `leb_total_auth_bytes`). The anchor is invisible to the EBA table and to `ubi_leb_*` operations.
+  - `UBI_SECURE_INTERNAL_ANCHOR_LNUM (UINT32_MAX)` sentinel in `ubi_secure_types.h`.
+  - `anchor_pnum` field in `struct ubi_volume` (under `CONFIG_UBI_CRYPTO`).
+  - `anchor_create()` in `ubi_secure_volume.c`: allocates free PEB, writes zero-length LEB data + VID header with `INTERNAL_ANCHOR_LNUM`.
+  - Anchor scan in `scan_map_first()` (`ubi_core_init.c`): recognises anchor PEBs on attach and binds to `vol->anchor_pnum` instead of dirty pool; resolves duplicates by sqnum.
+  - Anchor cleanup in `ubi_secure_volume_remove()`: reclaims anchor PEB to dirty pool.
+- **VID-domain counter floor (§9.8)**: `vid_next_counter_floor` persistence and reconstruction for monotonic VID-domain continuity.
+  - `next_vid_counter` field in `struct ubi_device` (under `CONFIG_UBI_CRYPTO`).
+  - Runtime advancement: every VID header write (anchor, LEB map, LEB write) uses and increments `ubi->next_vid_counter`.
+  - Snapshot: `dev_hdr_read_and_bump()` stores `ubi->next_vid_counter` into `dev_meta->vid_next_counter_floor` on every reserved metadata rewrite.
+  - Reconstruction at attach: `secure_attach()` seeds `next_vid_counter` from `dev_meta.vid_next_counter_floor`; init data-PEB scan raises it from live VID prefix counters.
+  - `vid_counter` field added to `struct ubi_secure_vid_auth_ctx` and populated in `ubi_secure_vid_hdr_read()`.
+- **Last-writable-witness check (§11.6)**: `erase_peb` now checks whether a dirty PEB is the last carrier of the newest per-volume LEB counter floor before erasing.
+  - `maybe_rewrite_anchor_for_dirty()` in `ubi_secure_runtime.c`: reads dirty VID, compares counters against anchor and remaining mapped/dirty PEBs, rewrites anchor if needed.
+  - Non-witness fallback: if the selected dirty PEB is a witness and no free PEB exists, `erase_peb` defers it and erases a non-witness dirty PEB first.
+- **`reserved_peb_count` includes anchor PEBs**: `ubi_reserved_peb_count()` now counts anchor PEBs for secure-mode volumes.
+- **Emergency free-PEB reserve (§4.2 inv 13, §11.5 step 1)**: `ubi_secure_leb_write` and `ubi_secure_leb_map` now attempt to erase a non-witness dirty PEB before consuming the last free data PEB, preserving one emergency reserve for hidden-anchor maintenance.
+
+### Changed
+
+- `struct ubi_volume` size increased from 44 → 48 bytes (secure), `struct ubi_device` from 140 → 148 bytes (secure). `BUILD_ASSERT`s updated.
+- Secure erase test uses `while(dirty > 0)` loop instead of fixed-count iteration, accommodating anchor rewrite dirty recycling.
+- Secure erase test assertions use free+dirty conservation law instead of individual counts (compatible with emergency-reserve refill).
+- Secure map/volume test assertions updated to account for anchor PEB overhead.
+- **Volume create fails on anchor failure (§11.4)**: if hidden-anchor allocation fails, `ubi_secure_volume_create` now rolls back the RAM state and returns the error. The reserved metadata on flash still carries the volume record; on next attach the init code will rediscover it (without anchor protection until re-created).
+- `erase_dirty_entry()` extracted from `ubi_secure_device_erase_peb()` for reuse by the emergency-reserve refill path.
+- New test `test_anchor_participates_in_wear_leveling`: verifies anchor PEB migrates across physical PEBs during write/unmap/erase cycles (4 cycles, expects 3 erases on first cycle proving anchor migration).
+- New test `test_shrink_with_reboot`: shrink a 4-LEB volume to 2, reboot without erase, verify tail PEBs recovered as dirty and leb_count persists (§11.7).
+- New test `test_shrink_erase_reboot`: shrink + erase all dirty + reboot, verify clean state with correct reserved count.
+- New test `test_vid_counter_floor_persists`: remove all volumes, reboot, create new volume — verifies VID counter floor preserved in secure device header (§9.8.5).
+- New test `test_stale_anchor_rejected_after_reboot`: trigger anchor migration via erase, reboot, verify stale anchor duplicate resolved as dirty.
+- New test `test_reclaim_preserves_continuity_witness`: 3 full write-unmap-erase cycles, reboot, verify anchor continuity and data integrity (§11.6).
+- New doc `secure_volume_lifecycle.md`: end-to-end volume lifecycle reference covering create, resize, shrink, remove, unmap, erase, and reboot recovery.
+- New doc `secure_recovery_notes.md`: recovery scenario catalog for secure mode (unmap→reboot, shrink→erase→reboot, remove-all→reboot, anchor migration, dual-bank).
+- New test `test_unmap_reboot_before_erase`: unmap LEB, reboot without erase — verifies data is reconstructed (§11.7 in-memory-only semantics).
+- New test `test_unmap_erase_reboot`: unmap + erase + reboot — verifies LEB stays unmapped after physical erase.
 
 ## [0.40.0] - 2026-04-15
 

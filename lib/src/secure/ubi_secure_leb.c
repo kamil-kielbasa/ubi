@@ -176,14 +176,18 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	}
 
 	/* Step 2: Write VID header — this is the commit point.
-	 * VID counter = counter_base + 1 (after the LEB AEAD invocation). */
+	 * VID counter = global vid_next per §9.8, independent of per-LEB counter. */
+	const uint64_t vid_counter = ubi->next_vid_counter;
+
 	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, new_node->value.pnum, &ec_ctx,
-				       &vid_hdr, &vid_meta, write_kv, counter_base + 1);
+				       &vid_hdr, &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("VID header write failure");
 		leb_mark_peb_bad(ubi, new_node);
 		return ret;
 	}
+
+	ubi->next_vid_counter = vid_counter + 1;
 
 	*out_new_node = new_node;
 	return 0;
@@ -257,6 +261,9 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 		ret = -EACCES;
 		goto exit;
 	}
+
+	/* §11.5 step 1: preserve emergency free-PEB reserve. */
+	ubi_secure_try_refill_reserve(ubi);
 
 	if (ubi->free_peb_count == 0) {
 		LOG_ERR("Lack of free PEBs");
@@ -404,6 +411,9 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 		ret = 0;
 		goto exit;
 	}
+
+	/* §11.5 step 1: preserve emergency free-PEB reserve. */
+	ubi_secure_try_refill_reserve(ubi);
 
 	if (ubi->free_peb_count == 0) {
 		LOG_ERR("Lack of free PEBs");

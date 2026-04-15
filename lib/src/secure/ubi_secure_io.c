@@ -302,6 +302,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	vid_ctx->ec_ctx = *ec_ctx;
 	vid_ctx->vid_hdr = vid_hdr;
 	vid_ctx->key_version = prefix.key_version;
+	vid_ctx->vid_counter = ubi_secure_decode_counter48(prefix.counter);
 
 	return 0;
 }

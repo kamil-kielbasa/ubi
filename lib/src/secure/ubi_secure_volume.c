@@ -31,6 +31,110 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 /* Static function definitions ----------------------------------------------------------------- */
 
 /**
+ * \brief Allocate a free PEB and write a hidden anchor (zero-length LEB).
+ *
+ * Per §7.9 / §11.4: the anchor is a data PEB with INTERNAL_ANCHOR_LNUM,
+ * zero-length secure LEB record, and initial VID secure metadata counters.
+ * Write order: LEB data first (zero-length), VID second (commit point).
+ *
+ * \param[in]     ubi     UBI device (caller holds mutex, at least 1 free PEB).
+ * \param[in,out] vol     Volume to bind the anchor to.
+ *
+ * \retval 0       Success — vol->anchor_pnum is set.
+ * \retval -EIO    I/O or crypto failure.
+ * \retval -ENOSPC No free PEBs.
+ */
+static int anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
+{
+	__ASSERT_NO_MSG(ubi != NULL);
+	__ASSERT_NO_MSG(vol != NULL);
+
+	if (ubi->free_peb_count == 0) {
+		LOG_ERR("No free PEB for anchor allocation");
+		return -ENOSPC;
+	}
+
+	/* 1. Take a free PEB. */
+	struct rbnode *min_node = rb_get_min(&ubi->free_pebs);
+	struct ubi_rbt_item *item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
+
+	rb_remove(&ubi->free_pebs, &item->node);
+	ubi->free_peb_count--;
+
+	const size_t pnum = item->value.pnum;
+
+	/* 2. Read authentic EC context from the PEB. */
+	struct ubi_ec_hdr ec_hdr = { 0 };
+	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
+
+	int ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
+
+	if (ret != 0) {
+		LOG_ERR("EC read failure on anchor PEB %zu", pnum);
+		goto mark_bad;
+	}
+
+	/* 3. Build VID header with INTERNAL_ANCHOR_LNUM and zero-length data. */
+	struct ubi_vid_hdr vid_hdr = { 0 };
+
+	vid_hdr.magic = UBI_VID_HDR_MAGIC;
+	vid_hdr.version = UBI_VID_HDR_VERSION;
+	vid_hdr.lnum = UBI_SECURE_INTERNAL_ANCHOR_LNUM;
+	vid_hdr.vol_id = vol->vol_id;
+	vid_hdr.sqnum = ubi->global_sqnum++;
+	vid_hdr.data_size = 0;
+	vid_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
+
+	/*
+	 * Initial counter state for this anchor:
+	 *   leb_write_counter = 1 (one AEAD invocation for the zero-length LEB record).
+	 *   leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE (AAD only, zero payload).
+	 */
+	const struct ubi_vid_secure_meta vid_meta = {
+		.leb_write_counter = 1,
+		.leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE,
+	};
+
+	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+
+	/* 4. Write zero-length LEB data (prefix32 + tag16, no payload). */
+	ret = ubi_secure_leb_data_write(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+					write_kv, NULL, 0, write_kv, 0);
+	if (ret != 0) {
+		LOG_ERR("Anchor LEB write failure on PEB %zu", pnum);
+		goto mark_bad;
+	}
+
+	/* 5. Write VID header — commit point.
+	 *    Use global VID counter for this key version per §9.8. */
+	const uint64_t vid_counter = ubi->next_vid_counter;
+
+	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+				       &vid_meta, write_kv, vid_counter);
+	if (ret != 0) {
+		LOG_ERR("Anchor VID write failure on PEB %zu", pnum);
+		goto mark_bad;
+	}
+
+	ubi->next_vid_counter = vid_counter + 1;
+
+	/* 6. Success — track in volume. The item is not inserted into any tree;
+	 *    anchor PEBs are tracked via vol->anchor_pnum, not via EBA or free/dirty. */
+	vol->anchor_pnum = pnum;
+	ubi_mem_leaf_free(item);
+	return 0;
+
+mark_bad : {
+	const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
+	struct ubi_list_item *bad = ubi_leaf_as_list(item);
+
+	ubi_move_to_bad_blocks(ubi, pnum, ec_avg, bad);
+	return ret;
+}
+}
+
+/**
  * \brief Read device header via secure reserved scan, bump revision.
  */
 static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
@@ -78,6 +182,9 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	hdr->vol_count += vol_count_delta;
 	hdr->revision += 1;
 	hdr->hdr_crc = crc32_ieee((const uint8_t *)hdr, sizeof(*hdr) - sizeof(hdr->hdr_crc));
+
+	/* Snapshot vid_next_counter_floor per §9.8.5. */
+	meta->vid_next_counter_floor = ubi->next_vid_counter;
 
 	return 0;
 }
@@ -161,11 +268,12 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 		}
 	}
 
-	/* Capacity check. */
+	/* Capacity check — account for hidden anchor PEB per §7.9. */
 	const size_t usable = ubi->total_data_peb_count - ubi->bad_peb_count;
 	const size_t avail = usable - ubi_reserved_peb_count(ubi);
+	const size_t needed = vol_cfg->leb_count + 1; /* +1 for anchor PEB */
 
-	if (vol_cfg->leb_count > avail) {
+	if (needed > avail) {
 		LOG_ERR("Failed to allocate PEBs for volume");
 		ret = -ENOSPC;
 		goto exit;
@@ -258,12 +366,29 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	vol->cfg.leb_count = new_vol_hdr.leb_count;
 	vol->eba_tbl_count = 0;
 	vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
+	vol->anchor_pnum = SIZE_MAX;
 
 	item->key = vol->vol_id;
 	item->value.vol = vol;
 	rb_insert(&ubi->vols, &item->node);
 	ubi->vol_count++;
 	ubi->vol_id_watermark = dev_hdr.vol_id_watermark;
+
+	/* Allocate hidden anchor PEB per §11.4.
+	 * If anchor creation fails the volume must not be usable without
+	 * a live authenticated anchor.  Roll back the RAM state and
+	 * propagate the error.  The reserved metadata already carries
+	 * the volume record on-flash; on next attach the init code will
+	 * rediscover it (without anchor protection until re-created). */
+	ret = anchor_create(ubi, vol);
+	if (ret != 0) {
+		LOG_ERR("Hidden anchor creation failed for vol %zu — rolling back", vol->vol_id);
+		rb_remove(&ubi->vols, &item->node);
+		ubi->vol_count--;
+		ubi_mem_leaf_free(item);
+		ubi_mem_volume_free(vol);
+		goto exit;
+	}
 
 	*vol_id = vol->vol_id;
 	ret = 0;
@@ -477,6 +602,20 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 		vol->eba_tbl_count--;
 
 		(void)reclaim_peb_to_dirty(ubi, eba_item);
+	}
+
+	/* Reclaim anchor PEB to dirty pool. */
+	if (vol->anchor_pnum != SIZE_MAX) {
+		struct ubi_rbt_item *anchor_item = NULL;
+
+		ret = ubi_mem_leaf_alloc((void **)&anchor_item);
+		if (ret == 0) {
+			anchor_item->value.pnum = vol->anchor_pnum;
+			(void)reclaim_peb_to_dirty(ubi, anchor_item);
+		} else {
+			LOG_WRN("Leaf alloc failed for anchor PEB during remove");
+		}
+		vol->anchor_pnum = SIZE_MAX;
 	}
 
 	rb_remove(&ubi->vols, &vol_entry->node);

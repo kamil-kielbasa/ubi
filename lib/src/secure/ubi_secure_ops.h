@@ -25,6 +25,7 @@ struct ubi_volume_config;
 int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);
 int ubi_secure_device_deinit(struct ubi_device *ubi);
 int ubi_secure_device_erase_peb(struct ubi_device *ubi);
+void ubi_secure_try_refill_reserve(struct ubi_device *ubi);
 
 /* ubi_secure_volume.c */
 int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,

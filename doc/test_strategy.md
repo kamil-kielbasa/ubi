@@ -39,13 +39,13 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 | `ubi_secure_api` | `tests_ubi_secure_api.c` | 3 | Crypto type sizes, secure format on blank, plain unaffected by secure types | native_sim |
 | `ubi_secure_attach` | `tests_ubi_secure_attach.c` | 8 | Format/attach, mode mismatch, freshness rejection, NULL callbacks, allowlist validation | native_sim |
 | `ubi_secure_device` | `tests_ubi_secure_device.c` | 2 | Secure init/deinit, info sane, reboot persistence | native_sim |
-| `ubi_secure_volumes` | `tests_ubi_secure_volumes.c` | 4 | Create, remove, resize, multi-volume persistence (parity with `ubi_volumes`) | native_sim |
+| `ubi_secure_volumes` | `tests_ubi_secure_volumes.c` | 7 | Create, remove, resize, shrink, multi-volume persistence, vid_counter_floor reconstruction (parity with `ubi_volumes`) | native_sim |
 | `ubi_secure_write_read` | `tests_ubi_secure_write_read.c` | 3 | Single/multi LEB write/read, overwrite (parity with `ubi_write_read`) | native_sim |
-| `ubi_secure_map` | `tests_ubi_secure_map_unmap.c` | 2 | Map/unmap lifecycle, dirty PEB accounting (parity with `ubi_map`) | native_sim |
-| `ubi_secure_erase` | `tests_ubi_secure_erase.c` | 1 | Fill-unmap-erase cycle (parity with `ubi_erase`) | native_sim |
+| `ubi_secure_map` | `tests_ubi_secure_map_unmap.c` | 4 | Map/unmap lifecycle, dirty PEB accounting, unmap→reboot persistence, unmap→erase→reboot (parity with `ubi_map`) | native_sim |
+| `ubi_secure_erase` | `tests_ubi_secure_erase.c` | 4 | Fill-unmap-erase cycle, anchor wear-leveling migration, stale-anchor rejection after reboot, reclaim continuity witness preservation (parity with `ubi_erase`) | native_sim |
 | `ubi_secure_mixed` | `tests_ubi_secure_mixed.c` | 1 | Multi-volume create/write/remove/resize/map/reboot (parity with `ubi_mixed`) | native_sim |
 | `ubi_secure_tamper` | `tests_ubi_secure_tamper.c` | 2 | LEB data tampering smoke, reserved PEB tampering smoke | native_sim |
-| **Total (secure)** | | **26** | | |
+| **Total (secure)** | | **34** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 

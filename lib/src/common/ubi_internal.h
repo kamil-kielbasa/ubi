@@ -50,6 +50,10 @@ struct ubi_volume {
 	struct rbtree eba_tbl; /**< Red-black tree mapping:
                                      - Key: Logical Erase Block (LEB) index
                                      - Value: Physical Erase Block (PEB) index */
+
+#if defined(CONFIG_UBI_CRYPTO)
+	size_t anchor_pnum; /**< PEB index of hidden anchor (SIZE_MAX = none). */
+#endif
 };
 
 /**
@@ -69,6 +73,7 @@ struct ubi_device {
 #if defined(CONFIG_UBI_CRYPTO)
 	const struct ubi_crypto_config
 		*crypto_cfg; /**< Secure backend crypto config (NULL for plain). */
+	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter (write_active_kv). */
 #endif
 
 	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
@@ -179,6 +184,11 @@ static inline size_t ubi_reserved_peb_count(struct ubi_device *ubi)
 	RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
 	{
 		total += entry->value.vol->cfg.leb_count;
+#if defined(CONFIG_UBI_CRYPTO)
+		if (ubi->mode == UBI_MODE_SECURE && entry->value.vol->anchor_pnum != SIZE_MAX) {
+			total += 1;
+		}
+#endif
 	}
 	return total;
 }
