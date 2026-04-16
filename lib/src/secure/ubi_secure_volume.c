@@ -126,7 +126,9 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	ubi_mem_leaf_free(item);
 	return 0;
 
-mark_bad : {
+/* clang-format off */
+mark_bad: {
+	/* clang-format on */
 	const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
 	struct ubi_list_item *bad = ubi_leaf_as_list(item);
 
