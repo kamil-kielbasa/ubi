@@ -123,8 +123,9 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	entry->key = ec_hdr.ec;
 	rb_insert(&ubi->free_pebs, &entry->node);
 	ubi->free_peb_count++;
+	/* clang-format off */
 	return 0;
-/* clang-format off */
+
 mark_bad: {
 	/* clang-format on */
 	const size_t pnum = entry->value.pnum;
@@ -376,8 +377,9 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	rb_insert(&ubi->dirty_pebs, &old_item->node);
 	ubi->dirty_peb_count++;
 
+	/* clang-format off */
 	return 0;
-/* clang-format off */
+
 rewrite_bad: {
 	/* clang-format on */
 	const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;

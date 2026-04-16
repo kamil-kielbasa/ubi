@@ -345,8 +345,9 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 		goto classify_bad;
 	}
 
+	/* clang-format off */
 	return SCAN_NEXT_STEP;
-/* clang-format off */
+
 classify_bad: {
 	/* clang-format on */
 	struct ubi_list_item *item = NULL;

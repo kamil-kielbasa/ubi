@@ -124,8 +124,9 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	 *    anchor PEBs are tracked via vol->anchor_pnum, not via EBA or free/dirty. */
 	vol->anchor_pnum = pnum;
 	ubi_mem_leaf_free(item);
+	/* clang-format off */
 	return 0;
-/* clang-format off */
+
 mark_bad: {
 	/* clang-format on */
 	const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
