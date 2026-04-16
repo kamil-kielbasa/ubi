@@ -156,6 +156,60 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const void *buf,
 			      size_t len, uint8_t key_version, uint64_t counter);
 
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+/**
+ * \brief Read and authenticate a secure LEB record (chunked mode) from a data PEB.
+ *
+ * Authenticates only the chunks that cover the requested byte range (§12.3).
+ * For zero-length records, returns immediately without I/O.
+ *
+ * \param[in]  mtd         UBI MTD descriptor.
+ * \param[in]  crypto_cfg  Crypto configuration.
+ * \param      peb_idx     Physical eraseblock index.
+ * \param[in]  vid_ctx     Authenticated VID context (full parent chain for AAD).
+ * \param      offset      Byte offset within authenticated payload to return.
+ * \param[out] buf         Output buffer for the requested slice.
+ * \param      len         Bytes to return.
+ *
+ * \retval 0         Success.
+ * \retval -EIO      Flash or crypto failure.
+ * \retval -EBADMSG  Authentication failure (at least one chunk).
+ * \retval -EINVAL   NULL argument or out-of-bounds slice.
+ */
+int ubi_secure_leb_data_read_chunked(const struct ubi_mtd *mtd,
+				     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+				     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
+				     void *buf, size_t len);
+
+/**
+ * \brief Write an encrypted secure LEB record (chunked mode) to a data PEB.
+ *
+ * Encrypts each chunk with a unique nonce (counter_base + chunk_index) and
+ * writes prefix + all chunk ciphertext+tag blocks to flash.
+ *
+ * \param[in] mtd           UBI MTD descriptor.
+ * \param[in] crypto_cfg    Crypto configuration.
+ * \param     peb_idx       Physical eraseblock index.
+ * \param[in] ec_ctx        Authenticated EC context (for AAD).
+ * \param[in] vid_hdr       VID header (for AAD fields).
+ * \param     vid_kv        VID key_version (for AAD).
+ * \param[in] buf           Plaintext payload (must not be NULL, len > 0).
+ * \param     len           Payload length (must match vid_hdr->data_size).
+ * \param     key_version   Key version for LEB domain.
+ * \param     counter_base  Base AEAD counter (chunk i uses counter_base + i).
+ *
+ * \retval 0       Success.
+ * \retval -EIO    Flash or crypto failure.
+ * \retval -EINVAL NULL argument.
+ */
+int ubi_secure_leb_data_write_chunked(const struct ubi_mtd *mtd,
+				      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+				      const struct ubi_secure_ec_auth_ctx *ec_ctx,
+				      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv,
+				      const void *buf, size_t len, uint8_t key_version,
+				      uint64_t counter_base);
+#endif
+
 /**
  * \brief Check if the VID region of a data PEB is erased.
  *

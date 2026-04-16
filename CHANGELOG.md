@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.43.0] - 2026-04-16
+
+### Added
+
+- **Chunked secure LEB mode (§7.8, §8.3, §12.3, §15.3)**: new `CONFIG_UBI_CRYPTO_LEB_CHUNKED` Kconfig with `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` (default 4096, range 256–65536). When enabled, non-zero LEB records are split into independently authenticated chunks, each with its own AEAD nonce (`counter_base + chunk_index`) and extended 78-byte AAD (single-tag 74 + `be32(chunk_index)`). Zero-length writes use the single-tag fallback.
+- **Chunked partial-read authentication (§12.3)**: `ubi_secure_leb_data_read_chunked()` authenticates only the chunks covering the requested byte range, reducing latency and RAM for sub-LEB reads.
+- **Chunked geometry validation (§15.3)**: at init time, verifies `chunk_size` is a multiple of the flash write alignment and that at least one chunk fits in the data PEB geometry. Computes `leb_size` accounting for per-chunk tag overhead.
+- **Scratch budget scaling for chunked mode**: `UBI_MEM_SCRATCH_SIZE` (slab backend) automatically takes `MAX(base, 2*chunk_size + 16)` when chunked mode is enabled, ensuring per-chunk decrypt buffers fit.
+- **Chunked write-path budget accounting (§11.5)**: `aead_invocations = ceil(payload / chunk_size)`, `leb_auth_bytes = payload + chunk_count * 78`. Counter-range and budget-exhaustion checks use the chunked invocation count.
+- **New test suite `ubi_secure_chunked`** (11 tests): geometry validation, geometry reject, single-chunk write/read, multi-chunk write/read, partial reads within and across chunk boundaries, partial last chunk, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback.
+- **New test suite `ubi_secure_recovery`** (8 tests): interrupted data write COW preservation (prefix fault, VID fault), first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create.
+- **Flash write fault injection for secure backend**: `secure_flash_write()` inline wrapper in `ubi_secure_io.c` and `ubi_secure_reserved.c` participates in the existing `ubi_test_fault_set_flash_write_fail_after()` counter via new `ubi_test_flash_write_check_fail()` export.
+
 ## [0.42.0] - 2026-04-15
 
 ### Added

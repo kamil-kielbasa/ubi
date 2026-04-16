@@ -320,6 +320,14 @@ int ubi_leb_data_read(const struct ubi_mtd *mtd, const size_t pnum, size_t offse
  * \retval false Erase proceeds normally.
  */
 bool ubi_test_flash_erase_check_fail(void);
+
+/**
+ * \brief Check and consume flash write fault injection counter.
+ *
+ * \retval true  Write should be faulted.
+ * \retval false Write proceeds normally.
+ */
+bool ubi_test_flash_write_check_fail(void);
 #endif
 
 /* Inline helpers for on-flash header validation ----------------------------------------------- */

@@ -74,6 +74,11 @@ bool ubi_test_flash_erase_check_fail(void)
 	return flash_erase_should_fail();
 }
 
+bool ubi_test_flash_write_check_fail(void)
+{
+	return flash_write_should_fail();
+}
+
 #endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 /* Static function declarations ---------------------------------------------------------------- */

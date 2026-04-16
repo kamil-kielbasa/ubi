@@ -228,6 +228,10 @@ struct ubi_secure_vid_auth_ctx {
  *  + parent_ec_kv(1) + vol_id(4) + lnum(4) + sqnum(8) + data_size(4) + parent_vid_kv(1) = 74. */
 #define UBI_SECURE_LEB_AAD_SIZE (74)
 
+/** AAD size for secure LEB record (chunked mode, per chunk):
+ *  single-tag AAD(74) + be32(chunk_index)(4) = 78. */
+#define UBI_SECURE_LEB_CHUNK_AAD_SIZE (78)
+
 /**
  * Sentinel LEB number for hidden per-volume anchor PEBs.
  * This value must never collide with user-visible lnum range [0, leb_count).

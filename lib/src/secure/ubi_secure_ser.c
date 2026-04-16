@@ -272,6 +272,28 @@ void ubi_secure_build_leb_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint
 	__ASSERT_NO_MSG(pos == UBI_SECURE_LEB_AAD_SIZE);
 }
 
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+void ubi_secure_build_leb_chunk_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE],
+				    uint32_t peb_index, uint64_t flash_offset, uint64_t ec,
+				    uint8_t parent_ec_kv, uint32_t vol_id, uint32_t lnum,
+				    uint64_t sqnum, uint32_t data_size, uint8_t parent_vid_kv,
+				    uint32_t chunk_index,
+				    uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE])
+{
+	if (prefix == NULL || aad == NULL) {
+		LOG_ERR("build_leb_chunk_aad: NULL argument");
+		return;
+	}
+
+	/* Reuse single-tag AAD for the first 74 bytes. */
+	ubi_secure_build_leb_aad(prefix, peb_index, flash_offset, ec, parent_ec_kv, vol_id, lnum,
+				 sqnum, data_size, parent_vid_kv, aad);
+
+	/* Append be32(chunk_index) at offset 74 → total 78. */
+	sys_put_be32(chunk_index, &aad[UBI_SECURE_LEB_AAD_SIZE]);
+}
+#endif
+
 void ubi_secure_vid_meta_serialize(const struct ubi_vid_secure_meta *meta, uint8_t *buf)
 {
 	if (meta == NULL || buf == NULL) {

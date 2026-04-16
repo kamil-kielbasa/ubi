@@ -152,6 +152,33 @@ void ubi_secure_build_leb_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint
 			      uint32_t vol_id, uint32_t lnum, uint64_t sqnum, uint32_t data_size,
 			      uint8_t parent_vid_kv, uint8_t aad[UBI_SECURE_LEB_AAD_SIZE]);
 
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+/**
+ * \brief Build AAD for a secure LEB record chunk (78 bytes).
+ *
+ * Layout: single-tag LEB AAD(74) + be32(chunk_index)(4)
+ *
+ * \param[in]  prefix         Serialized prefix bytes (32).
+ * \param      peb_index      Data PEB physical index.
+ * \param      flash_offset   LEB data offset from partition start.
+ * \param      ec             Authenticated erase counter.
+ * \param      parent_ec_kv   Authenticated EC-header key_version.
+ * \param      vol_id         Authenticated volume identifier.
+ * \param      lnum           Authenticated logical erase block number.
+ * \param      sqnum          Authenticated sequence number.
+ * \param      data_size      Authenticated payload size.
+ * \param      parent_vid_kv  Authenticated VID-header key_version.
+ * \param      chunk_index    Zero-based chunk index within the LEB record.
+ * \param[out] aad            Output buffer (at least UBI_SECURE_LEB_CHUNK_AAD_SIZE).
+ */
+void ubi_secure_build_leb_chunk_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE],
+				    uint32_t peb_index, uint64_t flash_offset, uint64_t ec,
+				    uint8_t parent_ec_kv, uint32_t vol_id, uint32_t lnum,
+				    uint64_t sqnum, uint32_t data_size, uint8_t parent_vid_kv,
+				    uint32_t chunk_index,
+				    uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE]);
+#endif
+
 /**
  * \brief Serialize vid_secure_meta to a byte buffer.
  *

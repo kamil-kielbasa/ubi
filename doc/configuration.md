@@ -32,6 +32,9 @@ CONFIG_UBI_ENABLE=y
 | `CONFIG_UBI_LOG_LEVEL_*` | choice | INF | — | Log verbosity: OFF, ERR, WRN, INF, DBG |
 | `CONFIG_UBI_TEST_API_ENABLE` | bool | n | — | Enable test-only APIs (`ubi_device_get_peb_ec`, `ubi_device_check_invariants`) |
 | `CONFIG_UBI_TEST_FAULT_INJECTION` | bool | n | — | Controllable allocation failure hook for simulating OOM. Depends on `CONFIG_UBI_TEST_API_ENABLE`. |
+| `CONFIG_UBI_CRYPTO` | bool | n | — | Enable the secure (authenticated-encryption) backend. Requires Mbed TLS PSA Crypto. |
+| `CONFIG_UBI_CRYPTO_LEB_CHUNKED` | bool | n | — | Use chunked LEB layout: multiple AEAD tags per LEB for partial-read authentication (§7.8). |
+| `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` | int | 4096 | 256–65536 | Chunk size in bytes (must be multiple of flash write alignment). Smaller = finer reads, more tag overhead. |
 
 ### Memory Backend
 
@@ -58,7 +61,7 @@ Under the static backend, all pool memory is pre-allocated at compile time. The 
 | Device slab | `MAX_NR_OF_DEVICES × sizeof(ubi_device)` | 1 × 128 = 128 B |
 | Volume slab | `MAX_NR_OF_DEVICES × MAX_NR_OF_VOLUMES × sizeof(ubi_volume)` | 1 × 10 × 44 = 440 B |
 | Leaf slab | `MAX_NR_OF_DEVICES × (MAX_NR_OF_DATA_PEBS + MAX_NR_OF_VOLUMES) × 16` | 1 × (14+10) × 16 = 384 B |
-| Scratch slab | `UBI_DEV_HDR_SIZE + MAX_NR_OF_VOLUMES × UBI_VOL_HDR_SIZE` (1 block) | 32 + 10 × 48 = 512 B |
+| Scratch slab | `MAX(DEV_HDR + MAX_VOL × VOL_HDR, 2 × CHUNK_SIZE + 16)` (1 block) | 32 + 10 × 48 = 512 B (or 2×4096+16 = 8208 B with chunked) |
 | **Total** | | **~1,464 B** |
 
 At init time, `ubi_device_init()` verifies that the actual flash geometry fits within the configured pools. If the flash partition has more data PEBs than `CONFIG_UBI_MAX_NR_OF_DATA_PEBS`, init returns `-ENOMEM`.

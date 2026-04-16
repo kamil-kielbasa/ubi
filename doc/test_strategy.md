@@ -46,13 +46,15 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 | `ubi_secure_mixed` | `tests_ubi_secure_mixed.c` | 1 | Multi-volume create/write/remove/resize/map/reboot (parity with `ubi_mixed`) | native_sim |
 | `ubi_secure_tamper` | `tests_ubi_secure_tamper.c` | 2 | LEB data tampering smoke, reserved PEB tampering smoke | native_sim |
 | `ubi_secure_runtime_policy` | `tests_ubi_secure_runtime_policy.c` | 15 | Sticky crypto read-only, event escalation, freshness sync cadence, sync failure events, reads in read-only, budget SOON/NOW thresholds, KEY_RETIRABLE, allowlist reject, missing key, rollback mismatch, sticky read-only reinit, mixed-key rotation | native_sim |
-| **Total (secure)** | | **49** | | |
+| `ubi_secure_recovery` | `tests_ubi_secure_recovery.c` | 8 | Interrupted data write COW preservation, interrupted VID commit, first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create | native_sim |
+| `ubi_secure_chunked` | `tests_ubi_secure_chunked.c` | 11 | Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback (requires `CONFIG_UBI_CRYPTO_LEB_CHUNKED=y`) | native_sim |
+| **Total (secure)** | | **68** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
 |--------|----------------------|--------------------------------------|
-| Functional correctness | Full — all 300 tests run (30 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 319 tests run (318 pass, 1 skip, 32 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |

@@ -117,8 +117,22 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	/* Pre-write budget + nonce-overflow check (§11.5 step 6, §14.2).
 	 * Reject BEFORE any flash mutation. */
-	const uint64_t projected_counter = old_write_counter + 1;
-	const uint64_t projected_bytes = old_total_auth_bytes + UBI_SECURE_LEB_AAD_SIZE + len;
+	/* Per §11.5 steps 4,5: compute invocations and auth bytes for this write. */
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+	const uint32_t aead_invocations =
+		(len > 0) ? (uint32_t)((len + chunk_size - 1) / chunk_size) : 1;
+	const uint64_t leb_auth_bytes_this_write =
+		(len > 0) ? ((uint64_t)len +
+			     (uint64_t)aead_invocations * UBI_SECURE_LEB_CHUNK_AAD_SIZE) :
+			    (uint64_t)UBI_SECURE_LEB_AAD_SIZE;
+#else
+	const uint32_t aead_invocations = 1;
+	const uint64_t leb_auth_bytes_this_write = (uint64_t)UBI_SECURE_LEB_AAD_SIZE + len;
+#endif
+
+	const uint64_t projected_counter = old_write_counter + aead_invocations;
+	const uint64_t projected_bytes = old_total_auth_bytes + leb_auth_bytes_this_write;
 
 	if (projected_counter > UBI_SECURE_COUNTER_MAX) {
 		const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
@@ -179,17 +193,15 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	/*
 	 * Per §11.5 steps 4,5,7–10:
 	 *   counter_base = old_write_counter (next unused AEAD counter).
-	 *   aead_invocations_this_write = 1 (single-tag mode).
-	 *   leb_auth_bytes_this_write = UBI_SECURE_LEB_AAD_SIZE + payload_bytes.
-	 *   LEB data written at counter_base.
-	 *   New VID gets leb_write_counter = counter_base + 1.
+	 *   aead_invocations computed above (1 for single-tag, chunk_count for chunked).
+	 *   LEB data written starting at counter_base.
+	 *   New VID gets leb_write_counter = counter_base + aead_invocations.
 	 *   New VID gets leb_total_auth_bytes = old_total + leb_auth_bytes_this_write.
 	 */
 	const uint64_t counter_base = old_write_counter;
-	const uint64_t leb_auth_bytes_this_write = UBI_SECURE_LEB_AAD_SIZE + len;
 
 	const struct ubi_vid_secure_meta vid_meta = {
-		.leb_write_counter = counter_base + 1,
+		.leb_write_counter = counter_base + aead_invocations,
 		.leb_total_auth_bytes = old_total_auth_bytes + leb_auth_bytes_this_write,
 	};
 
@@ -197,9 +209,15 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	/* Step 1: Write LEB data payload first (if any). */
 	if (buf != NULL && len > 0) {
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+		ret = ubi_secure_leb_data_write_chunked(&ubi->mtd, ubi->crypto_cfg,
+							new_node->value.pnum, &ec_ctx, &vid_hdr,
+							write_kv, buf, len, write_kv, counter_base);
+#else
 		ret = ubi_secure_leb_data_write(&ubi->mtd, ubi->crypto_cfg, new_node->value.pnum,
 						&ec_ctx, &vid_hdr, write_kv, buf, len, write_kv,
 						counter_base);
+#endif
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
 			ubi_secure_handle_write_error(ubi, ret, new_node->value.pnum);
@@ -427,8 +445,13 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	}
 
 	/* Read and authenticate LEB data. */
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+	ret = ubi_secure_leb_data_read_chunked(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum,
+					       &vid_ctx, offset, buf, len);
+#else
 	ret = ubi_secure_leb_data_read(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum, &vid_ctx,
 				       offset, buf, len);
+#endif
 	if (ret != 0) {
 		LOG_ERR("LEB data read failure");
 		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum, UBI_SECURE_DOMAIN_LEB,

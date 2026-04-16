@@ -945,8 +945,49 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 
 	/* Cache geometry for fast internal lookups. */
 	ubi_dev->total_data_peb_count = nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
+
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+	/* §15.3 Chunked-mode geometry check.
+	 * chunk_size must be a multiple of the flash write alignment.
+	 * leb_size accounts for per-chunk tag overhead:
+	 *   payload_space = erase_block_size - LEB_OFFSET - PREFIX_SIZE
+	 *   n_full = payload_space / (chunk_size + TAG_SIZE)
+	 *   remaining = payload_space - n_full * (chunk_size + TAG_SIZE)
+	 *   leb_size = n_full * chunk_size + max(0, remaining - TAG_SIZE) */
+	{
+		const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+
+		if (chunk_size % ubi_dev->mtd.write_block_size != 0) {
+			LOG_ERR("Chunk size %zu not aligned to write block size %zu", chunk_size,
+				ubi_dev->mtd.write_block_size);
+			ret = -EINVAL;
+			goto exit;
+		}
+
+		const size_t payload_space = ubi_dev->mtd.erase_block_size - UBI_SECURE_LEB_OFFSET -
+					     UBI_SECURE_PREFIX_SIZE;
+		const size_t n_full = payload_space / (chunk_size + UBI_SECURE_TAG_SIZE);
+		const size_t remaining =
+			payload_space - n_full * (chunk_size + UBI_SECURE_TAG_SIZE);
+
+		if (remaining > UBI_SECURE_TAG_SIZE) {
+			ubi_dev->leb_size = n_full * chunk_size + (remaining - UBI_SECURE_TAG_SIZE);
+		} else {
+			ubi_dev->leb_size = n_full * chunk_size;
+		}
+
+		if (ubi_dev->leb_size == 0) {
+			LOG_ERR("Chunked geometry invalid: no payload space "
+				"(erase_block=%zu chunk=%zu)",
+				ubi_dev->mtd.erase_block_size, chunk_size);
+			ret = -EINVAL;
+			goto exit;
+		}
+	}
+#else
 	ubi_dev->leb_size =
 		ubi_dev->mtd.erase_block_size - UBI_SECURE_LEB_OFFSET - UBI_SECURE_LEB_OVERHEAD;
+#endif
 
 	/* Detect mode: blank, secure, or plain. */
 	bool any_blank = false;

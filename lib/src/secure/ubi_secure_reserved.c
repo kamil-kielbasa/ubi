@@ -26,6 +26,36 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
+/* Flash write fault injection ----------------------------------------------------------------- */
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+
+static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+				     size_t len)
+{
+	__ASSERT_NO_MSG(fa != NULL);
+	__ASSERT_NO_MSG(data != NULL);
+
+	if (ubi_test_flash_write_check_fail()) {
+		LOG_WRN("Flash write fault injected at offset 0x%lx", (unsigned long)offset);
+		return -EIO;
+	}
+	return flash_area_write(fa, offset, data, len);
+}
+
+#else
+
+static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+				     size_t len)
+{
+	__ASSERT_NO_MSG(fa != NULL);
+	__ASSERT_NO_MSG(data != NULL);
+
+	return flash_area_write(fa, offset, data, len);
+}
+
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
+
 /** Plaintext payload for secure device header: dev_hdr(32) + dev_secure_meta(16) = 48. */
 #define DEV_HDR_PLAINTEXT_SIZE (UBI_DEV_HDR_SIZE + UBI_SECURE_DEV_META_SIZE)
 
@@ -605,7 +635,7 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
 		}
 
 		/* Write the full content. */
-		ret = flash_area_write(fa, peb_offset, content, content_len);
+		ret = secure_flash_write(fa, peb_offset, content, content_len);
 		if (ret != 0) {
 			LOG_ERR("Write failure on reserved PEB %zu", peb);
 			continue;
