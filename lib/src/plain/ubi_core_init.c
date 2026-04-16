@@ -346,7 +346,6 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 	}
 
 	return SCAN_NEXT_STEP;
-
 /* clang-format off */
 classify_bad: {
 	/* clang-format on */

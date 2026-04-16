@@ -327,7 +327,6 @@ static int scan_classify_vid_region(struct ubi_device *dev, size_t pnum,
 	}
 
 	return SCAN_PEB_HANDLED;
-
 /* clang-format off */
 classify_bad: {
 	/* clang-format on */
@@ -434,7 +433,6 @@ static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_
 			rb_insert(&dev->dirty_pebs, &item->node);
 			dev->dirty_peb_count++;
 			return SCAN_PEB_HANDLED;
-
 /* clang-format off */
 replace_anchor: {
 	/* clang-format on */

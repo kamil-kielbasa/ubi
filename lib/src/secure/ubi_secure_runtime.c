@@ -124,7 +124,6 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	rb_insert(&ubi->free_pebs, &entry->node);
 	ubi->free_peb_count++;
 	return 0;
-
 /* clang-format off */
 mark_bad: {
 	/* clang-format on */
@@ -378,7 +377,6 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	ubi->dirty_peb_count++;
 
 	return 0;
-
 /* clang-format off */
 rewrite_bad: {
 	/* clang-format on */

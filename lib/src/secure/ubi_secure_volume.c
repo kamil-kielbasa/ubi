@@ -125,7 +125,6 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	vol->anchor_pnum = pnum;
 	ubi_mem_leaf_free(item);
 	return 0;
-
 /* clang-format off */
 mark_bad: {
 	/* clang-format on */
