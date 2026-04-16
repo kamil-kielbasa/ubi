@@ -32,6 +32,7 @@ New to UBI? Read these pages first:
    secure_architecture
    secure_volume_lifecycle
    secure_recovery_notes
+   secure_runtime_policy
 
 .. toctree::
    :maxdepth: 2

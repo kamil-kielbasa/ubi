@@ -48,6 +48,34 @@
 /** Byte offset of key_version field within serialized prefix32. */
 #define UBI_SECURE_PREFIX_OFF_KEY_VERSION (6)
 
+/* Internal error codes (outside POSIX errno range) -------------------------------------------- */
+
+/** Salt generation (RNG) failure — distinct from generic -EIO. */
+#define UBI_SECURE_ENORAND 201
+
+/** Key-ID lookup failure — key version not available from get_key_id callback. */
+#define UBI_SECURE_ENOKEY 202
+
+/** Post-AEAD format violation — authentic data with invalid structure. */
+#define UBI_SECURE_EFORMAT 203
+
+/* Utility helpers ----------------------------------------------------------------------------- */
+
+/**
+ * \brief Compiler-safe zeroization of a buffer (will not be optimized away).
+ *
+ * \param[in,out] buf  Buffer to clear.
+ * \param[in]     len  Number of bytes.
+ */
+static inline void ubi_secure_zeroize(void *buf, size_t len)
+{
+	volatile uint8_t *p = (volatile uint8_t *)buf;
+
+	while (len--) {
+		*p++ = 0;
+	}
+}
+
 /** CCM nonce size = domain(1) + salt(6) + counter(6). */
 #define UBI_SECURE_NONCE_SIZE (13)
 

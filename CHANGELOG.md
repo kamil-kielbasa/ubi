@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-04-15
+
+### Added
+
+- **Sticky crypto read-only mode (§14.4)**: new `bool read_only_crypto` field in `struct ubi_device`. When set by an event callback returning `UBI_CRYPTO_EVENT_ENTER_READ_ONLY`, the central mutation gate blocks all mutation classes (`-EROFS`). Reads remain functional.
+- **Event emission infrastructure**: new `ubi_secure_event.h` with inline helpers:
+  - `ubi_secure_emit_event()`: delivers events through `event_cb`, handles `ENTER_READ_ONLY` verdict.
+  - `ubi_secure_freshness_snapshot()`: builds freshness descriptor from device state.
+  - `ubi_secure_maybe_sync_freshness()`: delta-based sync cadence per `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`.
+  - `ubi_secure_handle_write_error()`: detects RNG and key-unavailable failures, emits `RNG_FAILURE` / `KEY_VERSION_UNAVAILABLE`, enforces strict RO on RNG failure.
+  - `ubi_secure_handle_read_error()`: detects key-unavailable and AEAD auth failures, emits `KEY_VERSION_UNAVAILABLE` / `AUTH_FAILURE` / `FORMAT_VIOLATION`.
+  - `ubi_secure_check_allowlist()`: runtime allowlist enforcement on read path, emits `KEY_VERSION_NOT_ALLOWLISTED` on rejection.
+  - `ubi_secure_budget_would_exhaust()`: pre-write budget projection helper.
+- **Freshness sync wiring**: `sync_freshness` called after every commit-visible mutation (volume create/resize/remove, LEB write/map, PEB erase). Sync failure emits `UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE`, optionally enters RO via `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE`.
+- **Full key-version refcount tracking (§13.3)**: `uint32_t key_peb_refcount[]` in `struct ubi_device`. Tracks EC headers, VID headers, and LEB records (3 objects per VID-bearing PEB) during init scan, write, and erase. When a non-write-active version's refcount reaches zero, emits `UBI_CRYPTO_EVENT_KEY_RETIRABLE`.
+- **LEB usage budget tracking and pre-write rejection (§14.2, §14.5)**: after each LEB commit, checks `leb_write_counter` and `leb_total_auth_bytes` against budgets. Emits `KEY_ROTATE_SOON` at soft threshold and `KEY_ROTATE_NOW` at hard threshold. **Pre-write budget check** rejects writes before any flash mutation when projected usage crosses `ROTATE_NOW_PCT` (`-ENOSPC`) or nonce counter would overflow (`-EOVERFLOW`).
+- **RNG failure error propagation**: `ubi_secure_generate_salt()` returns `-UBI_SECURE_ENORAND` (201). Write-path callers emit `RNG_FAILURE` event and enforce `CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE`.
+- **Key-unavailable error propagation**: `ubi_secure_derive_domain_key()` and `ubi_secure_derive_leb_key()` return `-UBI_SECURE_ENOKEY` (202) when `get_key_id` fails. Write/read callers emit `KEY_VERSION_UNAVAILABLE` event.
+- **FORMAT_VIOLATION event**: post-AEAD plaintext size mismatches now return `-UBI_SECURE_EFORMAT` (203). Read-path error handler emits `FORMAT_VIOLATION`.
+- **ROLLBACK_POLICY_MISMATCH event**: freshness rejection at attach emits `ROLLBACK_POLICY_MISMATCH` and enforces `CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE`.
+- **Read-path allowlist enforcement**: `ubi_secure_leb_read` checks EC and VID key versions against the runtime allowlist. Non-allowlisted versions reject the read with `-EACCES` and emit `KEY_VERSION_NOT_ALLOWLISTED`.
+- **Zeroization of sensitive buffers**: EC/VID/LEB plaintext buffers and scratch memory are wiped via `ubi_secure_zeroize()` (volatile memset, compiler-safe) before returning or freeing.
+- **write_active_key_version refresh**: `dev_hdr_read_and_bump()` now persists the current `requested_write_key_version` into device metadata on every reserved PEB commit, enabling key rotation across reinit cycles.
+- **AUTH_FAILURE events on LEB read path**: EC, VID, and LEB data authentication failures now emit `UBI_CRYPTO_EVENT_AUTH_FAILURE` with PEB index and domain before returning the error.
+- **New test suite `ubi_secure_runtime_policy`** (15 tests):
+  - `test_event_enter_read_only_blocks_writes`: sync failure → event → read-only → second write rejected.
+  - `test_reads_work_in_crypto_ro`: reads succeed after crypto read-only.
+  - `test_freshness_sync_called_on_write`: sync called after volume_create and leb_write.
+  - `test_freshness_sync_failure_emits_event`: sync failure emits FRESHNESS_SYNC_FAILURE.
+  - `test_freshness_sync_called_on_erase`: sync called after erase_peb.
+  - `test_erase_blocked_in_crypto_ro`: erase rejected in read-only.
+  - `test_volume_create_blocked_in_crypto_ro`: volume_create rejected in read-only.
+  - `test_budget_rotate_soon_event`: budget soft threshold emits KEY_ROTATE_SOON.
+  - `test_budget_rotate_now_rejects_write`: budget hard threshold rejects write (-ENOSPC) + KEY_ROTATE_NOW.
+  - `test_key_retirable_after_full_erase`: all kv=1 objects erased → KEY_RETIRABLE(1).
+  - `test_allowlist_reject_on_read`: read of kv=1 data with allowlist=[2] → KEY_VERSION_NOT_ALLOWLISTED.
+  - `test_missing_key_on_write`: write with unavailable key → KEY_VERSION_UNAVAILABLE.
+  - `test_rollback_policy_mismatch_event`: freshness rejection → ROLLBACK_POLICY_MISMATCH.
+  - `test_sticky_ro_cleared_on_reinit`: sticky read-only survives writes but clears on deinit+reinit.
+  - `test_mixed_key_rotation_read_write`: data written under kv=1 remains readable after switching to kv=2.
+- New doc `secure_runtime_policy.md`: freshness sync, event callbacks, sticky RO, key refcounts, LEB usage budgets.
+
+### Changed
+
+- `struct ubi_device` size increased from 148 → 180 bytes (secure). `BUILD_ASSERT` updated.
+- `ubi_core_init.c`: added `#include "ubi_secure_event.h"` and key refcount increment during init data-PEB scan.
+
 ## [0.41.0] - 2026-04-15
 
 ### Added

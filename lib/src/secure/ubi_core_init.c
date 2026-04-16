@@ -9,6 +9,7 @@
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_event.h"
 #include "ubi_secure_ser.h"
 #include "ubi_secure_io.h"
 #include "ubi_secure_types.h"
@@ -599,6 +600,9 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 			continue;
 		}
 
+		/* Track key-version PEB refcount from EC header (§14.5). */
+		ubi_secure_key_refcount_inc(ubi_dev, ec_ctx.key_version);
+
 		/* Check if VID region is erased — classifies free/dirty. */
 		ret = scan_classify_vid_region(ubi_dev, pnum, &ec_hdr);
 		if (ret < 0) {
@@ -628,6 +632,10 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 			ubi_move_to_bad_blocks(ubi_dev, pnum, ec_hdr.ec, bad);
 			continue;
 		}
+
+		/* Track VID+LEB key refcount (§13.3 — 2 objects per VID-bearing PEB). */
+		ubi_secure_key_refcount_inc(ubi_dev, vid_ctx.key_version);
+		ubi_secure_key_refcount_inc(ubi_dev, vid_ctx.key_version);
 
 		/* Track global sequence number. */
 		if (vid_hdr.sqnum > ubi_dev->global_sqnum) {
@@ -789,6 +797,12 @@ static int secure_attach(const struct ubi_mtd *mtd, const struct ubi_crypto_conf
 	ubi_dev->read_only_degraded = (scan.auth_count < UBI_SECURE_RES_PEB_NR_ACTIVE);
 	ubi_dev->next_vid_counter = scan.dev_meta.vid_next_counter_floor;
 	*out_device_revision = scan.dev_hdr.revision;
+
+	/* NOTE: Reserved PEB objects (EC, dev_hdr, vol_hdrs) are intentionally
+	 * excluded from the key refcount.  Reserved PEB rewrites during volume
+	 * mutations would require paired dec/inc bookkeeping that adds
+	 * complexity with negligible effect on KEY_RETIRABLE accuracy (reserved
+	 * objects are a small constant ≤ 10 out of potentially hundreds). */
 
 	/* Collect volumes into RAM — vol_count is incremented per-insert. */
 	ret = init_collect_volumes(ubi_dev, vol_hdrs, scan.dev_hdr.vol_count);
@@ -967,6 +981,8 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 		goto exit;
 	}
 
+	ubi_dev->cached_device_revision = device_revision;
+
 	/* Compute average erase counter. */
 	init_compute_ec_average(ubi_dev, nr_of_pebs);
 	const size_t ec_avg = (ubi_dev->ec_count > 0) ? (ubi_dev->ec_sum / ubi_dev->ec_count) : 0;
@@ -993,6 +1009,15 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 
 		if (verdict == UBI_CRYPTO_ROLLBACK_REJECT) {
 			LOG_ERR("Freshness check rejected — rollback detected");
+			struct ubi_crypto_event ev = {
+				.type = UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,
+				.freshness = freshness,
+				.rollback = { ._reserved = 0 },
+			};
+			ubi_secure_emit_event(ubi_dev, &ev);
+#if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE)
+			ubi_dev->read_only_crypto = true;
+#endif
 			ret = -EACCES;
 			goto exit;
 		}

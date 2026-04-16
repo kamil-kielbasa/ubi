@@ -73,6 +73,9 @@ int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 		return -EBADMSG;
 	}
 
+	/* Populate key_version early so callers have it even on error paths. */
+	ec_ctx->key_version = prefix.key_version;
+
 	/* Derive EC-domain child key. */
 	uint32_t child_key_id = 0;
 
@@ -105,12 +108,14 @@ int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 
 	if (ret != 0) {
 		LOG_ERR("EC AEAD decrypt failed at PEB %zu", peb_idx);
+		ubi_secure_zeroize(plaintext, sizeof(plaintext));
 		return -EBADMSG;
 	}
 
 	if (pt_len != UBI_SECURE_EC_PLAINTEXT_SIZE) {
 		LOG_ERR("EC unexpected plaintext size: %zu", pt_len);
-		return -EBADMSG;
+		ubi_secure_zeroize(plaintext, sizeof(plaintext));
+		return -UBI_SECURE_EFORMAT;
 	}
 
 	/* Success — populate outputs. */
@@ -118,6 +123,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 	ec_ctx->ec = ec_hdr->ec;
 	ec_ctx->key_version = prefix.key_version;
 
+	ubi_secure_zeroize(plaintext, sizeof(plaintext));
 	return 0;
 }
 
@@ -254,6 +260,9 @@ int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 		return -EBADMSG;
 	}
 
+	/* Populate key_version early so callers have it even on error paths. */
+	vid_ctx->key_version = prefix.key_version;
+
 	/* Derive VID-domain child key. */
 	uint32_t child_key_id = 0;
 
@@ -287,12 +296,14 @@ int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 
 	if (ret != 0) {
 		LOG_ERR("VID AEAD decrypt failed at PEB %zu", peb_idx);
+		ubi_secure_zeroize(plaintext, sizeof(plaintext));
 		return -EBADMSG;
 	}
 
 	if (pt_len != UBI_SECURE_DATA_VID_PLAINTEXT_SIZE) {
 		LOG_ERR("VID unexpected plaintext size: %zu", pt_len);
-		return -EBADMSG;
+		ubi_secure_zeroize(plaintext, sizeof(plaintext));
+		return -UBI_SECURE_EFORMAT;
 	}
 
 	/* Success — populate outputs. */
@@ -304,6 +315,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	vid_ctx->key_version = prefix.key_version;
 	vid_ctx->vid_counter = ubi_secure_decode_counter48(prefix.counter);
 
+	ubi_secure_zeroize(plaintext, sizeof(plaintext));
 	return 0;
 }
 
@@ -525,18 +537,21 @@ int ubi_secure_leb_data_read(const struct ubi_mtd *mtd, const struct ubi_crypto_
 
 	if (ret != 0) {
 		LOG_ERR("LEB AEAD decrypt failed at PEB %zu", peb_idx);
+		ubi_secure_zeroize(scratch, scratch_size);
 		ubi_mem_scratch_free(scratch);
 		return -EBADMSG;
 	}
 
 	if (pt_len != data_size) {
 		LOG_ERR("LEB unexpected plaintext size: %zu vs %u", pt_len, data_size);
+		ubi_secure_zeroize(scratch, scratch_size);
 		ubi_mem_scratch_free(scratch);
-		return -EBADMSG;
+		return -UBI_SECURE_EFORMAT;
 	}
 
 	/* Return requested slice. */
 	memcpy(buf, &pt_buf[offset], len);
+	ubi_secure_zeroize(scratch, scratch_size);
 	ubi_mem_scratch_free(scratch);
 
 	return 0;

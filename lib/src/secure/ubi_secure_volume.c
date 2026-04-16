@@ -10,6 +10,7 @@
 #include "ubi_secure_ops.h"
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_event.h"
 #include "ubi_secure_io.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
@@ -183,8 +184,15 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	hdr->revision += 1;
 	hdr->hdr_crc = crc32_ieee((const uint8_t *)hdr, sizeof(*hdr) - sizeof(hdr->hdr_crc));
 
+	/* Keep cached revision in sync so freshness snapshots are accurate. */
+	ubi->cached_device_revision = hdr->revision;
+
 	/* Snapshot vid_next_counter_floor per §9.8.5. */
 	meta->vid_next_counter_floor = ubi->next_vid_counter;
+
+	/* Refresh write_active_key_version so that a key-rotation that changed
+	 * requested_write_key_version is persisted into the device metadata. */
+	meta->write_active_key_version = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	return 0;
 }
@@ -391,6 +399,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	}
 
 	*vol_id = vol->vol_id;
+	ubi_secure_maybe_sync_freshness(ubi);
 	ret = 0;
 
 exit:
@@ -516,6 +525,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	}
 
 	vol->cfg.leb_count = vol_cfg->leb_count;
+	ubi_secure_maybe_sync_freshness(ubi);
 	ret = 0;
 
 exit:
@@ -624,6 +634,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	ubi_mem_volume_free(vol_entry->value.vol);
 	ubi_mem_leaf_free(vol_entry);
 
+	ubi_secure_maybe_sync_freshness(ubi);
 	ret = 0;
 
 exit:

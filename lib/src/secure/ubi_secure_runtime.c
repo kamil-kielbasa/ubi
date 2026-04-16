@@ -9,6 +9,7 @@
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_ops.h"
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_event.h"
 #include "ubi_secure_io.h"
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_types.h"
@@ -64,6 +65,17 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 		goto mark_bad;
 	}
 
+	/* Probe VID header before erase — needed for full refcount (§13.3 step 4). */
+	struct ubi_vid_hdr vid_hdr_probe = { 0 };
+	struct ubi_vid_secure_meta vid_meta_probe = { 0 };
+	struct ubi_secure_vid_auth_ctx vid_ctx_probe = { 0 };
+	bool had_vid = false;
+
+	if (ubi_secure_vid_hdr_read(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum, &ec_ctx,
+				    &vid_hdr_probe, &vid_meta_probe, &vid_ctx_probe) == 0) {
+		had_vid = true;
+	}
+
 	const struct flash_area *fa = NULL;
 
 	ret = flash_area_open(ubi->mtd.partition_id, &fa);
@@ -90,8 +102,17 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 				      write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("EC header write failure");
+		ubi_secure_handle_write_error(ubi, ret, entry->value.pnum);
 		goto mark_bad;
 	}
+
+	/* Update key-version refcounts: old objects destroyed, new EC written (§13.3). */
+	ubi_secure_key_refcount_dec_and_check(ubi, ec_ctx.key_version);
+	if (had_vid) {
+		ubi_secure_key_refcount_dec_and_check(ubi, vid_ctx_probe.key_version);
+		ubi_secure_key_refcount_dec_and_check(ubi, vid_ctx_probe.key_version);
+	}
+	ubi_secure_key_refcount_inc(ubi, write_kv);
 
 	/* Move from dirty to free. */
 	rb_remove(&ubi->dirty_pebs, &entry->node);
@@ -535,6 +556,10 @@ int ubi_secure_device_erase_peb(struct ubi_device *ubi)
 		}
 
 		ret = erase_dirty_entry(ubi, entry);
+	}
+
+	if (ret == 0) {
+		ubi_secure_maybe_sync_freshness(ubi);
 	}
 
 exit:

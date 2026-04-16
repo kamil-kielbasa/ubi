@@ -1,0 +1,111 @@
+# Secure Runtime Policy
+
+This document describes the runtime policy enforcement implemented in the
+UBI secure backend: freshness synchronisation, event callbacks, key-version
+refcount tracking, usage budgets, and the sticky crypto read-only mode.
+
+## Freshness Sync
+
+After every commit-visible mutation (volume create/resize/remove, LEB write,
+LEB map, PEB erase) the backend calls `sync_freshness` according to the
+cadence configured by `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`:
+
+- **delta = 0** (default): sync after every mutation.
+- **delta > 0**: sync every N mutations.
+
+If `sync_freshness` returns a non-zero error code, the backend:
+
+1. Emits `UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE` via the `event_cb`.
+2. Optionally enters sticky crypto read-only when
+   `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y`.
+
+## Event Callback and Verdicts
+
+Every security-relevant event is delivered through the application-provided
+`event_cb`. The callback returns one of:
+
+| Verdict | Meaning |
+|---------|---------|
+| `UBI_CRYPTO_EVENT_CONTINUE` | Normal operation continues. |
+| `UBI_CRYPTO_EVENT_ENTER_READ_ONLY` | Sticky crypto read-only: all subsequent mutations are rejected with `-EROFS`. Reads remain functional. |
+
+### Event Types
+
+| Event | Trigger |
+|-------|---------|
+| `AUTH_FAILURE` | AEAD authentication failed during LEB read (EC, VID, or data domain). |
+| `FORMAT_VIOLATION` | Post-AEAD plaintext has valid authentication but invalid structure (size mismatch). |
+| `KEY_VERSION_NOT_ALLOWLISTED` | On-flash object carries a key version absent from the runtime allowlist. |
+| `KEY_VERSION_UNAVAILABLE` | `get_key_id` callback failed — key material not available for a key version. |
+| `ROLLBACK_POLICY_MISMATCH` | On-flash freshness lags behind the trusted store at attach time. |
+| `FRESHNESS_SYNC_FAILURE` | `sync_freshness` callback returned non-zero. |
+| `RNG_FAILURE` | Platform RNG could not produce a fresh salt for a secure write. |
+| `KEY_ROTATE_SOON` | LEB write/byte budget crossed soft threshold (`ROTATE_SOON_PCT`, default 80%). |
+| `KEY_ROTATE_NOW` | LEB write/byte budget crossed hard threshold (`ROTATE_NOW_PCT`, default 95%). |
+| `KEY_RETIRABLE` | All on-flash PEBs authenticated with a non-write-active key version have been erased. The key material can be safely destroyed. |
+
+## Sticky Crypto Read-Only
+
+When `read_only_crypto` is set (by an event callback verdict or by a strict-RO
+Kconfig policy), the central mutation gate blocks **all** mutation classes:
+
+- `UBI_MUT_RESERVED_METADATA` (volume create/resize/remove)
+- `UBI_MUT_DATA_PATH` (LEB write/map/unmap)
+- `UBI_MUT_MAINTENANCE` (PEB erase)
+
+The flag persists until `ubi_device_deinit`. It is independent of the degraded
+read-only flag which only blocks reserved-metadata mutations.
+
+## Key-Version PEB Refcount
+
+During attach, the init scan counts refcounts per data PEB: one for each
+EC header plus two for each VID-bearing PEB (VID header + LEB data record).
+Reserved PEB objects are excluded (small constant, no lifecycle pairing).
+
+At runtime:
+
+- **Write (VID commit)**: increment refcount by 2 for the write-active key
+  version (VID header + LEB data objects).
+- **Erase**: decrement refcount for the old EC key version (×1), plus VID key
+  version (×2) if the PEB had a VID header. Increment by 1 for the
+  write-active key version (new EC header written after erase).
+- **KEY_RETIRABLE**: emitted when a non-write-active key version's refcount
+  reaches zero.
+
+## LEB Usage Budget
+
+Each LEB write tracks:
+
+- `leb_write_counter` — number of AEAD encrypt operations per `{key_version, volume_id}`.
+- `leb_total_auth_bytes` — cumulative authenticated bytes per `{key_version, volume_id}`.
+
+**Pre-write check (§14.2)**: before any flash mutation, the backend projects
+the post-write counter and byte usage. If either would cross `ROTATE_NOW_PCT`,
+the write is rejected with `-ENOSPC` and `KEY_ROTATE_NOW` is emitted. If the
+48-bit nonce counter would overflow, the write is rejected with `-EOVERFLOW`.
+
+**Post-write check**: after each successful LEB commit, usage percentages are
+computed against the Kconfig budgets (`UBI_CRYPTO_LEB_WRITE_BUDGET`,
+`UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET`) and `KEY_ROTATE_SOON` or
+`KEY_ROTATE_NOW` events are emitted when thresholds are crossed.
+
+## Error Propagation
+
+Internal crypto error codes (`UBI_SECURE_ENORAND`, `UBI_SECURE_ENOKEY`,
+`UBI_SECURE_EFORMAT`) propagate from low-level functions through the I/O
+layer to callers that hold the `ubi_device*`. Those callers classify the
+error and emit the appropriate event via the helpers in `ubi_secure_event.h`.
+
+## Read-Path Allowlist
+
+During `ubi_secure_leb_read`, both the EC header and VID header key versions
+are checked against the runtime `allowed_key_versions` policy. If either
+key version is absent from the allowlist, the read is rejected with `-EACCES`
+and `KEY_VERSION_NOT_ALLOWLISTED` is emitted.
+
+## Zeroization
+
+All stack-local plaintext buffers (EC, VID, LEB decrypt outputs) and
+heap-allocated scratch buffers are wiped via `ubi_secure_zeroize()` — a
+volatile-qualified byte-by-byte memset that is not subject to dead-store
+elimination — before returning or freeing.

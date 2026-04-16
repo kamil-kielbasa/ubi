@@ -74,6 +74,12 @@ struct ubi_device {
 	const struct ubi_crypto_config
 		*crypto_cfg; /**< Secure backend crypto config (NULL for plain). */
 	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter (write_active_kv). */
+	uint64_t cached_device_revision; /**< Cached dev_hdr revision for freshness snapshots. */
+	bool read_only_crypto; /**< Sticky crypto-initiated read-only (§14.4). */
+	size_t freshness_mutations_since_sync; /**< Mutations since last sync_freshness call. */
+	uint32_t key_peb_refcount[CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS]; /**< Per-allowlist-slot
+	    PEB refcount: number of data-PEB EC headers authenticated with each key version.
+	    Indexed by allowlist position, not by raw key_version value. */
 #endif
 
 	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
@@ -155,6 +161,12 @@ static inline int ubi_mutation_allowed(const struct ubi_device *ubi,
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	if (ubi->test_write_shutdown) {
+		return -EROFS;
+	}
+#endif
+
+#if defined(CONFIG_UBI_CRYPTO)
+	if (ubi->read_only_crypto) {
 		return -EROFS;
 	}
 #endif

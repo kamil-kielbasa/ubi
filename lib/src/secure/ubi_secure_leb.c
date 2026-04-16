@@ -9,6 +9,7 @@
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_ops.h"
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_event.h"
 #include "ubi_secure_io.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
@@ -114,6 +115,37 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	__ASSERT_NO_MSG(vol != NULL);
 	__ASSERT_NO_MSG(out_new_node != NULL);
 
+	/* Pre-write budget + nonce-overflow check (§11.5 step 6, §14.2).
+	 * Reject BEFORE any flash mutation. */
+	const uint64_t projected_counter = old_write_counter + 1;
+	const uint64_t projected_bytes = old_total_auth_bytes + UBI_SECURE_LEB_AAD_SIZE + len;
+
+	if (projected_counter > UBI_SECURE_COUNTER_MAX) {
+		const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+		struct ubi_crypto_event ev = {
+			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.rotation = { .key_version = kv,
+				      .volume_id = (uint32_t)vol->vol_id,
+				      .usage_pct = 100 },
+		};
+		ubi_secure_emit_event(ubi, &ev);
+		return -EOVERFLOW;
+	}
+
+	if (ubi_secure_budget_would_exhaust(projected_counter, projected_bytes)) {
+		const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+		struct ubi_crypto_event ev = {
+			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.rotation = { .key_version = kv,
+				      .volume_id = (uint32_t)vol->vol_id,
+				      .usage_pct = CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT },
+		};
+		ubi_secure_emit_event(ubi, &ev);
+		return -ENOSPC;
+	}
+
 	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
 	struct ubi_rbt_item *new_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
 
@@ -170,6 +202,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 						counter_base);
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
+			ubi_secure_handle_write_error(ubi, ret, new_node->value.pnum);
 			leb_mark_peb_bad(ubi, new_node);
 			return ret;
 		}
@@ -183,11 +216,20 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 				       &vid_hdr, &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("VID header write failure");
+		ubi_secure_handle_write_error(ubi, ret, new_node->value.pnum);
 		leb_mark_peb_bad(ubi, new_node);
 		return ret;
 	}
 
 	ubi->next_vid_counter = vid_counter + 1;
+
+	/* Track VID+LEB objects for key refcount (§13.3). */
+	ubi_secure_key_refcount_inc(ubi, write_kv);
+	ubi_secure_key_refcount_inc(ubi, write_kv);
+
+	/* Check LEB usage budget thresholds (§14.5). */
+	ubi_secure_check_leb_budget(ubi, write_kv, vol->vol_id, vid_meta.leb_write_counter,
+				    vid_meta.leb_total_auth_bytes);
 
 	*out_new_node = new_node;
 	return 0;
@@ -296,6 +338,8 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 
 	leb_commit_mapping_swap(ubi, vol, lnum, new_node);
 
+	ubi_secure_maybe_sync_freshness(ubi);
+
 exit:
 	k_mutex_unlock(&ubi->mutex);
 	return ret;
@@ -342,6 +386,14 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
+		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum,
+					     UBI_SECURE_DOMAIN_ERASE_COUNTER, ec_ctx.key_version);
+		goto exit;
+	}
+
+	/* §13.1: check EC key version against allowlist. */
+	if (!ubi_secure_check_allowlist(ubi, ec_ctx.key_version, entry->value.pnum)) {
+		ret = -EACCES;
 		goto exit;
 	}
 
@@ -354,6 +406,15 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 				      &vid_hdr, &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");
+		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum,
+					     UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+					     vid_ctx.key_version);
+		goto exit;
+	}
+
+	/* §13.1: check VID key version against allowlist. */
+	if (!ubi_secure_check_allowlist(ubi, vid_ctx.key_version, entry->value.pnum)) {
+		ret = -EACCES;
 		goto exit;
 	}
 
@@ -370,6 +431,8 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 				       offset, buf, len);
 	if (ret != 0) {
 		LOG_ERR("LEB data read failure");
+		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum, UBI_SECURE_DOMAIN_LEB,
+					     vid_ctx.key_version);
 		goto exit;
 	}
 
@@ -430,6 +493,8 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 	}
 
 	leb_commit_mapping_swap(ubi, vol, lnum, new_node);
+
+	ubi_secure_maybe_sync_freshness(ubi);
 
 exit:
 	k_mutex_unlock(&ubi->mutex);

@@ -231,7 +231,7 @@ int ubi_secure_generate_salt(uint8_t salt[UBI_SECURE_SALT_SIZE])
 
 	if (status != PSA_SUCCESS) {
 		LOG_ERR("RNG failure: %d", (int)status);
-		return -EIO;
+		return -UBI_SECURE_ENORAND;
 	}
 
 	return 0;
@@ -265,7 +265,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 
 	if (ret != 0) {
 		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
-		return ret;
+		return -UBI_SECURE_ENOKEY;
 	}
 
 	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };
@@ -298,7 +298,7 @@ int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_
 
 	if (ret != 0) {
 		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
-		return ret;
+		return -UBI_SECURE_ENOKEY;
 	}
 
 	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };

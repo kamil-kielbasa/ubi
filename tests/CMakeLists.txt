@@ -53,5 +53,6 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_map_unmap.c
                                src/secure/tests_ubi_secure_erase.c
                                src/secure/tests_ubi_secure_mixed.c
-                               src/secure/tests_ubi_secure_tamper.c)
+                               src/secure/tests_ubi_secure_tamper.c
+                               src/secure/tests_ubi_secure_runtime_policy.c)
 endif()
