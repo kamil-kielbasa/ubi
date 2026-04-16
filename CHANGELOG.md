@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.44.0] - 2026-04-16
+
+### Added
+
+- **New test suite `ubi_secure_forensic`** (5 tests): portable C-level forensic scan verifying that plaintext data, volume names, and key material never appear on flash after secure writes. Includes negative test validating the scanner against plain backend.
+- **Host-side Python forensic scanner** (`scripts/scan_flash.py`): scans `flash.bin` for forbidden plaintext patterns (test arrays, key material, volume names, suspicious ASCII strings). Returns exit code 1 on findings.
+- **Test description checker** (`scripts/check_test_descriptions.py`): verifies every `ZTEST()` has a preceding `\brief`, `\details`, and `\expected` docblock. All secure test files pass.
+- **CI `format-check` job**: runs `format.sh --check` on every push/PR.
+- **CI `forensic-scan` job**: builds secure tests, runs them, then scans `flash.bin` with `scan_flash.py`.
+- **CI cross-build secure dimension**: hardware targets (STM32U5, nRF5340) now cross-compile with `CONFIG_UBI_CRYPTO=y` via `tests/boards/secure.conf`.
+- **Init-time anchor re-creation**: if a volume's hidden anchor PEB is missing or corrupted at init, the secure backend automatically re-creates it from the free pool (§7.9). New test `test_init_recreates_missing_anchor` in `ubi_secure_recovery`.
+
+### Changed
+
+- `scripts/run_tests.sh` now accepts `[BOARD] [MODE]` (plain/secure/chunked) for mode-aware builds.
+- `scripts/coverage.sh` now accepts `[MODE]` (plain/secure) to generate separate coverage reports.
+
 ## [0.43.0] - 2026-04-16
 
 ### Added

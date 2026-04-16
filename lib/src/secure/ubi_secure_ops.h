@@ -15,11 +15,21 @@
 struct ubi_device;
 struct ubi_device_info;
 struct ubi_volume_config;
+struct ubi_volume;
+struct ubi_mtd;
+struct ubi_crypto_config;
 
 #include <stdbool.h>
 #include <stddef.h>
 
 /* Secure backend operation declarations ------------------------------------------------------- */
+
+/* ubi_secure_volume.c — anchor */
+int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol);
+
+/* ubi_core_init.c */
+int ubi_secure_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+			   struct ubi_device **ubi);
 
 /* ubi_secure_runtime.c */
 int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);

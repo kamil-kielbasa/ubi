@@ -748,24 +748,24 @@ exit:
 	return ret;
 }
 
-static const struct ubi_backend_ops plain_ops = {
-	.init = ubi_plain_device_init,
-	.get_info = ubi_plain_device_get_info,
-	.deinit = ubi_plain_device_deinit,
-	.erase_peb = ubi_plain_device_erase_peb,
-	.vol_create = ubi_plain_volume_create,
-	.vol_resize = ubi_plain_volume_resize,
-	.vol_remove = ubi_plain_volume_remove,
-	.vol_get_info = ubi_plain_volume_get_info,
-	.leb_write = ubi_plain_leb_write,
-	.leb_read = ubi_plain_leb_read,
-	.leb_map = ubi_plain_leb_map,
-	.leb_unmap = ubi_plain_leb_unmap,
-	.leb_is_mapped = ubi_plain_leb_is_mapped,
-	.leb_get_size = ubi_plain_leb_get_size,
-};
-
 const struct ubi_backend_ops *ubi_plain_backend(void)
 {
-	return &plain_ops;
+	static const struct ubi_backend_ops ops = {
+		.init = ubi_plain_device_init,
+		.get_info = ubi_plain_device_get_info,
+		.deinit = ubi_plain_device_deinit,
+		.erase_peb = ubi_plain_device_erase_peb,
+		.vol_create = ubi_plain_volume_create,
+		.vol_resize = ubi_plain_volume_resize,
+		.vol_remove = ubi_plain_volume_remove,
+		.vol_get_info = ubi_plain_volume_get_info,
+		.leb_write = ubi_plain_leb_write,
+		.leb_read = ubi_plain_leb_read,
+		.leb_map = ubi_plain_leb_map,
+		.leb_unmap = ubi_plain_leb_unmap,
+		.leb_is_mapped = ubi_plain_leb_is_mapped,
+		.leb_get_size = ubi_plain_leb_get_size,
+	};
+
+	return &ops;
 }

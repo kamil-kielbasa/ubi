@@ -138,8 +138,8 @@ static void corrupt_byte(size_t offset)
  * \details Write data through secure backend, verify readback, deinit, then
  *          corrupt a byte in every data PEB (skip reserved PEBs 0 and 1).
  *          Re-init and observe whether the system detects the corruption.
- *          NOTE: smoke test — full tamper coverage requires forensic scan
- *          tests (PR9).
+ *          NOTE: smoke test — full tamper coverage is in the
+ *          ubi_secure_forensic suite.
  *
  * \expected Re-attach either fails (corruption detected during scan) or
  *           succeeds with AUTH_FAILURE events fired; system must not crash;
@@ -210,8 +210,8 @@ ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
  *          other bank.
  *
  * \expected Attach succeeds via healthy bank, total_peb_count > 0, and
- *           device info is queryable. AUTH_FAILURE event reporting is
- *           deferred to PR9 (forensic scan).
+ *           device info is queryable. AUTH_FAILURE events are verified
+ *           by the forensic scan suite.
  */
 ZTEST(ubi_secure_tamper, test_reserved_peb_tamper_smoke)
 {

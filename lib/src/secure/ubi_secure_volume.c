@@ -45,7 +45,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * \retval -EIO    I/O or crypto failure.
  * \retval -ENOSPC No free PEBs.
  */
-static int anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
+int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 	__ASSERT_NO_MSG(vol != NULL);
@@ -388,7 +388,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	 * propagate the error.  The reserved metadata already carries
 	 * the volume record on-flash; on next attach the init code will
 	 * rediscover it (without anchor protection until re-created). */
-	ret = anchor_create(ubi, vol);
+	ret = ubi_secure_anchor_create(ubi, vol);
 	if (ret != 0) {
 		LOG_ERR("Hidden anchor creation failed for vol %zu — rolling back", vol->vol_id);
 		rb_remove(&ubi->vols, &item->node);

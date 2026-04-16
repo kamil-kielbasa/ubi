@@ -46,15 +46,16 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 | `ubi_secure_mixed` | `tests_ubi_secure_mixed.c` | 1 | Multi-volume create/write/remove/resize/map/reboot (parity with `ubi_mixed`) | native_sim |
 | `ubi_secure_tamper` | `tests_ubi_secure_tamper.c` | 2 | LEB data tampering smoke, reserved PEB tampering smoke | native_sim |
 | `ubi_secure_runtime_policy` | `tests_ubi_secure_runtime_policy.c` | 15 | Sticky crypto read-only, event escalation, freshness sync cadence, sync failure events, reads in read-only, budget SOON/NOW thresholds, KEY_RETIRABLE, allowlist reject, missing key, rollback mismatch, sticky read-only reinit, mixed-key rotation | native_sim |
-| `ubi_secure_recovery` | `tests_ubi_secure_recovery.c` | 8 | Interrupted data write COW preservation, interrupted VID commit, first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create | native_sim |
+| `ubi_secure_recovery` | `tests_ubi_secure_recovery.c` | 9 | Interrupted data write COW preservation, interrupted VID commit, first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create, init-time anchor re-creation for orphaned volumes | native_sim |
 | `ubi_secure_chunked` | `tests_ubi_secure_chunked.c` | 11 | Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback (requires `CONFIG_UBI_CRYPTO_LEB_CHUNKED=y`) | native_sim |
-| **Total (secure)** | | **68** | | |
+| `ubi_secure_forensic` | `tests_ubi_secure_forensic.c` | 5 | Portable forensic scan: plaintext data absence, volume name absence, key material absence, post-overwrite+erase absence, negative test validates scanner on plain backend | native_sim |
+| **Total (secure)** | | **74** | | |
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
 |--------|----------------------|--------------------------------------|
-| Functional correctness | Full — all 319 tests run (318 pass, 1 skip, 32 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 325 tests run (324 pass, 1 skip, 33 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |
@@ -284,8 +285,8 @@ Tests build with strict warnings to catch issues at compile time:
 | Partial flash write failure coverage | Flash write fault injection covers `flash_write_with_retry`; not all write call-sites are individually swept | `ubi_io_faults` suite validates erase failure -> bad PEB; write retry logic is code-reviewed |
 | HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 and nRF5340 | Manual hardware testing during development; HIL CI planned |
 | Non-0xFF erased value end-to-end | Erased-value helpers are unit-tested for 0x00, but the flash simulator only supports 0xFF | Helpers are trivial; integration tests on 0xFF backend cover the full scan path |
-| Secure tamper detection precision | Tamper tests verify no-crash and graceful handling but do not assert specific AUTH_FAILURE events (depends on PEB layout) | Full tamper detection with forensic scan planned for PR9 |
-| Secure data size limit | Secure LEB read requires scratch memory for decryption (`ct_tag_size + data_size`); data exceeding ~248 bytes may exceed default scratch budget (512 bytes) | Use data within scratch budget in tests; increase `CONFIG_UBI_MAX_NR_OF_VOLUMES` to enlarge scratch, or use chunked mode (PR9) |
+| Secure tamper detection precision | Tamper tests verify no-crash and graceful handling but do not assert specific AUTH_FAILURE events (depends on PEB layout) | Forensic scan suite (`ubi_secure_forensic`) verifies absence of plaintext |
+| Secure data size limit | Secure LEB read requires scratch memory for decryption (`ct_tag_size + data_size`); data exceeding ~248 bytes may exceed default scratch budget (512 bytes) | Use data within scratch budget in tests; increase `CONFIG_UBI_MAX_NR_OF_VOLUMES` to enlarge scratch, or use chunked mode |
 
 ## How to Add a New Test
 

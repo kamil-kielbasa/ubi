@@ -22,8 +22,14 @@ Thank you for your interest in contributing to UBI on Zephyr.
 Build and run the full test suite on the simulator:
 
 ```sh
-west build -p --build-dir build/native_sim/tests -b native_sim ./tests/
-./build/native_sim/tests/zephyr/zephyr.exe
+# Plain mode (default)
+./scripts/run_tests.sh
+
+# Secure mode
+./scripts/run_tests.sh native_sim secure
+
+# Chunked mode
+./scripts/run_tests.sh native_sim chunked
 ```
 
 Build the sample application:
@@ -36,8 +42,13 @@ west build -p --build-dir build/native_sim/sample -b native_sim ./sample/
 Generate a coverage report:
 
 ```sh
-bash scripts/coverage.sh
-# Report: build/coverage/html/index.html
+# Plain coverage
+bash scripts/coverage.sh plain
+# Report: build/coverage-plain/html/index.html
+
+# Secure coverage
+bash scripts/coverage.sh secure
+# Report: build/coverage-secure/html/index.html
 ```
 
 Build documentation locally:
@@ -53,6 +64,12 @@ This project uses `clang-format` for consistent formatting. Run the formatter be
 
 ```sh
 ./scripts/format.sh
+```
+
+Use `--check` mode for CI-style dry-run:
+
+```sh
+./scripts/format.sh --check
 ```
 
 The configuration is in `.clang-format` at the repository root.
@@ -90,6 +107,8 @@ scripts/                     CI, coverage, formatting, and test runner scripts
 | New test cases | Add to the appropriate `tests/src/tests_ubi_*.c` file |
 | Cross-compilation check | `west build -b b_u585i_iot02a ./tests/` and `west build -b nrf5340dk/nrf5340/cpuapp ./tests/` (build only) |
 | Stress / torture tests | Only on `native_sim` with `CONFIG_FLASH_SIMULATOR=y` |
+| Secure forensic scan | `python3 scripts/scan_flash.py flash.bin` after secure test run |
+| Test docblock check | `python3 scripts/check_test_descriptions.py tests/src/secure/` |
 
 ## Documentation Expectations
 
@@ -119,3 +138,5 @@ Any change that affects the following **must** include a documentation update:
 - [ ] Documentation updated for any API/architecture/config changes
 - [ ] CHANGELOG entry added under `[Unreleased]`
 - [ ] No new compiler warnings (`-Werror -Wextra -Wshadow`)
+- [ ] Secure tests include `\brief`, `\details`, `\expected` docblocks
+- [ ] Forensic scan passes on secure flash image (`scripts/scan_flash.py`)

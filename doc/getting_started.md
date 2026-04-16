@@ -137,21 +137,48 @@ picocom -b 115200 /dev/ttyACM0
 
 ## Running Tests
 
-All 228 tests (17 suites) run on `native_sim`:
+Tests run on `native_sim` in three modes:
 
 ```sh
-bash scripts/run_tests.sh
+# Plain tests (default)
+bash scripts/run_tests.sh native_sim plain
+
+# Secure tests
+bash scripts/run_tests.sh native_sim secure
+
+# Chunked secure tests
+bash scripts/run_tests.sh native_sim chunked
 ```
 
 ## Code Coverage
 
-Generate an HTML coverage report:
+Generate separate HTML coverage reports for plain and secure:
 
 ```sh
-bash scripts/coverage.sh
+# Plain coverage
+bash scripts/coverage.sh plain
+
+# Secure coverage
+bash scripts/coverage.sh secure
 ```
 
-The report is written to `build/coverage/html/index.html`.
+Reports are written to `build/coverage-plain/html/` and `build/coverage-secure/html/`.
+
+## Forensic Scan
+
+After running secure tests, scan the flash image for forbidden plaintext:
+
+```sh
+python3 scripts/scan_flash.py flash.bin
+```
+
+## Test Description Check
+
+Verify every `ZTEST()` has `\brief`, `\details`, `\expected`:
+
+```sh
+python3 scripts/check_test_descriptions.py tests/src/
+```
 
 ### Coverage Targets
 
@@ -166,4 +193,10 @@ Apply the project's `.clang-format` rules:
 
 ```sh
 ./scripts/format.sh
+```
+
+Dry-run check (mirrors the CI format-check job):
+
+```sh
+./scripts/format.sh --check
 ```

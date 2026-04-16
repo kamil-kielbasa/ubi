@@ -773,6 +773,106 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
 #endif
 }
 
+/**
+ * \brief Init-time anchor re-creation for volume whose anchor PEB was lost.
+ *
+ * \details Create a volume with one LEB and write data. After deinit, erase
+ *          the anchor PEB (PEB 2 — first data PEB allocated by anchor_create
+ *          on a freshly formatted partition). On re-init the volume is still
+ *          known from the reserved PEB metadata, but the anchor PEB is gone.
+ *          The init code must detect anchor_pnum == SIZE_MAX and re-create
+ *          the anchor from a free PEB.
+ *
+ * \expected Device initializes successfully. Volume is recognized and data is
+ *           still readable. New writes succeed (proving anchor was re-created).
+ *           Heap fully reclaimed after deinit.
+ */
+ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
+{
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
+	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'r', 'c', 'o', '1' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+
+	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	g_ubi = ubi;
+
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
+
+	/* Verify data written. */
+	uint8_t rdata[ARRAY_SIZE(array_128)] = { 0 };
+
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, ARRAY_SIZE(array_128)));
+	zassert_mem_equal(rdata, array_128, ARRAY_SIZE(array_128));
+
+	/* Deinit. */
+	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
+	g_ubi = NULL;
+	zassert_ok(ubi_device_deinit(ubi));
+	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
+	memory_check(&before_init, &after_init, &after_deinit);
+
+	/* Corrupt the anchor PEB (PEB 2).
+	 * On a freshly formatted partition, anchor_create takes the first
+	 * free PEB (min EC = 0, first pnum = UBI_DEV_HDR_NR_OF_RES_PEBS = 2).
+	 * Erasure destroys both EC and VID headers, making it unreadable. */
+	{
+		const struct flash_area *fa = NULL;
+
+		zassert_ok(flash_area_open(mtd.partition_id, &fa));
+
+		const size_t anchor_peb = 2; /* UBI_DEV_HDR_NR_OF_RES_PEBS */
+
+		zassert_ok(flash_area_erase(fa, anchor_peb * mtd.erase_block_size,
+					    mtd.erase_block_size));
+		flash_area_close(fa);
+	}
+
+	/* Re-init: volume exists in reserved metadata, anchor PEB is gone.
+	 * Init must detect anchor_pnum == SIZE_MAX and re-create the anchor. */
+	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
+	ubi = NULL;
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	g_ubi = ubi;
+
+	/* Volume must be recognized. */
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_equal(1, info.volume_count, "Volume must survive after anchor PEB erasure");
+
+	/* Original data must still be readable (data PEB was not touched). */
+	memset(rdata, 0, sizeof(rdata));
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, ARRAY_SIZE(array_128)));
+	zassert_mem_equal(rdata, array_128, ARRAY_SIZE(array_128));
+
+	/* New writes must succeed (proving anchor was re-created). */
+	zassert_ok(ubi_leb_write(ubi, vol_id, 1, array_128, ARRAY_SIZE(array_128)));
+
+	uint8_t rdata2[ARRAY_SIZE(array_128)] = { 0 };
+
+	zassert_ok(ubi_leb_read(ubi, vol_id, 1, 0, rdata2, ARRAY_SIZE(array_128)));
+	zassert_mem_equal(rdata2, array_128, ARRAY_SIZE(array_128));
+
+	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
+	g_ubi = NULL;
+	zassert_ok(ubi_device_deinit(ubi));
+	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
+	memory_check(&before_init, &after_init, &after_deinit);
+#else
+	ztest_test_skip();
+#endif
+}
+
 /* ------------------------------------ Suite registration ------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_recovery, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,

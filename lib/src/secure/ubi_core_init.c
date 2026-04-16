@@ -43,12 +43,6 @@ enum scan_result {
 	SCAN_PEB_HANDLED = 1,
 };
 
-/* Forward declarations of secure backend ops -------------------------------------------------- */
-
-static int ubi_secure_device_init(const struct ubi_mtd *mtd,
-				  const struct ubi_crypto_config *crypto_cfg,
-				  struct ubi_device **ubi);
-
 /* Static function declarations ---------------------------------------------------------------- */
 
 /**
@@ -816,9 +810,8 @@ static int secure_attach(const struct ubi_mtd *mtd, const struct ubi_crypto_conf
 
 /* Public function ----------------------------------------------------------------------------- */
 
-static int ubi_secure_device_init(const struct ubi_mtd *mtd,
-				  const struct ubi_crypto_config *crypto_cfg,
-				  struct ubi_device **ubi)
+int ubi_secure_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+			   struct ubi_device **ubi)
 {
 	__ASSERT_NO_MSG(mtd != NULL);
 	__ASSERT_NO_MSG(crypto_cfg != NULL);
@@ -1035,6 +1028,29 @@ static int ubi_secure_device_init(const struct ubi_mtd *mtd,
 		goto exit;
 	}
 
+	/* Re-create missing hidden anchors for orphaned volumes (§7.9).
+	 * After a failed anchor_create during volume_create, or after anchor PEB
+	 * corruption, the volume exists in reserved PEB metadata but has no live
+	 * anchor on flash.  Re-create it now if free PEBs are available. */
+	if (any_secure) {
+		struct ubi_rbt_item *vol_entry = NULL;
+
+		RB_FOR_EACH_CONTAINER(&ubi_dev->vols, vol_entry, node)
+		{
+			struct ubi_volume *vol = vol_entry->value.vol;
+
+			if (vol->anchor_pnum == SIZE_MAX && ubi_dev->free_peb_count > 0) {
+				LOG_WRN("Volume %u missing anchor — re-creating", vol->vol_id);
+				ret = ubi_secure_anchor_create(ubi_dev, vol);
+				if (ret != 0) {
+					LOG_ERR("Anchor re-creation failed for vol %u",
+						vol->vol_id);
+					goto exit;
+				}
+			}
+		}
+	}
+
 	/* Ensure next sqnum is strictly greater than any existing one. */
 	ubi_dev->global_sqnum += 1;
 
@@ -1071,28 +1087,4 @@ exit:
 	ubi_secure_device_deinit(ubi_dev);
 	*ubi = NULL;
 	return ret;
-}
-
-/* Backend ops vtable -------------------------------------------------------------------------- */
-
-static const struct ubi_backend_ops secure_ops = {
-	.init = ubi_secure_device_init,
-	.get_info = ubi_secure_device_get_info,
-	.deinit = ubi_secure_device_deinit,
-	.erase_peb = ubi_secure_device_erase_peb,
-	.vol_create = ubi_secure_volume_create,
-	.vol_resize = ubi_secure_volume_resize,
-	.vol_remove = ubi_secure_volume_remove,
-	.vol_get_info = ubi_secure_volume_get_info,
-	.leb_write = ubi_secure_leb_write,
-	.leb_read = ubi_secure_leb_read,
-	.leb_map = ubi_secure_leb_map,
-	.leb_unmap = ubi_secure_leb_unmap,
-	.leb_is_mapped = ubi_secure_leb_is_mapped,
-	.leb_get_size = ubi_secure_leb_get_size,
-};
-
-const struct ubi_backend_ops *ubi_secure_backend(void)
-{
-	return &secure_ops;
 }

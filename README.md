@@ -112,7 +112,7 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 
 | Metric | Value |
 |--------|-------|
-| Test suites | 17 suites, 228 tests |
+| Test suites | 33 suites, 325 tests (251 plain + 74 secure) |
 | Line coverage | 85.2% (target ≥ 80%) |
 | Branch coverage target | ≥ 70% |
 | CI | GitHub Actions — build, test, coverage, cross-compile STM32U5 + nRF5340 |

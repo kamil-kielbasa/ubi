@@ -27,6 +27,17 @@ env:
   CI_IMAGE: ghcr.io/zephyrproject-rtos/ci:v0.27.4
 
 jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check formatting
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE bash scripts/format.sh --check
+
   native-tests:
     runs-on: ubuntu-latest
     strategy:
@@ -91,12 +102,16 @@ jobs:
         board: [b_u585i_iot02a, nrf5340dk/nrf5340/cpuapp]
         mem: [static, heap]
         app: [tests, sample]
+        crypto: [plain, secure]
         include:
           - board: b_u585i_iot02a
             board-slug: b_u585i_iot02a
           - board: nrf5340dk/nrf5340/cpuapp
             board-slug: nrf5340dk_cpuapp
-    name: cross-build (${{ matrix.board-slug }}, ${{ matrix.app }}, ${{ matrix.mem }})
+        exclude:
+          - app: sample
+            crypto: secure
+    name: cross-build (${{ matrix.board-slug }}, ${{ matrix.app }}, ${{ matrix.mem }}, ${{ matrix.crypto }})
     steps:
       - name: Free disk space
         run: |
@@ -119,22 +134,25 @@ jobs:
               west update --narrow -o=--depth=1
             "
 
-      - name: Build ${{ matrix.app }} (${{ matrix.board-slug }}, ${{ matrix.mem }})
+      - name: Build ${{ matrix.app }} (${{ matrix.board-slug }}, ${{ matrix.mem }}, ${{ matrix.crypto }})
         env:
           BOARD: ${{ matrix.board }}
           BOARD_SLUG: ${{ matrix.board-slug }}
           APP: ${{ matrix.app }}
           MEM: ${{ matrix.mem }}
+          CRYPTO: ${{ matrix.crypto }}
         run: |
-          MEM_FLAG=""
-          [[ "$MEM" == "heap" ]] && MEM_FLAG="-- -DCONFIG_UBI_MEM_BACKEND_HEAP=y"
+          EXTRA=""
+          [[ "$MEM" == "heap" ]] && EXTRA+=" -DCONFIG_UBI_MEM_BACKEND_HEAP=y"
+          [[ "$CRYPTO" == "secure" ]] && \
+            EXTRA+=" -DOVERLAY_CONFIG=/ws/ubi/${APP}/boards/secure.conf"
           docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
             -e CMAKE_PREFIX_PATH=/opt/toolchains \
             $CI_IMAGE bash -c "
               west build -p \
                 --build-dir build/${BOARD_SLUG}/${APP} \
                 -b '${BOARD}' ubi/${APP}/ \
-                ${MEM_FLAG}
+                ${EXTRA:+-- $EXTRA}
             "
 
       - name: Measure flash usage
@@ -327,3 +345,44 @@ jobs:
           disable_search: true
           flags: secure
           fail_ci_if_error: false
+
+  forensic-scan:
+    needs: native-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache
+          sudo docker image prune --all --force
+
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          path: ubi
+
+      - name: Initialize west workspace
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              git config --global --add safe.directory '*'
+              west init -l ubi
+              west update --narrow -o=--depth=1
+            "
+
+      - name: Build and run secure tests
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            -e CMAKE_PREFIX_PATH=/opt/toolchains \
+            $CI_IMAGE bash -c "
+              west build -p --build-dir build/forensic \
+                -b native_sim ubi/tests/ \
+                -- -DOVERLAY_CONFIG=/ws/ubi/tests/boards/native_sim_secure.conf
+              ./build/forensic/zephyr/zephyr.exe
+            "
+
+      - name: Run forensic flash scan
+        run: |
+          docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
+            $CI_IMAGE python3 ubi/scripts/scan_flash.py flash.bin
