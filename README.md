@@ -29,10 +29,12 @@ UBI is a lightweight **wear-leveling and logical volume management layer** for r
 | Bad block handling | Automatic detection and isolation |
 | Metadata redundancy | Dual-bank reserved PEBs (configurable 2–4 copies) |
 | Crash recovery | Sequence-number-based conflict resolution on init |
+| Dynamic volume resize | Grow and shrink volumes at runtime |
+| Authenticated encryption | Optional AES-128-CCM backend encrypting all on-flash structures ([Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html)) |
 | Filesystem | **No** — raw block-level I/O, not file-level |
-| Flash footprint | ~6.7 KB (Cortex-M33, `-Os`, default config) |
-| Static RAM | 0 B |
-| Runtime RAM | Proportional to PEB count + volume count (~432 B typical) |
+| Flash footprint | ~9.2 KB plain / ~59.3 KB secure (Cortex-M33, `-Os`, default config) |
+| Static RAM (BSS) | Depends on Kconfig (see [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html#memory-sizing-guide)) |
+| Runtime RAM | Proportional to PEB count + volume count (see [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html)) |
 | Thread safety | Per-device mutex; not ISR-safe |
 
 ## When to Use
@@ -113,21 +115,11 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 | Metric | Value |
 |--------|-------|
 | Test suites | 33 suites, 325 tests (251 plain + 74 secure) |
-| Line coverage | 85.2% (target ≥ 80%) |
-| Branch coverage target | ≥ 70% |
+| Line coverage | 85.0% plain / 77.3% secure (target ≥ 80%) |
+| Branch coverage | 51.8% plain / 40.7% secure (target ≥ 70%) |
 | CI | GitHub Actions — build, test, coverage, cross-compile STM32U5 + nRF5340 |
 | Primary test platform | Zephyr `native_sim` with flash simulator |
 | Hardware validation | `b_u585i_iot02a` (STM32U5), `nrf5340dk` (nRF5340) cross-compilation |
-
-## Design Trade-offs
-
-| UBI does | UBI does not |
-|----------|--------------|
-| Wear-leveling across all PEBs | Provide a filesystem (no files, directories, or POSIX API) |
-| Bad block detection and isolation | Replace a hardware FTL (eMMC, SD) |
-| Multiple named logical volumes | Offer encryption — see [Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html) |
-| Crash-safe metadata via dual-bank | Guarantee power-loss atomicity for user data writes |
-| Dynamic volume resize | Shell commands for interactive device management (planned) |
 
 ## License
 

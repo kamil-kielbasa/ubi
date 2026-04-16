@@ -1,6 +1,6 @@
 # Getting Started
 
-**What this page covers:** How to build, run, and evaluate UBI — from first build to running all 228 tests.
+**What this page covers:** How to build, run, and evaluate UBI — from first build to running all 325 tests (251 plain + 74 secure).
 
 **Prerequisites:** A working [Zephyr development environment](https://docs.zephyrproject.org/latest/develop/getting_started/index.html) (west, Zephyr SDK).
 

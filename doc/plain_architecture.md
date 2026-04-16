@@ -352,7 +352,7 @@ Every PEB on flash is tracked by exactly one of these structures at any time:
 
 | Structure | Size per entry | Allocated via |
 |-----------|---------------|---------------|
-| `ubi_device` | 128 B | `ubi_mem_device_alloc` → device slab (static) / k_malloc (heap) |
+| `ubi_device` | 136 B | `ubi_mem_device_alloc` → device slab (static) / k_malloc (heap) |
 | `ubi_volume` | 44 B | `ubi_mem_volume_alloc` → volume slab (static) / k_malloc (heap) |
 | `ubi_rbt_item` | 16 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
 | `ubi_list_item` | 12 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |

@@ -78,24 +78,39 @@ The configuration is in `.clang-format` at the repository root.
 
 ```
 lib/
-  include/ubi.h              Public API (all structures and function declarations)
+  include/
+    ubi.h                    Public API (all structures and function declarations)
+    ubi_crypto.h             Secure backend public types and callbacks
+    ubi_test.h               Test API (fault injection, shutdown hooks)
   src/
-    ubi_core_init.c          Device initialization — format, scan, mount
-    ubi_core_runtime.c       Device runtime — get_info, erase_peb, deinit, test API
-    ubi_volume.c             Volume management — create, resize, remove, get_info
-    ubi_leb.c                LEB operations — read, write, map, unmap, is_mapped, get_size
-    ubi_cache.c              Red-black tree comparator and search helpers
-    ubi_io_metadata.c        Metadata I/O — device and volume header read/write
-    ubi_io_data.c            Data I/O — EC/VID header and LEB data read/write
-    ubi_flash_res_peb.c      Reserved PEB scanning, recovery, overwrite, and commit
-    ubi_internal.h           Shared internal types (ubi_device, ubi_volume) and helpers
-    ubi_cache.h              RBT and linked-list item types
-    ubi_io.h                 On-flash header structures and constants
-    ubi_flash_res_peb.h      Reserved PEB state types and API declarations
+    ubi.c                    Unified init — dispatches to plain or secure backend
+    common/                  Shared infrastructure
+      ubi_backend.h          Backend-ops vtable definition
+      ubi_cache.c/.h         Red-black tree comparator and search helpers
+      ubi_internal.h         Shared internal types (ubi_device, ubi_volume)
+      ubi_mem.c/.h           Memory abstraction (static slab / heap)
+      ubi_partition_guard.c  Single-handle-per-partition guard
+    plain/                   Plain (unencrypted) backend
+      ubi_core_init.c        Device init — format, scan, mount
+      ubi_core_runtime.c     Runtime — get_info, erase_peb, deinit
+      ubi_volume.c           Volume management
+      ubi_leb.c              LEB operations
+      ubi_io_metadata.c      Metadata I/O (device and volume headers)
+      ubi_io_data.c          Data I/O (EC/VID header and LEB data)
+      ubi_flash_res_peb.c    Reserved PEB scanning, recovery, commit
+    secure/                  Secure (AES-128-CCM encrypted) backend
+      ubi_core_init.c        Secure device init — mode detect, format, attach
+      ubi_secure_runtime.c   Secure runtime — erase, reclaim, anchor rewrite
+      ubi_secure_volume.c    Secure volume ops — create, resize, remove, anchors
+      ubi_secure_leb.c       Secure LEB read/write (single-tag and chunked)
+      ubi_secure_io.c        Authenticated EC/VID/LEB I/O
+      ubi_secure_reserved.c  Encrypted reserved PEB management
+      ubi_secure_crypto.c    Key derivation, AEAD, salt, zeroization
+      ubi_secure_ser.c       CBOR-like serialization for secure metadata
 sample/                      Example application (full init/create/write/read/deinit cycle)
-tests/                       Integration tests (ZTest, native_sim + b_u585i_iot02a)
+tests/                       Integration tests (ZTest, native_sim + b_u585i_iot02a + nrf5340dk)
 doc/                         Sphinx documentation sources
-scripts/                     CI, coverage, formatting, and test runner scripts
+scripts/                     CI, coverage, formatting, forensic scan, and test runner scripts
 ```
 
 ## Testing Expectations

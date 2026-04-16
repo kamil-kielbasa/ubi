@@ -51,7 +51,7 @@ UBI intentionally does **not** provide:
 | Filesystem (files, directories, POSIX API) | UBI is a block-level volume manager. Use LittleFS or FAT on top if you need a filesystem. |
 | FTL replacement for eMMC / SD | Managed flash has its own translation layer. UBI adds no value. |
 | Power-loss atomicity for user data | UBI protects metadata (dual-bank + sqnum). User data writes are not journaled — a power loss mid-write may leave a LEB partially written. |
-| Encryption | Planned as an optional `CONFIG_UBI_CRYPTO` layer (AES-128-CCM). See the [Roadmap](roadmap.md). |
+| Authenticated encryption | Optional `CONFIG_UBI_CRYPTO` backend (AES-128-CCM via PSA Crypto). See the [Secure Architecture Guide](secure_architecture.md). |
 
 
 ## Resource Usage
@@ -62,10 +62,11 @@ UBI is designed for resource-constrained embedded systems. The following measure
 
 | Metric     | Value    | Notes |
 |------------|----------|-------|
-| Flash      | 8,522 B  | Sample app / production-style Kconfig; `.text` + `.data` in `lib..__ubi__lib.a` |
-| Static RAM | 24 B + pools | Partition guard (24 B) + slab pools under `CONFIG_UBI_MEM_BACKEND_STATIC` (see [Memory Sizing Guide](configuration.md#memory-sizing-guide)) |
+| Flash (plain) | ~9.2 KB | `.text` + `.data` in `lib..__ubi__lib.a`, Cortex-M33, `-Os` |
+| Flash (secure) | ~59.3 KB | Includes PSA Crypto (Mbed TLS) pulled in by `CONFIG_UBI_CRYPTO=y` |
+| Static RAM (BSS) | Depends on Kconfig | Proportional to `MAX_NR_OF_DEVICES`, `MAX_NR_OF_DATA_PEBS`, `MAX_NR_OF_VOLUMES` under `CONFIG_UBI_MEM_BACKEND_STATIC` (see [Memory Sizing Guide](configuration.md#memory-sizing-guide)) |
 
-With `CONFIG_UBI_MEM_BACKEND_STATIC` (default), runtime RAM is fully determined at compile time and isolated from the application heap. Under `CONFIG_UBI_MEM_BACKEND_HEAP` (legacy), static RAM is 24 B and all device/volume state is heap-allocated.
+With `CONFIG_UBI_MEM_BACKEND_STATIC` (default), runtime RAM is fully determined at compile time and isolated from the application heap. Under `CONFIG_UBI_MEM_BACKEND_HEAP` (legacy), static RAM is minimal (partition guard only) and all device/volume state is heap-allocated.
 
 Enabling `CONFIG_UBI_TEST_API_ENABLE` (Ztest builds) pulls in extra code paths and logging; the same archive on the `tests/` app was approximately **16.2 KiB** flash (`.text` + `.data` only) with `CONFIG_DEBUG_OPTIMIZATIONS=y`.
 
@@ -73,8 +74,8 @@ Enabling `CONFIG_UBI_TEST_API_ENABLE` (Ztest builds) pulls in extra code paths a
 
 | Runtime Object             | RAM per instance |
 |----------------------------|------------------|
-| Device (`ubi_device`)      | 128 B            |
-| Volume (`ubi_volume`)      | 44 B             |
+| Device (`ubi_device`)      | 136 B (plain) / 180 B (secure, POSIX) |
+| Volume (`ubi_volume`)      | 44 B (plain) / 48 B (secure) |
 | PEB (free/dirty/mapped)    | 16 B             |
 | Bad PEB                    | 16 B (shared slab block) |
 | Volume tree node           | 16 B             |
@@ -85,8 +86,8 @@ Under the static backend, all pools are pre-allocated at compile time. Under the
 
 For a device with 16 PEBs (8 KB erase blocks, 128 KB partition) and 2 volumes:
 
-- Device: 128 B
+- Device: 136 B (plain) / 180 B (secure)
 - PEB tracking: 14 data PEBs × 16 B = 224 B
-- Volumes: 2 × 44 B = 88 B
+- Volumes: 2 × 44 B = 88 B (plain) / 2 × 48 B = 96 B (secure)
 - Volume tree nodes: 2 × 16 B = 32 B
-- **Total runtime RAM: ~472 B**
+- **Total runtime RAM: ~480 B (plain) / ~532 B (secure)**

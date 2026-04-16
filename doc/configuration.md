@@ -33,8 +33,23 @@ CONFIG_UBI_ENABLE=y
 | `CONFIG_UBI_TEST_API_ENABLE` | bool | n | — | Enable test-only APIs (`ubi_device_get_peb_ec`, `ubi_device_check_invariants`) |
 | `CONFIG_UBI_TEST_FAULT_INJECTION` | bool | n | — | Controllable allocation failure hook for simulating OOM. Depends on `CONFIG_UBI_TEST_API_ENABLE`. |
 | `CONFIG_UBI_CRYPTO` | bool | n | — | Enable the secure (authenticated-encryption) backend. Requires Mbed TLS PSA Crypto. |
+| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | int | 4 | 1–255 | Maximum distinct key versions per attach session. Sizes per-key-version bookkeeping arrays. |
+| `CONFIG_UBI_CRYPTO_MAX_ALLOWLIST_LEN` | int | 4 | 1–255 | Maximum entries in `ubi_crypto_policy.allowed_key_versions`. |
+| `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET` | int | 1000000 | — | Max metadata AEAD invocations per {domain, key_version} before KEY_ROTATE event. |
+| `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET` | int | 100000000 | — | Max cumulative authenticated metadata bytes per {domain, key_version}. |
+| `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET` | int | 1000000 | — | Max LEB AEAD invocations per {key_version, volume_id}. |
+| `CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET` | int | 100000000 | — | Max cumulative authenticated LEB bytes per {key_version, volume_id}. |
+| `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT` | int | 80 | 1–99 | Soft rotation threshold (%). Emits KEY_ROTATE_SOON. |
+| `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT` | int | 95 | 1–100 | Hard rotation threshold (%). Emits KEY_ROTATE_NOW; writes may be rejected. |
 | `CONFIG_UBI_CRYPTO_LEB_CHUNKED` | bool | n | — | Use chunked LEB layout: multiple AEAD tags per LEB for partial-read authentication (§7.8). |
 | `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` | int | 4096 | 256–65536 | Chunk size in bytes (must be multiple of flash write alignment). Smaller = finer reads, more tag overhead. |
+| `CONFIG_UBI_CRYPTO_PEB_CACHE` | bool | y | — | Allocate a PEB-sized staging buffer for secure encrypt/decrypt. Required for secure I/O. |
+| `CONFIG_UBI_CRYPTO_PEB_CACHE_STATIC` | bool | n | — | Allocate PEB staging buffer at compile time (else per-device at init). |
+| `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA` | int | 0 | 0–65535 | Mutations between sync_freshness callbacks. 0 = sync after every commit. |
+| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE` | bool | y | — | Enter read-only mode on RNG failure instead of only rejecting the current write. |
+| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE` | bool | y | — | Enter read-only on freshness policy rejection or rollback mismatch. |
+| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE` | bool | n | — | Enter read-only when sync_freshness callback errors. |
+| `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION` | bool | n | — | Secure backend fault injection (PSA crypto failures). Depends on `UBI_TEST_FAULT_INJECTION`. |
 
 ### Memory Backend
 
@@ -58,7 +73,7 @@ Under the static backend, all pool memory is pre-allocated at compile time. The 
 
 | Pool | Formula | Example (D=14, V=2) |
 |------|---------|---------------------|
-| Device slab | `MAX_NR_OF_DEVICES × sizeof(ubi_device)` | 1 × 128 = 128 B |
+| Device slab | `MAX_NR_OF_DEVICES × sizeof(ubi_device)` | 1 × 136 = 136 B |
 | Volume slab | `MAX_NR_OF_DEVICES × MAX_NR_OF_VOLUMES × sizeof(ubi_volume)` | 1 × 10 × 44 = 440 B |
 | Leaf slab | `MAX_NR_OF_DEVICES × (MAX_NR_OF_DATA_PEBS + MAX_NR_OF_VOLUMES) × 16` | 1 × (14+10) × 16 = 384 B |
 | Scratch slab | `MAX(DEV_HDR + MAX_VOL × VOL_HDR, 2 × CHUNK_SIZE + 16)` (1 block) | 32 + 10 × 48 = 512 B (or 2×4096+16 = 8208 B with chunked) |

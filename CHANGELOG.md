@@ -5,877 +5,484 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.45.0] - 2026-04-16
+
+### Changed
+
+- Documentation aligned with secure backend implementation: updated flash footprint, struct sizes, test counts, coverage numbers, and Kconfig reference across all docs.
+- Merged README Design Trade-offs into Key Properties; added authenticated encryption and dynamic resize entries.
+- Removed completed crypto layer from roadmap (only shell commands remain as planned).
+
+### Fixed
+
+- CI `format-check`: clang-format version-dependent goto label formatting resolved with off/on guards.
+- CI `cross-build` nRF5340 secure: added test random generator for builds without BLE IPC.
+- CI `cross-build` STM32U5 secure: `ubi_device` size BUILD_ASSERT guarded for ARM vs POSIX `k_mutex` layout difference.
+
 ## [0.44.0] - 2026-04-16
 
 ### Added
 
-- **New test suite `ubi_secure_forensic`** (5 tests): portable C-level forensic scan verifying that plaintext data, volume names, and key material never appear on flash after secure writes. Includes negative test validating the scanner against plain backend.
-- **Host-side Python forensic scanner** (`scripts/scan_flash.py`): scans `flash.bin` for forbidden plaintext patterns (test arrays, key material, volume names, suspicious ASCII strings). Returns exit code 1 on findings.
-- **Test description checker** (`scripts/check_test_descriptions.py`): verifies every `ZTEST()` has a preceding `\brief`, `\details`, and `\expected` docblock. All secure test files pass.
-- **CI `format-check` job**: runs `format.sh --check` on every push/PR.
-- **CI `forensic-scan` job**: builds secure tests, runs them, then scans `flash.bin` with `scan_flash.py`.
-- **CI cross-build secure dimension**: hardware targets (STM32U5, nRF5340) now cross-compile with `CONFIG_UBI_CRYPTO=y` via `tests/boards/secure.conf`.
-- **Init-time anchor re-creation**: if a volume's hidden anchor PEB is missing or corrupted at init, the secure backend automatically re-creates it from the free pool (§7.9). New test `test_init_recreates_missing_anchor` in `ubi_secure_recovery`.
+- Forensic scan test suite (5 tests): verifies no plaintext data, volume names, or key material appear on flash after secure writes.
+- Host-side Python forensic scanner and test docblock checker scripts.
+- CI jobs: `format-check`, `forensic-scan`, cross-build secure dimension for STM32U5 and nRF5340.
+- Init-time anchor re-creation: orphaned volumes automatically get a new hidden anchor at attach.
 
 ### Changed
 
-- `scripts/run_tests.sh` now accepts `[BOARD] [MODE]` (plain/secure/chunked) for mode-aware builds.
-- `scripts/coverage.sh` now accepts `[MODE]` (plain/secure) to generate separate coverage reports.
+- Test and coverage scripts accept mode parameter (plain/secure/chunked).
 
 ## [0.43.0] - 2026-04-16
 
 ### Added
 
-- **Chunked secure LEB mode (§7.8, §8.3, §12.3, §15.3)**: new `CONFIG_UBI_CRYPTO_LEB_CHUNKED` Kconfig with `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` (default 4096, range 256–65536). When enabled, non-zero LEB records are split into independently authenticated chunks, each with its own AEAD nonce (`counter_base + chunk_index`) and extended 78-byte AAD (single-tag 74 + `be32(chunk_index)`). Zero-length writes use the single-tag fallback.
-- **Chunked partial-read authentication (§12.3)**: `ubi_secure_leb_data_read_chunked()` authenticates only the chunks covering the requested byte range, reducing latency and RAM for sub-LEB reads.
-- **Chunked geometry validation (§15.3)**: at init time, verifies `chunk_size` is a multiple of the flash write alignment and that at least one chunk fits in the data PEB geometry. Computes `leb_size` accounting for per-chunk tag overhead.
-- **Scratch budget scaling for chunked mode**: `UBI_MEM_SCRATCH_SIZE` (slab backend) automatically takes `MAX(base, 2*chunk_size + 16)` when chunked mode is enabled, ensuring per-chunk decrypt buffers fit.
-- **Chunked write-path budget accounting (§11.5)**: `aead_invocations = ceil(payload / chunk_size)`, `leb_auth_bytes = payload + chunk_count * 78`. Counter-range and budget-exhaustion checks use the chunked invocation count.
-- **New test suite `ubi_secure_chunked`** (11 tests): geometry validation, geometry reject, single-chunk write/read, multi-chunk write/read, partial reads within and across chunk boundaries, partial last chunk, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback.
-- **New test suite `ubi_secure_recovery`** (8 tests): interrupted data write COW preservation (prefix fault, VID fault), first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create.
-- **Flash write fault injection for secure backend**: `secure_flash_write()` inline wrapper in `ubi_secure_io.c` and `ubi_secure_reserved.c` participates in the existing `ubi_test_fault_set_flash_write_fail_after()` counter via new `ubi_test_flash_write_check_fail()` export.
+- Chunked secure LEB mode: LEB records split into independently authenticated chunks for partial-read support. Configurable chunk size (256-65536 B).
+- Chunked partial-read authentication: only touched chunks are verified, reducing read latency and RAM.
+- Chunked geometry validation at init and budget accounting for chunked writes.
+- Secure recovery test suite (8 tests): interrupted writes, anchor rewrites, reserved PEB commit faults, generation replay rejection.
+- Flash write fault injection wired into the secure backend.
 
 ## [0.42.0] - 2026-04-15
 
 ### Added
 
-- **Sticky crypto read-only mode (§14.4)**: new `bool read_only_crypto` field in `struct ubi_device`. When set by an event callback returning `UBI_CRYPTO_EVENT_ENTER_READ_ONLY`, the central mutation gate blocks all mutation classes (`-EROFS`). Reads remain functional.
-- **Event emission infrastructure**: new `ubi_secure_event.h` with inline helpers:
-  - `ubi_secure_emit_event()`: delivers events through `event_cb`, handles `ENTER_READ_ONLY` verdict.
-  - `ubi_secure_freshness_snapshot()`: builds freshness descriptor from device state.
-  - `ubi_secure_maybe_sync_freshness()`: delta-based sync cadence per `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`.
-  - `ubi_secure_handle_write_error()`: detects RNG and key-unavailable failures, emits `RNG_FAILURE` / `KEY_VERSION_UNAVAILABLE`, enforces strict RO on RNG failure.
-  - `ubi_secure_handle_read_error()`: detects key-unavailable and AEAD auth failures, emits `KEY_VERSION_UNAVAILABLE` / `AUTH_FAILURE` / `FORMAT_VIOLATION`.
-  - `ubi_secure_check_allowlist()`: runtime allowlist enforcement on read path, emits `KEY_VERSION_NOT_ALLOWLISTED` on rejection.
-  - `ubi_secure_budget_would_exhaust()`: pre-write budget projection helper.
-- **Freshness sync wiring**: `sync_freshness` called after every commit-visible mutation (volume create/resize/remove, LEB write/map, PEB erase). Sync failure emits `UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE`, optionally enters RO via `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE`.
-- **Full key-version refcount tracking (§13.3)**: `uint32_t key_peb_refcount[]` in `struct ubi_device`. Tracks EC headers, VID headers, and LEB records (3 objects per VID-bearing PEB) during init scan, write, and erase. When a non-write-active version's refcount reaches zero, emits `UBI_CRYPTO_EVENT_KEY_RETIRABLE`.
-- **LEB usage budget tracking and pre-write rejection (§14.2, §14.5)**: after each LEB commit, checks `leb_write_counter` and `leb_total_auth_bytes` against budgets. Emits `KEY_ROTATE_SOON` at soft threshold and `KEY_ROTATE_NOW` at hard threshold. **Pre-write budget check** rejects writes before any flash mutation when projected usage crosses `ROTATE_NOW_PCT` (`-ENOSPC`) or nonce counter would overflow (`-EOVERFLOW`).
-- **RNG failure error propagation**: `ubi_secure_generate_salt()` returns `-UBI_SECURE_ENORAND` (201). Write-path callers emit `RNG_FAILURE` event and enforce `CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE`.
-- **Key-unavailable error propagation**: `ubi_secure_derive_domain_key()` and `ubi_secure_derive_leb_key()` return `-UBI_SECURE_ENOKEY` (202) when `get_key_id` fails. Write/read callers emit `KEY_VERSION_UNAVAILABLE` event.
-- **FORMAT_VIOLATION event**: post-AEAD plaintext size mismatches now return `-UBI_SECURE_EFORMAT` (203). Read-path error handler emits `FORMAT_VIOLATION`.
-- **ROLLBACK_POLICY_MISMATCH event**: freshness rejection at attach emits `ROLLBACK_POLICY_MISMATCH` and enforces `CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE`.
-- **Read-path allowlist enforcement**: `ubi_secure_leb_read` checks EC and VID key versions against the runtime allowlist. Non-allowlisted versions reject the read with `-EACCES` and emit `KEY_VERSION_NOT_ALLOWLISTED`.
-- **Zeroization of sensitive buffers**: EC/VID/LEB plaintext buffers and scratch memory are wiped via `ubi_secure_zeroize()` (volatile memset, compiler-safe) before returning or freeing.
-- **write_active_key_version refresh**: `dev_hdr_read_and_bump()` now persists the current `requested_write_key_version` into device metadata on every reserved PEB commit, enabling key rotation across reinit cycles.
-- **AUTH_FAILURE events on LEB read path**: EC, VID, and LEB data authentication failures now emit `UBI_CRYPTO_EVENT_AUTH_FAILURE` with PEB index and domain before returning the error.
-- **New test suite `ubi_secure_runtime_policy`** (15 tests):
-  - `test_event_enter_read_only_blocks_writes`: sync failure → event → read-only → second write rejected.
-  - `test_reads_work_in_crypto_ro`: reads succeed after crypto read-only.
-  - `test_freshness_sync_called_on_write`: sync called after volume_create and leb_write.
-  - `test_freshness_sync_failure_emits_event`: sync failure emits FRESHNESS_SYNC_FAILURE.
-  - `test_freshness_sync_called_on_erase`: sync called after erase_peb.
-  - `test_erase_blocked_in_crypto_ro`: erase rejected in read-only.
-  - `test_volume_create_blocked_in_crypto_ro`: volume_create rejected in read-only.
-  - `test_budget_rotate_soon_event`: budget soft threshold emits KEY_ROTATE_SOON.
-  - `test_budget_rotate_now_rejects_write`: budget hard threshold rejects write (-ENOSPC) + KEY_ROTATE_NOW.
-  - `test_key_retirable_after_full_erase`: all kv=1 objects erased → KEY_RETIRABLE(1).
-  - `test_allowlist_reject_on_read`: read of kv=1 data with allowlist=[2] → KEY_VERSION_NOT_ALLOWLISTED.
-  - `test_missing_key_on_write`: write with unavailable key → KEY_VERSION_UNAVAILABLE.
-  - `test_rollback_policy_mismatch_event`: freshness rejection → ROLLBACK_POLICY_MISMATCH.
-  - `test_sticky_ro_cleared_on_reinit`: sticky read-only survives writes but clears on deinit+reinit.
-  - `test_mixed_key_rotation_read_write`: data written under kv=1 remains readable after switching to kv=2.
-- New doc `secure_runtime_policy.md`: freshness sync, event callbacks, sticky RO, key refcounts, LEB usage budgets.
-
-### Changed
-
-- `struct ubi_device` size increased from 148 → 180 bytes (secure). `BUILD_ASSERT` updated.
-- `ubi_core_init.c`: added `#include "ubi_secure_event.h"` and key refcount increment during init data-PEB scan.
+- Sticky crypto read-only mode: event callback can escalate to device-wide write block (`-EROFS`); reads remain functional.
+- Security event infrastructure: 10 event types (AUTH_FAILURE, FORMAT_VIOLATION, KEY_ROTATE_SOON/NOW, KEY_RETIRABLE, RNG_FAILURE, etc.) delivered through application callback.
+- Freshness sync after every commit-visible mutation with configurable cadence.
+- Key-version PEB refcount tracking with KEY_RETIRABLE signalling when a key version is fully erased.
+- LEB usage budget tracking with soft/hard thresholds and pre-write rejection.
+- Read-path key-version allowlist enforcement.
+- Sensitive buffer zeroization (compiler-safe volatile memset).
+- Runtime policy test suite (15 tests): read-only transitions, event escalation, budget thresholds, key retirement, allowlist rejection, mixed-key rotation.
 
 ## [0.41.0] - 2026-04-15
 
 ### Added
 
-- **Hidden per-volume anchor PEBs (§7.9)**: each secure volume now allocates a hidden anchor PEB at creation time, carrying a zero-length LEB with monotonic counter metadata (`leb_write_counter`, `leb_total_auth_bytes`). The anchor is invisible to the EBA table and to `ubi_leb_*` operations.
-  - `UBI_SECURE_INTERNAL_ANCHOR_LNUM (UINT32_MAX)` sentinel in `ubi_secure_types.h`.
-  - `anchor_pnum` field in `struct ubi_volume` (under `CONFIG_UBI_CRYPTO`).
-  - `anchor_create()` in `ubi_secure_volume.c`: allocates free PEB, writes zero-length LEB data + VID header with `INTERNAL_ANCHOR_LNUM`.
-  - Anchor scan in `scan_map_first()` (`ubi_core_init.c`): recognises anchor PEBs on attach and binds to `vol->anchor_pnum` instead of dirty pool; resolves duplicates by sqnum.
-  - Anchor cleanup in `ubi_secure_volume_remove()`: reclaims anchor PEB to dirty pool.
-- **VID-domain counter floor (§9.8)**: `vid_next_counter_floor` persistence and reconstruction for monotonic VID-domain continuity.
-  - `next_vid_counter` field in `struct ubi_device` (under `CONFIG_UBI_CRYPTO`).
-  - Runtime advancement: every VID header write (anchor, LEB map, LEB write) uses and increments `ubi->next_vid_counter`.
-  - Snapshot: `dev_hdr_read_and_bump()` stores `ubi->next_vid_counter` into `dev_meta->vid_next_counter_floor` on every reserved metadata rewrite.
-  - Reconstruction at attach: `secure_attach()` seeds `next_vid_counter` from `dev_meta.vid_next_counter_floor`; init data-PEB scan raises it from live VID prefix counters.
-  - `vid_counter` field added to `struct ubi_secure_vid_auth_ctx` and populated in `ubi_secure_vid_hdr_read()`.
-- **Last-writable-witness check (§11.6)**: `erase_peb` now checks whether a dirty PEB is the last carrier of the newest per-volume LEB counter floor before erasing.
-  - `maybe_rewrite_anchor_for_dirty()` in `ubi_secure_runtime.c`: reads dirty VID, compares counters against anchor and remaining mapped/dirty PEBs, rewrites anchor if needed.
-  - Non-witness fallback: if the selected dirty PEB is a witness and no free PEB exists, `erase_peb` defers it and erases a non-witness dirty PEB first.
-- **`reserved_peb_count` includes anchor PEBs**: `ubi_reserved_peb_count()` now counts anchor PEBs for secure-mode volumes.
-- **Emergency free-PEB reserve (§4.2 inv 13, §11.5 step 1)**: `ubi_secure_leb_write` and `ubi_secure_leb_map` now attempt to erase a non-witness dirty PEB before consuming the last free data PEB, preserving one emergency reserve for hidden-anchor maintenance.
+- Hidden per-volume anchor PEBs: each secure volume reserves one internal PEB preserving monotonic counter state across unmap, shrink, and erase.
+- VID-domain counter floor: monotonic VID counter persisted in secure device header, reconstructed at attach.
+- Last-writable-witness check: erase path rewrites anchor before erasing the last carrier of a volume's counter floor.
+- Emergency free-PEB reserve: write path reclaims a dirty PEB before consuming the last free PEB.
 
 ### Changed
 
-- `struct ubi_volume` size increased from 44 → 48 bytes (secure), `struct ubi_device` from 140 → 148 bytes (secure). `BUILD_ASSERT`s updated.
-- Secure erase test uses `while(dirty > 0)` loop instead of fixed-count iteration, accommodating anchor rewrite dirty recycling.
-- Secure erase test assertions use free+dirty conservation law instead of individual counts (compatible with emergency-reserve refill).
-- Secure map/volume test assertions updated to account for anchor PEB overhead.
-- **Volume create fails on anchor failure (§11.4)**: if hidden-anchor allocation fails, `ubi_secure_volume_create` now rolls back the RAM state and returns the error. The reserved metadata on flash still carries the volume record; on next attach the init code will rediscover it (without anchor protection until re-created).
-- `erase_dirty_entry()` extracted from `ubi_secure_device_erase_peb()` for reuse by the emergency-reserve refill path.
-- New test `test_anchor_participates_in_wear_leveling`: verifies anchor PEB migrates across physical PEBs during write/unmap/erase cycles (4 cycles, expects 3 erases on first cycle proving anchor migration).
-- New test `test_shrink_with_reboot`: shrink a 4-LEB volume to 2, reboot without erase, verify tail PEBs recovered as dirty and leb_count persists (§11.7).
-- New test `test_shrink_erase_reboot`: shrink + erase all dirty + reboot, verify clean state with correct reserved count.
-- New test `test_vid_counter_floor_persists`: remove all volumes, reboot, create new volume — verifies VID counter floor preserved in secure device header (§9.8.5).
-- New test `test_stale_anchor_rejected_after_reboot`: trigger anchor migration via erase, reboot, verify stale anchor duplicate resolved as dirty.
-- New test `test_reclaim_preserves_continuity_witness`: 3 full write-unmap-erase cycles, reboot, verify anchor continuity and data integrity (§11.6).
-- New doc `secure_volume_lifecycle.md`: end-to-end volume lifecycle reference covering create, resize, shrink, remove, unmap, erase, and reboot recovery.
-- New doc `secure_recovery_notes.md`: recovery scenario catalog for secure mode (unmap→reboot, shrink→erase→reboot, remove-all→reboot, anchor migration, dual-bank).
-- New test `test_unmap_reboot_before_erase`: unmap LEB, reboot without erase — verifies data is reconstructed (§11.7 in-memory-only semantics).
-- New test `test_unmap_erase_reboot`: unmap + erase + reboot — verifies LEB stays unmapped after physical erase.
+- Volume create rolls back on anchor allocation failure.
+- Tests updated for anchor PEB overhead and wear-leveling participation.
+- New docs: secure volume lifecycle and secure recovery scenarios.
 
 ## [0.40.0] - 2026-04-15
 
 ### Added
 
-- **Secure data-PEB scan & runtime operations**: complete secure backend implementation enabling full volume/LEB lifecycle on encrypted flash. New internal modules:
-  - `lib/src/secure/ubi_secure_ops.h` — secure backend operation declarations (14 functions) for the ops vtable.
-  - `lib/src/secure/ubi_secure_runtime.c` — device-level ops: `ubi_secure_device_get_info`, `ubi_secure_device_erase_peb` (reads authentic EC, erases, increments counter, writes new secure EC header), `ubi_secure_device_deinit` (frees all trees, volumes, partition).
-  - `lib/src/secure/ubi_secure_volume.c` — volume ops: `ubi_secure_volume_create` / `resize` / `remove` / `get_info`. Reservoir commit via `ubi_secure_res_peb_commit` with full vol-header list rebuild.
-  - `lib/src/secure/ubi_secure_leb.c` — LEB ops: `ubi_secure_leb_write` / `read` / `map` / `unmap` / `is_mapped` / `get_size`. Write commits VID header after data; read authenticates full EC→VID→LEB chain.
-- **Data-PEB scan pipeline** in `ubi_core_init.c`: `init_scan_data_pebs` with helpers `scan_validate_ec`, `scan_classify_vid_region`, `scan_classify_orphan`, `scan_map_first`, `scan_resolve_dup`. Classifies PEBs into free/dirty/bad pools and builds EBA tables.
-- **Data-PEB format** in `ubi_core_init.c`: `init_format_data_pebs` erases all data PEBs and writes secure EC headers on fresh format.
-- **Secure parity test suites** (7 new files, 26 total tests): full functional parity with plain backend, exercising the secure runtime through the standard UBI API with `crypto_cfg != NULL`:
-  - `tests_ubi_secure_device.c` (2 tests) — init/deinit info, reboot persistence.
-  - `tests_ubi_secure_volumes.c` (4 tests) — create, remove, resize, multi-volume with reboot persistence.
-  - `tests_ubi_secure_write_read.c` (3 tests) — single/multi LEB write/read, overwrite.
-  - `tests_ubi_secure_map_unmap.c` (2 tests) — map/unmap lifecycle with dirty PEB accounting.
-  - `tests_ubi_secure_erase.c` (1 test) — fill-unmap-erase cycle with counter validation.
-  - `tests_ubi_secure_mixed.c` (1 test) — multi-volume create/write/remove/resize/map/reboot end-to-end scenario.
-  - `tests_ubi_secure_tamper.c` (2 tests) — LEB data and reserved PEB tampering smoke tests.
-- **Test infrastructure**: `g_ubi` safety pattern in tamper tests prevents slab leaks on assertion failures; `after_each` callback cleans up orphaned devices.
-- **Flash geometry overlays** for `native_sim`: `native_sim_nrf5340.overlay` (erase 4096 / write-block 4 / partition 64 KB) and `native_sim_stm32u5.overlay` (erase 8192 / write-block 16 / partition 128 KB). Default overlay updated with explicit `write-block-size = <1>`.
-- **Multi-geometry CI**: `native-tests` matrix now includes `geometry: [default, nrf5340, stm32u5]`, running all tests against three flash geometries. Twister `testcase.yaml` extended with 16 geometry-specific scenarios.
-- **Test data `array_3840`** (`tests/src/common/arrays.h`): 3840-byte array that fits in a plain LEB at 4096 erase-block size.
+- Complete secure data-PEB runtime: volume create/resize/remove, LEB write/read/map/unmap, erase — all with authenticated encryption.
+- Data-PEB scan pipeline: classifies PEBs into free/dirty/bad pools with full AEAD verification.
+- Secure parity test suites (26 tests across 7 suites): functional parity with plain backend on encrypted flash.
+- Flash geometry overlays for nRF5340 (4 KB erase) and STM32U5 (8 KB erase) on native_sim.
+- Multi-geometry CI: tests run against three flash geometries (default, nRF5340, STM32U5).
 
 ### Fixed
 
-- **C1: vid_meta counters hardcoded to 0** (`ubi_secure_leb.c`): `leb_write_counter` and `leb_total_auth_bytes` are now recovered from the existing VID header via `leb_recover_old_counters()` before a write. Counter monotonicity: `leb_write_counter = counter_base + 1`, `leb_total_auth_bytes = old + AAD_SIZE + payload_bytes`.
-- **C2: Nonce counter always 0** (`ubi_secure_leb.c`): LEB data encryption now uses `counter_base` (recovered from existing mapping) and VID header uses `counter_base + 1`, ensuring monotonically increasing nonce counters per §11.5 of the spec.
-- **M1: Missing torture_bad_blocks** (`ubi_secure_runtime.c`): ported `torture_bad_blocks()` from plain backend, adapted to use `ubi_secure_ec_hdr_write` with derived write key. Called from `erase_peb` exit path when bad PEB count > 0.
-- **M2: Missing degraded-mode recovery** (`ubi_secure_runtime.c`): added reserved PEB re-scan after erase via `ubi_secure_res_peb_scan`, clears `read_only_degraded` if authenticated PEB count >= `UBI_SECURE_RES_PEB_NR_ACTIVE`.
-- **M3: vol_count pre-set before init_collect_volumes** (`ubi_core_init.c`): `vol_count` is now incremented per-insert in `init_collect_volumes` instead of being pre-set from the device header, consistent with plain backend behavior.
-- **M4: Missing geometry checks** (`ubi_core_init.c`): added `erase_block_size % write_block_size != 0` and `write_block_size > WRITE_BLOCK_SIZE_ALIGNMENT` validation during secure init.
-- **L1: device_revision hardcoded to 0** (`ubi_core_init.c`): `secure_attach` now outputs `device_revision` from the authenticated reserved PEB scan via an output parameter, used in the freshness check instead of hardcoded 0.
-- **L2: -EROFS handling undocumented** (`ubi_secure_volume.c`): added explanatory comments at all three -EROFS handling sites (vol_create, vol_resize, vol_remove) documenting the deliberate difference from plain backend: secure continues past -EROFS to update RAM state because at least one reserved PEB accepted the commit.
-- **L3: Unused crc.h include** (`ubi_secure_runtime.c`): removed `#include <zephyr/sys/crc.h>` from runtime.c where it was unused. (Kept in `ubi_secure_leb.c` where `crc32_ieee` is actually needed for VID header CRC.)
-- **Write-block alignment in secure LEB write** (`ubi_secure_io.c`): ciphertext+tag buffer is now padded to `ROUND_UP(ct_tag_size, write_block_size)` with zero-fill, fixing flash write failures on devices with `write-block-size > 1`.
-- **Test data overflow at 4096 erase**: replaced `array_4096` → `array_3840` and `array_8000` → `array_3907` in write/read, mixed, and erase test suites; shrunk `rdata` buffers from 8192/8000 to 4096 bytes.
-
-### Changed
-
-- `lib/src/common/ubi_internal.h` — added `crypto_cfg` field to `struct ubi_device` under `CONFIG_UBI_CRYPTO` guard, enabling secure runtime ops to access crypto config.
-- `lib/src/common/ubi_mem.c` — conditional `BUILD_ASSERT` for `struct ubi_device` size (140 bytes with crypto, 136 without).
-- `lib/src/secure/ubi_core_init.c` — replaced all 13 stub ops (`-ENOTSUP`) with real implementations via vtable; init error path now calls `ubi_secure_device_deinit` for proper cleanup; freshness check moved after data-PEB scan to use real `global_sqnum`; geometry validation cached early (`total_data_peb_count`, `leb_size`).
-- `lib/CMakeLists.txt` — added `ubi_secure_runtime.c`, `ubi_secure_volume.c`, `ubi_secure_leb.c` to `CONFIG_UBI_CRYPTO` section.
-- `tests/CMakeLists.txt` — added 7 new secure test files to `CONFIG_UBI_CRYPTO` section.
-- `doc/test_strategy.md` — added secure backend test matrix (26 tests across 9 suites), updated known gaps with secure-specific entries; added flash geometry variants section.
-- `tests/testcase.yaml` — added 16 geometry-specific twister scenarios (nRF5340, STM32U5 × plain/secure × static/heap × functional/stress).
-- `.github/workflows/ci.yml` — `native-tests` matrix expanded with `geometry: [default, nrf5340, stm32u5]` dimension (2 × 3 = 6 jobs).
-- `lib/src/secure/ubi_secure_io.c` — added `<zephyr/sys/util.h>` include for `ROUND_UP` macro.
-- `tests/src/plain/tests_ubi_write_read.c`, `tests_ubi_mixed.c`, `tests_ubi_erase.c` — test data refactored for 4096 erase-block compatibility; `rdata` buffers reduced from 8192 to 4096.
+- LEB write/nonce counters recovered from existing VID header (were hardcoded to 0).
+- Write-block alignment padding for secure ciphertext+tag buffer.
+- Missing bad-block torture and degraded-mode recovery in secure runtime.
+- Geometry validation for erase/write block alignment.
 
 ## [0.39.0] - 2026-04-14
 
 ### Added
 
-- **Secure data-PEB I/O building blocks**: types, serialization, and encrypted read/write functions for single-tag mode. Internal modules:
-  - `lib/src/secure/ubi_secure_types.h` — data-PEB secure record sizes (`UBI_SECURE_EC_HDR_SIZE(64)`, `UBI_SECURE_DATA_VID_SIZE(96)`, `UBI_SECURE_LEB_OFFSET(160)`, `UBI_SECURE_LEB_OVERHEAD(48)`), `struct ubi_vid_secure_meta` with BUILD_ASSERT, AAD size defines for EC (44 B), VID (53 B), and LEB single-tag (74 B), parent authentication context structs (`ubi_secure_ec_auth_ctx`, `ubi_secure_vid_auth_ctx`).
-  - `lib/src/secure/ubi_secure_ser.h/c` — EC-header, data-VID, and LEB single-tag AAD builders with terminal `__ASSERT_NO_MSG` guards, `ubi_secure_vid_meta_serialize`/`deserialize`.
-  - `lib/src/secure/ubi_secure_io.h/c` — 8 public functions: `ubi_secure_ec_hdr_read`/`write`, `ubi_secure_vid_hdr_read`/`write`, `ubi_secure_leb_data_read`/`write`, `ubi_secure_vid_region_is_erased`, `ubi_secure_leb_prefix_is_erased`. LEB read authenticates full payload then returns requested slice (single-tag semantics). LEB write uses scratch allocation via `ubi_mem_scratch_alloc`.
+- Secure data-PEB I/O: authenticated read/write for EC headers, VID headers, and LEB data in single-tag mode.
+- Domain-separated AAD serialization for all record types.
 
 ### Changed
 
-- **Centralized key derivation** (`lib/src/secure/ubi_secure_crypto.h/c`): added `ubi_secure_derive_domain_key()` and `ubi_secure_derive_leb_key()` with `UBI_SECURE_MAX_LABEL_SIZE` define. Removed duplicate static `derive_domain_key` from `ubi_secure_reserved.c` and `ubi_secure_io.c`.
-- **Parent chain via context structs**: read functions output typed auth contexts (`ubi_secure_ec_auth_ctx`, `ubi_secure_vid_auth_ctx`) that bundle the authenticated parent fields (ec, key_version, vid_hdr pointer) for chained AAD construction — replacing loose `ec`/`ec_kv`/`vid_kv` parameters.
-- **Public function validation**: all public functions in `ubi_secure_io.c` use `if` + `LOG_ERR` + `return -EINVAL` instead of `__ASSERT_NO_MSG` for argument validation.
-- **Local prefix in read paths**: `ec_hdr_read` and `vid_hdr_read` deserialize prefix into a local variable; output structs are only written on success.
+- Key derivation centralized; parent authentication passed via typed context structs.
 
 ## [0.38.0] - 2026-04-15
 
 ### Added
 
-- **Secure reserved-PEB metadata & attach path**: full end-to-end secure init (format-on-blank, attach-to-existing, mode mismatch detection). Internal modules:
-  - `lib/src/secure/ubi_secure_types.h` — on-flash prefix32, dev_secure_meta, domain enum (`UBI_SECURE_DOMAIN_COUNT` as last enumerator), size constants with BUILD_ASSERT.
-  - `lib/src/secure/ubi_secure_crypto.h/c` — PSA Crypto wrappers: HKDF-SHA-256 child key derivation, AES-128-CCM AEAD encrypt/decrypt, salt generation, nonce construction, normative label builder.
-  - `lib/src/secure/ubi_secure_ser.h/c` — prefix32 serialize/deserialize, dev_meta serialize/deserialize, 48-bit counter encode/decode with `UBI_SECURE_COUNTER_MAX` overflow guard, AAD builders for device header (44 B) and volume header (53 B).
-  - `lib/src/secure/ubi_secure_reserved.h/c` — dual-bank reserved-PEB scan/authenticate, mode detection (blank/secure/plain), volume header authentication with `pt_len` validation, encrypted commit.
-  - `lib/src/secure/ubi_core_init.c` — secure backend vtable (`ubi_secure_backend()`), `ubi_secure_init()` entry point with crypto_config validation, PSA crypto init, partition acquire, geometry check, format/attach dispatch, freshness callback, key version allowlist enforcement.
-- **Facade wired for secure backend**: `ubi_device_init()` in `lib/src/ubi.c` dispatches to `ubi_secure_init()` when `crypto_cfg != NULL` (`#ifdef CONFIG_UBI_CRYPTO`).
-- **Secure test suite** (`tests/src/secure/tests_ubi_secure_attach.c`): 8 tests — format on blank, re-attach after format, plain→secure mode mismatch, secure→plain mode mismatch, freshness rejection, NULL callback validation, empty allowlist validation, write key version allowlist check.
-
-### Changed
-
-- **Secure test fixture** (`tests/src/secure/ubi_test_secure_fixture.h`): upgraded mock `get_key_id` to return a real PSA key ID from an imported 128-bit test root key. Added `ubi_test_import_root_key()` / `ubi_test_destroy_root_key()` helpers.
-- **Secure API tests** (`tests/src/secure/tests_ubi_secure_api.c`): replaced `-ENOTSUP` test with `test_secure_format_on_blank` (secure backend now functional). Suite setup initializes PSA and imports test root key.
-- **Board config** (`tests/boards/native_sim_secure.conf`): added entropy source (`CONFIG_ENTROPY_GENERATOR`, `CONFIG_TEST_RANDOM_GENERATOR`, `CONFIG_MBEDTLS_ENTROPY_POLL_ZEPHYR`), entropy init priority before mbedTLS auto-init.
-- **CMakeLists** (`lib/CMakeLists.txt`): secure source files and `zephyr_library_link_libraries(mbedTLS)` gated on `CONFIG_UBI_CRYPTO`.
-- **Backend header** (`lib/src/common/ubi_backend.h`): added `ubi_secure_backend()` and `ubi_secure_init()` declarations (gated on `CONFIG_UBI_CRYPTO`).
-- **Internal secure headers**: removed redundant `#ifdef CONFIG_UBI_CRYPTO` guards from `ubi_secure_types.h`, `ubi_secure_crypto.h`, `ubi_secure_ser.h`, `ubi_secure_reserved.h` (compilation gated by CMakeLists.txt).
-- **Coding standards hardened across all secure sources**: every variable initialized at declaration, `const` on all single-assignment variables, `LOG_ERR` on every error return, `__ASSERT_NO_MSG` preconditions on all static function pointer arguments.
+- Secure reserved-PEB attach path: format-on-blank, attach-to-existing, mode mismatch detection.
+- PSA Crypto integration: HKDF-SHA-256 key derivation, AES-128-CCM AEAD, salt generation.
+- Encrypted dual-bank reserved PEB commit and authentication.
+- Secure attach test suite (8 tests): format, re-attach, mode mismatch, freshness rejection, callback validation.
 
 ## [0.37.0] - 2026-04-14
 
 ### Added
 
-- **Secure public types** (`lib/include/ubi_crypto.h`): full type definitions for authenticated-encryption backend — `struct ubi_crypto_freshness`, `struct ubi_crypto_policy`, `struct ubi_crypto_event` (tagged union with 10 event types), `struct ubi_crypto_config` with callback typedefs for `get_key_id`, `check_freshness`, `sync_freshness`, and `event_cb`. Plain callers that pass `crypto_cfg == NULL` need not include this header.
-- **Secure Kconfig** (`lib/Kconfig.secure`): `CONFIG_UBI_CRYPTO` master enable with PSA Crypto dependencies (AES-128-CCM, HKDF-SHA-256). Budget limits (`CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET`, `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET`, etc.), rotation thresholds (`CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT`, `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT`), chunked mode (`CONFIG_UBI_CRYPTO_LEB_CHUNKED`), PEB cache, freshness sync delta, and strict read-only policies.
-- **Secure test hook scaffolding** (`lib/src/secure/ubi_secure_test_hooks.h/c`): 7 fault injection stages for crypto operations (get_key_id, RNG, AEAD encrypt/decrypt, HKDF, freshness reject/sync). One-shot arm/disarm pattern matching the existing plain fault injection API.
-- **Secure test profiles** (`tests/testcase.yaml`): `ubi.secure.functional`, `ubi.secure.stress`, `ubi.secure.functional.heap`, `ubi.secure.stress.heap` test configurations.
-- **Secure board configs**: `tests/boards/native_sim_secure.conf` and `native_sim_coverage_secure.conf` with Mbed TLS PSA + `CONFIG_UBI_CRYPTO=y`.
-- **Secure test fixture and stub** (`tests/src/secure/`): mock crypto config with permissive callbacks, tests verifying `-ENOTSUP` for secure init (backend not yet implemented), plain unaffected when secure types included, and crypto type size/layout assertions.
+- Secure public API types: crypto config, event types (tagged union), freshness descriptor, policy struct, and callback typedefs.
+- Secure Kconfig surface: master enable, budget limits, rotation thresholds, chunked mode, PEB cache, freshness sync, strict RO policies.
+- Crypto fault injection hooks (7 stages) for integration tests.
+- Secure test profiles and board configs with Mbed TLS PSA.
 
 ## [0.36.0] - 2026-04-14
 
 ### Changed
 
-- **Full backend ops dispatch for all public API functions**: expanded `struct ubi_backend_ops` from 1 to 11 function pointers covering device lifecycle, volume management, and LEB operations. All public functions now dispatch through `ubi.c` facade with centralized null checks and `LOG_ERR`. Three read-only functions (`get_info`, `vol_get_info`, `is_mapped`) implemented directly in the facade. Plain backend functions renamed to `ubi_plain_*` with declarations in `lib/src/plain/ubi_plain_ops.h`.
-- **Decoupled `ubi_internal.h` from plain-specific headers**: removed `#include "ubi_io.h"` and `#include "ubi_flash_res_peb.h"` from `lib/src/common/ubi_internal.h`. On-flash header validators and name-copy helpers moved to `lib/src/plain/ubi_io.h`. Plain `.c` files now include `ubi_io.h` directly. `ubi_internal.h` is now backend-agnostic.
+- Full backend ops dispatch: all public API functions route through a vtable (11 ops). Plain backend functions renamed to `ubi_plain_*`.
+- Internal headers decoupled from plain-specific includes, making them backend-agnostic.
 
 ## [0.35.0] - 2026-04-14
 
 ### Changed
 
-- **Unified init API with runtime backend dispatch**: `ubi_device_init()` signature changed from 2-arg `(mtd, &ubi)` to 3-arg `(mtd, crypto_cfg, &ubi)`. Passing `crypto_cfg == NULL` selects the plain backend; non-NULL returns `-ENOTSUP` until the secure backend is implemented. New `lib/src/ubi.c` facade, `lib/src/common/ubi_backend.h` backend ops vtable, and `ubi_plain_backend()` getter in `lib/src/plain/ubi_core_init.c`. `struct ubi_device` extended with `mode` and `ops` fields. All callers (tests, sample, docs) updated.
+- Unified init API: `ubi_device_init(mtd, crypto_cfg, &ubi)`. Passing `NULL` selects plain; non-NULL selects secure. Runtime backend dispatch via ops vtable.
 
 ## [0.34.0] - 2026-04-13
 
 ### Changed
 
-- **Secure architecture: runtime backend model locked** (`doc/secure_architecture.md`): §1.4 rewritten — mode selection is now per `ubi_device` at runtime via `crypto_cfg` pointer, not per build. §2.1 documents multi-backend coexistence. §16 and Appendix A define the unified `ubi_device_init(mtd, crypto_cfg, &ubi)` entry point with forward-declared `struct ubi_crypto_config`. `ubi_crypto_event` changed from flat struct to tagged union (`enum type` + per-event-type payload). `check_freshness` confirmed as attach-time only; periodic runtime audit explicitly out of scope.
-- **Repository layout split into common/plain/secure namespaces**: library sources reorganized from flat `lib/src/` into `lib/src/common/` (cache, memory, partition guard, internal types) and `lib/src/plain/` (core init, runtime, volume, LEB, I/O, reserved PEB). Test sources moved from `tests/src/` into `tests/src/common/` (shared fixtures, arrays) and `tests/src/plain/` (all 20 suites). Empty `lib/src/secure/` and `tests/src/secure/` directories created for the upcoming secure backend. `lib/CMakeLists.txt` and `tests/CMakeLists.txt` updated with new paths and include directories.
-- **Format script made recursive** (`scripts/format.sh`): replaced hardcoded glob paths with `find lib tests sample -type f` to cover all subdirectories. Added `--check` mode for CI dry-run.
+- Secure architecture spec: per-device runtime mode selection (not per-build), tagged-union events, `check_freshness` confirmed as attach-time only.
+- Repository layout split into `common/`, `plain/`, `secure/` namespaces for library and test sources.
+- Format script made recursive with `--check` mode for CI.
 
 ## [0.33.0] - 2026-04-11
 
 ### Changed
 
-- **Secure architecture promoted to first-class documentation** (`doc/secure_architecture.md`): `doc/design_proposal_crypto.md` renamed to `doc/secure_architecture.md` — the full-flash authenticated encryption design is now a peer architecture document alongside the plain UBI architecture, reflecting its maturity as an implementation-ready specification.
-- **Plain architecture renamed** (`doc/plain_architecture.md`): `doc/architecture.md` renamed to `doc/plain_architecture.md` to distinguish the plain UBI internals from the secure extension. Added cross-reference to the Secure Architecture Guide.
-- **Documentation updated**: README documentation table, Sphinx index, overview, roadmap, and contributing guide updated with the new document names and links. Secure Architecture is now visible alongside Plain Architecture in all navigation paths.
+- `design_proposal_crypto.md` promoted to `secure_architecture.md` as a first-class architecture document.
+- `architecture.md` renamed to `plain_architecture.md`.
+- All doc navigation updated for the new names.
 
 ## [0.32.0] - 2026-04-11
 
 ### Changed
 
-- **Secure on-flash architecture rewrite v6** (`doc/design_proposal_crypto.md`):
-  - expanded central design ideas from four to six: added "key lifecycle is first-class" and "future-write recovery state lives only in authenticated, commit-visible carriers",
-  - **hidden per-volume anchor PEB** (new sections 7.9, 9.8.2, 9.8.3): each secure volume owns one internal anchor data PEB (`INTERNAL_ANCHOR_LNUM`) that preserves per-volume LEB usage state (`leb_write_counter`, `leb_total_auth_bytes`) when user mappings disappear through unmap, shrink, or erase,
-  - **secure device header now carries crypto metadata** (`ubi_dev_secure_meta`): authenticated `write_active_key_version` and monotonic `vid_next_counter_floor` for global VID-domain continuity; device header size increased from 80 B to 96 B,
-  - **counter continuity framework** (new section 9.8): full continuity matrix for all counter families, hidden-anchor lifecycle diagrams, VID-domain floor snapshot in secure device header, and design rationale for why each domain uses a different continuity mechanism,
-  - renamed child keys to full domain names: `K_dev` → `K_device_header`, `K_vol` → `K_volume_header`, `K_ec` → `K_erase_counter`, `K_vid` → `K_volume_identifier`; added Mermaid key hierarchy diagram,
-  - renamed LEB usage metric: `leb_total_payload_bytes` → `leb_total_auth_bytes` (AAD + payload plaintext bytes) to reflect actual CCM key usage,
-  - **simplified chunked mode**: removed per-chunk HKDF subkey derivation; all chunks reuse the base `K_leb[key_version][volume_id]` with per-chunk nonce counter increments and `chunk_index` in AAD,
-  - **expanded write-budget enforcement**: separate AEAD-invocation and authenticated-byte budgets for metadata, VID, and LEB domains with detailed projected-post-write arithmetic,
-  - **precise AAD byte layouts**: all five record types now have exact AAD specifications with byte sizes (device header 44 B, volume header 53 B, EC 44 B, VID 53 B, LEB single-tag 74 B, LEB chunked 78 B); added parent secure-device `key_version` in volume-header AAD and parent secure-VID `key_version` in LEB AAD,
-  - changed allowlist model from bitmap to explicit `uint8_t` array with `allowed_key_versions_len`,
-  - event callback now returns `ubi_crypto_event_verdict` (CONTINUE or ENTER_READ_ONLY) instead of void,
-  - policy struct redesigned: `write_key_version` → `requested_write_key_version` (optional forward-rotation request), removed `secure_required` and `strict_ro_*` booleans,
-  - new read-only semantics section (14.4): read-only is sticky per attach session, not persisted on flash,
-  - new "who decides whether UBI keeps running" section (14.5): separation of Kconfig, API return codes, and event callback roles,
-  - restructured section 3: new "What SECURE mode gives the application" (3.1) and "Core guarantees and explicit boundary" (3.2),
-  - core invariants expanded from 9 to 12: hidden anchor invariant, secure device header authenticated state, write-active key version monotonicity,
-  - expanded data write path (11.5) with counter arithmetic, 48-bit nonce overflow guard, projected budget checks; new erase/reclaim path with hidden-anchor preservation (11.6); new volume creation with anchor initialization (11.4); new unmap/shrink semantics section (11.7),
-  - added Mermaid sequence diagrams for attach-time and runtime API interaction flows,
-  - new hidden-anchor capacity cost analysis (17.4, 17.5): one data PEB per secure volume, space-for-simplicity trade-off,
-  - new Kconfig table format with descriptions; added `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `CONFIG_UBI_CRYPTO_MAX_ALLOWLIST_LEN`, `CONFIG_UBI_CRYPTO_PEB_CACHE`, `CONFIG_UBI_CRYPTO_PEB_CACHE_STATIC`,
-  - removed `ubi_crypto_key_id_t` typedef, callback directly uses `psa_key_id_t`,
-  - de-versioned struct names: `ubi_crypto_prefix32_v1` → `ubi_crypto_prefix32`, `ubi_vid_secure_meta_v1` → `ubi_vid_secure_meta`, `ubi_crypto_freshness_v1` → `ubi_crypto_freshness`,
-  - de-versioned language throughout: removed "v1" references, uses "current format" or "SECURE",
-  - Mermaid key-lifecycle retirement diagram,
-  - expanded Appendix B: added lifecycle corner cases category and 48-bit counter-overflow test,
-  - updated Appendix C release checklist: hidden-anchor, VID floor reconstruction, refcount-driven retirement verification.
+- Secure architecture spec rewrite (v6): hidden per-volume anchor PEBs, secure device header with crypto metadata, full counter continuity framework, renamed child keys to domain names, simplified chunked mode (no per-chunk subkeys), expanded write-budget enforcement, precise AAD byte layouts for all record types, tagged-union events with verdicts.
 
 ## [0.31.0] - 2026-04-10
 
 ### Changed
 
-- **Secure on-flash architecture rewrite v5** (`doc/design_proposal_crypto.md`):
-  - added mode detection section (1.2): normative v1 rules for PLAIN vs SECURE format detection, mixed-mode attach rejection, forbidden silent fallback and automatic reformat,
-  - normative KDF encoding: replaced recommended canonical form with exact HKDF-SHA-256 extract/expand labels for all child keys (`K_dev`, `K_vol`, `K_ec`, `K_vid`, `K_leb`), fixed output length and encoding rules,
-  - normative chunk subkey derivation: two-step HKDF with explicit `PRK_leb` extract and per-chunk expand labels,
-  - single-tag CCM payload limit and geometry guard: added `secure_leb_payload_bytes_single` formula, validity condition, and fallback requirement (chunked mode or reject),
-  - zero-length LEB encoding: defined behaviour for `data_size == 0` in both single-tag and chunked mode,
-  - tail-padding and alignment rules for single-tag mode: extra bytes after `tag16` must be flash erased value and lie outside the authenticated record,
-  - added parent secure-EC `key_version` to secure VID and secure LEB AAD binding,
-  - naming note for `volume_id` vs `vol_idx` and export-width note for `device_revision`,
-  - expanded test plan (Appendix B): reorganised from 4 to 7 categories with new items (zero-length record interrupts, rollback freshness-store, forced-rekey, key-usage exhaustion, replay/tamper validation, layout/geometry validation),
-  - added Appendix C – Release checklist for SECURE v1 (critical format constraints, implementation notes, validation checklist).
+- Secure architecture spec rewrite (v5): mode detection rules, normative KDF labels, single-tag CCM payload limit, zero-length LEB encoding, tail-padding rules, parent EC key_version in VID and LEB AAD, release checklist (Appendix C).
 
 ## [0.30.0] - 2026-04-09
 
 ### Added
 
-- **"Why UBI for Zephyr" positioning document** (`doc/why_ubi_for_zephyr.md`): covers the gap UBI fills in Zephyr's storage stack, comparison with FCB/NVS/ZMS/LittleFS/Secure Storage, and the upstream argument for plain and secure UBI.
+- "Why UBI for Zephyr" positioning document: gap analysis, comparison with FCB/NVS/ZMS/LittleFS.
 
 ### Changed
 
-- **Secure on-flash architecture rewrite v4** (`doc/design_proposal_crypto.md`): added plain-core baseline assumptions section, reworked application ↔ UBI boundary (PSA key identifiers, freshness callbacks, event callback), clarified SECURE mode guarantees and anti-rollback boundary, expanded key derivation, nonce construction, key rotation, and freshness-sync sections.
+- Secure architecture spec rewrite (v4): plain-core baseline assumptions, application boundary clarification, expanded key derivation and freshness-sync.
 
 ## [0.29.0] - 2026-04-09
 
 ### Added
 
-- **Persistent vol_id high-watermark** (`ubi_io.h`, `ubi_volume.c`, `ubi_core_init.c`): Volume IDs are never reused. A monotonic `vol_id_watermark` counter is stored in the device header and bumped atomically with each `ubi_volume_create()`.
-- **Overflow guard**: `ubi_volume_create()` returns `-ENOSPC` when the watermark reaches `UINT32_MAX`.
-- **Test suite `ubi_vol_id_watermark`** (4 tests): same-boot reuse prevention, cross-reboot persistence, slot re-indexing stability, overflow fail-closed.
+- Persistent vol_id high-watermark: volume IDs are never reused across the device lifetime. Overflow returns `-ENOSPC`.
+- Test suite (4 tests): reuse prevention, cross-reboot persistence, slot stability, overflow.
 
 ### Changed
 
-- **`vol_idx` field removed from `struct ubi_volume`**: `ubi_vol_hdr_remove()` and `ubi_vol_hdr_update()` now match volumes by `vol_id` instead of positional index. The re-index loop after remove is eliminated.
+- Volume matching by `vol_id` instead of positional index; re-index loop eliminated.
 
 ## [0.28.0] - 2026-04-09
 
 ### Added
 
-- **Central mutation gate** (`ubi_internal.h`): `ubi_mutation_allowed()` checks a per-device `read_only_degraded` flag (and optional test-only `write_shutdown` flag) before every public mutator. Three mutation classes: `RESERVED_METADATA`, `DATA_PATH`, `MAINTENANCE`.
-- **Runtime degradation detection**: `ubi_flash_res_peb_commit()` returns `-EROFS` when data is committed but the bank lost redundancy. `dev_hdr_read_and_bump()` and volume callers set `read_only_degraded` and propagate `-EROFS`.
-- **Self-healing via `ubi_device_erase_peb()`**: In degraded mode, `erase_peb()` attempts reserved PEB bank recovery after its normal maintenance cycle. On success the flag is cleared and the device returns to read-write.
-- **Test-only write-shutdown API** (`ubi_test.h`): `ubi_test_set_write_shutdown()` blocks all mutations with `-EROFS`.
-- **Reserved PEB recovery participates in erase fault injection** (`ubi_flash_res_peb.c`).
-- **Test suite `ubi_mutation_gate`** (5 tests): write-shutdown, init degradation, runtime transparent recovery, runtime degradation with flag verification, erase_peb bank recovery.
-
-### Changed
-
-- All 7 public mutators wired through the gate before any flash I/O.
-- Removed ad-hoc `-EROFS` check from `dev_hdr_read_and_bump()`.
-- Updated `doc/architecture.md`: degraded-mode policy table, erase_peb self-healing.
-- Updated `doc/test_strategy.md`: 247 tests across 20 suites.
+- Central mutation gate: per-device read-only flag checked before every public mutator. Three mutation classes (reserved metadata, data path, maintenance).
+- Runtime degradation detection and self-healing via reserved PEB bank recovery.
+- Test-only write-shutdown API.
+- Test suite (5 tests): write-shutdown, degradation, transparent recovery, bank recovery.
 
 ## [0.27.0] - 2026-04-10
 
 ### Changed
 
-- **Data PEB write order is now EC → DATA → VID** (`lib/src/ubi_leb.c`): The commit order for `ubi_leb_write()` changed from writing the VID header before the data payload to writing the data payload first and the VID header second. The VID header now serves as the sole commit-visible record that makes a new mapping live. If a power loss occurs after the data write but before the VID write, the PEB will be correctly classified as dirty (uncommitted) during the next init scan rather than being misidentified as free.
-- **Init scan distinguishes free PEBs from uncommitted writes** (`lib/src/ubi_core_init.c`): When a PEB has a valid EC header and an erased VID header, the init scanner now probes the first `write_block_size` bytes of the data area. If the probe is erased, the PEB is classified as free; if the probe contains non-erased bytes, the PEB is classified as dirty (interrupted write). Previously, an erased VID always meant free, which was incorrect under the new write order.
-- **`validate_vid_header()` error paths consolidated** (`lib/src/ubi_core_init.c`): Three identical classify-as-bad error blocks (VID read failure, data probe read failure, VID CRC failure) replaced with a single `classify_bad` label, eliminating code duplication and improving coverage.
-- **Architecture documentation** (`doc/architecture.md`): Updated write flow diagrams and PEB classification tables to reflect the EC → DATA → VID commit order. Added free vs. uncommitted classification rule. Updated Mermaid flowchart.
-- **Roadmap** (`doc/roadmap.md`): "Recovery correctness for data PEB commit order" moved from Planned to Done.
-- **Test strategy** (`doc/test_strategy.md`): Added commit-order fault injection tests and init classification tests. Updated suite counts (242 total).
+- Data PEB commit order changed to EC -> DATA -> VID. VID header is now the sole commit-visible record.
+- Init scan distinguishes free PEBs from uncommitted writes by probing the data area.
 
 ### Fixed
 
-- **Uncommitted write misclassified as free**: Under the old write order (EC → VID → DATA), this was harmless. Under the new order (EC → DATA → VID), a PEB with data but no VID was wrongly returned to the free pool, risking data corruption on reuse.
+- Uncommitted writes were misclassified as free under the new write order.
 
 ## [0.26.0] - 2026-04-09
 
 ### Changed
 
-- **Erased-state detection no longer assumes `0xFF`** (`lib/src/ubi_core_init.c`, `lib/src/ubi_flash_res_peb.c`): All erased-state checks now use the hardware-reported erased byte value obtained via `flash_area_erased_val()`. Two new internal helpers — `ubi_get_erased_val()` and `ubi_buf_is_erased()` — replace hardcoded `0xFF`/`0xFFFFFFFF` comparisons in PEB scan and reserved PEB classification. On-flash layout is unchanged.
-- **Architecture documentation** (`doc/architecture.md`): Updated erased-state descriptions to reflect that the erased byte value is platform-dependent, not universally `0xFF`. Added new "Erased-State Detection" section.
-- **Test strategy** (`doc/test_strategy.md`): Added `ubi_erased_val` suite (6 tests) covering helper unit tests and init regression. Documented known gap for non-`0xFF` end-to-end testing.
-
-### Fixed
-
-- **Non-portable erased-state detection**: `validate_vid_header()` used `memset(&empty, 0xff, ...)` and reserved PEB scan compared `hdr.magic == 0xFFFFFFFF`. Both are now derived from the actual flash erased value.
+- Erased-state detection uses hardware-reported erase value instead of hardcoded `0xFF`.
 
 ## [0.25.0] - 2026-04-08
 
 ### Changed
 
-- **Design proposal: crypto layer v3** (`doc/design_proposal_crypto.md`): Major revision of the secure on-flash architecture. Restructured specification into 18 sections plus appendices. Key changes: new secure init classification rules with decision table and recovery flow diagram for data PEBs (section 10); secure write paths covering reserved metadata update, key rotation, data write and erase/reclaim (section 11); secure read paths for metadata, single-tag and chunked LEB reads (section 12); key lifecycle, inventory and retirement with refcount-based runtime retirement detection (section 13); explicit events, policy and read-only transition table (section 14); Kconfig surface (section 15); API shape summary (section 16); cost model with flash overhead tables (section 17). Replaced inline C API with Appendix A containing illustrative Doxygen-documented API surface (PSA key IDs, event types, rollback verdict, policy struct, callbacks, config struct). Added Appendix B with suggested roadmap items outside the spec.
-- **Roadmap** (`doc/roadmap.md`): Added "Recovery correctness for data PEB commit order" feature to the overview matrix and detailed description covering the EC → DATA → VID write order change and init classification fix for free versus uncommitted PEBs.
+- Secure architecture spec rewrite (v3): init classification, write/read/erase paths, key lifecycle with refcount retirement, events and policy, cost model, illustrative API (Appendix A).
 
 ## [0.24.0] - 2026-04-03
 
 ### Added
 
-- **Design proposal: crypto layer v2** (`doc/design_proposal_crypto.md`): Full architecture for authenticated encryption of all UBI on-flash structures (device headers, volume headers, EC headers, VID headers, LEB payloads) using AES-128-CCM via PSA Crypto API. Covers ESSIV nonce construction, per-domain key derivation from a versioned root IKM, anti-rollback via persisted global sequence number, crash-safe key rotation, and external AAD callback for application-specific binding. Linked from [roadmap](roadmap.md).
+- Secure architecture design proposal (v2): AES-128-CCM for all on-flash structures, ESSIV nonces, per-domain key derivation, anti-rollback, crash-safe key rotation, external AAD callback.
 
 ## [0.23.0] - 2026-04-03
 
 ### Added
 
-- **nRF5340 DK board support**: DeviceTree overlays for `nrf5340dk/nrf5340/cpuapp` (tests and sample). UBI partition: 64 KB at 0xF0000 (16 PEBs × 4 KB erase blocks). Added `hal_nordic` to `west.yml` module allowlist.
-- **nRF5340 in test matrix**: `testcase.yaml` now lists `nrf5340dk/nrf5340/cpuapp` in `ubi.functional` and `ubi.functional.heap` platform_allow.
+- nRF5340 DK board support (64 KB UBI partition, 4 KB erase blocks).
 
 ### Changed
 
-- **CI: split into granular jobs**: Monolithic `build-and-test` job replaced with three parallel jobs: `native-tests` (matrix: static/heap), `cross-build` (matrix: 2 boards × 2 memory backends × 2 apps = 8 variants), and `coverage` (depends on native-tests). Errors are now reported per-variant with faster feedback.
-- **CI: concurrency control**: Added `concurrency` group with `cancel-in-progress: true` — new pushes to the same branch cancel older CI runs.
-- **CI: least-privilege permissions**: Workflow-level `permissions: { contents: read }` replaces implicit defaults.
-- **CI: path filters**: CI skips runs for documentation-only changes (`doc/**`, `*.md`, `LICENSE`).
-- **CI: artifact retention**: `flash-usage` and `coverage-report` artifacts now expire after 14 days (was 90 days default).
-- **CI: conditional Codecov upload**: Codecov step is skipped for fork PRs and Dependabot PRs where `CODECOV_TOKEN` is unavailable.
-- **CI: SHA-pinned actions**: All GitHub Actions (`actions/checkout`, `actions/upload-artifact`, `codecov/codecov-action`) pinned to full commit SHA instead of mutable tags.
-- **CI: flash usage per board**: Flash usage measured and uploaded separately for each board (`flash-usage-b_u585i_iot02a`, `flash-usage-nrf5340dk_cpuapp`).
+- CI split into parallel jobs: native-tests, cross-build, coverage.
+- Concurrency control, least-privilege permissions, path filters, SHA-pinned actions.
 
 ## [0.22.0] - 2026-04-02
 
 ### Added
 
-- **Flash I/O fault injection**: `ubi_test_fault_set_flash_write_fail_after()` and `ubi_test_fault_set_flash_erase_fail_after()` enable controllable flash write and erase failures (requires `CONFIG_UBI_TEST_FAULT_INJECTION`). Flash write faults hook into the internal `flash_write_with_retry()` wrapper. Flash erase faults hook into `ubi_device_erase_peb()` via `ubi_test_flash_erase_check_fail()` (declared in `ubi_io.h`).
-- **Test suite: `ubi_io_faults`** (`tests_ubi_io_faults.c`, 24 tests): Flash I/O and malloc fault injection sweep tests — allocation failure sweeps during init with various flash states (empty, volumes, orphans, duplicates, bad VID CRC, bad EC), scratch allocation faults during volume operations, diagnostic allocation faults, and flash erase failure handling.
-- **Test suite: `ubi_init_errors`** (`tests_ubi_init_errors.c`, 33 tests): Device initialization error paths — invalid geometry (zero erase/write block size, unaligned partition, oversized write block, too-small partition, erase block smaller than headers), partition guard (`-EBUSY` on double init), format failure propagation, device header corruption, volume header corruption, and `CONFIG_UBI_MEM_BACKEND_STATIC` limit checks.
-- **34 new error-handling tests** in `ubi_error_handling` (62 → 96 tests): Corrupt EC/VID header paths in LEB and PEB operations, reserved PEB corruption during create/remove/resize, degraded-mode bank recovery, orphan PEB classification, write-retry exhaustion, `get_peb_ec` with corrupt PEB, invariant checks after bad PEB erase, LEB map/unmap edge cases, volume remove with wrong vol_id, and re-index with corrupt vol headers.
-- **6 new recovery tests** in `ubi_recovery` (21 → 27 tests): Dual-bank recovery during resize, degraded-mode mutation blocking, multi-volume bank recovery, corrupt EC with valid VID classification, multiple corrupt PEB classification, and fresh partition spare PEB formatting.
-- **Fault reset covers all counters**: `ubi_test_fault_reset()` now resets flash write and erase fault counters in addition to the malloc counter.
-- **Long-term EC counter equality test** (`tests_ubi_stress_longrun.c`): 500 write-erase cycle test verifying that erase counters across all PEBs remain balanced (max deviation ≤ 2). Runs on native_sim only. Requires `CONFIG_UBI_TEST_API_ENABLE`.
-
-### Changed
-
-- **Test configuration**: `CONFIG_UBI_TEST_FAULT_INJECTION=y` enabled in `tests/prj.conf` by default for all test builds.
-- **Fault injection declarations**: `ubi_test_fault_set_flash_write_fail_after()` and `ubi_test_fault_set_flash_erase_fail_after()` moved from internal scope to public API in `ubi.h` (with no-op stubs when `CONFIG_UBI_TEST_FAULT_INJECTION` is disabled).
-- **Source module roles**: `ubi_io_data.c` now also hosts flash write/erase fault injection counters and check functions.
-- **Coverage**: Line coverage increased from ~80% to 85.2% (1517/1781 lines). 17 test suites, 228 tests total.
-
-### Fixed
-
-- **Test description ordering**: All test Doxygen comments now consistently use `\brief` → `\details` → `\expect` order (previously some used `\brief` → `\expect` → `\details`).
-- **Test descriptions: removed source line references**: Removed direct references to source file line numbers (e.g. "Covers ubi_leb.c lines 237-238") from test Doxygen comments — line numbers change across refactors and become stale.
+- Flash I/O fault injection: controllable write and erase failures.
+- Test suite `ubi_io_faults` (24 tests): flash I/O and malloc fault sweeps.
+- Test suite `ubi_init_errors` (33 tests): geometry validation, partition guard, format/header corruption at init.
+- 34 new error-handling tests and 6 new recovery tests.
+- Long-term EC counter equality test (500 cycles, max deviation <= 2).
 
 ## [0.21.1] - 2026-04-02
 
-### Added
-
-- **Docs: `-W` flag**: `docs.yml` now runs `sphinx-build -W` so Sphinx warnings fail the build.
-
-### Changed
-
-- **Doxygen invocation**: `conf.py` uses `subprocess.check_call` instead of `subprocess.call` — Doxygen failures now break the build.
-
 ### Fixed
 
-- **Sphinx: `design_proposal_crypto` orphan warning**: added document to `index.rst` toctree.
-- **Docs: Breathe + Doxygen 1.9.8 compatibility**: switched `api.rst` from `doxygenfunction`/`doxygenstruct` directives to `doxygengroup`, matching the approach used in libedhoc. Breathe's function finder filter excludes group compounds, so when Doxygen ≥ 1.9.8 places functions only in group XML files (not file XML), `doxygenfunction` fails. Using `doxygengroup` reads group XML directly and works with both Doxygen 1.9.1 and 1.9.8.
+- Sphinx `-W` flag: warnings now fail the doc build.
+- Breathe + Doxygen 1.9.8 compatibility: switched to `doxygengroup` directives.
 
 ## [0.21.0] - 2026-04-02
 
 ### Added
 
-- **Static memory backend** (`CONFIG_UBI_MEM_BACKEND_STATIC`, default): all UBI runtime allocations use `k_mem_slab` pools (device, volume, leaf, scratch) instead of the global Zephyr heap.
-- **Memory abstraction layer** (`ubi_mem.h` / `ubi_mem.c`): encapsulates all UBI memory operations behind a single API, supporting heap and static backends via Kconfig.
-- **Kconfig options**: `UBI_MEM_BACKEND` (STATIC/HEAP), `UBI_MAX_NR_OF_DEVICES`, `UBI_MAX_NR_OF_DATA_PEBS`, `UBI_MEM_STATS`.
-- **Init-time validation**: static backend verifies flash geometry fits within configured pool limits.
-- **Dual-backend CI**: `testcase.yaml` runs all suites under both backends.
+- Static memory backend (default): all allocations via `k_mem_slab` pools instead of global heap.
+- Memory abstraction layer with Kconfig-selectable backend (static/heap).
+- Init-time validation: static backend verifies flash geometry fits configured pools.
+- Dual-backend CI runs.
 
 ### Changed
 
-- **PEB tracking**: `ubi_rbt_item` and `ubi_list_item` share `union ubi_leaf_item` (16 B), enabling in-place retyping during state transitions.
-- **Fault injection**: operates through `ubi_mem` layer; declarations moved from deleted `ubi_test_hooks.h` to `ubi.h`.
-- **Partition guard ordering**: `ubi_device_init()` acquires partition before device allocation.
-- **Error logging**: all allocation and metadata error paths now emit `LOG_ERR`.
-
-### Removed
-
-- `ubi_test_hooks.h` / `ubi_test_hooks.c` — fault injection API moved to `ubi.h`, implementation to `ubi_mem.c`.
-
-### Fixed
-
-- **Fault injection broken**: all allocations now route through `ubi_mem`, making the fault counter functional.
-- **Runtime RAM example**: corrected from ~432 B to ~464 B (missing volume tree nodes).
+- PEB tracking items share a union for in-place retyping during state transitions.
+- Fault injection routed through memory abstraction layer.
 
 ## [0.20.1] - 2026-04-02
 
-### Fixed
-
-- **Doxygen: test API functions missing**: Added `PREDEFINED = CONFIG_UBI_TEST_API_ENABLE` to `doc/Doxyfile` so that `ubi_device_check_invariants()` and `ubi_device_get_peb_ec()` (guarded by `#if defined(CONFIG_UBI_TEST_API_ENABLE)`) are extracted into the Doxygen XML and rendered by Breathe.
-
 ### Changed
 
-- **Roadmap: removed read-write locking**: Dropped the planned read-write lock feature from the roadmap, README, introduction, and architecture docs. The current per-device mutex is sufficient.
-- **Roadmap: renamed user-space tools to shell commands**: Replaced "User-space tools" with "Shell commands" across roadmap and README to better reflect the Zephyr shell integration.
+- Removed read-write lock from roadmap (per-device mutex is sufficient).
+- Renamed "User-space tools" to "Shell commands" in roadmap.
+
+### Fixed
+
+- Test API functions visible in Doxygen output.
 
 ## [0.20.0] - 2026-04-01
 
 ### Added
 
-- **Single-handle-per-partition guard**: `ubi_partition_acquire()` / `ubi_partition_release()` in `lib/src/ubi_partition_guard.h` / `ubi_partition_guard.c` — static bitfield registry that prevents two `ubi_device` handles for the same flash partition. `ubi_device_init()` returns `-EBUSY` if the partition is already in use.
-- **Concurrency test suite**: `tests/src/tests_ubi_concurrency.c` — multi-threaded tests using `k_thread_create` / `k_thread_join`: concurrent metadata readers, reader-writer interleave, deinit-after-quiescence, double-init guard (`-EBUSY`), init-after-deinit reuse.
+- Single-handle-per-partition guard: prevents two device handles for the same flash partition.
+- Concurrency test suite (5 tests): multi-threaded readers/writers, deinit quiescence, double-init guard.
 
 ### Fixed
 
-- **`ubi_device_deinit()` thread safety**: Now acquires the device mutex before freeing resources. In-flight operations that hold the mutex complete before teardown proceeds.
-
-### Changed
-
-- **`ubi_device_deinit()` contract** (`lib/include/ubi.h`): Added `\pre` clause — caller must ensure no new operations start after calling deinit.
-- **`ubi_device_init()` contract** (`lib/include/ubi.h`): Documents `-EBUSY` and the single-handle-per-partition invariant.
-- **Documentation**: Thread Safety section in `doc/architecture.md` now documents the deinit contract and single-handle-per-partition rule. Source file table includes `ubi_partition_guard` module. Test counts updated across `doc/test_strategy.md` and `doc/getting_started.md`.
+- `ubi_device_deinit()` acquires mutex before teardown, preventing races with in-flight operations.
 
 ## [0.19.0] - 2026-04-01
 
 ### Added
 
-- **Volume configuration validation**: `ubi_volume_config_is_valid()` in `lib/src/ubi_internal.h` — enforces valid name, `UBI_VOLUME_TYPE_STATIC` / `DYNAMIC`, and `leb_count > 0` for `ubi_volume_create()`.
-- **Metadata semantic checks**: `ubi_dev_hdr_semantically_valid()` and `ubi_vol_hdr_semantically_valid()` — reject CRC-valid but invalid on-flash fields; used in reserved PEB scan (`lib/src/ubi_flash_res_peb.c`) and volume collection (`lib/src/ubi_core_init.c`).
-- **Test API**: `ubi_device_check_invariants()` when `CONFIG_UBI_TEST_API_ENABLE` — verifies PEB accounting, tree sizes vs counters, and reserved PEB sum (`lib/src/ubi_core_runtime.c`, `lib/include/ubi.h`).
-- **Fault injection (Kconfig)**: `UBI_TEST_FAULT_INJECTION` (requires `UBI_TEST_API_ENABLE`) — controllable allocation hook API (`ubi_test_fault_reset()`, `ubi_test_fault_set_malloc_fail_after()`) in `lib/include/ubi.h`, implemented in `lib/src/ubi_mem.c`.
-- **Shared test headers**: `tests/src/ubi_test_fixture.h`, `ubi_test_memory.h`, `ubi_test_raw_flash.h` for MTD setup, partition erase, heap snapshots, and raw EC/VID writes.
-- **New test suites**: `tests/src/tests_ubi_fault_injection.c`, `tests_ubi_stress_longrun.c` (with `CONFIG_FLASH_SIMULATOR`), `tests_ubi_hil_smoke.c`; contract tests in `tests_ubi_error_handling.c` (invalid type, zero LEBs, idempotent unmap, no-op map, static volume write).
+- Volume config validation, device/volume header semantic checks.
+- Invariant checker API for tests.
+- Allocation fault injection via Kconfig.
+- Shared test fixtures and raw flash write helpers.
 
 ### Changed
 
-- **Transactional `ubi_volume_create()`**: Allocate `struct ubi_volume` and rbt item before flash append; on failure, no persistent volume is written without matching RAM state (`lib/src/ubi_volume.c`).
-- **Transactional shrink in `ubi_volume_resize()`**: Flash metadata update (`ubi_vol_hdr_update`) completes before trimming EBA entries and reclaiming PEBs to dirty.
-- **`ubi_volume_remove()`**: After successful flash remove, reclaim is best-effort (errors logged, operation still completes with success when metadata removal succeeded).
-- **Capacity accounting**: `ubi_volume_create()` and resize-grow path subtract `bad_peb_count` from usable PEBs before comparing to requested `leb_count`.
-- **`ubi_volume_resize()`**: Rejects `vol_cfg->leb_count == 0` with `-EINVAL`; shrink loop uses `lnum` from new count upward (removed dead `diff == 0` branch).
-- **Copy-on-write `leb_write()`**: New PEB is written before the old EBA mapping is removed; on write failure the previous mapping and data remain (`lib/src/ubi_leb.c`).
-- **`reclaim_peb_to_dirty()`**: If EC read fails and bad-block list allocation fails, PEB is kept in the dirty pool with average EC key instead of being dropped from tracking.
-- **`resolve_duplicate_leb()`**: When the existing mapping’s headers are unreadable, replace EBA with the current PEB after marking the old PEB bad (`lib/src/ubi_core_init.c`).
-- **`ubi_leb_unmap()`**: Idempotent — unmapped LEB returns `0`.
-- **`ubi_leb_map()`**: No-op when already mapped; otherwise uses `leb_prepare_new_mapping()` + `leb_commit_mapping_swap()` (no longer delegates through `leb_write()`).
-- **Refactor**: `leb_prepare_new_mapping()`, `leb_commit_mapping_swap()`, `leb_mark_peb_bad()` extracted in `ubi_leb.c`.
-- **Documentation** (`lib/include/ubi.h`): `ubi_volume_create` / `resize` `-EINVAL` details; `ubi_leb_write` for static and dynamic volumes; `ubi_volume_get_info` documents `-ENOENT` for missing volume.
+- Transactional `ubi_volume_create()` and shrink: RAM state consistent with flash on failure.
+- Copy-on-write `leb_write()`: old mapping preserved until new PEB is fully written.
+- `ubi_leb_unmap()` is idempotent; `ubi_leb_map()` is a no-op when already mapped.
 
 ### Fixed
 
-- **PEB tracking**: Eliminated loss of PEB from all trees when `reclaim_peb_to_dirty()` hit `-ENOMEM` on bad-block allocation after EC read failure.
+- PEB tracking loss on allocation failure during bad-block handling.
 
 ## [0.18.0] - 2026-04-01
 
 ### Added
 
-- **Documentation**: New `doc/overview.md` — mental model (PEB/LEB/EC/VID/EBA), six-step lifecycle, stack Mermaid diagram, links to deeper docs.
-- **Sphinx**: `sphinxcontrib-mermaid` in `doc/requirements.txt` and `myst_fence_as_directive` for Mermaid in MyST (`doc/conf.py`).
-- **Architecture guide**: 30-second summary, Core Invariants table, Mermaid flowcharts (write, read, erase/reclaim), PEB lifecycle state diagram, degraded-mode operation table.
+- Overview doc with mental model, six-step lifecycle, and Mermaid diagrams.
+- Architecture guide expanded: core invariants, Mermaid flowcharts, degraded-mode table.
 
 ### Changed
 
-- **README**: Expanded landing page — stack diagram, key properties, when to use / not, documentation map, project quality, design trade-offs.
-- **Sphinx index** (`doc/index.rst`): “Start here” guidance, grouped toctree (Understanding / Using / Quality / Project), aligned flash footprint wording with introduction (~6.7 KB).
-- **Contributing**: Root `CONTRIBUTING.md` is a short pointer to the full guide; `doc/contributing.md` rewritten with current source layout, dev loop, testing and documentation expectations, PR checklist.
-- **Configuration** (`doc/configuration.md`): Impact analysis table for Kconfig options, sizing example, “what this page covers” framing.
-- **Test strategy** (`doc/test_strategy.md`): Executive summary table (all suites and counts), native_sim vs hardware comparison, known gaps as a structured table.
-- **API docs** (`doc/api.rst`): Usage notes — lifecycle, thread safety, error model table, typical call sequence.
-- **Introduction** (`doc/introduction.md`): Non-goals table, tighter opening, resource profile notes.
-- **Getting started** (`doc/getting_started.md`): “Before you start” paths (evaluation vs integration vs hardware).
-
-### Fixed
-
-- **Documentation**: Degraded read-only mode now documents `-EROFS` (not `-EIO`) for `ubi_volume_create` / `resize` / `remove` in `architecture.md`.
-- **On-flash layout docs**: Corrected data-PEB range wording and init scan phases to use PEB indices N..total-1 (reserved count N) instead of hardcoded “2..N-1”.
-- **Public API docs** (`ubi.h`): `ubi_leb_write` — document internal padding for unaligned lengths and align `\retval` with implementation; copyright year 2026.
+- README rewritten as landing page with stack diagram, key properties, quality metrics.
+- All doc pages restructured with "what this page covers" framing.
 
 ## [0.17.1] - 2026-03-31
 
 ### Fixed
 
-- **Documentation truthfulness**: Updated `architecture.md` source file table to reflect Phase 3 splits (`ubi_core_init.c`, `ubi_core_runtime.c`, `ubi_io_metadata.c`, `ubi_io_data.c`, `ubi_flash_res_peb.*`). Fixed test count in `getting_started.md` (89 → 111). Added `ubi_torture` suite to `test_strategy.md`.
-- **Sample**: Expanded `sample/src/main.c` to demonstrate full lifecycle (init → create → write → read → get_info → deinit). Fixed `definitiones` typo, removed stale `\version`/`\date` header, replaced Yoda conditions with idiomatic style.
+- Doc source file table and test counts aligned with Phase 3 file splits.
+- Sample app expanded to demonstrate full lifecycle.
 
 ### Changed
 
-- **Style normalization**: Removed per-file `\version`/`\date` Doxygen tags from all library headers and sources — version is tracked via CHANGELOG and git tags only.
-- Replaced Yoda conditions (`0 == len`, `false == is_mounted`) with idiomatic C style (`len == 0`, `!is_mounted`) across `ubi_leb.c`, `ubi_io_data.c`, and `ubi_core_init.c`.
-- Improved log message in `ubi_volume.c`: "Lack of available for allocation LEBs" → "Not enough free PEBs to allocate requested LEBs".
+- Removed per-file Doxygen version/date tags; replaced Yoda conditions with idiomatic style.
 
 ## [0.17.0] - 2026-03-31
 
 ### Changed
 
-- **Split `ubi_core.c`** into `ubi_core_init.c` (device init, format, scan, volume collection) and `ubi_core_runtime.c` (get_info, erase_peb, deinit, test API). No functional changes.
-- **Split `ubi_io.c`** into `ubi_io_metadata.c` (device/volume header read/write/append/remove/update) and `ubi_io_data.c` (EC/VID header and LEB data read/write). No functional changes.
-- Updated `CMakeLists.txt` to reference the new source files.
-
-### Removed
-
-- `ubi_core.c` — replaced by `ubi_core_init.c` + `ubi_core_runtime.c`.
-- `ubi_io.c` — replaced by `ubi_io_metadata.c` + `ubi_io_data.c`.
+- Split `ubi_core.c` into init and runtime modules; split `ubi_io.c` into metadata and data modules. No functional changes.
 
 ## [0.16.0] - 2026-03-31
 
 ### Added
 
-- `read_only_degraded` field in `struct ubi_device_info` — exposes whether the device lost reserved PEB redundancy and is operating in degraded read-only mode for metadata operations.
-- Cached `total_data_peb_count` and `leb_size` in the internal device struct, eliminating `flash_area_open()` from `ubi_device_get_info()`.
-- `ubi_reserved_peb_count()` internal helper for computing reserved PEB sum without acquiring mutex or performing flash I/O.
-- Thread-safety notes on all public API groups (`\note` blocks in `ubi.h`): all functions use a per-device mutex and must not be called from ISR context.
-- Precise `\retval` documentation for every public function, including `-EROFS`, `-EIO`, `-ENOENT`, and `-ECANCELED` where applicable.
-- `-EROFS` documented as a return code for `ubi_volume_create()`, `ubi_volume_resize()`, and `ubi_volume_remove()` when the device is in degraded mode.
+- `read_only_degraded` exposed in device info struct.
+- Cached geometry in device struct (no flash I/O for `get_info()`).
+- Thread-safety notes and precise `\retval` docs on all public functions.
 
 ### Changed
 
-- **Renamed** `ubi_device_info.allocated_peb_count` → `reserved_peb_count` to accurately reflect the semantics (sum of `leb_count` across all volumes, not physically mapped PEBs).
-- `ubi_dev_hdr_read()` now propagates `-EROFS` from `ubi_flash_res_peb_validate()` instead of silently swallowing it; callers can detect degraded mode at the I/O layer.
-- `ubi_device_init()` handles `-EROFS` from the device header read: sets the degraded flag and continues initialization (previously would have hidden the condition).
-- `ubi_device_get_info()` is now a lightweight in-memory operation — uses cached geometry instead of opening the flash area on every call.
-- `ubi_volume_create()` and `ubi_volume_resize()` no longer call the public `ubi_device_get_info()` under the already-held mutex; replaced with direct internal computation via `ubi_reserved_peb_count()`.
-- `dev_hdr_read_and_bump()` explicitly returns `-EROFS` with a descriptive log message when the device is in degraded mode, failing fast before attempting metadata writes.
+- `allocated_peb_count` renamed to `reserved_peb_count`.
+- `-EROFS` propagated from degraded reserved PEB scan through init and mutators.
 
 ## [0.15.0] - 2026-03-31
 
 ### Added
 
-- `ubi_validate_volume_name()`, `ubi_copy_name_to_hdr()`, `ubi_copy_name_from_hdr()` — safe volume name helpers in `ubi_internal.h`.
-- Semantic validation of device headers in reserved PEB scan (`vol_count`, header version, header-vs-erase-block size check).
-- `canonical_peb_idx` field in `struct ubi_flash_res_peb_scan` for deterministic canonical copy selection.
-- Flash geometry validation in `ubi_device_init()` — rejects zero sizes, misaligned partitions, partitions too small for reserved PEBs, and unsupported `write_block_size`.
-- Tests: duplicate-name with different config (`-EEXIST`), empty name, name without NUL, max-length name, sqnum monotonicity across remount.
-
-### Changed
-
-- `ubi_volume_create()` contract: duplicate name with identical config returns existing `vol_id` (idempotent); duplicate name with different config returns `-EEXIST`. Updated `ubi.h` documentation accordingly.
-- `ubi_vol_hdr_read()` now reads from the canonical (highest-revision) reserved PEB instead of the first active one.
-- `ubi_vol_hdr_append()` reads existing content from the canonical reserved PEB.
-- `ubi_flash_res_peb_validate()` performs recovery from the canonical PEB.
-- `ubi_leb_data_write()` uses `mtd->write_block_size` for alignment instead of the hardcoded `WRITE_BLOCK_SIZE_ALIGNMENT` constant.
+- Volume name validation helpers (bounded, NUL-safe).
+- Semantic validation of on-flash device headers.
+- Flash geometry validation at init.
 
 ### Fixed
 
-- **Memory safety**: eliminated all `strlen()` calls on raw on-flash fixed-size name fields; replaced with bounded `strnlen()` and safe copy helpers ensuring NUL-termination.
-- **Sequence number monotonicity**: `global_sqnum` is now set to `max + 1` after PEB scan, preventing reuse of existing sequence numbers after device re-init.
-- **Mixed-revision metadata**: volume headers are now always read from the highest-revision reserved PEB, preventing inconsistent state after interrupted metadata commits.
-- **Reclaim error paths**: `reclaim_peb_to_dirty()` now always consumes its item (moves to dirty pool or marks as bad), preventing orphaned PEBs and potential double-free in `ubi_volume_remove()`.
-- **Boundary conditions**: `ubi_vol_hdr_read()` index check changed from `>` to `>=`; removed incorrect `vol_count >= MAX` guards from `ubi_vol_hdr_remove()` and `ubi_vol_hdr_update()` that prevented operations at maximum volume count.
+- Eliminated `strlen()` on raw flash fields (memory safety).
+- Sequence number monotonicity: `global_sqnum` set to `max + 1` after scan.
+- Volume headers always read from highest-revision reserved PEB.
+- Reclaim error paths no longer leak PEBs.
 
 ## [0.14.0] - 2026-03-30
 
 ### Changed
 
-- Renamed `ubi_res_peb.h` / `ubi_res_peb.c` to `ubi_flash_res_peb.h` / `ubi_flash_res_peb.c` with `ubi_flash_res_peb_*` prefix on all symbols.
-- `ubi_volume.c` deduplicated with `dev_hdr_read_and_bump()` (3 call sites) and `reclaim_peb_to_dirty()` (2 call sites).
-
-### Removed
-
-- Volume module simplification entry from `doc/roadmap.md` (implemented).
+- Reserved PEB module renamed with `ubi_flash_res_peb_*` prefix.
+- Volume module deduplicated with shared helpers.
 
 ## [0.13.0] - 2026-03-30
 
 ### Added
 
-- Bad block torture test: erase-only recovery controlled by `CONFIG_UBI_BAD_PEB_TORTURE_CYCLES` (bad PEBs per call, range 1–10, default 3) and `CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE` (erase attempts per PEB, range 1–10, default 1).
-- Runtime `ec_avg` tracking via `ec_sum`/`ec_count` in device struct; exposed in `ubi_device_info.ec_avg`.
-- 5 torture recovery tests (`tests_ubi_torture.c`).
+- Bad block torture test with configurable cycles and per-PEB erase attempts.
+- Runtime average erase counter tracking.
 
 ### Fixed
 
-- Use-after-free in `leb_write()` write-fail path: PEB metadata is now saved before `k_free()`.
-- `leb_write()` write-fail now passes correct erase count (was 0) and updates `ec_sum`/`ec_count`.
-- `erase_peb()` bad-block paths now update `ec_sum`/`ec_count` for consistent average tracking.
-
-### Removed
-
-- Bad block torture test and permanent bad block tracking entries from `doc/roadmap.md` (implemented/obsoleted).
+- Use-after-free in `leb_write()` write-fail path.
+- Bad-block paths now update erase counter averages.
 
 ## [0.12.0] - 2026-03-30
 
 ### Added
 
-- `CONFIG_UBI_PEB_WRITE_RETRY_COUNT` Kconfig option (range 1–5, default 3) for data-PEB write retry.
+- Configurable write retry count for data PEBs.
 
 ### Fixed
 
-- `leb_write()` now marks PEB bad when VID header or LEB data write fails (previously leaked the PEB).
-
-### Removed
-
-- Write retry mechanism entry from `doc/roadmap.md` (implemented).
+- Write failure in `leb_write()` now properly marks PEB as bad.
 
 ## [0.11.0] - 2026-03-27
 
 ### Added
 
-- `doc/design_proposal_crypto.md`: design proposal for authenticated encryption layer (AES-128-CCM via PSA Crypto API).
-- Crypto layer entry in `doc/roadmap.md` (Priority: High, Status: Design).
+- Initial crypto layer design proposal (AES-128-CCM via PSA Crypto API).
 
 ## [0.10.0] - 2026-03-27
 
 ### Added
 
-- `ubi_flash_res_peb.h` / `ubi_flash_res_peb.c`: reserved PEB management module extracted from `ubi_io.c`.
-- `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` Kconfig option (range 2–4, default 2) for cold spare support.
-- Volume header validation in reserved PEB scan.
-- `data_size` boundary check in `ubi_leb_read()`.
-- 12 new tests (recovery, data_size boundary). Test count: 89 → 101.
-
-### Changed
-
-- Reserved PEB functions use `enum ubi_flash_res_peb_state` and unified `ubi_flash_res_peb_*` naming.
-- `ubi_flash_res_peb_overwrite()` seeks immediate replacement on active PEB failure instead of batching.
-- `ubi_dev_is_mounted()` treats corrupt PEBs as evidence of a previously mounted device.
-
-### Fixed
-
-- Impossible validate condition (`active < 2 && spare == 0 && corrupt == 0` with N=2).
+- Reserved PEB management extracted into dedicated module.
+- Configurable reserved PEB count (2-4) for cold spare support.
+- 12 new tests (recovery, data_size boundary).
 
 ## [0.9.0] - 2026-03-26
 
-### Added
-
-- `ubi_cache.h` / `ubi_cache.c`: extracted red-black tree cache module.
-- `ubi_internal.h`: shared internal types and helpers.
-- Coverage tests: `leb_write_all_pebs_exhausted`, `leb_map_all_pebs_exhausted`.
-- CI step to measure ARM flash usage on `b_u585i_iot02a` with artifact upload.
-- Roadmap entries: bad block torture test, volume module simplification.
-
 ### Changed
 
-- Restructured monolithic `ubi.c` into `ubi_core.c`, `ubi_volume.c`, `ubi_leb.c`.
-- Renamed `ubi_utils.h` / `ubi_utils.c` to `ubi_io.h` / `ubi_io.c`.
-- Renamed `ubi_device_info` fields from `leb_*` to `peb_*` naming (tracks physical erase blocks).
-- Renamed cache functions `ubi_rbt_cmp` / `ubi_rbt_search` to `ubi_cache_cmp` / `ubi_cache_search`.
-- Decomposed `ubi_device_init` into 4 sub-functions.
-- Decomposed `init_scan_pebs` into 5 helpers (`validate_ec_header`, `validate_vid_header`, `classify_orphan_peb`, `map_leb_first_occurrence`, `resolve_duplicate_leb`).
-- Scoped `flash_area_open` / `close` per PEB operation.
-- Deduplicated volume header ops with `validate_dual_bank()` and `commit_dual_bank()`.
-- Extracted `find_volume()` helper.
-- Replaced numbered comments with descriptive ones.
-- Overhauled Doxygen on all public headers.
-- Updated Kconfig: Zephyr logging template, `depends on FLASH && FLASH_MAP && CRC`, range constraint.
-- Unified condition style from Yoda (`0 != ret`) to standard (`ret != 0`).
-- Updated all file dates to 2026-03-26.
-- Removed Kconfig copyright header.
+- Monolithic source restructured into core, volume, LEB, I/O, and cache modules.
+- Init scan decomposed into 5 helpers.
+- Overhauled Doxygen and Kconfig.
 
 ### Fixed
 
 - 11 bugs from code quality audit.
-- Volume type Doxygen: static = fixed LEB count, dynamic = resizable.
-- Typo in `ubi_volume_remove()`: "readd" → "read".
-- `init_scan_pebs` L237: bare `return` on VID read failure converted to `continue` with bad block classification (consistent with EC failure handling).
-- Memory leak in `init_scan_pebs` duplicate-LEB path when existing PEB header read fails.
-
-### Removed
-
-- Dead code eliminated during file restructure.
+- Memory leak in duplicate-LEB resolution.
 
 ## [0.8.0] - 2026-03-25
 
 ### Added
 
 - Sphinx documentation with Read the Docs theme, deployed to GitHub Pages.
-- Doxygen + Breathe auto-generated API reference from `ubi.h`.
-- Introduction page: what is UBI, why UBI on Zephyr, resource usage, feature summary.
-- Getting started guide: quick start, native_sim build, STM32U5 build, tests, coverage.
-- Configuration reference: Kconfig options, DeviceTree overlays, sizing guidelines.
-- Contributing guide in Sphinx (mirrored from root `CONTRIBUTING.md`).
-- Changelog included in Sphinx via MyST `{include}` directive.
-- `doc/Makefile` for local documentation builds.
-- Docs badge in `README.md`.
-- `docs` CI job: builds Sphinx docs and deploys to GitHub Pages on push to `main`.
-
-### Changed
-
-- Slimmed `README.md` to a gateway page (badges, quick start, link to full docs).
-- Moved resource usage tables, features list, and documentation links from `README.md` to Sphinx.
-- Moved "What is UBI?" and API Reference sections from `architecture.md` to dedicated Sphinx pages.
-- Updated `CONTRIBUTING.md` to reference native_sim build instructions.
-
-### Removed
-
-- `doc/environment_setup.md` content superseded by `doc/getting_started.md`.
-- Manual API reference table from `architecture.md` (replaced by auto-generated Breathe docs).
+- Doxygen + Breathe auto-generated API reference.
+- Architecture guide, getting started, configuration reference, contributing guide.
 
 ## [0.7.0] - 2026-03-25
 
 ### Added
 
-- native_sim board support for tests and sample.
-- Test suites: error handling (50), boundary (5), recovery (10), stress (4) — 87 tests total.
-- GitHub Actions CI workflow with build, test, and Codecov coverage upload.
-- Code coverage infrastructure (`native_sim_coverage.conf`, `scripts/coverage.sh`).
-- CI/test runner scripts (`scripts/run_tests.sh`, `scripts/ci.sh`).
-- Twister test metadata (`tests/testcase.yaml`).
-- Test strategy documentation (`doc/test_strategy.md`).
-- CI, Codecov, and license badges in `README.md`.
-- Doxygen-style documentation for all test functions.
-
-### Changed
-
-- Pinned Zephyr to `v4.0.0` in `west.yml` (was `main`).
-- Enabled strict compile flags (`-Werror -Wextra -Wshadow` etc.) for library and tests.
-- Portable `BUILD_ASSERT` and `device_is_ready()` for cross-platform builds.
-- native_sim erase-block-size set to 8192 to match STM32U5 geometry.
-- CI uploads line-only coverage to Codecov (eliminates phantom branches from
-  Zephyr LOG macros). Branch-coverage HTML report kept as build artifact.
+- native_sim board support.
+- Test suites: error handling, boundary, recovery, stress — 87 tests total.
+- GitHub Actions CI with build, test, and Codecov.
+- Coverage infrastructure and CI scripts.
+- Test strategy documentation.
 
 ### Fixed
 
-- `west.yml`: `cmsis_6` → `cmsis` for Zephyr v4.0.0.
-- `scripts/format.sh`: sample path pointed to `tests/src` instead of `sample/src`.
-- Recovery test: erase PEB before writing garbage (hardware compatibility).
+- `west.yml`: `cmsis_6` renamed to `cmsis` for Zephyr v4.0.0.
 
 ## [0.6.0] - 2026-03-24
 
 ### Added
 
-- Architecture guide with ASCII diagrams covering on-flash layout, in-RAM data structures, PEB lifecycle, device initialization flow, and wear-leveling strategy (`doc/architecture.md`).
-- Development roadmap with prioritized feature list (`doc/roadmap.md`).
-- Contributor guide with code style, build/test, and PR workflow (`CONTRIBUTING.md`).
-- Thread safety section in architecture documentation.
-
-### Changed
-
-- Rewrote `README.md` with quick-start example, structured documentation links, and updated resource usage table.
-- Adopted [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format for `CHANGELOG.md`.
-- Refactored `doc/environment_setup.md` with prerequisites table, numbered workflow, and troubleshooting notes.
-- Renamed `doc/features_candidates.md` to `doc/roadmap.md` with status and priority tracking.
+- Architecture guide with ASCII diagrams (on-flash layout, PEB lifecycle, init flow, wear-leveling).
+- Development roadmap and contributor guide.
 
 ### Fixed
 
-- EBA table corruption during init when resolving sequence number conflicts (`ubi.c`: `item->key` was overwritten with PEB index instead of setting `item->value.pnum`).
-
-### Removed
-
-- `doc/features_candidates.md` (replaced by `doc/roadmap.md`).
+- EBA table corruption during init when resolving sequence number conflicts.
 
 ## [0.5.0] - 2025-09-25
 
 ### Added
 
-- Mutex-based synchronization for thread-safe device and volume operations.
+- Mutex-based synchronization for thread-safe operations.
 
 ## [0.4.0] - 2025-09-24
 
 ### Added
 
-- Sample application demonstrating UBI initialization on STM32U5.
+- Sample application for STM32U5.
 
 ### Changed
 
-- Optimized flash read/write operations to reduce unnecessary flash area open/close cycles.
-- Improved logging messages across all modules.
-- Deduplicated common code paths in volume and LEB operations.
-- Reorganized source file structure for clarity.
-- Updated Doxygen documentation for all public API functions.
+- Optimized flash I/O and improved logging.
 
 ## [0.3.0] - 2025-09-21
 
 ### Added
 
-- `.clang-format` configuration file for consistent code style.
+- `.clang-format` configuration.
 
 ### Changed
 
-- Replaced low-level Zephyr flash APIs with the Zephyr Flash Map (Flash Area API) for better portability and abstraction.
+- Migrated from low-level flash APIs to Zephyr Flash Map (Flash Area API).
 
 ## [0.2.0] - 2025-09-10
 
 ### Added
 
-- Volume support with static and dynamic volume types.
-- Runtime resizing for dynamic volumes.
-- Write block alignment handling (transparent to the caller).
-- Partial dual-bank support for device and volume headers on reserved PEBs.
-- Hardware integration tests on `b_u585i_iot02a`.
-
-### Removed
-
-- Hardware test documentation (superseded by updated environment setup guide).
-- Temporary sample application (reintroduced in v0.4.0).
+- Volume support with static and dynamic types.
+- Runtime resizing, write block alignment, partial dual-bank support.
+- Hardware tests on STM32U5.
 
 ## [0.1.0] - 2025-07-25
 
 ### Added
 
-- UBI device initialization and deinitialization routines.
-- LEB and PEB statistics reporting, including per-PEB erase counters.
-- LEB I/O operations: map, unmap, read, and write.
-- Hardware integration tests on `b_u585i_iot02a`.
-- Example application for `b_u585i_iot02a`.
+- Initial release: device init/deinit, LEB I/O (map, unmap, read, write), PEB statistics.
+- Hardware integration tests and sample application for STM32U5.
 - Environment setup documentation.
-  - Hardware testing procedures.  
-  - Candidate features for future development.  
-- Clang-format script for consistent code formatting.  
-
-**Changed**  
-- _No changes in this release._  
-
-**Removed**  
-- _No removals in this release._  
-
-**Fixed**  
-- _No fixes in this release._  
-
-**Contributors**  
-- [@kamil-kielbasa](https://github.com/kamil-kielbasa)  
