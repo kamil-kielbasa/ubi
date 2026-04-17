@@ -12,6 +12,7 @@
 #include "ubi_secure_event.h"
 #include "ubi_secure_ser.h"
 #include "ubi_secure_io.h"
+#include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 #include "ubi_secure_ops.h"
 #include "ubi_internal.h"
@@ -1068,7 +1069,11 @@ int ubi_secure_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 		const enum ubi_crypto_rollback_verdict verdict =
 			crypto_cfg->check_freshness(&freshness, crypto_cfg->user_data);
 
-		if (verdict == UBI_CRYPTO_ROLLBACK_REJECT) {
+		if (verdict == UBI_CRYPTO_ROLLBACK_REJECT
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+		    || ubi_secure_test_hook_check(UBI_SECURE_HOOK_FRESHNESS_REJECT)
+#endif
+		) {
 			LOG_ERR("Freshness check rejected — rollback detected");
 			struct ubi_crypto_event ev = {
 				.type = UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,

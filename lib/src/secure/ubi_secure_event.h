@@ -16,6 +16,7 @@
 
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_internal.h"
+#include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 
 #include <ubi_crypto.h>
@@ -191,7 +192,11 @@ static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
 
 	ubi->freshness_mutations_since_sync = 0;
 
-	if (rc != 0) {
+	if (rc != 0
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	    || ubi_secure_test_hook_check(UBI_SECURE_HOOK_FRESHNESS_SYNC_FAIL)
+#endif
+	) {
 		const struct ubi_crypto_event event = {
 			.type = UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE,
 			.freshness = freshness,

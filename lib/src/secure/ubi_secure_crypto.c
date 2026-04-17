@@ -8,6 +8,7 @@
 
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 
 #include <psa/crypto.h>
@@ -120,6 +121,13 @@ int ubi_secure_derive_child_key(uint32_t root_key_id, const uint8_t *label, size
 	psa_status_t status = PSA_ERROR_GENERIC_ERROR;
 	psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_HKDF_FAIL)) {
+		LOG_WRN("HKDF fault injected");
+		return -EIO;
+	}
+#endif
+
 	status = psa_key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_256));
 	if (status != PSA_SUCCESS) {
 		LOG_ERR("HKDF setup failed: %d", (int)status);
@@ -186,6 +194,13 @@ int ubi_secure_aead_encrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 		return -EINVAL;
 	}
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL)) {
+		LOG_WRN("AEAD encrypt fault injected");
+		return -EIO;
+	}
+#endif
+
 	const psa_status_t status = psa_aead_encrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len, plaintext,
 						     plaintext_len, ciphertext, ciphertext_cap,
@@ -208,6 +223,13 @@ int ubi_secure_aead_decrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 		return -EINVAL;
 	}
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_AEAD_DECRYPT_FAIL)) {
+		LOG_WRN("AEAD decrypt fault injected");
+		return -EIO;
+	}
+#endif
+
 	const psa_status_t status = psa_aead_decrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len,
 						     ciphertext, ciphertext_len, plaintext,
@@ -226,6 +248,13 @@ int ubi_secure_generate_salt(uint8_t salt[UBI_SECURE_SALT_SIZE])
 		LOG_ERR("generate_salt: NULL argument");
 		return -EINVAL;
 	}
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_RNG_FAIL)) {
+		LOG_WRN("RNG fault injected");
+		return -UBI_SECURE_ENORAND;
+	}
+#endif
 
 	const psa_status_t status = psa_generate_random(salt, UBI_SECURE_SALT_SIZE);
 
@@ -260,6 +289,13 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 		return -EINVAL;
 	}
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
+		LOG_WRN("get_key_id fault injected");
+		return -UBI_SECURE_ENOKEY;
+	}
+#endif
+
 	uint32_t root_key_id = 0;
 	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
 
@@ -292,6 +328,13 @@ int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_
 		LOG_ERR("derive_leb_key: NULL argument");
 		return -EINVAL;
 	}
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
+		LOG_WRN("get_key_id fault injected");
+		return -UBI_SECURE_ENOKEY;
+	}
+#endif
 
 	uint32_t root_key_id = 0;
 	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);

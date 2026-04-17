@@ -45,6 +45,8 @@ target_include_directories(app PRIVATE src/common)
 target_include_directories(app PRIVATE src/secure)
 
 if(CONFIG_UBI_CRYPTO)
+    target_include_directories(app PRIVATE ../lib/src/secure)
+    target_include_directories(app PRIVATE ../lib/src/plain)
     target_sources(app PRIVATE src/secure/tests_ubi_secure_api.c
                                src/secure/tests_ubi_secure_attach.c
                                src/secure/tests_ubi_secure_device.c
@@ -56,7 +58,14 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_tamper.c
                                src/secure/tests_ubi_secure_runtime_policy.c
                                src/secure/tests_ubi_secure_recovery.c
-                               src/secure/tests_ubi_secure_forensic.c)
+                               src/secure/tests_ubi_secure_forensic.c
+                               src/secure/tests_ubi_secure_error_handling.c
+                               src/secure/tests_ubi_secure_fault_injection.c
+                               src/secure/tests_ubi_secure_mutation_gate.c
+                               src/secure/tests_ubi_secure_vol_id_watermark.c
+                               src/secure/tests_ubi_secure_crypto_faults.c
+                               src/secure/tests_ubi_secure_coverage.c
+                               src/secure/tests_ubi_secure_defensive.c)
     if(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
         target_sources(app PRIVATE src/secure/tests_ubi_secure_chunked.c)
     endif()
