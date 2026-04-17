@@ -821,7 +821,12 @@ ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
 	zassert_ok(flash_area_open(mtd.partition_id, &fa));
 
 	const size_t leb_offset = 4 * mtd.erase_block_size + UBI_SECURE_LEB_OFFSET;
-	const uint8_t nonerased[4] = { 0xDE, 0xAD, 0xBE, 0xEF };
+	uint8_t nonerased[16] = { 0 };
+
+	nonerased[0] = 0xDE;
+	nonerased[1] = 0xAD;
+	nonerased[2] = 0xBE;
+	nonerased[3] = 0xEF;
 
 	zassert_ok(flash_area_write(fa, leb_offset, nonerased, sizeof(nonerased)));
 	flash_area_close(fa);
@@ -1833,7 +1838,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_plain)
 
 	zassert_ok(flash_area_open(mtd.partition_id, &fa));
 
-	uint8_t garbage[8] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+	uint8_t garbage[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
 
 	zassert_ok(flash_area_write(fa, 0, garbage, sizeof(garbage)));
 	flash_area_close(fa);
@@ -1862,7 +1867,7 @@ ZTEST(ubi_secure_defensive, test_init_plain_media_mismatch)
 	/* Write non-secure, non-blank data to reserved PEBs 0..2. */
 	for (size_t peb = 0; peb < UBI_DEV_HDR_NR_OF_RES_PEBS; peb++) {
 		const size_t offset = peb * mtd.erase_block_size;
-		uint8_t plain_data[8] = { 0x55, 0x42, 0x49, 0x23, 0x01, 0x00, 0x00, 0x00 };
+		uint8_t plain_data[16] = { 0x55, 0x42, 0x49, 0x23, 0x01, 0x00, 0x00, 0x00 };
 
 		zassert_ok(flash_area_write(fa, offset, plain_data, sizeof(plain_data)));
 	}

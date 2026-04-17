@@ -26,14 +26,14 @@ void ubi_secure_test_hook_reset(void)
 
 void ubi_secure_test_hook_set(enum ubi_secure_test_hook_stage stage, bool armed)
 {
-	if ((int)stage >= 0 && stage < UBI_SECURE_HOOK_COUNT) {
+	if (stage < UBI_SECURE_HOOK_COUNT) {
 		hooks_armed[stage] = armed;
 	}
 }
 
 bool ubi_secure_test_hook_check(enum ubi_secure_test_hook_stage stage)
 {
-	if ((int)stage >= 0 && stage < UBI_SECURE_HOOK_COUNT && hooks_armed[stage]) {
+	if (stage < UBI_SECURE_HOOK_COUNT && hooks_armed[stage]) {
 		hooks_armed[stage] = false;
 		return true;
 	}
