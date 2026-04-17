@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-04-17
+
+### Added
+
+- Secure error-handling test suite (74 tests): device init/deinit, volume CRUD, LEB I/O, resize, and edge-case contract enforcement mirrored from the plain backend.
+- Secure fault-injection test suite (2 tests): transactional safety under allocation failures and overwrite faults.
+- Secure mutation-gate test suite (1 test): write-shutdown gate enforcement via `ubi_test_set_write_shutdown()`.
+- Secure vol-id-watermark test suite (3 tests): persistent volume-ID high-watermark across remove, reinit, and slot re-indexing.
+
 ## [0.45.0] - 2026-04-16
 
 ### Changed
