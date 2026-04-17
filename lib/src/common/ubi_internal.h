@@ -74,12 +74,16 @@ struct ubi_device {
 	const struct ubi_crypto_config
 		*crypto_cfg; /**< Secure backend crypto config (NULL for plain). */
 	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter (write_active_kv). */
+	uint64_t next_ec_counter; /**< Next unused EC-domain AEAD counter. */
+	uint64_t next_dev_hdr_counter; /**< Next unused reserved-PEB AEAD counter. */
 	uint64_t cached_device_revision; /**< Cached dev_hdr revision for freshness snapshots. */
 	bool read_only_crypto; /**< Sticky crypto-initiated read-only (§14.4). */
 	size_t freshness_mutations_since_sync; /**< Mutations since last sync_freshness call. */
 	uint32_t key_peb_refcount[CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS]; /**< Per-allowlist-slot
-	    PEB refcount: number of data-PEB EC headers authenticated with each key version.
+	    PEB refcount: number of on-flash objects authenticated with each key version.
+	    Includes data-PEB EC/VID/LEB objects AND reserved-PEB objects.
 	    Indexed by allowlist position, not by raw key_version value. */
+	uint8_t reserved_key_version; /**< Key version currently used by reserved PEBs. */
 #endif
 
 	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */

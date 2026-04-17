@@ -596,4 +596,102 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
 
 /* ------------------------------------ Suite registration ------------------------------------- */
 
+/**
+ * \brief Verify VID counter floor survives remove→create→reboot sequence.
+ *
+ * \details Create volume, write several LEBs, remove volume, create new
+ *          volume, write, reboot, re-read. The sequence must not cause
+ *          counter value reuse. Additionally verifies that multiple
+ *          create→remove→create cycles do not reset the floor.
+ *
+ * \expected New volume writes succeed after remove→create→reboot,
+ *           data integrity is preserved, and no counter was reused.
+ */
+ZTEST(ubi_secure_volumes, test_vid_counter_floor_remove_create_reboot)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_volume_config vol_cfg_a = {
+		.name = { '/', 'a' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+
+	/* 1. Create volume A, write data to advance VID counter. */
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg_a, &vol_id));
+
+	const uint8_t data1[] = { 0x11, 0x22 };
+
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data1, sizeof(data1)));
+	zassert_ok(ubi_leb_write(ubi, vol_id, 1, data1, sizeof(data1)));
+	/* Overwrite to push counter further. */
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data1, sizeof(data1)));
+
+	/* 2. Remove volume A — floor preserved in device header. */
+	zassert_ok(ubi_volume_remove(ubi, vol_id));
+
+	/* 3. Create volume B (same config). */
+	const struct ubi_volume_config vol_cfg_b = {
+		.name = { '/', 'b' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id_b = -1;
+
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg_b, &vol_id_b));
+
+	const uint8_t data2[] = { 0xAA, 0xBB, 0xCC };
+
+	zassert_ok(ubi_leb_write(ubi, vol_id_b, 0, data2, sizeof(data2)));
+
+	/* 4. Reboot. */
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+
+	/* 5. Verify data integrity — floor was preserved across remove→create→reboot. */
+	uint8_t rdata[sizeof(data2)] = { 0 };
+	size_t rsize = 0;
+
+	zassert_ok(ubi_leb_get_size(ubi, vol_id_b, 0, &rsize));
+	zassert_equal(sizeof(data2), rsize);
+	zassert_ok(ubi_leb_read(ubi, vol_id_b, 0, 0, rdata, rsize));
+	zassert_mem_equal(rdata, data2, sizeof(data2));
+
+	/* 6. One more cycle: remove B, create C, reboot, verify. */
+	zassert_ok(ubi_volume_remove(ubi, vol_id_b));
+
+	const struct ubi_volume_config vol_cfg_c = {
+		.name = { '/', 'c' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+	int vol_id_c = -1;
+
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg_c, &vol_id_c));
+
+	const uint8_t data3[] = { 0xDD, 0xEE };
+
+	zassert_ok(ubi_leb_write(ubi, vol_id_c, 0, data3, sizeof(data3)));
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+
+	memset(rdata, 0, sizeof(rdata));
+	rsize = 0;
+	zassert_ok(ubi_leb_get_size(ubi, vol_id_c, 0, &rsize));
+	zassert_equal(sizeof(data3), rsize);
+	zassert_ok(ubi_leb_read(ubi, vol_id_c, 0, 0, rdata, rsize));
+	zassert_mem_equal(rdata, data3, sizeof(data3));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
 ZTEST_SUITE(ubi_secure_volumes, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

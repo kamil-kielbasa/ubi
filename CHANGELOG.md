@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-04-17
+
+### Changed
+
+- Secure crypto: central allowlist check in `derive_domain_key()` and `derive_leb_key()` — all domains and both read/write paths validated before key derivation.
+- Secure backend: monotonic AEAD counters for EC and device-header domains — recovered from flash during init, incremented per write.
+- Secure backend: VID counter overflow check (`COUNTER_MAX`) with `KEY_ROTATE_NOW` event.
+- Secure backend: overflow guards in `ec_hdr_write`, `vid_hdr_write`, and `res_peb_commit`.
+- Secure backend: eager reserved-PEB key upgrade during attach — when `requested_write_key_version` differs from flash, `res_peb_commit` rewrites device and volume headers under the new key immediately, with graceful fallback if the key is not yet provisioned.
+- Secure backend: reserved-PEB refcount tracking via `reserved_key_version` field — `KEY_RETIRABLE` blocked while reserved PEBs still depend on old key version.
+
+### Added
+
+- Test: VID counter floor survives `remove→create→reboot` sequence (2 cycles).
+- Test: refcount E2E lifecycle with key rotation (`kv=1→kv=2`), volume ops, unmap, resize, erase cycles, and `KEY_RETIRABLE` verification.
+- Tests: counter overflow boundary tests for EC, VID, and reserved-PEB AEAD counters.
+- Tests: allowlist rejection tests for `derive_domain_key` and `derive_leb_key`.
+
 ## [0.47.0] - 2026-04-17
 
 ### Changed

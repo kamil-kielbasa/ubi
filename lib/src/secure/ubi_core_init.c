@@ -160,11 +160,14 @@ static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 	};
 
 	for (size_t peb = UBI_DEV_HDR_NR_OF_RES_PEBS; peb < nr_of_pebs; peb++) {
-		ret = ubi_secure_ec_hdr_write(&ubi_dev->mtd, cfg, peb, &ec_hdr, write_kv, 0);
+		ret = ubi_secure_ec_hdr_write(&ubi_dev->mtd, cfg, peb, &ec_hdr, write_kv,
+					      ubi_dev->next_ec_counter);
 		if (ret != 0) {
 			LOG_ERR("Secure EC header write failure at PEB %zu", peb);
 			return ret;
 		}
+
+		ubi_dev->next_ec_counter++;
 	}
 
 	return 0;
@@ -602,6 +605,11 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 		/* Track key-version PEB refcount from EC header. */
 		ubi_secure_key_refcount_inc(ubi_dev, ec_ctx.key_version);
 
+		/* Track max EC-domain AEAD counter for nonce monotonicity. */
+		if (ec_ctx.aead_counter >= ubi_dev->next_ec_counter) {
+			ubi_dev->next_ec_counter = ec_ctx.aead_counter + 1;
+		}
+
 		/* Check if VID region is erased — classifies free/dirty. */
 		ret = scan_classify_vid_region(ubi_dev, pnum, &ec_hdr);
 		if (ret < 0) {
@@ -724,16 +732,27 @@ static int secure_format(const struct ubi_mtd *mtd, const struct ubi_crypto_conf
 
 	/* Commit encrypted reserved PEBs. */
 	ret = ubi_secure_res_peb_commit(mtd, crypto_cfg, &dev_hdr, &dev_meta, NULL, 0,
-					crypto_cfg->policy.requested_write_key_version, 0);
+					crypto_cfg->policy.requested_write_key_version,
+					ubi_dev->next_dev_hdr_counter);
 	if (ret != 0 && ret != -EROFS) {
 		LOG_ERR("Secure format commit failure");
 		return ret;
 	}
 
+	/* Advance dev_hdr counter: 1 for dev_hdr + 0 vol headers. */
+	ubi_dev->next_dev_hdr_counter += 1;
+
 	/* Populate ubi_device fields from formatted state. */
 	ubi_dev->vol_id_watermark = 0;
 	ubi_dev->vol_count = 0;
 	ubi_dev->read_only_degraded = (ret == -EROFS);
+
+	/* Track reserved-PEB key version and refcount. */
+	ubi_dev->reserved_key_version = crypto_cfg->policy.requested_write_key_version;
+	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+		ubi_secure_key_refcount_inc(ubi_dev,
+					    crypto_cfg->policy.requested_write_key_version);
+	}
 
 	/* Format data PEBs: erase and write secure EC headers. */
 	const size_t nr_of_pebs = fa_size_for_format / ubi_dev->mtd.erase_block_size;
@@ -795,13 +814,65 @@ static int secure_attach(const struct ubi_mtd *mtd, const struct ubi_crypto_conf
 	ubi_dev->vol_id_watermark = scan.dev_hdr.vol_id_watermark;
 	ubi_dev->read_only_degraded = (scan.auth_count < UBI_SECURE_RES_PEB_NR_ACTIVE);
 	ubi_dev->next_vid_counter = scan.dev_meta.vid_next_counter_floor;
+
+	/* Recover reserved-PEB AEAD counter from the canonical device header prefix.
+	 * The last commit used counter values [c, c+1, .., c+vol_count].
+	 * Next available = c + 1 + vol_count. */
+	const uint64_t dev_hdr_counter = ubi_secure_decode_counter48(scan.dev_prefix.counter);
+
+	ubi_dev->next_dev_hdr_counter = dev_hdr_counter + 1 + scan.dev_hdr.vol_count;
+
 	*out_device_revision = scan.dev_hdr.revision;
 
-	/* NOTE: Reserved PEB objects (EC, dev_hdr, vol_hdrs) are intentionally
-	 * excluded from the key refcount.  Reserved PEB rewrites during volume
-	 * mutations would require paired dec/inc bookkeeping that adds
-	 * complexity with negligible effect on KEY_RETIRABLE accuracy (reserved
-	 * objects are a small constant ≤ 10 out of potentially hundreds). */
+	/* Eagerly upgrade reserved PEBs when the requested write key version
+	 * differs from what is on flash.  This ensures KEY_RETIRABLE can fire
+	 * as soon as all data PEBs are cleaned up, without waiting for a
+	 * volume mutation to trigger the upgrade. */
+	const uint8_t new_kv = crypto_cfg->policy.requested_write_key_version;
+
+	if (new_kv != scan.dev_prefix.key_version) {
+		struct ubi_dev_hdr upd_hdr = scan.dev_hdr;
+		struct ubi_dev_secure_meta upd_meta = scan.dev_meta;
+
+		upd_hdr.revision += 1;
+		upd_hdr.hdr_crc = crc32_ieee((const uint8_t *)&upd_hdr,
+					     sizeof(upd_hdr) - sizeof(upd_hdr.hdr_crc));
+		upd_meta.write_active_key_version = new_kv;
+
+		ret = ubi_secure_res_peb_commit(mtd, crypto_cfg, &upd_hdr, &upd_meta, vol_hdrs,
+						scan.dev_hdr.vol_count, new_kv,
+						ubi_dev->next_dev_hdr_counter);
+		if (ret == -EROFS) {
+			LOG_WRN("Reserved PEB bank degraded during key upgrade");
+			ubi_dev->read_only_degraded = true;
+			/* At least one bank succeeded — treat as upgraded. */
+			ubi_dev->next_dev_hdr_counter += 1 + scan.dev_hdr.vol_count;
+			*out_device_revision = upd_hdr.revision;
+			ubi_dev->reserved_key_version = new_kv;
+			for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+				ubi_secure_key_refcount_inc(ubi_dev, new_kv);
+			}
+		} else if (ret != 0) {
+			/* Key may not be provisioned yet — defer upgrade. */
+			LOG_WRN("Key upgrade deferred: commit failed (%d)", ret);
+			ubi_dev->reserved_key_version = scan.dev_prefix.key_version;
+			for (size_t i = 0; i < scan.auth_count; i++) {
+				ubi_secure_key_refcount_inc(ubi_dev, scan.dev_prefix.key_version);
+			}
+		} else {
+			ubi_dev->next_dev_hdr_counter += 1 + scan.dev_hdr.vol_count;
+			*out_device_revision = upd_hdr.revision;
+			ubi_dev->reserved_key_version = new_kv;
+			for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+				ubi_secure_key_refcount_inc(ubi_dev, new_kv);
+			}
+		}
+	} else {
+		ubi_dev->reserved_key_version = scan.dev_prefix.key_version;
+		for (size_t i = 0; i < scan.auth_count; i++) {
+			ubi_secure_key_refcount_inc(ubi_dev, scan.dev_prefix.key_version);
+		}
+	}
 
 	/* Collect volumes into RAM — vol_count is incremented per-insert. */
 	ret = init_collect_volumes(ubi_dev, vol_hdrs, scan.dev_hdr.vol_count);

@@ -111,6 +111,19 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	 *    Use global VID counter for this key version. */
 	const uint64_t vid_counter = ubi->next_vid_counter;
 
+	if (vid_counter > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("VID counter overflow");
+		const struct ubi_crypto_event event = {
+			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.rotation = { .key_version = write_kv,
+				      .usage_pct = UBI_SECURE_PERCENT_BASE },
+		};
+		ubi_secure_emit_event(ubi, &event);
+		ret = -EOVERFLOW;
+		goto mark_bad;
+	}
+
 	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
 				       &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
@@ -356,7 +369,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	ret = ubi_secure_res_peb_commit(&ubi->mtd, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
-					new_vol_count, write_kv, 0);
+					new_vol_count, write_kv, ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during create commit");
 		ubi->read_only_degraded = true;
@@ -373,6 +386,19 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	}
 
 	/* Commit succeeded — update RAM state. */
+	ubi->next_dev_hdr_counter += 1 + new_vol_count;
+
+	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
+	if (write_kv != ubi->reserved_key_version) {
+		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+			ubi_secure_key_refcount_dec_and_check(ubi, ubi->reserved_key_version);
+		}
+		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+			ubi_secure_key_refcount_inc(ubi, write_kv);
+		}
+		ubi->reserved_key_version = write_kv;
+	}
+
 	vol->vol_id = new_vol_hdr.vol_id;
 	ubi_copy_name_from_hdr(vol->cfg.name, new_vol_hdr.name);
 	vol->cfg.type = new_vol_hdr.vol_type;
@@ -502,7 +528,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	ret = ubi_secure_res_peb_commit(&ubi->mtd, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
-					existing_vol_count, write_kv, 0);
+					existing_vol_count, write_kv, ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during resize commit");
 		ubi->read_only_degraded = true;
@@ -515,6 +541,19 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	}
 
 	/* Flash commit succeeded — now safe to mutate RAM state. */
+	ubi->next_dev_hdr_counter += 1 + existing_vol_count;
+
+	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
+	if (write_kv != ubi->reserved_key_version) {
+		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+			ubi_secure_key_refcount_dec_and_check(ubi, ubi->reserved_key_version);
+		}
+		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+			ubi_secure_key_refcount_inc(ubi, write_kv);
+		}
+		ubi->reserved_key_version = write_kv;
+	}
+
 	if (vol_cfg->leb_count < vol->cfg.leb_count) {
 		for (size_t lnum = vol_cfg->leb_count; lnum < vol->cfg.leb_count; lnum++) {
 			struct ubi_rbt_item *eba_item = ubi_cache_search(&vol->eba_tbl, lnum);
@@ -596,7 +635,8 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	ret = ubi_secure_res_peb_commit(&ubi->mtd, ubi->crypto_cfg, &dev_hdr, &dev_meta,
-					new_vol_hdrs, new_count, write_kv, 0);
+					new_vol_hdrs, new_count, write_kv,
+					ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during remove commit");
 		ubi->read_only_degraded = true;
@@ -609,6 +649,19 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	/* Flash commit succeeded — reclaim PEBs. */
+	ubi->next_dev_hdr_counter += 1 + new_count;
+
+	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
+	if (write_kv != ubi->reserved_key_version) {
+		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+			ubi_secure_key_refcount_dec_and_check(ubi, ubi->reserved_key_version);
+		}
+		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+			ubi_secure_key_refcount_inc(ubi, write_kv);
+		}
+		ubi->reserved_key_version = write_kv;
+	}
+
 	struct ubi_volume *vol = vol_entry->value.vol;
 	struct rbnode *eba_node = NULL;
 

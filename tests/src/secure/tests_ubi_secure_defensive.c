@@ -2466,6 +2466,117 @@ ZTEST(ubi_secure_defensive, test_vol_resize_zero_lebs)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
+/* ============================== Counter overflow boundary tests ============================== */
+
+/**
+ * \brief derive_domain_key rejects key version not in allowlist.
+ *
+ * \details Call ubi_secure_derive_domain_key with kv=99, allowlist=[1].
+ *
+ * \expected Returns -UBI_SECURE_ENOKEY.
+ */
+ZTEST(ubi_secure_defensive, test_derive_domain_key_rejects_non_allowlisted_kv)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	uint32_t child_key_id = 0;
+
+	zassert_equal(ubi_secure_derive_domain_key(&cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER, 99,
+						   &child_key_id),
+		      -UBI_SECURE_ENOKEY);
+}
+
+/**
+ * \brief derive_leb_key rejects key version not in allowlist.
+ *
+ * \details Call ubi_secure_derive_leb_key with kv=99, allowlist=[1].
+ *
+ * \expected Returns -UBI_SECURE_ENOKEY.
+ */
+ZTEST(ubi_secure_defensive, test_derive_leb_key_rejects_non_allowlisted_kv)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	uint32_t child_key_id = 0;
+
+	zassert_equal(ubi_secure_derive_leb_key(&cfg, 99, 0, &child_key_id), -UBI_SECURE_ENOKEY);
+}
+
+/**
+ * \brief EC header write rejects counter above COUNTER_MAX.
+ *
+ * \details Call ubi_secure_ec_hdr_write with counter = COUNTER_MAX + 1.
+ *
+ * \expected Returns -EOVERFLOW.
+ */
+ZTEST(ubi_secure_defensive, test_ec_hdr_write_counter_overflow)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_ec_hdr ec_hdr = {
+		.magic = UBI_EC_HDR_MAGIC,
+		.version = UBI_EC_HDR_VERSION,
+		.ec = 0,
+	};
+
+	zassert_equal(ubi_secure_ec_hdr_write(&mtd, &cfg, 4, &ec_hdr, 1,
+					      UBI_SECURE_COUNTER_MAX + 1),
+		      -EOVERFLOW);
+}
+
+/**
+ * \brief VID header write rejects counter above COUNTER_MAX.
+ *
+ * \details Call ubi_secure_vid_hdr_write with counter = COUNTER_MAX + 1.
+ *
+ * \expected Returns -EOVERFLOW.
+ */
+ZTEST(ubi_secure_defensive, test_vid_hdr_write_counter_overflow)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_secure_ec_auth_ctx ec_ctx = { .ec = 0, .key_version = 1 };
+	const struct ubi_vid_hdr vid_hdr = {
+		.magic = UBI_VID_HDR_MAGIC,
+		.version = UBI_VID_HDR_VERSION,
+	};
+	const struct ubi_vid_secure_meta vid_meta = { 0 };
+
+	zassert_equal(ubi_secure_vid_hdr_write(&mtd, &cfg, 4, &ec_ctx, &vid_hdr, &vid_meta, 1,
+					       UBI_SECURE_COUNTER_MAX + 1),
+		      -EOVERFLOW);
+}
+
+/**
+ * \brief Reserved PEB commit rejects counter overflow.
+ *
+ * \details Call ubi_secure_res_peb_commit with counter near COUNTER_MAX
+ *          and vol_count that would push total past the limit.
+ *
+ * \expected Returns -EOVERFLOW.
+ */
+ZTEST(ubi_secure_defensive, test_res_peb_commit_counter_overflow)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	struct ubi_dev_hdr dh = { .magic = UBI_DEV_HDR_MAGIC, .version = UBI_DEV_HDR_VERSION };
+	struct ubi_dev_secure_meta dm = { 0 };
+
+	zassert_equal(ubi_secure_res_peb_commit(&mtd, &cfg, &dh, &dm, NULL, 0, 1,
+						UBI_SECURE_COUNTER_MAX + 1),
+		      -EOVERFLOW);
+}
+
 /* ===================================== Suite registration ===================================== */
 
 ZTEST_SUITE(ubi_secure_defensive, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

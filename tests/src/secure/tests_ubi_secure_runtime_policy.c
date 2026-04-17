@@ -579,13 +579,14 @@ ZTEST(ubi_secure_runtime_policy, test_budget_rotate_now_rejects_write)
 }
 
 /**
- * \brief KEY_RETIRABLE fires when all data-PEB objects for a retired key
+ * \brief KEY_RETIRABLE fires after all data-PEB objects for a retired key
  *        version have been erased.
  *
  * \details Format with kv=1. Write data. Re-init with write_kv=2 and
- *          allowlist=[1,2]. Overwrite all mapped LEBs with kv=2 and
- *          erase dirty PEBs in a loop until every data-PEB object that was
- *          under kv=1 has been recycled. Verify KEY_RETIRABLE(kv=1).
+ *          allowlist=[1,2] — attach eagerly upgrades reserved PEBs to kv=2.
+ *          Overwrite mapped LEBs with kv=2 and erase dirty PEBs until
+ *          every data-PEB object under kv=1 has been recycled.
+ *          Verify KEY_RETIRABLE(kv=1).
  *
  * \expected key_retirable_count >= 1 and key_retirable_kv == 1.
  */
@@ -616,6 +617,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
 	g_ubi = NULL;
 
 	/* Phase 2: Re-init with kv=2 as write key, allowlist=[1,2].
+	 * Attach eagerly upgrades reserved PEBs to kv=2.
 	 * Cyclically overwrite the LEB and erase dirty PEBs until all
 	 * kv=1 data-PEB objects have been replaced by kv=2. */
 	static const uint8_t allowed_v12[] = { 1, 2 };
@@ -655,8 +657,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
 		}
 	}
 
-	/* Unmap LEB 0 to release the mapped PEB (which still has kv=1 EC)
-	 * and the anchor PEB into the dirty pool. */
+	/* Unmap LEB 0 to release the mapped PEB and anchor into dirty pool. */
 	zassert_ok(ubi_leb_unmap(g_ubi, vol_id, 0));
 
 	/* Erase all remaining dirty PEBs (including formerly-mapped + anchor). */
@@ -678,8 +679,8 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
  *
  * \details Three-phase test:
  *          1. Write data with kv=1 and create the volume.
- *          2. Re-init with kv=2, allowlist=[1,2]. Create a second volume
- *             so that reserved PEBs get rewritten under kv=2.
+ *          2. Re-init with kv=2, allowlist=[1,2]. Attach eagerly upgrades
+ *             reserved PEBs to kv=2.
  *          3. Re-init with kv=2, allowlist=[2]. Reserved PEBs pass (kv=2).
  *             Data-PEB init scan succeeds (no allowlist check in scan).
  *             Runtime ubi_leb_read → EC kv=1 not in [2] → reject.
@@ -711,7 +712,7 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 	g_ubi = NULL;
 
 	/* Phase 2: Re-init with allowlist=[1,2], write_kv=2.
-	 * Create a second volume so reserved PEBs get rewritten under kv=2. */
+	 * Attach eagerly upgrades reserved PEBs to kv=2. */
 	static const uint8_t allowed_v12[] = { 1, 2 };
 
 	cfg.policy.requested_write_key_version = 2;
@@ -719,22 +720,13 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 	cfg.policy.allowed_key_versions_len = 2;
 
 	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
-
-	const struct ubi_volume_config vol_cfg2 = {
-		.name = { '/', 'u', 'b', 'i', '_', '1' },
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 1,
-	};
-
-	int vol_id2 = -1;
-
-	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg2, &vol_id2));
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 
 	/* Phase 3: Re-init with allowlist=[2] only — kv=1 not allowed.
-	 * get_key_id returns same key for all versions so data-PEB AEAD
-	 * succeeds during init scan. The allowlist check in leb_read rejects. */
+	 * The central allowlist check in derive_domain_key() rejects kv=1
+	 * during init scan — PEBs with kv=1 EC headers are marked bad.
+	 * Data written under kv=1 is no longer accessible. */
 	static const uint8_t allowed_v2[] = { 2 };
 
 	cfg.policy.allowed_key_versions = allowed_v2;
@@ -742,12 +734,19 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 
 	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
 
-	/* Read should be rejected — on-flash EC/VID has kv=1, not in [2]. */
+	/* Volume 0 data PEBs (kv=1) were excluded from scan — LEB not mapped.
+	 * Read fails because the data is inaccessible under the new policy. */
 	uint8_t rdata[4] = { 0 };
 	int ret = ubi_leb_read(g_ubi, vol_id, 0, 0, rdata, sizeof(rdata));
 
-	zassert_not_equal(ret, 0, "Expected read to fail");
-	zassert_true(ts.allowlist_reject_count >= 1, "Expected KEY_VERSION_NOT_ALLOWLISTED event");
+	zassert_not_equal(ret, 0, "Expected read to fail under restricted allowlist");
+
+	/* Verify bad PEB count reflects the policy-excluded PEBs. */
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+	zassert_true(info.bad_peb_count >= 1,
+		     "Expected at least one PEB marked bad from policy exclusion");
 }
 
 /**
@@ -980,6 +979,173 @@ ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
 	memset(rdata, 0, sizeof(rdata));
 	zassert_ok(ubi_leb_read(g_ubi, vol_id, 1, 0, rdata, sizeof(rdata)));
 	zassert_mem_equal(rdata, wdata_v2, sizeof(wdata_v2));
+}
+
+/**
+ * \brief End-to-end refcount test: full lifecycle with key rotation and
+ *        KEY_RETIRABLE event after many erases.
+ *
+ * \details Exercises all major operations under key rotation:
+ *          1. Init kv=1, volume create, LEB write/read, LEB unmap,
+ *             volume resize (expand + shrink), LEB write again.
+ *          2. Deinit, re-init with kv=2 (allowlist=[1,2]).
+ *          3. Write new data under kv=2, overwrite existing LEBs,
+ *             unmap LEBs, erase all dirty PEBs in a loop.
+ *          4. Remove the volume to release all PEBs (including anchor).
+ *          5. Erase all remaining dirty PEBs.
+ *          6. Verify KEY_RETIRABLE(kv=1) fires after the last kv=1
+ *             EC header is erased.
+ *
+ * \expected key_retirable_count >= 1, key_retirable_kv == 1.
+ */
+ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
+{
+	/* Phase 1: Init with kv=1. Create volume. Write / read / unmap / resize. */
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'r', 'c' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 3,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	/* Write to LEBs 0, 1, 2. */
+	const uint8_t wdata[] = { 0x11, 0x22, 0x33, 0x44 };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata)));
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 1, wdata, sizeof(wdata)));
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 2, wdata, sizeof(wdata)));
+
+	/* Read back to verify. */
+	uint8_t rdata[4] = { 0 };
+
+	zassert_ok(ubi_leb_read(g_ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, wdata, sizeof(wdata));
+
+	/* Unmap LEB 2. */
+	zassert_ok(ubi_leb_unmap(g_ubi, vol_id, 2));
+
+	/* Resize: shrink to 2 LEBs. */
+	const struct ubi_volume_config resize_cfg = {
+		.name = { '/', 'r', 'c' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+
+	zassert_ok(ubi_volume_resize(g_ubi, vol_id, &resize_cfg));
+
+	/* Overwrite LEB 0 to create a dirty PEB. */
+	const uint8_t wdata_v1b[] = { 0xAA, 0xBB };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata_v1b, sizeof(wdata_v1b)));
+
+	/* Erase dirty PEBs generated so far. */
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+	while (info.dirty_peb_count > 0) {
+		zassert_ok(ubi_device_erase_peb(g_ubi));
+		memset(&info, 0, sizeof(info));
+		zassert_ok(ubi_device_get_info(g_ubi, &info));
+	}
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	/* Phase 2: Re-init with kv=2, allowlist=[1,2]. */
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+
+	/* Read data from kv=1 still works (allowlist has both). */
+	uint8_t rdata_v1b[sizeof(wdata_v1b)] = { 0 };
+
+	zassert_ok(ubi_leb_read(g_ubi, vol_id, 0, 0, rdata_v1b, sizeof(rdata_v1b)));
+	zassert_mem_equal(rdata_v1b, wdata_v1b, sizeof(wdata_v1b));
+
+	/* Phase 3: Cyclically overwrite LEBs and erase dirty PEBs until all
+	 * kv=1 data-PEB objects have been replaced by kv=2. Each cycle:
+	 * - Overwrite LEBs → old kv=1 PEB goes dirty, new PEB uses kv=2 VID.
+	 * - Erase dirty → old EC (kv=1) destroyed, new EC (kv=2) written.
+	 * Free PEBs with kv=1 EC are consumed as they are allocated for writes.
+	 * After enough cycles, all EC headers become kv=2 and kv=1 refcount → 0. */
+	const uint8_t wdata_v2[] = { 0xCC, 0xDD, 0xEE };
+
+	memset(&info, 0, sizeof(info));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+	const size_t total_pebs =
+		info.free_peb_count + info.dirty_peb_count + info.reserved_peb_count;
+	const size_t max_cycles = total_pebs * 3;
+
+	for (size_t i = 0; i < max_cycles && ts.key_retirable_count == 0; i++) {
+		int ret = ubi_leb_write(g_ubi, vol_id, 0, wdata_v2, sizeof(wdata_v2));
+
+		if (ret != 0) {
+			break;
+		}
+
+		memset(&info, 0, sizeof(info));
+		zassert_ok(ubi_device_get_info(g_ubi, &info));
+		while (info.dirty_peb_count > 0) {
+			ret = ubi_device_erase_peb(g_ubi);
+			if (ret != 0) {
+				break;
+			}
+			memset(&info, 0, sizeof(info));
+			zassert_ok(ubi_device_get_info(g_ubi, &info));
+		}
+	}
+
+	/* Phase 4: Unmap and remove to release mapped + anchor PEBs. */
+	zassert_ok(ubi_leb_unmap(g_ubi, vol_id, 0));
+	zassert_ok(ubi_leb_unmap(g_ubi, vol_id, 1));
+	zassert_ok(ubi_volume_remove(g_ubi, vol_id));
+
+	/* Erase all remaining dirty PEBs (including formerly-mapped + anchor). */
+	memset(&info, 0, sizeof(info));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+	while (info.dirty_peb_count > 0) {
+		zassert_ok(ubi_device_erase_peb(g_ubi));
+		memset(&info, 0, sizeof(info));
+		zassert_ok(ubi_device_get_info(g_ubi, &info));
+	}
+
+	/* Phase 5: Verify KEY_RETIRABLE fired for kv=1. */
+	zassert_true(ts.key_retirable_count >= 1, "Expected KEY_RETIRABLE event for kv=1");
+	zassert_equal(ts.key_retirable_kv, 1, "Expected retirable kv=1, got %u",
+		      ts.key_retirable_kv);
+
+	/* Create a new volume to verify the device is still functional. */
+	const struct ubi_volume_config vol_cfg2 = {
+		.name = { '/', 'r', '2' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id2 = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg2, &vol_id2));
+
+	const uint8_t data_final[] = { 0xFF, 0xFE };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id2, 0, data_final, sizeof(data_final)));
+
+	uint8_t rdata2[sizeof(data_final)] = { 0 };
+
+	zassert_ok(ubi_leb_read(g_ubi, vol_id2, 0, 0, rdata2, sizeof(rdata2)));
+	zassert_mem_equal(rdata2, data_final, sizeof(data_final));
 }
 
 /* ---------------------------------------- Suite def ------------------------------------------ */

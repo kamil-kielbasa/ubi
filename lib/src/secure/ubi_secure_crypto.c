@@ -290,6 +290,21 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 		return -EINVAL;
 	}
 
+	/* Central allowlist gate — every key derivation must pass through here. */
+	bool kv_allowed = false;
+
+	for (size_t i = 0; i < crypto_cfg->policy.allowed_key_versions_len; i++) {
+		if (crypto_cfg->policy.allowed_key_versions[i] == key_version) {
+			kv_allowed = true;
+			break;
+		}
+	}
+
+	if (!kv_allowed) {
+		LOG_ERR("Key version %u not in allowlist (domain %d)", key_version, (int)domain);
+		return -UBI_SECURE_ENOKEY;
+	}
+
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
 	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
 		LOG_WRN("get_key_id fault injected");
@@ -328,6 +343,22 @@ int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_
 	if (crypto_cfg == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_leb_key: NULL argument");
 		return -EINVAL;
+	}
+
+	/* Central allowlist gate — every key derivation must pass through here. */
+	bool kv_allowed = false;
+
+	for (size_t i = 0; i < crypto_cfg->policy.allowed_key_versions_len; i++) {
+		if (crypto_cfg->policy.allowed_key_versions[i] == key_version) {
+			kv_allowed = true;
+			break;
+		}
+	}
+
+	if (!kv_allowed) {
+		LOG_ERR("Key version %u not in allowlist (LEB domain, vol %u)", key_version,
+			volume_id);
+		return -UBI_SECURE_ENOKEY;
 	}
 
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)

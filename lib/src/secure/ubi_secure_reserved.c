@@ -552,6 +552,12 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
 		return -EINVAL;
 	}
 
+	/* Overflow guard: counter + 1 + vol_count must not exceed 48-bit max. */
+	if (counter + vol_count > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("Reserved-PEB AEAD counter overflow");
+		return -EOVERFLOW;
+	}
+
 	/* Derive device-header and volume-header child keys. */
 	uint32_t dev_key_id = 0;
 

@@ -196,6 +196,7 @@ BUILD_ASSERT(sizeof(struct ubi_vid_secure_meta) == UBI_SECURE_VID_META_SIZE);
  */
 struct ubi_secure_ec_auth_ctx {
 	uint64_t ec; /*!< Authenticated erase counter value. */
+	uint64_t aead_counter; /*!< AEAD nonce counter from EC prefix. */
 	uint8_t key_version; /*!< EC-header prefix key_version. */
 };
 

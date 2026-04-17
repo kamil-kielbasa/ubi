@@ -152,6 +152,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 	memcpy(ec_hdr, plaintext, UBI_SECURE_EC_PLAINTEXT_SIZE);
 	ec_ctx->ec = ec_hdr->ec;
 	ec_ctx->key_version = prefix.key_version;
+	ec_ctx->aead_counter = ubi_secure_decode_counter48(prefix.counter);
 
 	ubi_secure_zeroize(plaintext, sizeof(plaintext));
 	return 0;
@@ -164,6 +165,11 @@ int ubi_secure_ec_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	if (mtd == NULL || crypto_cfg == NULL || ec_hdr == NULL) {
 		LOG_ERR("ec_hdr_write: NULL argument");
 		return -EINVAL;
+	}
+
+	if (counter > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("EC-domain AEAD counter overflow");
+		return -EOVERFLOW;
 	}
 
 	/* Derive EC-domain child key. */
@@ -359,6 +365,11 @@ int ubi_secure_vid_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_
 	    vid_meta == NULL) {
 		LOG_ERR("vid_hdr_write: NULL argument");
 		return -EINVAL;
+	}
+
+	if (counter > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("VID-domain AEAD counter overflow");
+		return -EOVERFLOW;
 	}
 
 	/* Derive VID-domain child key. */

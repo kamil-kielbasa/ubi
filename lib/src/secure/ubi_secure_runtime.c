@@ -99,12 +99,14 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	ret = ubi_secure_ec_hdr_write(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
-				      write_kv, 0);
+				      write_kv, ubi->next_ec_counter);
 	if (ret != 0) {
 		LOG_ERR("EC header write failure");
 		ubi_secure_handle_write_error(ubi, ret, entry->value.pnum);
 		goto mark_bad;
 	}
+
+	ubi->next_ec_counter++;
 
 	/* Update key-version refcounts: old objects destroyed, new EC written. */
 	ubi_secure_key_refcount_dec_and_check(ubi, ec_ctx.key_version);
