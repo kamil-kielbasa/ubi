@@ -176,6 +176,7 @@ int ubi_secure_derive_child_key(uint32_t root_key_id, const uint8_t *label, size
 
 abort:
 	psa_key_derivation_abort(&op);
+	LOG_ERR("Key derivation aborted");
 	return -EIO;
 }
 

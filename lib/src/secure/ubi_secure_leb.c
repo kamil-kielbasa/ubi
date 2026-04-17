@@ -13,7 +13,7 @@
 #include "ubi_secure_io.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 #include "ubi_mem.h"
 
 #include <zephyr/logging/log.h>
@@ -102,7 +102,7 @@ static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_vol
  * \brief Allocate a free PEB, write optional data payload, then write VID header.
  *
  * Write order: LEB data first, VID second (commit point).
- * Per §11.5: counter_base = old leb_write_counter. LEB data uses counter_base.
+ * counter_base = old leb_write_counter. LEB data uses counter_base.
  * VID gets leb_write_counter = counter_base + aead_invocations (1 for single-tag).
  * VID gets leb_total_auth_bytes = old + leb_aad_bytes_this_write + payload_bytes.
  */
@@ -115,9 +115,9 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	__ASSERT_NO_MSG(vol != NULL);
 	__ASSERT_NO_MSG(out_new_node != NULL);
 
-	/* Pre-write budget + nonce-overflow check (§11.5 step 6, §14.2).
+	/* Pre-write budget + nonce-overflow check.
 	 * Reject BEFORE any flash mutation. */
-	/* Per §11.5 steps 4,5: compute invocations and auth bytes for this write. */
+	/* Compute AEAD invocations and auth bytes for this write. */
 #if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
 	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
 	const uint32_t aead_invocations =
@@ -191,7 +191,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
 
 	/*
-	 * Per §11.5 steps 4,5,7–10:
+	 * Write the new PEB:
 	 *   counter_base = old_write_counter (next unused AEAD counter).
 	 *   aead_invocations computed above (1 for single-tag, chunk_count for chunked).
 	 *   LEB data written starting at counter_base.
@@ -227,7 +227,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	}
 
 	/* Step 2: Write VID header — this is the commit point.
-	 * VID counter = global vid_next per §9.8, independent of per-LEB counter. */
+	 * VID counter = global vid_next, independent of per-LEB counter. */
 	const uint64_t vid_counter = ubi->next_vid_counter;
 
 	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, new_node->value.pnum, &ec_ctx,
@@ -241,11 +241,11 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	ubi->next_vid_counter = vid_counter + 1;
 
-	/* Track VID+LEB objects for key refcount (§13.3). */
+	/* Track VID+LEB objects for key-version refcount. */
 	ubi_secure_key_refcount_inc(ubi, write_kv);
 	ubi_secure_key_refcount_inc(ubi, write_kv);
 
-	/* Check LEB usage budget thresholds (§14.5). */
+	/* Check LEB usage budget thresholds. */
 	ubi_secure_check_leb_budget(ubi, write_kv, vol->vol_id, vid_meta.leb_write_counter,
 				    vid_meta.leb_total_auth_bytes);
 
@@ -312,6 +312,7 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}
@@ -322,7 +323,7 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 		goto exit;
 	}
 
-	/* §11.5 step 1: preserve emergency free-PEB reserve. */
+	/* Preserve emergency free-PEB reserve. */
 	ubi_secure_try_refill_reserve(ubi);
 
 	if (ubi->free_peb_count == 0) {
@@ -378,6 +379,7 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	const struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}
@@ -409,8 +411,9 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 		goto exit;
 	}
 
-	/* §13.1: check EC key version against allowlist. */
+	/* Check EC key version against allowlist. */
 	if (!ubi_secure_check_allowlist(ubi, ec_ctx.key_version, entry->value.pnum)) {
+		LOG_ERR("Key version not in allowlist");
 		ret = -EACCES;
 		goto exit;
 	}
@@ -430,8 +433,9 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 		goto exit;
 	}
 
-	/* §13.1: check VID key version against allowlist. */
+	/* Check VID key version against allowlist. */
 	if (!ubi_secure_check_allowlist(ubi, vid_ctx.key_version, entry->value.pnum)) {
+		LOG_ERR("Key version not in allowlist");
 		ret = -EACCES;
 		goto exit;
 	}
@@ -483,6 +487,7 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}
@@ -498,7 +503,7 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 		goto exit;
 	}
 
-	/* §11.5 step 1: preserve emergency free-PEB reserve. */
+	/* Preserve emergency free-PEB reserve. */
 	ubi_secure_try_refill_reserve(ubi);
 
 	if (ubi->free_peb_count == 0) {
@@ -543,6 +548,7 @@ int ubi_secure_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}
@@ -599,6 +605,7 @@ int ubi_secure_leb_is_mapped(struct ubi_device *ubi, int vol_id, size_t lnum, bo
 	const struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}
@@ -633,6 +640,7 @@ int ubi_secure_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, siz
 	const struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}

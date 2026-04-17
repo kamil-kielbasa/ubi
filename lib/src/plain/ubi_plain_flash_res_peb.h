@@ -11,7 +11,7 @@
 #define UBI_FLASH_RES_PEB_H
 
 /* Include files ------------------------------------------------------------------------------- */
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 
 #include <stddef.h>
 #include <stdint.h>

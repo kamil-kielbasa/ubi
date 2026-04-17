@@ -17,7 +17,7 @@
 #include "ubi_secure_ops.h"
 #include "ubi_internal.h"
 #include "ubi_backend.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
@@ -599,7 +599,7 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 			continue;
 		}
 
-		/* Track key-version PEB refcount from EC header (§14.5). */
+		/* Track key-version PEB refcount from EC header. */
 		ubi_secure_key_refcount_inc(ubi_dev, ec_ctx.key_version);
 
 		/* Check if VID region is erased — classifies free/dirty. */
@@ -632,7 +632,7 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 			continue;
 		}
 
-		/* Track VID+LEB key refcount (§13.3 — 2 objects per VID-bearing PEB). */
+		/* Track VID+LEB key refcount (2 objects per VID-bearing PEB). */
 		ubi_secure_key_refcount_inc(ubi_dev, vid_ctx.key_version);
 		ubi_secure_key_refcount_inc(ubi_dev, vid_ctx.key_version);
 
@@ -641,7 +641,7 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 			ubi_dev->global_sqnum = vid_hdr.sqnum;
 		}
 
-		/* Track max VID counter for write-active key version (§9.8). */
+		/* Track max VID counter for write-active key version. */
 		if (vid_ctx.key_version ==
 		    ubi_dev->crypto_cfg->policy.requested_write_key_version) {
 			if (vid_ctx.vid_counter >= ubi_dev->next_vid_counter) {
@@ -945,7 +945,7 @@ int ubi_secure_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 	ubi_dev->total_data_peb_count = nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
 
 #if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
-	/* §15.3 Chunked-mode geometry check.
+	/* Chunked-mode geometry check.
 	 * chunk_size must be a multiple of the flash write alignment.
 	 * leb_size accounts for per-chunk tag overhead:
 	 *   payload_space = erase_block_size - LEB_OFFSET - PREFIX_SIZE
@@ -1033,7 +1033,7 @@ int ubi_secure_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 		goto exit;
 	}
 
-	/* Re-create missing hidden anchors for orphaned volumes (§7.9).
+	/* Re-create missing hidden anchors for orphaned volumes.
 	 * After a failed anchor_create during volume_create, or after anchor PEB
 	 * corruption, the volume exists in reserved PEB metadata but has no live
 	 * anchor on flash.  Re-create it now if free PEBs are available. */

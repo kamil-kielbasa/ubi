@@ -12,7 +12,7 @@
 #include "ubi_secure_ser.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 #include "ubi_mem.h"
 
 #include <zephyr/logging/log.h>

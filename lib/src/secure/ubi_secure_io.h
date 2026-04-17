@@ -12,7 +12,7 @@
 
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_types.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 
 #include <ubi_crypto.h>
 
@@ -160,7 +160,7 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 /**
  * \brief Read and authenticate a secure LEB record (chunked mode) from a data PEB.
  *
- * Authenticates only the chunks that cover the requested byte range (§12.3).
+ * Authenticates only the chunks that cover the requested byte range.
  * For zero-length records, returns immediately without I/O.
  *
  * \param[in]  mtd         UBI MTD descriptor.

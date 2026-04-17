@@ -12,8 +12,8 @@
 /* Internal headers: */
 #include "ubi_internal.h"
 #include "ubi_backend.h"
-#include "ubi_io.h"
-#include "ubi_flash_res_peb.h"
+#include "ubi_plain_io.h"
+#include "ubi_plain_flash_res_peb.h"
 #include "ubi_plain_ops.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"

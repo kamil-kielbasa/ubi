@@ -11,7 +11,7 @@
 /* Internal headers: */
 #include "ubi_mem.h"
 #include "ubi_internal.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 #include "ubi_cache.h"
 
 /* Public headers: */

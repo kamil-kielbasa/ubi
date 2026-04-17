@@ -14,7 +14,7 @@
 #include "ubi_secure_io.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 #include "ubi_mem.h"
 
 #include <zephyr/logging/log.h>
@@ -29,13 +29,13 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Module interface function definitions ------------------------------------------------------- */
 
 /**
  * \brief Allocate a free PEB and write a hidden anchor (zero-length LEB).
  *
- * Per §7.9 / §11.4: the anchor is a data PEB with INTERNAL_ANCHOR_LNUM,
- * zero-length secure LEB record, and initial VID secure metadata counters.
+ * The anchor is a data PEB with INTERNAL_ANCHOR_LNUM, zero-length secure LEB
+ * record, and initial VID secure metadata counters.
  * Write order: LEB data first (zero-length), VID second (commit point).
  *
  * \param[in]     ubi     UBI device (caller holds mutex, at least 1 free PEB).
@@ -108,7 +108,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	}
 
 	/* 5. Write VID header — commit point.
-	 *    Use global VID counter for this key version per §9.8. */
+	 *    Use global VID counter for this key version. */
 	const uint64_t vid_counter = ubi->next_vid_counter;
 
 	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
@@ -136,6 +136,8 @@ mark_bad: {
 	return ret;
 }
 }
+
+/* Static function definitions ----------------------------------------------------------------- */
 
 /**
  * \brief Read device header via secure reserved scan, bump revision.
@@ -189,7 +191,7 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	/* Keep cached revision in sync so freshness snapshots are accurate. */
 	ubi->cached_device_revision = hdr->revision;
 
-	/* Snapshot vid_next_counter_floor per §9.8.5. */
+	/* Snapshot vid_next_counter_floor into device metadata. */
 	meta->vid_next_counter_floor = ubi->next_vid_counter;
 
 	/* Refresh write_active_key_version so that a key-rotation that changed
@@ -244,6 +246,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	int ret = -EIO;
 
 	if (!ubi_volume_config_is_valid(vol_cfg)) {
+		LOG_ERR("secure_vol_create: invalid volume config");
 		return -EINVAL;
 	}
 
@@ -278,7 +281,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 		}
 	}
 
-	/* Capacity check — account for hidden anchor PEB per §7.9. */
+	/* Capacity check — account for hidden anchor PEB. */
 	const size_t usable = ubi->total_data_peb_count - ubi->bad_peb_count;
 	const size_t avail = usable - ubi_reserved_peb_count(ubi);
 	const size_t needed = vol_cfg->leb_count + 1; /* +1 for anchor PEB */
@@ -384,7 +387,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	ubi->vol_count++;
 	ubi->vol_id_watermark = dev_hdr.vol_id_watermark;
 
-	/* Allocate hidden anchor PEB per §11.4.
+	/* Allocate hidden anchor PEB.
 	 * If anchor creation fails the volume must not be usable without
 	 * a live authenticated anchor.  Roll back the RAM state and
 	 * propagate the error.  The reserved metadata already carries
@@ -420,6 +423,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	int ret = -EIO;
 
 	if (vol_cfg->leb_count == 0) {
+		LOG_ERR("secure_vol_resize: leb_count is zero");
 		return -EINVAL;
 	}
 
@@ -434,6 +438,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}
@@ -659,6 +664,7 @@ int ubi_secure_volume_get_info(struct ubi_device *ubi, int vol_id,
 	const struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
+		LOG_ERR("Volume %d not found", vol_id);
 		ret = -ENOENT;
 		goto exit;
 	}

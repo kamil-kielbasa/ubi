@@ -12,7 +12,7 @@
 #include "ubi_secure_ser.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
@@ -368,7 +368,7 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 		/* Extract key_version from prefix to know which key to use. */
 		const uint8_t kv = raw[UBI_SECURE_PREFIX_OFF_KEY_VERSION];
 
-		/* Check key_version against allowlist — per spec §13.1 an
+		/*/* Check key_version against allowlist — an
 		 * on-flash key version absent from the allowlist is a policy
 		 * error. Treat the PEB as corrupt so the authenticated copy
 		 * (if any) still wins. */

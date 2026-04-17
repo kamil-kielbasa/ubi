@@ -79,7 +79,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* ====================== Serialization NULL checks =========================================== */
+/* ================================= Serialization NULL checks ================================== */
 
 /**
  * \brief prefix32_serialize rejects NULL prefix.
@@ -201,7 +201,7 @@ ZTEST(ubi_secure_defensive, test_ser_counter48_null)
 	zassert_equal(ubi_secure_decode_counter48(NULL), 0);
 }
 
-/* ====================== Crypto NULL checks ================================================== */
+/* ===================================== Crypto NULL checks ===================================== */
 
 /**
  * \brief build_label rejects NULL label pointer.
@@ -365,7 +365,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_leb_key_null)
 	zassert_equal(ubi_secure_derive_leb_key(NULL, 0, 0, &kid), -EINVAL);
 }
 
-/* ====================== I/O NULL checks ===================================================== */
+/* ====================================== I/O NULL checks ======================================= */
 
 /**
  * \brief ec_hdr_read rejects NULL arguments.
@@ -491,7 +491,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_null)
 	zassert_equal(ubi_secure_ec_hdr_write(&mtd, NULL, 0, &ec, 0, 0), -EINVAL);
 }
 
-/* ====================== I/O corruption paths ================================================ */
+/* ==================================== I/O corruption paths ==================================== */
 
 /**
  * \brief ec_hdr_read returns -EBADMSG for corrupted EC magic.
@@ -615,7 +615,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_out_of_bounds)
 	zassert_equal(ubi_secure_leb_data_read(&mtd, &cfg, 3, &vid_ctx, 1, buf, 4), -EINVAL);
 }
 
-/* ====================== Init with invalid geometry ========================================== */
+/* ================================= Init with invalid geometry ================================= */
 
 /**
  * \brief Device init rejects write_block_size of zero.
@@ -735,7 +735,7 @@ ZTEST(ubi_secure_defensive, test_init_bad_write_key_version)
 	zassert_is_null(ubi);
 }
 
-/* ====================== Scan with corrupted flash =========================================== */
+/* ================================= Scan with corrupted flash ================================== */
 
 /**
  * \brief Scan classifies PEB with corrupt EC header as bad block.
@@ -892,7 +892,7 @@ ZTEST(ubi_secure_defensive, test_scan_orphan_classification)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ====================== leb_data_read with NULL buf/zero-length ============================= */
+/* ========================== leb_data_read with NULL buf/zero-length =========================== */
 
 /**
  * \brief leb_data_read with NULL buf and len=0 returns 0 for zero data_size.
@@ -912,7 +912,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_len_zero_data)
 	zassert_ok(ubi_secure_leb_data_read(&mtd, &cfg, 3, &vid_ctx, 0, NULL, 0));
 }
 
-/* ====================== vid/leb erased checks with NULL ===================================== */
+/* ============================== vid/leb erased checks with NULL =============================== */
 
 /**
  * \brief vid_region_is_erased rejects NULL arguments.
@@ -944,7 +944,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_prefix_is_erased_null)
 	zassert_equal(ubi_secure_leb_prefix_is_erased(&mtd, 0, NULL), -EINVAL);
 }
 
-/* ====================== IO hook-based error paths =========================================== */
+/* ================================= IO hook-based error paths ================================== */
 
 /**
  * \brief ec_hdr_read returns error for correct magic but wrong domain.
@@ -1539,7 +1539,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_zero_len)
 	(void)ret;
 }
 
-/* ====================== Reserved PEB NULL checks ============================================ */
+/* ================================== Reserved PEB NULL checks ================================== */
 
 /**
  * \brief res_peb_detect_mode rejects NULL arguments.
@@ -1883,7 +1883,7 @@ ZTEST(ubi_secure_defensive, test_init_plain_media_mismatch)
 	zassert_is_null(ubi);
 }
 
-/* ====================== Geometry validation — additional checks ============================== */
+/* ========================== Geometry validation - additional checks ============================ */
 
 /**
  * \brief Device init rejects erase_block_size that does not divide partition size.
@@ -1972,7 +1972,7 @@ ZTEST(ubi_secure_defensive, test_init_erase_not_multiple_of_write)
 	zassert_is_null(ubi);
 }
 
-/* ====================== Public API NULL / validation checks ================================= */
+/* ============================ Public API NULL / validation checks ============================= */
 
 /**
  * \brief ubi_volume_create rejects NULL arguments.
@@ -2466,6 +2466,6 @@ ZTEST(ubi_secure_defensive, test_vol_resize_zero_lebs)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ================================ Suite registration ========================================= */
+/* ===================================== Suite registration ===================================== */
 
 ZTEST_SUITE(ubi_secure_defensive, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

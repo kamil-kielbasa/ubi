@@ -10,7 +10,7 @@
 /* Include files ------------------------------------------------------------------------------- */
 
 /* Internal headers: */
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 
 /* Zephyr headers: */
 #include <zephyr/kernel.h>

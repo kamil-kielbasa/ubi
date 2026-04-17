@@ -13,6 +13,8 @@
 /* Include files ------------------------------------------------------------------------------- */
 #include <zephyr/sys/__assert.h>
 
+#include <mbedtls/platform_util.h>
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -64,16 +66,15 @@
 /**
  * \brief Compiler-safe zeroization of a buffer (will not be optimized away).
  *
+ * Delegates to mbedtls_platform_zeroize which is specifically designed to
+ * resist compiler dead-store elimination.
+ *
  * \param[in,out] buf  Buffer to clear.
  * \param[in]     len  Number of bytes.
  */
 static inline void ubi_secure_zeroize(void *buf, size_t len)
 {
-	volatile uint8_t *p = (volatile uint8_t *)buf;
-
-	while (len--) {
-		*p++ = 0;
-	}
+	mbedtls_platform_zeroize(buf, len);
 }
 
 /** CCM nonce size = domain(1) + salt(6) + counter(6). */
@@ -207,7 +208,7 @@ struct ubi_secure_vid_auth_ctx {
 	struct ubi_secure_ec_auth_ctx ec_ctx; /*!< Parent EC auth context. */
 	const struct ubi_vid_hdr *vid_hdr; /*!< Authenticated VID header. */
 	uint8_t key_version; /*!< VID-header prefix key_version. */
-	uint64_t vid_counter; /*!< VID-domain AEAD counter from prefix32 (§9.8). */
+	uint64_t vid_counter; /*!< VID-domain AEAD counter from prefix32. */
 };
 
 /* AAD sizes ------------------------------------------------------------------- */

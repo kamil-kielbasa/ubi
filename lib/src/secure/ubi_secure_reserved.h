@@ -12,7 +12,7 @@
 
 /* Include files ------------------------------------------------------------------------------- */
 #include "ubi_secure_types.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 
 #include <ubi_crypto.h>
 

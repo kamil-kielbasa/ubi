@@ -99,7 +99,7 @@ ubi_secure_freshness_snapshot(const struct ubi_device *ubi)
  *
  * Calls the application-provided event_cb with the given event.  If the
  * callback returns UBI_CRYPTO_EVENT_ENTER_READ_ONLY, the sticky crypto
- * read-only flag is set (§14.4).
+ * read-only flag is set.
  *
  * \param[in,out] ubi    UBI device (caller holds mutex).
  * \param[in]     event  Event payload to emit.
@@ -161,7 +161,7 @@ static inline void ubi_secure_key_refcount_dec_and_check(struct ubi_device *ubi,
 /**
  * \brief Attempt freshness sync after a commit-visible mutation.
  *
- * Implements the delta-based sync cadence from §9.9:
+ * Implements the delta-based freshness sync cadence:
  * - delta == 0: sync after every commit.
  * - delta > 0: sync when mutations_since_sync reaches delta.
  *

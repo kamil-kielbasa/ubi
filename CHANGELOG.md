@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-04-17
+
+### Changed
+
+- Plain backend: renamed 7 `.c` and 2 `.h` files to `ubi_plain_*` prefix; updated all includes and CMake.
+- Secure backend: replaced `ubi_secure_zeroize` volatile-loop with `mbedtls_platform_zeroize`.
+- Secure backend: added `LOG_ERR` to silent error returns in volume, LEB, runtime, and crypto modules.
+- Secure backend: removed `§` references from comments; fixed `ubi_secure_anchor_create` section label.
+- Tests: normalized section divider comments to 100-char centered format.
+
 ## [0.46.0] - 2026-04-17
 
 ### Added

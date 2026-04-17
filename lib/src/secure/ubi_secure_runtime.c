@@ -14,7 +14,7 @@
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
-#include "ubi_io.h"
+#include "ubi_plain_io.h"
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
@@ -65,7 +65,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 		goto mark_bad;
 	}
 
-	/* Probe VID header before erase — needed for full refcount (§13.3 step 4). */
+	/* Probe VID header before erase — needed for full key-version refcount. */
 	struct ubi_vid_hdr vid_hdr_probe = { 0 };
 	struct ubi_vid_secure_meta vid_meta_probe = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx_probe = { 0 };
@@ -106,7 +106,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 		goto mark_bad;
 	}
 
-	/* Update key-version refcounts: old objects destroyed, new EC written (§13.3). */
+	/* Update key-version refcounts: old objects destroyed, new EC written. */
 	ubi_secure_key_refcount_dec_and_check(ubi, ec_ctx.key_version);
 	if (had_vid) {
 		ubi_secure_key_refcount_dec_and_check(ubi, vid_ctx_probe.key_version);
@@ -147,7 +147,7 @@ mark_bad: {
 /**
  * \brief If the dirty PEB is the last writable witness, rewrite the anchor.
  *
- * Per §11.6: before erasing a dirty PEB, check whether its VID carries a
+ * Before erasing a dirty PEB, check whether its VID carries a
  * leb_write_counter higher than the volume's hidden anchor.  If so — and no
  * mapped PEB for the same volume still carries that counter — the anchor
  * must be rewritten to inherit the counter state before the dirty PEB is
@@ -324,7 +324,7 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	new_vid.hdr_crc =
 		crc32_ieee((const uint8_t *)&new_vid, sizeof(new_vid) - sizeof(new_vid.hdr_crc));
 
-	/* Advance anchor counters per §11.6 step 2. */
+	/* Advance anchor counters for the rewritten witness. */
 	const struct ubi_vid_secure_meta new_meta = {
 		.leb_write_counter = vid_meta.leb_write_counter + 1,
 		.leb_total_auth_bytes = vid_meta.leb_total_auth_bytes + UBI_SECURE_LEB_AAD_SIZE,
@@ -386,6 +386,7 @@ rewrite_bad: {
 	struct ubi_list_item *bad = ubi_leaf_as_list(new_item);
 
 	ubi_move_to_bad_blocks(ubi, new_pnum, ec_avg, bad);
+	LOG_ERR("Anchor rewrite failed, PEB %zu marked bad", new_pnum);
 	return -EIO;
 }
 }
@@ -531,7 +532,7 @@ int ubi_secure_device_erase_peb(struct ubi_device *ubi)
 		struct rbnode *node = rb_get_min(&ubi->dirty_pebs);
 		struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
 
-		/* §11.6: check if dirty PEB is last writable witness.
+		/* Check if dirty PEB is last writable witness.
 		 * If so and no free PEB for anchor rewrite, find a safe
 		 * non-witness dirty PEB to erase first (creates a free PEB
 		 * for the witness rewrite on the next call). */
@@ -595,7 +596,7 @@ void ubi_secure_try_refill_reserve(struct ubi_device *ubi)
 		return;
 	}
 
-	/* §11.5 step 1 / §4.2 invariant 13: the last free data PEB is
+	/* The last free data PEB is
 	 * reserved for hidden-anchor maintenance.  Attempt to erase one
 	 * dirty PEB through the standard witness-safe path to push
 	 * free_peb_count from 1 to 2, preserving the emergency reserve

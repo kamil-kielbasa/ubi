@@ -98,7 +98,7 @@ static struct ubi_device *sec_init(void)
 	return ubi;
 }
 
-/* ====================== Volume remove ======================================================= */
+/* ======================================= Volume remove ======================================== */
 
 /**
  * \brief Volume remove succeeds and volume is gone after re-attach.
@@ -226,7 +226,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_one_of_two)
 	zassert_mem_equal(readback, data, sizeof(data));
 }
 
-/* ====================== Volume resize ======================================================= */
+/* ======================================= Volume resize ======================================== */
 
 /**
  * \brief Volume resize (shrink) succeeds and trims excess LEBs.
@@ -350,7 +350,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_persists)
 	zassert_equal(read_cfg.leb_count, 1);
 }
 
-/* ====================== LEB overwrite (counter recovery + mapping swap) ===================== */
+/* ====================== LEB overwrite (counter recovery + mapping swap) ======================= */
 
 /**
  * \brief LEB overwrite recovers counter state and swaps mapping.
@@ -462,7 +462,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_persists)
 	zassert_mem_equal(readback, data2, sizeof(data2));
 }
 
-/* ====================== LEB map / unmap ===================================================== */
+/* ====================================== LEB map / unmap ======================================= */
 
 /**
  * \brief LEB map creates a zero-length mapping.
@@ -522,7 +522,7 @@ ZTEST(ubi_secure_coverage, test_leb_unmap)
 	zassert_false(mapped);
 }
 
-/* ====================== Flash write fault injection ========================================= */
+/* ================================ Flash write fault injection ================================= */
 
 /**
  * \brief Flash write failure during leb_write (VID write) marks PEB bad.
@@ -597,7 +597,7 @@ ZTEST(ubi_secure_coverage, test_flash_write_fail_on_erase_ec)
 	zassert_not_equal(ret, 0, "erase_peb should fail when EC flash write fails");
 }
 
-/* ====================== LEB get_size ======================================================== */
+/* ======================================== LEB get_size ======================================== */
 
 /**
  * \brief LEB get_size returns the correct data size.
@@ -629,7 +629,7 @@ ZTEST(ubi_secure_coverage, test_leb_get_size)
 	zassert_equal(size, sizeof(data));
 }
 
-/* ====================== Volume remove persists after re-attach ============================== */
+/* =========================== Volume remove persists after re-attach =========================== */
 
 /**
  * \brief Remove volume with data, re-attach, volume is gone.
@@ -673,7 +673,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_persists)
 	zassert_not_equal(ret, 0, "Read from removed volume should fail");
 }
 
-/* ====================== Erase all dirty PEBs ================================================ */
+/* ==================================== Erase all dirty PEBs ==================================== */
 
 /**
  * \brief Erase all dirty PEBs after multiple overwrites.
@@ -715,7 +715,7 @@ ZTEST(ubi_secure_coverage, test_erase_all_dirty_pebs)
 	zassert_equal(info.dirty_peb_count, 0, "All dirty PEBs should be erased");
 }
 
-/* ================================ Suite registration ========================================= */
+/* ===================================== Suite registration ===================================== */
 
 ZTEST_SUITE(ubi_secure_coverage, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);

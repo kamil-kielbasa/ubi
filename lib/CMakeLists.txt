@@ -11,13 +11,13 @@ zephyr_library_sources(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/ubi_mem.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/common/ubi_partition_guard.c
     # plain
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_core_init.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_core_runtime.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_volume.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_leb.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_io_metadata.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_io_data.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_flash_res_peb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_core_init.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_core_runtime.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_volume.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_leb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_io_metadata.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_io_data.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/plain/ubi_plain_flash_res_peb.c
 )
 zephyr_include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
