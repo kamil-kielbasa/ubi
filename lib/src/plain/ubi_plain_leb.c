@@ -1,5 +1,5 @@
 /**
- * \file    ubi_leb.c
+ * \file    ubi_plain_leb.c
  * \author  Kamil Kielbasa
  * \brief   UBI LEB operations: write, read, map, unmap, is_mapped, get_size.
  *
@@ -30,32 +30,76 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ----------------------------------------------------------------- */
 
+/**
+ * \brief Allocate a free PEB, write optional data, then write VID header.
+ *
+ * Write order is DATA first, VID second. The VID header is the commit
+ * record — the new mapping becomes live only after a successful VID write.
+ * If the write fails, the PEB is marked bad and the old mapping remains.
+ *
+ * For a map without payload (buf == NULL), only the VID header is written.
+ *
+ * \param[in,out] ubi            UBI device handle (caller holds mutex).
+ * \param[in] vol                Target volume.
+ * \param lnum                   Logical eraseblock number.
+ * \param[in] buf                Data payload (may be NULL for map-only).
+ * \param len                    Payload length in bytes (0 when buf is NULL).
+ * \param[out] out_new_node      Receives the allocated rbt item on success.
+ *
+ * \return 0 on success, negative errno on failure.
+ */
 static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				   const void *buf, size_t len, struct ubi_rbt_item **out_new_node);
+
+/**
+ * \brief Swap the old EBA entry (if any) for the newly written PEB.
+ *
+ * Old PEB moves to dirty pool.
+ *
+ * \param[in,out] ubi       UBI device handle (caller holds mutex).
+ * \param[in,out] vol       Target volume.
+ * \param lnum              Logical eraseblock number.
+ * \param[in,out] new_node  Rbt item for the newly written PEB.
+ */
 static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				    struct ubi_rbt_item *new_node);
+
+/**
+ * \brief Mark a PEB that failed a write as bad.
+ *
+ * Retypes the rbt item to a list item in-place.
+ *
+ * \param[in,out] ubi   UBI device handle (caller holds mutex).
+ * \param[in,out] node  Rbt item for the failed PEB.
+ */
 static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node);
+
+/**
+ * \brief Core write logic: validate, prepare, and commit a LEB write.
+ *
+ * Caller must hold ubi->mutex. Only public functions acquire the mutex;
+ * static helpers never lock.
+ *
+ * \param[in,out] ubi   UBI device handle (caller holds mutex).
+ * \param vol_id        Target volume ID.
+ * \param lnum          Logical eraseblock number.
+ * \param[in] buf       Data payload (may be NULL for map-only).
+ * \param len           Payload length in bytes.
+ *
+ * \return 0 on success, negative errno on failure.
+ */
+static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-/**
- * Allocate a free PEB, write optional data payload, then write VID header.
- *
- * The write order is DATA first, VID second. The VID header is the commit
- * record — the new mapping becomes live only after a successful VID write.
- * If the VID write fails, the PEB is marked bad and the old mapping (if any)
- * remains active in the EBA table.
- *
- * For a map without payload (buf == NULL), only the VID header is written;
- * VID is still the commit record.
- *
- * On success *out_new_node points to the rbt item (already removed from free pool).
- * On failure the PEB is marked bad and the function returns a negative errno.
- * Caller must hold ubi->mutex.
- */
 static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				   const void *buf, size_t len, struct ubi_rbt_item **out_new_node)
 {
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(vol);
+	__ASSERT_NO_MSG(out_new_node);
+	__ASSERT_NO_MSG((buf && len > 0) || (!buf && len == 0));
+
 	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
 	struct ubi_rbt_item *new_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
 
@@ -99,13 +143,13 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	return 0;
 }
 
-/**
- * Swap the old EBA entry (if any) for the newly written PEB.
- * Old PEB moves to dirty pool. Caller must hold ubi->mutex.
- */
 static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				    struct ubi_rbt_item *new_node)
 {
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(vol);
+	__ASSERT_NO_MSG(new_node);
+
 	struct ubi_rbt_item *old_entry = ubi_cache_search(&vol->eba_tbl, lnum);
 
 	if (old_entry) {
@@ -125,12 +169,11 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 	vol->eba_tbl_count += 1;
 }
 
-/**
- * Mark a PEB that failed a write as bad.
- * Retypes the rbt item to a list item in-place. Caller must hold ubi->mutex.
- */
 static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node)
 {
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(node);
+
 	const size_t failed_pnum = node->value.pnum;
 	const size_t failed_ec = node->key;
 
@@ -147,38 +190,32 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	__ASSERT_NO_MSG(vol_id >= 0);
 	__ASSERT_NO_MSG((buf && len > 0) || (!buf && len == 0));
 
-	k_mutex_lock(&ubi->mutex, K_FOREVER);
-
 	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
 
 	if (ret != 0) {
 		LOG_ERR("Mutation blocked: data-path writes not allowed");
-		goto exit;
+		return ret;
 	}
 
 	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
 
 	if (!vol) {
-		ret = -ENOENT;
-		goto exit;
+		return -ENOENT;
 	}
 
 	if (lnum >= vol->cfg.leb_count) {
 		LOG_ERR("Volume LEB limit exceeded");
-		ret = -EACCES;
-		goto exit;
+		return -EACCES;
 	}
 
 	if (ubi->free_peb_count == 0) {
 		LOG_ERR("Lack of free PEBs");
-		ret = -ENOSPC;
-		goto exit;
+		return -ENOSPC;
 	}
 
 	if (len > (ubi->flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
 		LOG_ERR("Too big buffer to write in LEB");
-		ret = -ENOSPC;
-		goto exit;
+		return -ENOSPC;
 	}
 
 	struct ubi_rbt_item *new_node = NULL;
@@ -186,12 +223,10 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	ret = leb_prepare_new_mapping(ubi, vol, lnum, buf, len, &new_node);
 
 	if (ret != 0)
-		goto exit;
+		return ret;
 
 	leb_commit_mapping_swap(ubi, vol, lnum, new_node);
 
-exit:
-	k_mutex_unlock(&ubi->mutex);
 	return ret;
 }
 
@@ -200,7 +235,12 @@ exit:
 int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
 			size_t len)
 {
-	return leb_write(ubi, vol_id, lnum, buf, len);
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	int ret = leb_write(ubi, vol_id, lnum, buf, len);
+
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
 }
 
 int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,

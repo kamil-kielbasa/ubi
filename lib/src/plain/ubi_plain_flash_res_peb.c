@@ -1,5 +1,5 @@
 /**
- * \file    ubi_flash_res_peb.c
+ * \file    ubi_plain_flash_res_peb.c
  * \author  Kamil Kielbasa
  * \brief   UBI reserved PEB management: scanning, recovery, and commit.
  *
@@ -72,6 +72,9 @@ static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
 static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
 						 size_t erase_block_size)
 {
+	__ASSERT_NO_MSG(hdr);
+	__ASSERT_NO_MSG(erase_block_size > 0);
+
 	if (hdr->version != UBI_DEV_HDR_VERSION) {
 		LOG_WRN("Unexpected device header version: %u", hdr->version);
 		return false;
@@ -180,7 +183,10 @@ static int flash_res_peb_recover(const struct ubi_flash_desc *flash,
 
 size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *scan)
 {
-	__ASSERT_NO_MSG(scan);
+	if (!scan) {
+		LOG_ERR("scan is NULL");
+		return UBI_DEV_HDR_NR_OF_RES_PEBS;
+	}
 
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
 		if (scan->state[i] == UBI_FLASH_RES_PEB_STATE_ACTIVE) {
@@ -193,8 +199,11 @@ size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *
 
 int ubi_flash_res_peb_scan(const struct ubi_flash_desc *flash, struct ubi_flash_res_peb_scan *scan)
 {
-	__ASSERT_NO_MSG(flash);
-	__ASSERT_NO_MSG(scan);
+	if (!flash || !scan) {
+		LOG_ERR("Invalid argument: flash=%p scan=%p", (const void *)flash,
+			(const void *)scan);
+		return -EINVAL;
+	}
 
 	memset(scan, 0, sizeof(*scan));
 
@@ -315,9 +324,16 @@ int ubi_flash_res_peb_scan(const struct ubi_flash_desc *flash, struct ubi_flash_
 int ubi_flash_res_peb_read_content(const struct ubi_flash_desc *flash, const size_t peb_idx,
 				   uint8_t *content, const size_t content_len)
 {
-	__ASSERT_NO_MSG(flash);
-	__ASSERT_NO_MSG(content);
-	__ASSERT_NO_MSG(peb_idx < UBI_DEV_HDR_NR_OF_RES_PEBS);
+	if (!flash || !content) {
+		LOG_ERR("Invalid argument: flash=%p content=%p", (const void *)flash,
+			(const void *)content);
+		return -EINVAL;
+	}
+
+	if (peb_idx >= UBI_DEV_HDR_NR_OF_RES_PEBS) {
+		LOG_ERR("peb_idx %zu out of range (max %d)", peb_idx, UBI_DEV_HDR_NR_OF_RES_PEBS);
+		return -EINVAL;
+	}
 
 	const struct flash_area *fa = NULL;
 	int ret = flash_area_open(flash->partition_id, &fa);
@@ -341,9 +357,11 @@ int ubi_flash_res_peb_read_content(const struct ubi_flash_desc *flash, const siz
 int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_t *content,
 				const size_t content_len)
 {
-	__ASSERT_NO_MSG(flash);
-	__ASSERT_NO_MSG(content);
-	__ASSERT_NO_MSG(content_len > 0);
+	if (!flash || !content || content_len == 0) {
+		LOG_ERR("Invalid argument: flash=%p content=%p content_len=%zu",
+			(const void *)flash, (const void *)content, content_len);
+		return -EINVAL;
+	}
 
 	if (content_len > flash->erase_block_size) {
 		LOG_ERR("Content length %zu exceeds erase block size %zu", content_len,
@@ -368,15 +386,24 @@ int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_
 	}
 
 	size_t written = 0;
+	bool committed[UBI_DEV_HDR_NR_OF_RES_PEBS] = { false };
 
 	/*
 	 * For each active PEB: try erase+write. On failure, immediately seek
 	 * a replacement from corrupt/spare PEBs before touching the next active
 	 * PEB.  This prevents losing all copies of the old data when multiple
 	 * active PEBs fail in sequence.
+	 *
+	 * The committed[] array tracks PEBs already written during this call
+	 * so that a replacement promoted to ACTIVE is not erased again when
+	 * the outer loop reaches it.
 	 */
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
 		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_ACTIVE) {
+			continue;
+		}
+
+		if (committed[i]) {
 			continue;
 		}
 
@@ -384,18 +411,25 @@ int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_
 
 		ret = flash_area_erase(fa, offset, flash->erase_block_size);
 
-		if (ret == 0) {
-			ret = flash_area_write(fa, offset, content, content_len);
+		if (ret != 0) {
+			LOG_WRN("Active PEB %zu erase failed, seeking replacement", i);
+			scan.state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
+			goto seek_replacement;
 		}
 
-		if (ret == 0) {
-			written++;
-			continue;
+		ret = flash_area_write(fa, offset, content, content_len);
+
+		if (ret != 0) {
+			LOG_WRN("Active PEB %zu write failed, seeking replacement", i);
+			scan.state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
+			goto seek_replacement;
 		}
 
-		/* Active PEB failed — mark dead and seek immediate replacement */
-		LOG_WRN("Active PEB %zu failed during commit, seeking replacement", i);
-		scan.state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
+		committed[i] = true;
+		written++;
+		continue;
+
+seek_replacement:
 
 		for (size_t j = 0; j < UBI_DEV_HDR_NR_OF_RES_PEBS; ++j) {
 			if (j == i) {
@@ -424,6 +458,7 @@ int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_
 			}
 
 			scan.state[j] = UBI_FLASH_RES_PEB_STATE_ACTIVE;
+			committed[j] = true;
 			written++;
 			break;
 		}
@@ -432,6 +467,10 @@ int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_
 	/* Fill remaining slots from spare/corrupt PEBs (e.g. initial format) */
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS && written < UBI_FLASH_RES_PEB_NR_ACTIVE;
 	     ++i) {
+		if (committed[i]) {
+			continue;
+		}
+
 		if (scan.state[i] != UBI_FLASH_RES_PEB_STATE_SPARE &&
 		    scan.state[i] != UBI_FLASH_RES_PEB_STATE_CORRUPT) {
 			continue;
@@ -466,8 +505,11 @@ int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_
 
 int ubi_flash_res_peb_validate(const struct ubi_flash_desc *flash, struct ubi_dev_hdr *dev_hdr)
 {
-	__ASSERT_NO_MSG(flash);
-	__ASSERT_NO_MSG(dev_hdr);
+	if (!flash || !dev_hdr) {
+		LOG_ERR("Invalid argument: flash=%p dev_hdr=%p", (const void *)flash,
+			(const void *)dev_hdr);
+		return -EINVAL;
+	}
 
 	struct ubi_flash_res_peb_scan scan = { 0 };
 	int ret = ubi_flash_res_peb_scan(flash, &scan);
@@ -536,8 +578,11 @@ int ubi_flash_res_peb_validate(const struct ubi_flash_desc *flash, struct ubi_de
 int ubi_flash_res_peb_commit(const struct ubi_flash_desc *flash, const uint8_t *content,
 			     const size_t content_len)
 {
-	__ASSERT_NO_MSG(flash);
-	__ASSERT_NO_MSG(content);
+	if (!flash || !content) {
+		LOG_ERR("Invalid argument: flash=%p content=%p", (const void *)flash,
+			(const void *)content);
+		return -EINVAL;
+	}
 
 	int ret = ubi_flash_res_peb_overwrite(flash, content, content_len);
 

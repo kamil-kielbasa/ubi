@@ -1,5 +1,5 @@
 /**
- * \file    ubi_core_runtime.c
+ * \file    ubi_plain_core_runtime.c
  * \author  Kamil Kielbasa
  * \brief   UBI device runtime: get_info, erase_peb, deinit, test API.
  *
@@ -33,6 +33,16 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ----------------------------------------------------------------- */
 
+/**
+ * \brief Attempt to recover bad PEBs by performing erase-only torture.
+ *
+ * Up to CONFIG_UBI_BAD_PEB_TORTURE_CYCLES bad PEBs are tested per call.
+ * Each PEB is erased up to CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE times;
+ * the first successful erase recovers the PEB to the free pool with ec = ec_avg.
+ * If all attempts fail, the PEB remains in the bad list.
+ *
+ * \param[in,out] ubi  UBI device handle (caller holds mutex).
+ */
 static void torture_bad_blocks(struct ubi_device *ubi);
 
 /* Module interface function definitions -------------------------------------------------------- */
@@ -59,16 +69,10 @@ int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *in
 	return 0;
 }
 
-/**
- * \brief Attempt to recover bad PEBs by performing erase-only torture.
- *
- * Up to CONFIG_UBI_BAD_PEB_TORTURE_CYCLES bad PEBs are tested per call.
- * Each PEB is erased up to CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE times;
- * the first successful erase recovers the PEB to the free pool with ec = ec_avg.
- * If all attempts fail, the PEB remains in the bad list.
- */
 static void torture_bad_blocks(struct ubi_device *ubi)
 {
+	__ASSERT_NO_MSG(ubi);
+
 	const struct flash_area *fa = NULL;
 	int ret = flash_area_open(ubi->flash.partition_id, &fa);
 
@@ -490,7 +494,10 @@ bool ubi_test_buf_is_erased(const void *buf, size_t len, uint8_t erased_val)
 
 void ubi_test_set_write_shutdown(struct ubi_device *ubi, bool shutdown)
 {
-	__ASSERT_NO_MSG(ubi);
+	if (!ubi) {
+		LOG_ERR("ubi is NULL");
+		return;
+	}
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 	ubi->test_write_shutdown = shutdown;

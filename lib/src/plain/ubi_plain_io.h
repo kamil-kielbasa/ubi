@@ -1,5 +1,5 @@
 /**
- * \file    ubi_io.h
+ * \file    ubi_plain_io.h
  *
  * \brief   Unsorted Block Images (UBI) flash I/O operations.
  *
@@ -10,8 +10,8 @@
 
 /* Include guard -------------------------------------------------------------------------------- */
 
-#ifndef UBI_IO_H
-#define UBI_IO_H
+#ifndef UBI_PLAIN_IO_H
+#define UBI_PLAIN_IO_H
 
 /* Include files -------------------------------------------------------------------------------- */
 
@@ -377,4 +377,4 @@ static inline void ubi_copy_name_from_hdr(char *dst, const uint8_t *src)
 	dst[UBI_VOLUME_NAME_MAX_LEN - 1] = '\0';
 }
 
-#endif /* UBI_IO_H */
+#endif /* UBI_PLAIN_IO_H */

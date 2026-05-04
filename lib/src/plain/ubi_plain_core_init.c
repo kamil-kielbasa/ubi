@@ -1,5 +1,5 @@
 /**
- * \file    ubi_core_init.c
+ * \file    ubi_plain_core_init.c
  * \author  Kamil Kielbasa
  * \brief   UBI device initialization: format, scan, mount.
  *
@@ -39,17 +39,161 @@ LOG_MODULE_REGISTER(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ----------------------------------------------------------------- */
 
+/**
+ * \brief Return codes for PEB scan helpers.
+ *
+ * Each helper returns SCAN_NEXT_STEP to continue processing, SCAN_PEB_HANDLED
+ * when the PEB is fully classified, or a negative errno on fatal errors.
+ */
+enum scan_result {
+	/** Continue to the next classification step. */
+	SCAN_NEXT_STEP = 0,
+	/** PEB fully classified — skip to the next PEB. */
+	SCAN_PEB_HANDLED = 1,
+};
+
+/**
+ * \brief Format the UBI device by mounting and initializing all PEBs.
+ *
+ * Called when a UBI device is not yet mounted. Mounts the device header
+ * and erases + writes EC headers for all data PEBs.
+ *
+ * \param[in,out] ubi_dev  UBI device handle.
+ * \param nr_of_pebs       Total number of PEBs in the flash partition.
+ *
+ * \return 0 on success, negative errno on failure.
+ */
 static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs);
+
+/**
+ * \brief Collect volumes from device headers into the in-memory volume tree.
+ *
+ * \param[in,out] ubi_dev  UBI device handle.
+ * \param[in] dev_hdr      Device header with volume count and watermark.
+ *
+ * \return 0 on success, negative errno on failure.
+ */
 static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev_hdr *dev_hdr);
+
+/**
+ * \brief Compute the average erase counter across all valid PEBs.
+ *
+ * Stores ec_sum and ec_count in the device structure for runtime tracking.
+ *
+ * \param[in,out] ubi_dev  UBI device handle.
+ * \param nr_of_pebs       Total number of PEBs in the flash partition.
+ */
 static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs);
+
+/**
+ * \brief Validate the EC header; mark PEB as bad if the read fails.
+ *
+ * \param[in,out] dev   UBI device handle.
+ * \param pnum          Physical eraseblock number.
+ * \param ec_avg        Average erase count (used for bad-block bookkeeping).
+ * \param[out] ec_hdr   Receives the validated EC header on success.
+ *
+ * \return SCAN_NEXT_STEP, SCAN_PEB_HANDLED, or negative errno.
+ */
+static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg,
+			      struct ubi_ec_hdr *ec_hdr);
+
+/**
+ * \brief Read and validate the VID header. Classify PEB as free, dirty, or bad.
+ *
+ * An erased VID does not necessarily mean the PEB is free. The VID header is
+ * written last (after the data payload), so an erased VID with non-erased data
+ * indicates an interrupted write that must be classified as dirty.
+ *
+ * \param[in,out] dev   UBI device handle.
+ * \param pnum          Physical eraseblock number.
+ * \param[in] ec_hdr    Validated EC header for this PEB.
+ * \param[out] vid_hdr  Receives the validated VID header on SCAN_NEXT_STEP.
+ * \param erased_val    Hardware-reported erased byte value.
+ *
+ * \return SCAN_NEXT_STEP, SCAN_PEB_HANDLED, or negative errno.
+ */
+static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
+			       struct ubi_vid_hdr *vid_hdr, uint8_t erased_val);
+
+/**
+ * \brief Classify an orphan PEB (volume deleted) by moving it to the dirty pool.
+ *
+ * \param[in,out] dev   UBI device handle.
+ * \param pnum          Physical eraseblock number.
+ * \param[in] ec_hdr    EC header for this PEB.
+ * \param[in] vid_hdr   VID header for this PEB.
+ *
+ * \return SCAN_NEXT_STEP, SCAN_PEB_HANDLED, or negative errno.
+ */
+static int classify_orphan_peb(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
+			       const struct ubi_vid_hdr *vid_hdr);
+
+/**
+ * \brief Map a LEB that appears for the first time into the volume EBA table.
+ *
+ * If the LEB index exceeds the volume capacity, the PEB is moved to the dirty pool.
+ *
+ * \param[in,out] dev   UBI device handle.
+ * \param pnum          Physical eraseblock number.
+ * \param[in] ec_hdr    EC header for this PEB.
+ * \param[in] vid_hdr   VID header for this PEB.
+ * \param[in,out] vol   Target volume.
+ *
+ * \return SCAN_NEXT_STEP, SCAN_PEB_HANDLED, or negative errno.
+ */
+static int map_leb_first_occurrence(struct ubi_device *dev, size_t pnum,
+				    const struct ubi_ec_hdr *ec_hdr,
+				    const struct ubi_vid_hdr *vid_hdr, struct ubi_volume *vol);
+
+/**
+ * \brief Resolve a duplicate LEB by comparing sequence numbers.
+ *
+ * The PEB with the higher sequence number wins the EBA table slot;
+ * the loser is moved to the dirty pool. If the existing PEB's headers
+ * cannot be read, it is moved to the bad blocks list.
+ *
+ * \param[in,out] dev   UBI device handle.
+ * \param pnum          Physical eraseblock number of the new candidate.
+ * \param ec_avg        Average erase count for bad-block bookkeeping.
+ * \param[in] ec_hdr    EC header for the new PEB.
+ * \param[in] vid_hdr   VID header for the new PEB.
+ * \param[in,out] vol   Target volume.
+ * \param[in,out] existing  Current EBA entry for the same LEB.
+ *
+ * \return SCAN_PEB_HANDLED or negative errno.
+ */
+static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_avg,
+				 const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr,
+				 struct ubi_volume *vol, struct ubi_rbt_item *existing);
+
+/**
+ * \brief Scan all PEBs and classify into free, dirty, bad, or EBA table entries.
+ *
+ * Iterates over every data PEB and applies the classification pipeline:
+ * validate_ec_header -> validate_vid_header -> classify_orphan_peb ->
+ * map_leb_first_occurrence -> resolve_duplicate_leb.
+ *
+ * A negative return from any helper is a fatal allocation failure that
+ * aborts the scan. SCAN_PEB_HANDLED means skip to next PEB.
+ *
+ * \param[in,out] ubi_dev  UBI device handle.
+ * \param nr_of_pebs       Total number of PEBs in the flash partition.
+ * \param ec_avg           Average erase count for bad-block bookkeeping.
+ *
+ * \return 0 on success, negative errno on failure.
+ */
 static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg);
 
 /* Internal helper definitions ------------------------------------------------------------------ */
 
 int ubi_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val)
 {
-	__ASSERT_NO_MSG(flash);
-	__ASSERT_NO_MSG(erased_val);
+	if (!flash || !erased_val) {
+		LOG_ERR("Invalid argument: flash=%p erased_val=%p", (const void *)flash,
+			(const void *)erased_val);
+		return -EINVAL;
+	}
 
 	const struct flash_area *fa = NULL;
 	int ret = flash_area_open(flash->partition_id, &fa);
@@ -67,8 +211,11 @@ int ubi_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val)
 void ubi_move_to_bad_blocks(struct ubi_device *ubi, size_t pnum, size_t erase_count,
 			    struct ubi_list_item *bad_item)
 {
-	__ASSERT_NO_MSG(ubi);
-	__ASSERT_NO_MSG(bad_item);
+	if (!ubi || !bad_item) {
+		LOG_ERR("Invalid argument: ubi=%p bad_item=%p", (const void *)ubi,
+			(const void *)bad_item);
+		return;
+	}
 
 	bad_item->pnum = pnum;
 	bad_item->erase_count = erase_count;
@@ -95,14 +242,10 @@ struct ubi_volume *ubi_find_volume(struct ubi_device *ubi, int vol_id)
 
 /* Init sub-functions --------------------------------------------------------------------------- */
 
-/**
- * \brief Format the UBI device by mounting and initializing all PEBs.
- *
- * Called when a UBI device is not yet mounted. Mounts the device header
- * and erases + writes EC headers for all data PEBs.
- */
 static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
+	__ASSERT_NO_MSG(ubi_dev);
+
 	int ret = ubi_dev_mount(&ubi_dev->flash);
 
 	if (ret != 0) {
@@ -150,11 +293,11 @@ static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 	return 0;
 }
 
-/**
- * \brief Collect volumes from device headers into the in-memory volume tree.
- */
 static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev_hdr *dev_hdr)
 {
+	__ASSERT_NO_MSG(ubi_dev);
+	__ASSERT_NO_MSG(dev_hdr);
+
 	for (size_t vol_idx = 0; vol_idx < dev_hdr->vol_count; ++vol_idx) {
 		struct ubi_vol_hdr vol_hdr = { 0 };
 		int ret = ubi_vol_hdr_read(&ubi_dev->flash, vol_idx, &vol_hdr);
@@ -204,13 +347,10 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 	return 0;
 }
 
-/**
- * \brief Compute the average erase counter across all valid PEBs.
- *
- * Stores ec_sum and ec_count in the device structure for runtime tracking.
- */
 static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
+	__ASSERT_NO_MSG(ubi_dev);
+
 	size_t ec_sum = 0;
 	size_t ec_count = 0;
 
@@ -228,23 +368,12 @@ static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_peb
 	ubi_dev->ec_count = ec_count;
 }
 
-/**
- * \brief Return codes for PEB scan helpers.
- *
- * Each helper returns SCAN_NEXT_STEP to continue processing, SCAN_PEB_HANDLED
- * when the PEB is fully classified, or a negative errno on fatal errors.
- */
-enum scan_result {
-	SCAN_NEXT_STEP = 0,
-	SCAN_PEB_HANDLED = 1,
-};
-
-/**
- * \brief Validate the EC header; mark PEB as bad if the read fails.
- */
 static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 			      struct ubi_ec_hdr *ec_hdr)
 {
+	__ASSERT_NO_MSG(dev);
+	__ASSERT_NO_MSG(ec_hdr);
+
 	int ret = ubi_ec_hdr_read(&dev->flash, pnum, ec_hdr);
 
 	if (ret != 0) {
@@ -263,24 +392,13 @@ static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg
 	return SCAN_NEXT_STEP;
 }
 
-/**
- * \brief Read and validate the VID header. Classify PEB as free, dirty, or bad.
- *
- * An erased VID does not necessarily mean the PEB is free. The VID header is
- * written last (after the data payload), so an erased VID with non-erased data
- * indicates an interrupted write that must be classified as dirty.
- *
- * Classification when VID is erased:
- *   - data area prefix erased  -> free (never written)
- *   - data area prefix present -> dirty/uncommitted (interrupted commit)
- *
- * On return with SCAN_NEXT_STEP, \p vid_hdr contains a CRC-validated VID header.
- *
- * \param erased_val  Hardware-reported erased byte value for the flash partition.
- */
 static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
 			       struct ubi_vid_hdr *vid_hdr, uint8_t erased_val)
 {
+	__ASSERT_NO_MSG(dev);
+	__ASSERT_NO_MSG(ec_hdr);
+	__ASSERT_NO_MSG(vid_hdr);
+
 	/* First read without CRC — detect empty (free/uncommitted) PEBs. */
 	int ret = ubi_vid_hdr_read(&dev->flash, pnum, vid_hdr, false);
 
@@ -363,12 +481,13 @@ classify_bad: {
 }
 }
 
-/**
- * \brief Classify an orphan PEB (volume deleted) by moving it to the dirty pool.
- */
 static int classify_orphan_peb(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
 			       const struct ubi_vid_hdr *vid_hdr)
 {
+	__ASSERT_NO_MSG(dev);
+	__ASSERT_NO_MSG(ec_hdr);
+	__ASSERT_NO_MSG(vid_hdr);
+
 	struct ubi_rbt_item *vol_entry = ubi_cache_search(&dev->vols, vid_hdr->vol_id);
 
 	if (vol_entry) {
@@ -391,15 +510,15 @@ static int classify_orphan_peb(struct ubi_device *dev, size_t pnum, const struct
 	return SCAN_PEB_HANDLED;
 }
 
-/**
- * \brief Map a LEB that appears for the first time into the volume EBA table.
- *
- * If the LEB index exceeds the volume capacity, the PEB is moved to the dirty pool.
- */
 static int map_leb_first_occurrence(struct ubi_device *dev, size_t pnum,
 				    const struct ubi_ec_hdr *ec_hdr,
 				    const struct ubi_vid_hdr *vid_hdr, struct ubi_volume *vol)
 {
+	__ASSERT_NO_MSG(dev);
+	__ASSERT_NO_MSG(ec_hdr);
+	__ASSERT_NO_MSG(vid_hdr);
+	__ASSERT_NO_MSG(vol);
+
 	struct ubi_rbt_item *existing = ubi_cache_search(&vol->eba_tbl, vid_hdr->lnum);
 
 	if (existing) {
@@ -430,17 +549,16 @@ static int map_leb_first_occurrence(struct ubi_device *dev, size_t pnum,
 	return SCAN_PEB_HANDLED;
 }
 
-/**
- * \brief Resolve a duplicate LEB by comparing sequence numbers.
- *
- * The PEB with the higher sequence number wins the EBA table slot;
- * the loser is moved to the dirty pool. If the existing PEB's headers
- * cannot be read, it is moved to the bad blocks list.
- */
 static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 				 const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr,
 				 struct ubi_volume *vol, struct ubi_rbt_item *existing)
 {
+	__ASSERT_NO_MSG(dev);
+	__ASSERT_NO_MSG(ec_hdr);
+	__ASSERT_NO_MSG(vid_hdr);
+	__ASSERT_NO_MSG(vol);
+	__ASSERT_NO_MSG(existing);
+
 	struct ubi_rbt_item *item = NULL;
 	int ret = ubi_mem_leaf_alloc((void **)&item);
 
@@ -511,11 +629,10 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 	return SCAN_PEB_HANDLED;
 }
 
-/**
- * \brief Scan all PEBs and classify into free, dirty, bad, or EBA table entries.
- */
 static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg)
 {
+	__ASSERT_NO_MSG(ubi_dev);
+
 	uint8_t erased_val = 0xFF;
 	int ev_ret = ubi_get_erased_val(&ubi_dev->flash, &erased_val);
 
@@ -524,20 +641,38 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 		return ev_ret;
 	}
 
+	/*
+	 * Each scan helper returns SCAN_NEXT_STEP (0) to continue to the next
+	 * classification stage, SCAN_PEB_HANDLED (1) when the PEB is fully
+	 * classified, or a negative errno on fatal error.
+	 *
+	 * All I/O failures (bad reads, CRC mismatches) are handled internally
+	 * by the helpers — the affected PEB is classified as bad/dirty and the
+	 * helper returns SCAN_PEB_HANDLED.  A negative return can only occur
+	 * when ubi_mem_leaf_alloc() fails, meaning the slab allocator is
+	 * exhausted.  In that case no subsequent PEB can be classified either,
+	 * so the scan is aborted.
+	 */
 	for (size_t pnum = UBI_DEV_HDR_NR_OF_RES_PEBS; pnum < nr_of_pebs; ++pnum) {
 		struct ubi_ec_hdr ec_hdr = { 0 };
 		int ret = validate_ec_header(ubi_dev, pnum, ec_avg, &ec_hdr);
 
-		if (ret < 0)
+		if (ret < 0) {
+			LOG_ERR("EC header validation failed for PEB %zu: %d", pnum, ret);
 			return ret;
+		}
+
 		if (ret == SCAN_PEB_HANDLED)
 			continue;
 
 		struct ubi_vid_hdr vid_hdr = { 0 };
 		ret = validate_vid_header(ubi_dev, pnum, &ec_hdr, &vid_hdr, erased_val);
 
-		if (ret < 0)
+		if (ret < 0) {
+			LOG_ERR("VID header validation failed for PEB %zu: %d", pnum, ret);
 			return ret;
+		}
+
 		if (ret == SCAN_PEB_HANDLED)
 			continue;
 
@@ -546,8 +681,11 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 
 		ret = classify_orphan_peb(ubi_dev, pnum, &ec_hdr, &vid_hdr);
 
-		if (ret < 0)
+		if (ret < 0) {
+			LOG_ERR("Orphan classification failed for PEB %zu: %d", pnum, ret);
 			return ret;
+		}
+
 		if (ret == SCAN_PEB_HANDLED)
 			continue;
 
@@ -556,8 +694,11 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 
 		ret = map_leb_first_occurrence(ubi_dev, pnum, &ec_hdr, &vid_hdr, vol);
 
-		if (ret < 0)
+		if (ret < 0) {
+			LOG_ERR("LEB mapping failed for PEB %zu: %d", pnum, ret);
 			return ret;
+		}
+
 		if (ret == SCAN_PEB_HANDLED)
 			continue;
 
@@ -565,8 +706,10 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 		ret = resolve_duplicate_leb(ubi_dev, pnum, ec_avg, &ec_hdr, &vid_hdr, vol,
 					    existing);
 
-		if (ret < 0)
+		if (ret < 0) {
+			LOG_ERR("Duplicate LEB resolution failed for PEB %zu: %d", pnum, ret);
 			return ret;
+		}
 	}
 
 	return 0;
@@ -574,15 +717,18 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 
 /* Module interface function definitions -------------------------------------------------------- */
 
-static int ubi_plain_device_init(const struct ubi_flash_desc *flash,
-				 const struct ubi_crypto_config *crypto_cfg,
-				 struct ubi_device **ubi)
+int ubi_plain_device_init(const struct ubi_flash_desc *flash,
+			  const struct ubi_crypto_config *crypto_cfg, struct ubi_device **ubi)
 {
 	ARG_UNUSED(crypto_cfg);
+
 	int ret = -1;
 
-	if (!flash || !ubi)
+	if (!flash || !ubi) {
+		LOG_ERR("Invalid argument: flash=%p ubi=%p", (const void *)flash,
+			(const void *)ubi);
 		return -EINVAL;
+	}
 
 	/* Check partition availability before allocating — avoids wasting a slab
 	 * block when the partition is already in use. */

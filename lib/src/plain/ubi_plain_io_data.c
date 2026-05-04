@@ -1,5 +1,5 @@
 /**
- * \file    ubi_io_data.c
+ * \file    ubi_plain_io_data.c
  * \author  Kamil Kielbasa
  * \brief   UBI data I/O: EC/VID header and LEB data read/write.
  *
@@ -30,67 +30,38 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Flash I/O fault injection -------------------------------------------------------------------- */
-
-#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-
-static int flash_write_remaining = -1;
-static int flash_erase_remaining = -1;
-
-void ubi_test_fault_set_flash_write_fail_after(int n)
-{
-	flash_write_remaining = n;
-}
-
-void ubi_test_fault_set_flash_erase_fail_after(int n)
-{
-	flash_erase_remaining = n;
-}
-
-static inline bool flash_write_should_fail(void)
-{
-	if (flash_write_remaining == 0) {
-		return true;
-	}
-	if (flash_write_remaining > 0) {
-		flash_write_remaining--;
-	}
-	return false;
-}
-
-static inline bool flash_erase_should_fail(void)
-{
-	if (flash_erase_remaining == 0) {
-		return true;
-	}
-	if (flash_erase_remaining > 0) {
-		flash_erase_remaining--;
-	}
-	return false;
-}
-
-bool ubi_test_flash_erase_check_fail(void)
-{
-	return flash_erase_should_fail();
-}
-
-bool ubi_test_flash_write_check_fail(void)
-{
-	return flash_write_should_fail();
-}
-
-#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
-
 /* Static function declarations ----------------------------------------------------------------- */
 
+/**
+ * \brief Write data to flash with configurable retry logic.
+ *
+ * Attempts up to CONFIG_UBI_PEB_WRITE_RETRY_COUNT writes. If fault injection
+ * is enabled, a write may be faulted before touching hardware.
+ *
+ * \param[in] fa       Open flash area handle.
+ * \param offset       Byte offset within the flash area.
+ * \param[in] data     Source buffer.
+ * \param len          Number of bytes to write.
+ *
+ * \return 0 on success, negative errno on failure.
+ */
 static int flash_write_with_retry(const struct flash_area *fa, off_t offset, const void *data,
 				  size_t len);
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+static inline bool flash_write_should_fail(void);
+static inline bool flash_erase_should_fail(void);
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 /* Static function definitions ------------------------------------------------------------------ */
 
 static int flash_write_with_retry(const struct flash_area *fa, off_t offset, const void *data,
 				  size_t len)
 {
+	__ASSERT_NO_MSG(fa);
+	__ASSERT_NO_MSG(data);
+	__ASSERT_NO_MSG(len > 0);
+
 	int ret = -EIO;
 
 	for (size_t attempt = 1; attempt <= CONFIG_UBI_PEB_WRITE_RETRY_COUNT; attempt++) {
@@ -120,16 +91,20 @@ static int flash_write_with_retry(const struct flash_area *fa, off_t offset, con
 
 int ubi_ec_hdr_read(const struct ubi_flash_desc *flash, const size_t pnum, struct ubi_ec_hdr *hdr)
 {
-	int ret = -EIO;
-
-	if (!flash)
+	if (!flash) {
+		LOG_ERR("flash is NULL");
 		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(flash->partition_id, &fa);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Flash area open failed: %d", ret);
 		return ret;
+	}
 
 	const size_t nr_of_pebs = fa->fa_size / flash->erase_block_size;
 
@@ -168,16 +143,21 @@ exit:
 int ubi_ec_hdr_write(const struct ubi_flash_desc *flash, const size_t pnum,
 		     const struct ubi_ec_hdr *hdr)
 {
-	int ret = -EIO;
-
-	if (!flash || !hdr)
+	if (!flash || !hdr) {
+		LOG_ERR("Invalid argument: flash=%p hdr=%p", (const void *)flash,
+			(const void *)hdr);
 		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(flash->partition_id, &fa);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Flash area open failed: %d", ret);
 		goto exit;
+	}
 
 	const size_t nr_of_pebs = fa->fa_size / flash->erase_block_size;
 
@@ -204,16 +184,20 @@ exit:
 int ubi_vid_hdr_read(const struct ubi_flash_desc *flash, const size_t pnum,
 		     struct ubi_vid_hdr *vid_hdr, bool check)
 {
-	int ret = -EIO;
-
-	if (!flash)
+	if (!flash) {
+		LOG_ERR("flash is NULL");
 		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(flash->partition_id, &fa);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Flash area open failed: %d", ret);
 		return ret;
+	}
 
 	const size_t nr_of_pebs = fa->fa_size / flash->erase_block_size;
 
@@ -255,16 +239,21 @@ exit:
 int ubi_vid_hdr_write(const struct ubi_flash_desc *flash, const size_t pnum,
 		      struct ubi_vid_hdr *vid_hdr)
 {
-	int ret = -EIO;
-
-	if (!flash || !vid_hdr)
+	if (!flash || !vid_hdr) {
+		LOG_ERR("Invalid argument: flash=%p vid_hdr=%p", (const void *)flash,
+			(const void *)vid_hdr);
 		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(flash->partition_id, &fa);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Flash area open failed: %d", ret);
 		goto exit;
+	}
 
 	const size_t nr_of_pebs = fa->fa_size / flash->erase_block_size;
 
@@ -292,16 +281,21 @@ exit:
 int ubi_leb_data_write(const struct ubi_flash_desc *flash, const size_t pnum, const uint8_t *buf,
 		       size_t len)
 {
-	int ret = -EIO;
-
-	if (!flash || !buf || len == 0)
+	if (!flash || !buf || len == 0) {
+		LOG_ERR("Invalid argument: flash=%p buf=%p len=%zu", (const void *)flash,
+			(const void *)buf, len);
 		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(flash->partition_id, &fa);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Flash area open failed: %d", ret);
 		goto exit;
+	}
 
 	const size_t nr_of_pebs = fa->fa_size / flash->erase_block_size;
 
@@ -370,16 +364,21 @@ exit:
 int ubi_leb_data_read(const struct ubi_flash_desc *flash, const size_t pnum, size_t offset,
 		      uint8_t *buf, size_t len)
 {
-	int ret = -EIO;
-
-	if (!flash || !buf || len == 0)
+	if (!flash || !buf || len == 0) {
+		LOG_ERR("Invalid argument: flash=%p buf=%p len=%zu", (const void *)flash,
+			(const void *)buf, len);
 		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	const struct flash_area *fa = NULL;
 	ret = flash_area_open(flash->partition_id, &fa);
 
-	if (ret != 0)
+	if (ret != 0) {
+		LOG_ERR("Flash area open failed: %d", ret);
 		goto exit;
+	}
 
 	const size_t nr_of_pebs = fa->fa_size / flash->erase_block_size;
 
@@ -411,3 +410,54 @@ exit:
 
 	return ret;
 }
+
+/* Flash I/O fault injection (test infrastructure) ---------------------------------------------- */
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+
+static int flash_write_remaining = -1;
+static int flash_erase_remaining = -1;
+
+void ubi_test_fault_set_flash_write_fail_after(int n)
+{
+	flash_write_remaining = n;
+}
+
+void ubi_test_fault_set_flash_erase_fail_after(int n)
+{
+	flash_erase_remaining = n;
+}
+
+static inline bool flash_write_should_fail(void)
+{
+	if (flash_write_remaining == 0) {
+		return true;
+	}
+	if (flash_write_remaining > 0) {
+		flash_write_remaining--;
+	}
+	return false;
+}
+
+static inline bool flash_erase_should_fail(void)
+{
+	if (flash_erase_remaining == 0) {
+		return true;
+	}
+	if (flash_erase_remaining > 0) {
+		flash_erase_remaining--;
+	}
+	return false;
+}
+
+bool ubi_test_flash_erase_check_fail(void)
+{
+	return flash_erase_should_fail();
+}
+
+bool ubi_test_flash_write_check_fail(void)
+{
+	return flash_write_should_fail();
+}
+
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */

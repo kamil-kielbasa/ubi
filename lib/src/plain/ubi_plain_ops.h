@@ -22,12 +22,12 @@ struct ubi_volume_config;
 
 /* Plain backend operation declarations --------------------------------------------------------- */
 
-/* ubi_core_runtime.c */
+/* ubi_plain_core_runtime.c */
 int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);
 int ubi_plain_device_deinit(struct ubi_device *ubi);
 int ubi_plain_device_erase_peb(struct ubi_device *ubi);
 
-/* ubi_volume.c */
+/* ubi_plain_volume.c */
 int ubi_plain_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,
 			    int *vol_id);
 int ubi_plain_volume_resize(struct ubi_device *ubi, int vol_id,
@@ -36,7 +36,7 @@ int ubi_plain_volume_remove(struct ubi_device *ubi, int vol_id);
 int ubi_plain_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
 			      size_t *alloc_lebs);
 
-/* ubi_leb.c */
+/* ubi_plain_leb.c */
 int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
 			size_t len);
 int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,

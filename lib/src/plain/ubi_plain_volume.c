@@ -1,5 +1,5 @@
 /**
- * \file    ubi_volume.c
+ * \file    ubi_plain_volume.c
  * \author  Kamil Kielbasa
  * \brief   UBI volume management: create, resize, remove, get_info.
  *
@@ -29,15 +29,37 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ----------------------------------------------------------------- */
 
+/**
+ * \brief Read the device header, bump revision, and optionally adjust vol_count.
+ *
+ * \param[in,out] ubi            UBI device handle (caller holds mutex).
+ * \param[out] hdr               Receives the updated device header.
+ * \param vol_count_delta         Value to add to the current volume count (+1, -1, or 0).
+ *
+ * \return 0 on success, negative errno on failure.
+ */
 static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 int vol_count_delta);
-static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item);
+
+/**
+ * \brief Move a mapped PEB to the dirty tree for future erasure.
+ *
+ * Reads the EC header to recover the erase count, then inserts the item into
+ * the dirty tree. If the EC read fails the PEB is marked bad instead.
+ *
+ * \param[in,out] ubi   UBI device handle (caller holds mutex).
+ * \param[in,out] item  Leaf item being reclaimed (reinserted into dirty tree or bad list).
+ */
+static void reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
 static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 int vol_count_delta)
 {
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(hdr);
+
 	int ret = ubi_dev_hdr_read(&ubi->flash, hdr);
 
 	if (ret == -EROFS) {
@@ -57,8 +79,11 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	return 0;
 }
 
-static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item)
+static void reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item)
 {
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(item);
+
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	int ret = ubi_ec_hdr_read(&ubi->flash, item->value.pnum, &ec_hdr);
 
@@ -70,14 +95,12 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 
 		struct ubi_list_item *bad_item = ubi_leaf_as_list(item);
 		ubi_move_to_bad_blocks(ubi, pnum, ec_avg, bad_item);
-		return 0;
+		return;
 	}
 
 	item->key = ec_hdr.ec;
 	rb_insert(&ubi->dirty_pebs, &item->node);
 	ubi->dirty_peb_count += 1;
-
-	return 0;
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
@@ -85,10 +108,18 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 int ubi_plain_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,
 			    int *vol_id)
 {
-	int ret = -EIO;
-
-	if (!ubi_volume_config_is_valid(vol_cfg))
+	if (!ubi || !vol_cfg || !vol_id) {
+		LOG_ERR("Invalid argument: ubi=%p vol_cfg=%p vol_id=%p", (const void *)ubi,
+			(const void *)vol_cfg, (const void *)vol_id);
 		return -EINVAL;
+	}
+
+	if (!ubi_volume_config_is_valid(vol_cfg)) {
+		LOG_ERR("Invalid volume configuration");
+		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
@@ -219,10 +250,18 @@ exit:
 int ubi_plain_volume_resize(struct ubi_device *ubi, int vol_id,
 			    const struct ubi_volume_config *vol_cfg)
 {
-	int ret = -EIO;
-
-	if (vol_cfg->leb_count == 0)
+	if (!ubi || !vol_cfg) {
+		LOG_ERR("Invalid argument: ubi=%p vol_cfg=%p", (const void *)ubi,
+			(const void *)vol_cfg);
 		return -EINVAL;
+	}
+
+	if (vol_cfg->leb_count == 0) {
+		LOG_ERR("Cannot resize volume to zero LEBs");
+		return -EINVAL;
+	}
+
+	int ret = -EIO;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
@@ -294,10 +333,7 @@ int ubi_plain_volume_resize(struct ubi_device *ubi, int vol_id,
 				rb_remove(&vol->eba_tbl, &item->node);
 				vol->eba_tbl_count -= 1;
 
-				ret = reclaim_peb_to_dirty(ubi, item);
-
-				if (ret != 0)
-					goto exit;
+				reclaim_peb_to_dirty(ubi, item);
 			}
 		}
 	}
@@ -311,6 +347,11 @@ exit:
 
 int ubi_plain_volume_remove(struct ubi_device *ubi, int vol_id)
 {
+	if (!ubi) {
+		LOG_ERR("ubi is NULL");
+		return -EINVAL;
+	}
+
 	int ret = -EIO;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
@@ -370,7 +411,7 @@ int ubi_plain_volume_remove(struct ubi_device *ubi, int vol_id)
 		rb_remove(&vol->eba_tbl, &item->node);
 		vol->eba_tbl_count -= 1;
 
-		(void)reclaim_peb_to_dirty(ubi, item);
+		reclaim_peb_to_dirty(ubi, item);
 	}
 
 	rb_remove(&ubi->vols, &entry->node);
@@ -389,6 +430,12 @@ exit:
 int ubi_plain_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
 			      size_t *alloc_lebs)
 {
+	if (!ubi || !vol_cfg || !alloc_lebs) {
+		LOG_ERR("Invalid argument: ubi=%p vol_cfg=%p alloc_lebs=%p", (const void *)ubi,
+			(const void *)vol_cfg, (const void *)alloc_lebs);
+		return -EINVAL;
+	}
+
 	int ret = -EIO;
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);

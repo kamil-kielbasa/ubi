@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.0] - 2026-05-04
+
+### Changed
+
+- Plain backend: public API functions now return `-EINVAL` with a log message on NULL arguments instead of triggering a kernel assert.
+- Plain backend: all error paths now emit `LOG_ERR` for diagnostics.
+- Plain backend: `reclaim_peb_to_dirty()` no longer returns an error code (always succeeded).
+- Plain backend: `leb_write()` no longer acquires the device mutex — the public `ubi_leb_write()` wrapper handles locking.
+- Plain backend: reserved-PEB overwrite fixed a dual-bank safety issue where a replacement PEB could be re-erased within the same commit.
+
 ## [0.49.0] - 2026-05-04
 
 ### Changed

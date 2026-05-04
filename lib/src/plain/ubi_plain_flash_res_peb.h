@@ -1,5 +1,5 @@
 /**
- * \file    ubi_flash_res_peb.h
+ * \file    ubi_plain_flash_res_peb.h
  * \author  Kamil Kielbasa
  * \brief   UBI reserved PEB management: scanning, recovery, and commit.
  *
@@ -8,8 +8,8 @@
 
 /* Include guard -------------------------------------------------------------------------------- */
 
-#ifndef UBI_FLASH_RES_PEB_H
-#define UBI_FLASH_RES_PEB_H
+#ifndef UBI_PLAIN_FLASH_RES_PEB_H
+#define UBI_PLAIN_FLASH_RES_PEB_H
 
 /* Include files -------------------------------------------------------------------------------- */
 
@@ -145,4 +145,4 @@ size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *
 int ubi_flash_res_peb_read_content(const struct ubi_flash_desc *flash, size_t peb_idx,
 				   uint8_t *content, size_t content_len);
 
-#endif /* UBI_FLASH_RES_PEB_H */
+#endif /* UBI_PLAIN_FLASH_RES_PEB_H */
