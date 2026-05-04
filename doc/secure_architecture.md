@@ -2129,8 +2129,7 @@ Recommended Kconfig knobs for SECURE mode:
 | Kconfig symbol | Meaning |
 |---|---|
 | `CONFIG_UBI_CRYPTO` | Enables SECURE mode support. |
-| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | Maximum number of distinct key versions that one attach session may inventory and track internally. The on-flash `key_version` field itself remains 8-bit. |
-| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | Maximum number of `uint8_t` key-version entries accepted in the runtime allowlist array. |
+| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | Maximum number of distinct key versions that one attach session may inventory and track internally, and maximum number of entries accepted in the runtime allowlist array. The on-flash `key_version` field itself remains 8-bit. |
 | `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT` | Soft threshold for usage-budget warnings. Crossing it emits `KEY_ROTATE_SOON`. |
 | `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT` | Hard threshold for usage-budget exhaustion. Crossing it emits `KEY_ROTATE_NOW` and may reject further writes by policy. |
 | `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET` | Maximum allowed metadata AEAD invocation count per `{domain, key_version}`. |
