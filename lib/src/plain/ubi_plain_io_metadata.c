@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_plain_io.h"
@@ -24,20 +24,20 @@
 #include <stdbool.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
-int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
+int ubi_dev_is_mounted(const struct ubi_flash_desc *flash, bool *is_mounted)
 {
-	if (!mtd || !is_mounted) {
+	if (!flash || !is_mounted) {
 		return -EINVAL;
 	}
 
 	struct ubi_flash_res_peb_scan scan = { 0 };
-	const int ret = ubi_flash_res_peb_scan(mtd, &scan);
+	const int ret = ubi_flash_res_peb_scan(flash, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failure");
@@ -48,14 +48,14 @@ int ubi_dev_is_mounted(const struct ubi_mtd *mtd, bool *is_mounted)
 	return 0;
 }
 
-int ubi_dev_mount(const struct ubi_mtd *mtd)
+int ubi_dev_mount(const struct ubi_flash_desc *flash)
 {
-	if (!mtd) {
+	if (!flash) {
 		return -EINVAL;
 	}
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -74,17 +74,17 @@ int ubi_dev_mount(const struct ubi_mtd *mtd)
 
 	flash_area_close(fa);
 
-	return ubi_flash_res_peb_overwrite(mtd, (const uint8_t *)&dev_hdr, sizeof(dev_hdr));
+	return ubi_flash_res_peb_overwrite(flash, (const uint8_t *)&dev_hdr, sizeof(dev_hdr));
 }
 
-int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
+int ubi_dev_hdr_read(const struct ubi_flash_desc *flash, struct ubi_dev_hdr *hdr)
 {
-	if (!mtd || !hdr) {
+	if (!flash || !hdr) {
 		return -EINVAL;
 	}
 
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	const int ret = ubi_flash_res_peb_validate(mtd, &dev_hdr);
+	const int ret = ubi_flash_res_peb_validate(flash, &dev_hdr);
 
 	if (ret != 0 && ret != -EROFS) {
 		LOG_ERR("Reserved PEB validation failure");
@@ -97,15 +97,16 @@ int ubi_dev_hdr_read(const struct ubi_mtd *mtd, struct ubi_dev_hdr *hdr)
 	return ret;
 }
 
-int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_vol_hdr *hdr)
+int ubi_vol_hdr_read(const struct ubi_flash_desc *flash, const size_t index,
+		     struct ubi_vol_hdr *hdr)
 {
-	if (!mtd || index >= CONFIG_UBI_MAX_NR_OF_VOLUMES || !hdr) {
+	if (!flash || index >= CONFIG_UBI_MAX_NR_OF_VOLUMES || !hdr) {
 		return -EINVAL;
 	}
 
 	/* Validate and recover reserved PEBs if needed */
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	int ret = ubi_flash_res_peb_validate(mtd, &dev_hdr);
+	int ret = ubi_flash_res_peb_validate(flash, &dev_hdr);
 
 	/* Allow reads in read-only degraded mode */
 	if (ret != 0 && ret != -EROFS) {
@@ -115,7 +116,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 
 	/* Scan to find active PEBs for reading vol headers */
 	struct ubi_flash_res_peb_scan scan = { 0 };
-	ret = ubi_flash_res_peb_scan(mtd, &scan);
+	ret = ubi_flash_res_peb_scan(flash, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failure");
@@ -128,7 +129,7 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	}
 
 	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -137,8 +138,8 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 
 	/* Read volume header from the canonical (highest-revision) PEB. */
 	struct ubi_vol_hdr vol_hdr = { 0 };
-	const size_t offset = (scan.canonical_peb_idx * mtd->erase_block_size) + UBI_DEV_HDR_SIZE +
-			      (UBI_VOL_HDR_SIZE * index);
+	const size_t offset = (scan.canonical_peb_idx * flash->erase_block_size) +
+			      UBI_DEV_HDR_SIZE + (UBI_VOL_HDR_SIZE * index);
 
 	ret = flash_area_read(fa, offset, &vol_hdr, sizeof(vol_hdr));
 
@@ -169,16 +170,16 @@ int ubi_vol_hdr_read(const struct ubi_mtd *mtd, const size_t index, struct ubi_v
 	return 0;
 }
 
-int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
+int ubi_vol_hdr_append(const struct ubi_flash_desc *flash, const struct ubi_dev_hdr *dev_hdr,
 		       const struct ubi_vol_hdr *vol_hdr)
 {
-	if (!mtd || !dev_hdr || !vol_hdr)
+	if (!flash || !dev_hdr || !vol_hdr)
 		return -EINVAL;
 
 	int ret = -EIO;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
-	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
+	ret = ubi_flash_res_peb_validate(flash, &cur_hdr);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB validation failed");
@@ -209,7 +210,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 
 	/* Read existing content from canonical (highest-revision) PEB */
 	struct ubi_flash_res_peb_scan scan = { 0 };
-	ret = ubi_flash_res_peb_scan(mtd, &scan);
+	ret = ubi_flash_res_peb_scan(flash, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failed");
@@ -222,7 +223,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	ret = ubi_flash_res_peb_read_content(mtd, scan.canonical_peb_idx, content,
+	ret = ubi_flash_res_peb_read_content(flash, scan.canonical_peb_idx, content,
 					     content_len - UBI_VOL_HDR_SIZE);
 
 	if (ret != 0) {
@@ -233,7 +234,7 @@ int ubi_vol_hdr_append(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	memcpy(&content[0], dev_hdr, sizeof(*dev_hdr));
 	memcpy(&content[content_len - UBI_VOL_HDR_SIZE], vol_hdr, sizeof(*vol_hdr));
 
-	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
+	ret = ubi_flash_res_peb_commit(flash, content, content_len);
 
 exit:
 	ubi_mem_scratch_free(content);
@@ -241,17 +242,17 @@ exit:
 	return ret;
 }
 
-int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
+int ubi_vol_hdr_remove(const struct ubi_flash_desc *flash, const struct ubi_dev_hdr *dev_hdr,
 		       const uint32_t vol_id)
 {
-	if (!mtd || !dev_hdr)
+	if (!flash || !dev_hdr)
 		return -EINVAL;
 
 	int ret = -EIO;
 	uint8_t *content = NULL;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
-	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
+	ret = ubi_flash_res_peb_validate(flash, &cur_hdr);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB validation failed");
@@ -291,7 +292,7 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 
 	for (size_t i = 0; i < cur_hdr.vol_count; ++i) {
 		struct ubi_vol_hdr exist_vol_hdr = { 0 };
-		ret = ubi_vol_hdr_read(mtd, i, &exist_vol_hdr);
+		ret = ubi_vol_hdr_read(flash, i, &exist_vol_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("Volume header read failed during remove");
@@ -304,7 +305,7 @@ int ubi_vol_hdr_remove(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		}
 	}
 
-	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
+	ret = ubi_flash_res_peb_commit(flash, content, content_len);
 
 exit:
 	ubi_mem_scratch_free(content);
@@ -312,10 +313,10 @@ exit:
 	return ret;
 }
 
-int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_hdr,
+int ubi_vol_hdr_update(const struct ubi_flash_desc *flash, const struct ubi_dev_hdr *dev_hdr,
 		       uint32_t vol_id, size_t new_leb_count)
 {
-	if (!mtd || !dev_hdr) {
+	if (!flash || !dev_hdr) {
 		return -EINVAL;
 	}
 
@@ -323,7 +324,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 	uint8_t *content = NULL;
 
 	struct ubi_dev_hdr cur_hdr = { 0 };
-	ret = ubi_flash_res_peb_validate(mtd, &cur_hdr);
+	ret = ubi_flash_res_peb_validate(flash, &cur_hdr);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB validation failed");
@@ -357,7 +358,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 
 	for (size_t i = 0; i < cur_hdr.vol_count; ++i) {
 		struct ubi_vol_hdr exist_vol_hdr = { 0 };
-		ret = ubi_vol_hdr_read(mtd, i, &exist_vol_hdr);
+		ret = ubi_vol_hdr_read(flash, i, &exist_vol_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("Volume header read failed during update");
@@ -381,7 +382,7 @@ int ubi_vol_hdr_update(const struct ubi_mtd *mtd, const struct ubi_dev_hdr *dev_
 		goto exit;
 	}
 
-	ret = ubi_flash_res_peb_commit(mtd, content, content_len);
+	ret = ubi_flash_res_peb_commit(flash, content, content_len);
 
 exit:
 	ubi_mem_scratch_free(content);

@@ -1,7 +1,7 @@
 /**
  * \file    ubi_test_fixture.h
  * \author  Kamil Kielbasa
- * \brief   Shared test helpers: MTD setup, partition erase, device lifecycle.
+ * \brief   Shared test helpers: flash descriptor setup, partition erase, device lifecycle.
  *
  * \copyright Copyright (c) 2026
  */
@@ -26,9 +26,9 @@
 #define UBI_TEST_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_TEST_PARTITION_NAME)
 
 /**
- * \brief Populate an ubi_mtd descriptor from the DeviceTree partition.
+ * \brief Populate an ubi_flash_desc descriptor from the DeviceTree partition.
  */
-static inline void ubi_test_setup_mtd(struct ubi_mtd *mtd)
+static inline void ubi_test_setup_mtd(struct ubi_flash_desc *flash)
 {
 	const struct device *flash_dev = UBI_TEST_PARTITION_DEVICE;
 	zassert_true(device_is_ready(flash_dev));
@@ -36,9 +36,9 @@ static inline void ubi_test_setup_mtd(struct ubi_mtd *mtd)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd->partition_id = FIXED_PARTITION_ID(UBI_TEST_PARTITION_NAME);
-	mtd->erase_block_size = page_info.size;
-	mtd->write_block_size = flash_get_write_block_size(flash_dev);
+	flash->partition_id = FIXED_PARTITION_ID(UBI_TEST_PARTITION_NAME);
+	flash->erase_block_size = page_info.size;
+	flash->write_block_size = flash_get_write_block_size(flash_dev);
 }
 
 /**
@@ -54,20 +54,20 @@ static inline void ubi_test_erase_partition(void)
 /**
  * \brief Init a UBI device on the test partition (after erase).
  */
-static inline struct ubi_device *ubi_test_init_device(const struct ubi_mtd *mtd)
+static inline struct ubi_device *ubi_test_init_device(const struct ubi_flash_desc *flash)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(flash, NULL, &ubi));
 	return ubi;
 }
 
 /**
  * \brief Erase partition and re-init a fresh device.
  */
-static inline struct ubi_device *ubi_test_reinit_device(const struct ubi_mtd *mtd)
+static inline struct ubi_device *ubi_test_reinit_device(const struct ubi_flash_desc *flash)
 {
 	ubi_test_erase_partition();
-	return ubi_test_init_device(mtd);
+	return ubi_test_init_device(flash);
 }
 
 #endif /* UBI_TEST_FIXTURE_H */

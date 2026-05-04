@@ -8,15 +8,15 @@
  * \copyright Copyright (c) 2025
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
-/* Internal header: */
+/* Internal headers: */
 #include "ubi_cache.h"
 
 /* Zephyr headers: */
 #include <zephyr/sys/__assert.h>
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 bool ubi_cache_cmp(struct rbnode *a, struct rbnode *b)
 {

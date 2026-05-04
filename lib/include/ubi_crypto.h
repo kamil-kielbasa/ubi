@@ -11,15 +11,18 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_CRYPTO_H
 #define UBI_CRYPTO_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \defgroup ubi_crypto_types UBI Crypto Types
@@ -27,7 +30,7 @@
  * \{
  */
 
-/* ---- Freshness descriptor ------------------------------------------------------------------- */
+/* Freshness descriptor ------------------------------------------------------------------------- */
 
 /**
  * \brief Exported freshness descriptor.
@@ -42,7 +45,7 @@ struct ubi_crypto_freshness {
 	uint64_t global_sqnum; /*!< Global sequence number at last commit. */
 };
 
-/* ---- Verdicts ------------------------------------------------------------------------------- */
+/* Verdicts ------------------------------------------------------------------------------------- */
 
 /**
  * \brief Rollback-check verdict returned by the check_freshness callback.
@@ -60,7 +63,7 @@ enum ubi_crypto_event_verdict {
 	UBI_CRYPTO_EVENT_ENTER_READ_ONLY = 1, /*!< Enter read-only mode for the session. */
 };
 
-/* ---- Event types ---------------------------------------------------------------------------- */
+/* Event types ---------------------------------------------------------------------------------- */
 
 /**
  * \brief Crypto event types emitted by the secure backend.
@@ -131,7 +134,7 @@ struct ubi_crypto_event {
 	};
 };
 
-/* ---- Policy --------------------------------------------------------------------------------- */
+/* Policy --------------------------------------------------------------------------------------- */
 
 /**
  * \brief Crypto policy for a secure UBI device.
@@ -145,7 +148,7 @@ struct ubi_crypto_policy {
 	size_t allowed_key_versions_len; /*!< Number of entries in the allowlist. */
 };
 
-/* ---- Callback typedefs ---------------------------------------------------------------------- */
+/* Callback typedefs ---------------------------------------------------------------------------- */
 
 /**
  * \brief Retrieve a PSA key identifier for a given key version.
@@ -199,7 +202,7 @@ typedef int (*ubi_crypto_sync_freshness_cb_t)(const struct ubi_crypto_freshness 
 typedef enum ubi_crypto_event_verdict (*ubi_crypto_event_cb_t)(const struct ubi_crypto_event *event,
 							       void *user_data);
 
-/* ---- Configuration -------------------------------------------------------------------------- */
+/* Configuration -------------------------------------------------------------------------------- */
 
 /**
  * \brief Crypto configuration for secure UBI device initialization.

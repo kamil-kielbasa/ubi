@@ -21,7 +21,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -40,7 +41,7 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -50,12 +51,12 @@
 /** Scan buffer size — must fit one erase block. */
 #define SCAN_BUF_SIZE 8192
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi = NULL;
 
-/* ----------------------------------- Forensic scan helpers ----------------------------------- */
+/* Forensic scan helpers ------------------------------------------------------------------------ */
 
 /**
  * \brief Search for a byte pattern in a buffer.
@@ -91,17 +92,17 @@ static bool flash_contains_pattern(const uint8_t *pattern, size_t pattern_len)
 {
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	static uint8_t scan_buf[SCAN_BUF_SIZE];
 	bool found = false;
 
 	/* Scan only data PEBs (skip reserved PEBs 0 and 1). */
-	const size_t start_offset = 2 * mtd.erase_block_size;
+	const size_t start_offset = 2 * flash.erase_block_size;
 	const size_t end_offset = UBI_PARTITION_SIZE;
 
-	for (size_t off = start_offset; off < end_offset; off += mtd.erase_block_size) {
-		const size_t read_len = MIN(mtd.erase_block_size, SCAN_BUF_SIZE);
+	for (size_t off = start_offset; off < end_offset; off += flash.erase_block_size) {
+		const size_t read_len = MIN(flash.erase_block_size, SCAN_BUF_SIZE);
 
 		zassert_ok(flash_area_read(fa, off, scan_buf, read_len));
 
@@ -115,7 +116,7 @@ static bool flash_contains_pattern(const uint8_t *pattern, size_t pattern_len)
 	return found;
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -127,9 +128,9 @@ static void *ztest_suite_setup(void)
 
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -155,7 +156,7 @@ static void ztest_testcase_after(void *ctx)
 	}
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that plaintext write data does not appear on flash.
@@ -179,7 +180,7 @@ ZTEST(ubi_secure_forensic, test_plaintext_data_absent_after_write)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -222,7 +223,7 @@ ZTEST(ubi_secure_forensic, test_volume_name_absent_in_data_area)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -260,7 +261,7 @@ ZTEST(ubi_secure_forensic, test_key_material_absent_on_flash)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -298,7 +299,7 @@ ZTEST(ubi_secure_forensic, test_plaintext_absent_after_overwrite_and_erase)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -351,7 +352,7 @@ ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
 	int vol_id = -1;
 
 	/* Init as PLAIN (no crypto config). */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -365,7 +366,7 @@ ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
 		     "Forensic scan failed to detect plaintext on plain backend — scanner bug");
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_forensic, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,
 	    NULL);

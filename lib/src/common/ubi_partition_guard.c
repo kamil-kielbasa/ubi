@@ -1,11 +1,12 @@
 /**
  * \file    ubi_partition_guard.c
  * \brief   Static registry preventing double-init of the same flash partition.
+ * \author  Kamil Kielbasa
  *
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_partition_guard.h"
@@ -16,17 +17,17 @@
 /* Standard library headers: */
 #include <errno.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 /** One bit per partition ID in the static \c active_partitions bitfield (IDs 0 … N-1). */
 #define UBI_PARTITION_GUARD_TRACKED_PARTITIONS 32
 
-/* Static storage ------------------------------------------------------------------------------ */
+/* Static storage ------------------------------------------------------------------------------- */
 
 static K_MUTEX_DEFINE(guard_mutex);
 static uint32_t active_partitions;
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_partition_acquire(uint8_t partition_id)
 {

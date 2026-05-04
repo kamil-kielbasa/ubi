@@ -17,11 +17,11 @@
 
 #include <string.h>
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -49,7 +49,7 @@ ZTEST_SUITE(ubi_hil_smoke, NULL, ztest_suite_setup, ztest_testcase_before, ztest
  */
 ZTEST(ubi_hil_smoke, hil_basic_lifecycle)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "hil_v",
@@ -80,7 +80,7 @@ ZTEST(ubi_hil_smoke, hil_basic_lifecycle)
  */
 ZTEST(ubi_hil_smoke, hil_persistence)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "hil_p",
@@ -94,7 +94,7 @@ ZTEST(ubi_hil_smoke, hil_persistence)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 	zassert_ok(ubi_device_deinit(ubi));
 
-	ubi = ubi_test_init_device(&mtd);
+	ubi = ubi_test_init_device(&flash);
 
 	uint8_t rbuf[8] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rbuf, sizeof(rbuf)));
@@ -108,7 +108,7 @@ ZTEST(ubi_hil_smoke, hil_persistence)
  */
 ZTEST(ubi_hil_smoke, hil_stress_cycles)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "hil_s",

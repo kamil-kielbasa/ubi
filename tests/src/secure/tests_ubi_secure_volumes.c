@@ -7,7 +7,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -27,16 +28,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
@@ -46,7 +47,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* -------------------------------------- Static helpers --------------------------------------- */
+/* Static helpers ------------------------------------------------------------------------------- */
 
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
@@ -68,7 +69,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ad, 0, sizeof(*ad));
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -78,9 +79,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -95,7 +96,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Create a single volume and verify persistence across reboot.
@@ -125,7 +126,7 @@ ZTEST(ubi_secure_volumes, test_create_one_with_reboot)
 	/* 1. Init + create volume. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_not_null(ubi);
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -152,7 +153,7 @@ ZTEST(ubi_secure_volumes, test_create_one_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_not_null(ubi);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -194,13 +195,13 @@ ZTEST(ubi_secure_volumes, test_create_remove_with_reboot)
 	struct ubi_device_info info = { 0 };
 
 	/* 1. Init, create, deinit. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
 	/* 2. Re-init, verify, remove. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	zassert_ok(ubi_volume_get_info(ubi, vol_id, &read_vol_cfg, &read_alloc_lebs));
@@ -218,7 +219,7 @@ ZTEST(ubi_secure_volumes, test_create_remove_with_reboot)
 	ubi = NULL;
 
 	/* 3. Re-init, verify removal persists. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -256,13 +257,13 @@ ZTEST(ubi_secure_volumes, test_resize_upper_with_reboot)
 	struct ubi_device *ubi = NULL;
 
 	/* 1. Create volume with 2 LEBs. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
 	/* 2. Re-init, resize to 4 LEBs. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_resize(ubi, vol_id, &new_vol_cfg));
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -273,7 +274,7 @@ ZTEST(ubi_secure_volumes, test_resize_upper_with_reboot)
 	ubi = NULL;
 
 	/* 3. Re-init, verify resize persists. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	zassert_ok(ubi_volume_get_info(ubi, vol_id, &read_vol_cfg, &read_alloc_lebs));
@@ -320,7 +321,7 @@ ZTEST(ubi_secure_volumes, test_create_many_with_reboot)
 	struct ubi_device_info info = { 0 };
 
 	/* 1. Create two volumes. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_1, &vol_id_1));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_2, &vol_id_2));
 	zassert_equal(0, vol_id_1);
@@ -336,7 +337,7 @@ ZTEST(ubi_secure_volumes, test_create_many_with_reboot)
 	ubi = NULL;
 
 	/* 2. Re-init, verify both volumes persist. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config read_cfg = { 0 };
 	size_t alloc = 0;
@@ -384,7 +385,7 @@ ZTEST(ubi_secure_volumes, test_shrink_with_reboot)
 	struct ubi_device_info info = { 0 };
 
 	/* 1. Create volume with 4 LEBs, write tail LEBs. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	const uint8_t data[] = { 0xAA };
@@ -412,7 +413,7 @@ ZTEST(ubi_secure_volumes, test_shrink_with_reboot)
 	ubi = NULL;
 
 	/* 3. Reboot (no erase) — verify shrink persists. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
 	zassert_ok(ubi_volume_get_info(ubi, vol_id, &read_vol_cfg, &read_alloc_lebs));
@@ -455,7 +456,7 @@ ZTEST(ubi_secure_volumes, test_shrink_erase_reboot)
 	struct ubi_device_info info = { 0 };
 
 	/* 1. Create, write tail LEBs, shrink. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	const uint8_t data[] = { 0xBB };
@@ -483,7 +484,7 @@ ZTEST(ubi_secure_volumes, test_shrink_erase_reboot)
 	ubi = NULL;
 
 	/* 3. Reboot — verify shrink persists, dirty cleaned. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config read_vol_cfg = { 0 };
 	size_t read_alloc_lebs = 0;
@@ -529,7 +530,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
 	struct ubi_device_info info = { 0 };
 
 	/* 1. Create volume and write data to advance the VID counter. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	const uint8_t data[] = { 0xCC, 0xDD };
@@ -550,7 +551,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
 	ubi = NULL;
 
 	/* 3. Reboot — floor must be preserved in secure device header. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -582,7 +583,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(rdata, 0, sizeof(rdata));
 	rsize = 0;
@@ -594,7 +595,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 /**
  * \brief Verify VID counter floor survives remove→create→reboot sequence.
@@ -621,7 +622,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_remove_create_reboot)
 	int vol_id = -1;
 
 	/* 1. Create volume A, write data to advance VID counter. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_a, &vol_id));
 
 	const uint8_t data1[] = { 0x11, 0x22 };
@@ -653,7 +654,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_remove_create_reboot)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	/* 5. Verify data integrity — floor was preserved across remove→create→reboot. */
 	uint8_t rdata[sizeof(data2)] = { 0 };
@@ -682,7 +683,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_remove_create_reboot)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(rdata, 0, sizeof(rdata));
 	rsize = 0;

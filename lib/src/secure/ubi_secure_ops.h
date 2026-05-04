@@ -6,30 +6,32 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_OPS_H
 #define UBI_SECURE_OPS_H
 
-/* Forward declarations ------------------------------------------------------------------------ */
+/* Forward declarations ------------------------------------------------------------------------- */
 
 struct ubi_device;
 struct ubi_device_info;
 struct ubi_volume_config;
 struct ubi_volume;
-struct ubi_mtd;
+struct ubi_flash_desc;
 struct ubi_crypto_config;
 
+/* Standard library headers: */
 #include <stdbool.h>
 #include <stddef.h>
 
-/* Secure backend operation declarations ------------------------------------------------------- */
+/* Secure backend operation declarations -------------------------------------------------------- */
 
 /* ubi_secure_volume.c — anchor */
 int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol);
 
 /* ubi_core_init.c */
-int ubi_secure_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			   struct ubi_device **ubi);
+int ubi_secure_device_init(const struct ubi_flash_desc *flash,
+			   const struct ubi_crypto_config *crypto_cfg, struct ubi_device **ubi);
 
 /* ubi_secure_runtime.c */
 int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);

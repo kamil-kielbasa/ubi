@@ -8,6 +8,7 @@ menuconfig UBI_CRYPTO
 	depends on MBEDTLS
 	depends on MBEDTLS_PSA_CRYPTO_C
 	depends on ENTROPY_GENERATOR
+	depends on MBEDTLS_ENTROPY_POLL_ZEPHYR
 	select PSA_WANT_ALG_CCM
 	select PSA_WANT_ALG_HKDF
 	select PSA_WANT_ALG_SHA_256
@@ -17,12 +18,6 @@ menuconfig UBI_CRYPTO
 	  initialized with a non-NULL crypto_cfg use AES-128-CCM authenticated
 	  encryption for all on-flash structures. Requires PSA Crypto via
 	  Mbed TLS and a platform entropy source.
-
-	  Platform prerequisites (set in board .conf):
-	    CONFIG_MBEDTLS=y
-	    CONFIG_MBEDTLS_PSA_CRYPTO_C=y
-	    CONFIG_ENTROPY_GENERATOR=y
-	    CONFIG_MBEDTLS_ENTROPY_POLL_ZEPHYR=y
 
 if UBI_CRYPTO
 
@@ -35,15 +30,8 @@ config UBI_CRYPTO_MAX_KEY_VERSIONS
 	help
 	  Upper bound on the number of distinct key versions that may be
 	  active during a single attach session. Determines the size of
-	  per-key-version bookkeeping arrays.
-
-config UBI_CRYPTO_MAX_ALLOWLIST_LEN
-	int "Maximum entries in the key-version allowlist"
-	default 4
-	range 1 255
-	help
-	  Maximum number of entries in the ubi_crypto_policy.allowed_key_versions
-	  array that the secure backend will process.
+	  per-key-version bookkeeping arrays and limits the
+	  ubi_crypto_policy.allowed_key_versions array length.
 
 # --- Budget limits ---
 
@@ -164,6 +152,8 @@ config UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE
 	help
 	  When the sync_freshness callback returns an error, enter
 	  read-only mode. The failing commit is NOT rolled back.
+
+# --- Test infrastructure (not for production) ---
 
 config UBI_CRYPTO_TEST_FAULT_INJECTION
 	bool "Enable secure backend fault injection hooks"

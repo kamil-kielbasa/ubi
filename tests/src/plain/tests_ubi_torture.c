@@ -14,7 +14,7 @@
  *
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -32,7 +32,7 @@
 #include <stddef.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -43,18 +43,18 @@
 #define EC_HDR_SIZE (16U)
 #define NR_OF_RES_PEBS (2U)
 
-/* ------------------------------ Static variables and constants ------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
-/* ------------------------------- Static function declarations -------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* -------------------------------- Static function definitions -------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -67,9 +67,9 @@ static void *ztest_suite_setup(void)
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = erase_block_size;
-	mtd.write_block_size = write_block_size;
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = erase_block_size;
+	flash.write_block_size = write_block_size;
 
 	return NULL;
 }
@@ -97,10 +97,10 @@ static void ztest_testcase_teardown(void *ctx)
 static void corrupt_peb_ec_header(size_t peb_idx)
 {
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	const size_t offset = peb_idx * mtd.erase_block_size;
-	zassert_ok(flash_area_erase(fa, offset, mtd.erase_block_size));
+	const size_t offset = peb_idx * flash.erase_block_size;
+	zassert_ok(flash_area_erase(fa, offset, flash.erase_block_size));
 
 	const uint8_t garbage[EC_HDR_SIZE] = { 0xDE, 0xAD, 0xBE, 0xEF };
 	zassert_ok(flash_area_write(fa, offset, garbage, sizeof(garbage)));
@@ -108,7 +108,7 @@ static void corrupt_peb_ec_header(size_t peb_idx)
 	flash_area_close(fa);
 }
 
-/* --------------------------- Module interface function definitions --------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_torture, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
@@ -128,7 +128,7 @@ ZTEST_SUITE(ubi_torture, NULL, ztest_suite_setup, ztest_testcase_before, ztest_t
 ZTEST(ubi_torture, corrupt_peb_recovered_by_torture)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort1",
@@ -147,7 +147,7 @@ ZTEST(ubi_torture, corrupt_peb_recovered_by_torture)
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 
 	/* Re-init: corrupted PEB should be classified as bad. */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -178,7 +178,7 @@ ZTEST(ubi_torture, corrupt_peb_recovered_by_torture)
 ZTEST(ubi_torture, recovered_peb_is_writable)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort2",
@@ -193,7 +193,7 @@ ZTEST(ubi_torture, recovered_peb_is_writable)
 	/* Corrupt a data PEB. */
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -227,7 +227,7 @@ ZTEST(ubi_torture, recovered_peb_is_writable)
 ZTEST(ubi_torture, ec_avg_tracking)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -276,7 +276,7 @@ ZTEST(ubi_torture, ec_avg_tracking)
 ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort4",
@@ -299,7 +299,7 @@ ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 	/* Corrupt a PEB. */
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -340,7 +340,7 @@ ZTEST(ubi_torture, ec_avg_consistent_after_recovery)
 ZTEST(ubi_torture, max_per_erase_limit)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "tort5",
@@ -356,7 +356,7 @@ ZTEST(ubi_torture, max_per_erase_limit)
 	corrupt_peb_ec_header(NR_OF_RES_PEBS);
 	corrupt_peb_ec_header(NR_OF_RES_PEBS + 1);
 
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));

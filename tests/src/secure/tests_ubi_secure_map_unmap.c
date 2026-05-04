@@ -7,7 +7,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -27,16 +28,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
@@ -46,7 +47,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* -------------------------------------- Static helpers --------------------------------------- */
+/* Static helpers ------------------------------------------------------------------------------- */
 
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
@@ -68,7 +69,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ad, 0, sizeof(*ad));
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -78,9 +79,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -95,7 +96,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Map/unmap single LEB lifecycle with reboot.
@@ -125,7 +126,7 @@ ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
 	/* 1. Init, create volume. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info_after_init = { 0 };
@@ -163,7 +164,7 @@ ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	zassert_ok(ubi_leb_unmap(ubi, vol_id, lnum));
 
@@ -179,7 +180,7 @@ ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
 
 	/* 7. Re-init, verify dirty cleaned up by attach scan. */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_device_info info_final = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_final));
@@ -212,7 +213,7 @@ ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
 	int vol_id = -1;
 
 	/* 1. Init, create volume. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info_after_init = { 0 };
@@ -242,7 +243,7 @@ ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	for (size_t i = 0; i < vol_cfg.leb_count; ++i) {
 		zassert_ok(ubi_leb_unmap(ubi, vol_id, i));
@@ -284,7 +285,7 @@ ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
 	const uint8_t data[] = { 0xAA, 0xBB, 0xCC, 0xDD };
 
 	/* 1. Create volume, write LEB 0. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, lnum, data, sizeof(data)));
 
@@ -308,7 +309,7 @@ ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
 	ubi = NULL;
 
 	/* 4. Re-init — old VID survives, mapping reconstructed. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	is_mapped = false;
 	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, lnum, &is_mapped));
@@ -350,7 +351,7 @@ ZTEST(ubi_secure_map, test_unmap_erase_reboot)
 	const uint8_t data[] = { 0x11, 0x22 };
 
 	/* 1. Create volume, write, unmap. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, lnum, data, sizeof(data)));
 	zassert_ok(ubi_leb_unmap(ubi, vol_id, lnum));
@@ -370,7 +371,7 @@ ZTEST(ubi_secure_map, test_unmap_erase_reboot)
 	ubi = NULL;
 
 	/* 4. Re-init — PEB is erased, no mapping reconstructed. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	bool is_mapped = true;
 	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, lnum, &is_mapped));
@@ -384,6 +385,6 @@ ZTEST(ubi_secure_map, test_unmap_erase_reboot)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_map, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

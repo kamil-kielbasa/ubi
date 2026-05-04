@@ -9,7 +9,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_TEST_HOOKS_H
 #define UBI_SECURE_TEST_HOOKS_H
 
@@ -20,10 +21,12 @@
 #warning "UBI secure test hooks enabled — do not use in production builds"
 #pragma GCC diagnostic pop
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Standard library headers: */
 #include <stdbool.h>
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \brief Secure fault injection stages.
@@ -42,7 +45,7 @@ enum ubi_secure_test_hook_stage {
 	UBI_SECURE_HOOK_COUNT, /*!< Number of hook stages. */
 };
 
-/* Public API ---------------------------------------------------------------------------------- */
+/* Public API ----------------------------------------------------------------------------------- */
 
 /**
  * \brief Reset all secure test hooks to their default (disabled) state.

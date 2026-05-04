@@ -6,24 +6,29 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_CRYPTO_H
 #define UBI_SECURE_CRYPTO_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_types.h"
 
+/* Public headers: */
 #include <ubi_crypto.h>
 
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 /** Maximum label buffer size for ubi_secure_build_label (longest domain: "VOLUME-IDENTIFIER"). */
 #define UBI_SECURE_MAX_LABEL_SIZE (24)
 
-/* Function declarations ----------------------------------------------------------------------- */
+/* Function declarations ------------------------------------------------------------------------ */
 
 /**
  * \brief Derive a 16-byte child key via HKDF-SHA-256 from a PSA root key.

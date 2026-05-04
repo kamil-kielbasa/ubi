@@ -6,18 +6,22 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_SER_H
 #define UBI_SECURE_SER_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_types.h"
 #include "ubi_plain_io.h"
 
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
-/* Function declarations ----------------------------------------------------------------------- */
+/* Function declarations ------------------------------------------------------------------------ */
 
 /**
  * \brief Serialize a prefix32 struct into a 32-byte big-endian buffer.
@@ -177,7 +181,7 @@ void ubi_secure_build_leb_chunk_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE]
 				    uint64_t sqnum, uint32_t data_size, uint8_t parent_vid_kv,
 				    uint32_t chunk_index,
 				    uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE]);
-#endif
+#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 
 /**
  * \brief Serialize vid_secure_meta to a byte buffer.

@@ -11,7 +11,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -31,19 +32,19 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* -------------------------------------- Event tracking --------------------------------------- */
+/* Event tracking ------------------------------------------------------------------------------- */
 
 static size_t auth_failure_count;
 
@@ -57,7 +58,7 @@ static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_e
 	return UBI_CRYPTO_EVENT_CONTINUE;
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -67,9 +68,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -116,7 +117,7 @@ static void corrupt_byte(size_t offset)
 	 * allows writing without prior erase on zeros. A simpler approach:
 	 * just read the whole erase block, flip the byte, erase, write back.
 	 */
-	const size_t ebs = mtd.erase_block_size;
+	const size_t ebs = flash.erase_block_size;
 	const size_t block_base = (offset / ebs) * ebs;
 
 	uint8_t *buf = k_malloc(ebs);
@@ -130,7 +131,7 @@ static void corrupt_byte(size_t offset)
 	k_free(buf);
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Tamper with LEB data area after a secure write.
@@ -159,7 +160,7 @@ ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
 	int vol_id = -1;
 
 	/* 1. Init, write data. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0xDE, 0xAD, 0xBE, 0xEF };
@@ -176,10 +177,10 @@ ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
 	g_ubi = NULL;
 
 	/* 2. Corrupt a byte in every data PEB (skip reserved PEBs 0 and 1). */
-	const size_t nr_blocks = UBI_PARTITION_SIZE / mtd.erase_block_size;
+	const size_t nr_blocks = UBI_PARTITION_SIZE / flash.erase_block_size;
 
 	for (size_t blk = 2; blk < nr_blocks; ++blk) {
-		corrupt_byte(blk * mtd.erase_block_size + mtd.erase_block_size / 2);
+		corrupt_byte(blk * flash.erase_block_size + flash.erase_block_size / 2);
 	}
 
 	/* 3. Re-init: either attach fails (detected) or succeeds (may detect
@@ -187,7 +188,7 @@ ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
 	 */
 	auth_failure_count = 0;
 
-	int ret = ubi_device_init(&mtd, &cfg, &g_ubi);
+	int ret = ubi_device_init(&flash, &cfg, &g_ubi);
 	if (ret != 0) {
 		g_ubi = NULL;
 		/* Attach failed — corruption detected during scan. This is valid. */
@@ -219,16 +220,16 @@ ZTEST(ubi_secure_tamper, test_reserved_peb_tamper_smoke)
 	cfg.event_cb = counting_event_cb;
 
 	/* 1. Format. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 
 	/* 2. Corrupt byte in reserved PEB 0 body. */
 	auth_failure_count = 0;
-	corrupt_byte(mtd.erase_block_size / 2);
+	corrupt_byte(flash.erase_block_size / 2);
 
 	/* 3. Re-init — must succeed via the healthy second bank. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(g_ubi, &info));
@@ -238,7 +239,7 @@ ZTEST(ubi_secure_tamper, test_reserved_peb_tamper_smoke)
 	g_ubi = NULL;
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_tamper, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
 	    NULL);

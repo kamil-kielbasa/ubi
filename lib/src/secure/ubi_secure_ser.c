@@ -6,16 +6,20 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_ser.h"
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/byteorder.h>
 
+/* Standard library headers: */
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
@@ -39,7 +43,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 #define VID_META_OFF_LEB_WRITE_COUNTER (0)
 #define VID_META_OFF_LEB_TOTAL_AUTH_BYTES (VID_META_OFF_LEB_WRITE_COUNTER + sizeof(uint64_t))
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uint8_t *buf)
 {
@@ -292,7 +296,7 @@ void ubi_secure_build_leb_chunk_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE]
 	/* Append be32(chunk_index) at offset 74 → total 78. */
 	sys_put_be32(chunk_index, &aad[UBI_SECURE_LEB_AAD_SIZE]);
 }
-#endif
+#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 
 void ubi_secure_vid_meta_serialize(const struct ubi_vid_secure_meta *meta, uint8_t *buf)
 {

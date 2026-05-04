@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ----------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 #include <ubi.h>
 
@@ -16,17 +16,22 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
-/* Module defines ---------------------------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 
-/* Module types and type definitions --------------------------------------- */
-/* Module interface variables and constants -------------------------------- */
-/* Static variables and constants ------------------------------------------ */
-/* Static function declarations -------------------------------------------- */
-/* Static function definitions --------------------------------------------- */
-/* Module interface function definitions ----------------------------------- */
+/* Module types and type definitions ------------------------------------------------------------ */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+/* Static function definitions ------------------------------------------------------------------ */
+
+/* Module interface function definitions -------------------------------------------------------- */
 
 int main(void)
 {
@@ -47,13 +52,13 @@ int main(void)
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
 
-	struct ubi_mtd mtd = { 0 };
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = erase_block_size;
-	mtd.write_block_size = write_block_size;
+	struct ubi_flash_desc flash = { 0 };
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = erase_block_size;
+	flash.write_block_size = write_block_size;
 
 	struct ubi_device *ubi = NULL;
-	ret = ubi_device_init(&mtd, NULL, &ubi);
+	ret = ubi_device_init(&flash, NULL, &ubi);
 
 	if (ret != 0) {
 		printk("UBI initialization failure\n");

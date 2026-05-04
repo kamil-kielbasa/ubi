@@ -7,7 +7,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -27,16 +28,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
@@ -46,7 +47,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* -------------------------------------- Static helpers --------------------------------------- */
+/* Static helpers ------------------------------------------------------------------------------- */
 
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
@@ -68,7 +69,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ad, 0, sizeof(*ad));
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -78,9 +79,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -95,7 +96,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Chunked geometry produces valid leb_size.
@@ -110,7 +111,7 @@ ZTEST(ubi_secure_chunked, test_geometry_leb_size)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_device_info info = { 0 };
 
@@ -120,7 +121,7 @@ ZTEST(ubi_secure_chunked, test_geometry_leb_size)
 	zassert_true(info.leb_size > 0, "leb_size is zero with chunked geometry");
 
 	/* Chunked leb_size should be <= single-tag leb_size because of extra tags. */
-	const size_t single_tag_leb_size = mtd.erase_block_size - 160 - 48;
+	const size_t single_tag_leb_size = flash.erase_block_size - 160 - 48;
 
 	zassert_true(info.leb_size <= single_tag_leb_size, "Chunked leb_size %zu > single-tag %zu",
 		     info.leb_size, single_tag_leb_size);
@@ -150,7 +151,7 @@ ZTEST(ubi_secure_chunked, test_single_chunk_write_read)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* 128 bytes < chunk_size=256 → 1 chunk. */
@@ -193,7 +194,7 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_write_read)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* 1024 bytes / 256-byte chunks = 4 chunks. */
@@ -237,7 +238,7 @@ ZTEST(ubi_secure_chunked, test_partial_read_cross_chunk)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_1024, ARRAY_SIZE(array_1024)));
@@ -272,7 +273,7 @@ ZTEST(ubi_secure_chunked, test_partial_read_within_chunk)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_1024, ARRAY_SIZE(array_1024)));
@@ -307,7 +308,7 @@ ZTEST(ubi_secure_chunked, test_partial_last_chunk)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* 271 bytes: first chunk full (256), second chunk partial (15). */
@@ -348,7 +349,7 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_with_reboot)
 
 	/* 1. Init, create, write. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_1024, ARRAY_SIZE(array_1024)));
 
@@ -367,7 +368,7 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_with_reboot)
 	/* 4. Re-init and verify persistence. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(rdata, 0, sizeof(rdata));
 	size_t rdata_size = 0;
@@ -405,7 +406,7 @@ ZTEST(ubi_secure_chunked, test_overwrite_chunked)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* First write: 512 bytes (2 full chunks). */
@@ -448,7 +449,7 @@ ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_1024, ARRAY_SIZE(array_1024)));
 
@@ -463,7 +464,7 @@ ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
 	 * Chunk 2 ciphertext starts at: 160 + 32 + 2*(256+16) = 160+32+544 = 736. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	/* Read the PEB index from the EBA (simplified: find the data region).
 	 * We'll tamper at a fixed offset within the data PEB that holds lnum=0.
@@ -485,14 +486,14 @@ ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
 	 * Since only one PEB carries this data, only that one will be affected. */
 
 	const size_t nr_res_pebs = 2;
-	const size_t nr_pebs = UBI_PARTITION_SIZE / mtd.erase_block_size;
+	const size_t nr_pebs = UBI_PARTITION_SIZE / flash.erase_block_size;
 	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
 	const size_t tag_size = 16;
 	/* Chunk 2 ct starts at: LEB_OFFSET(160) + prefix(32) + 2*(chunk_size+tag) */
 	const size_t chunk2_ct_off = 160 + 32 + 2 * (chunk_size + tag_size);
 
 	for (size_t peb = nr_res_pebs; peb < nr_pebs; peb++) {
-		const size_t peb_off = peb * mtd.erase_block_size;
+		const size_t peb_off = peb * flash.erase_block_size;
 		uint8_t byte_val = 0;
 
 		(void)flash_area_read(fa, peb_off + chunk2_ct_off, &byte_val, 1);
@@ -546,7 +547,7 @@ ZTEST(ubi_secure_chunked, test_zero_length_map)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	/* Map LEB 1 (zero-length write). */
@@ -568,7 +569,7 @@ ZTEST(ubi_secure_chunked, test_zero_length_map)
 /**
  * \brief Reject initialization when erase_block_size is too small for chunks.
  *
- * \details Create an MTD descriptor with a tiny erase_block_size that cannot
+ * \details Create a flash descriptor with a tiny erase_block_size that cannot
  *          fit even one chunk. ubi_device_init() must fail — the flash
  *          driver rejects the invalid erase block size before the geometry
  *          check runs.
@@ -579,19 +580,19 @@ ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
 {
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
-	/* Create an MTD with a very small erase block that cannot fit
+	/* Create a flash descriptor with a very small erase block that cannot fit
 	 * the secure headers + even one chunk. */
-	struct ubi_mtd tiny_mtd = mtd;
+	struct ubi_flash_desc tiny_flash = flash;
 
-	tiny_mtd.erase_block_size = 256;
+	tiny_flash.erase_block_size = 256;
 
 	struct ubi_device *ubi = NULL;
-	const int ret = ubi_device_init(&tiny_mtd, &cfg, &ubi);
+	const int ret = ubi_device_init(&tiny_flash, &cfg, &ubi);
 
 	zassert_true(ret < 0, "Init must fail when erase block is too small for chunks (ret=%d)",
 		     ret);
 }
 
-/* ------------------------------------- Suite declaration ------------------------------------- */
+/* Suite declaration ---------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_chunked, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

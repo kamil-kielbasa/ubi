@@ -6,19 +6,24 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_TYPES_H
 #define UBI_SECURE_TYPES_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Zephyr headers: */
 #include <zephyr/sys/__assert.h>
 
+/* Third-party headers: */
 #include <mbedtls/platform_util.h>
 
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 /** Magic for secure wrapper prefix. */
 #define UBI_SECURE_PREFIX_MAGIC (0x55424953U) /* 'UBIS' */
@@ -50,7 +55,7 @@
 /** Byte offset of key_version field within serialized prefix32. */
 #define UBI_SECURE_PREFIX_OFF_KEY_VERSION (6)
 
-/* Internal error codes (outside POSIX errno range) -------------------------------------------- */
+/* Internal error codes (outside POSIX errno range) --------------------------------------------- */
 
 /** Salt generation (RNG) failure — distinct from generic -EIO. */
 #define UBI_SECURE_ENORAND 201
@@ -61,7 +66,7 @@
 /** Post-AEAD format violation — authentic data with invalid structure. */
 #define UBI_SECURE_EFORMAT 203
 
-/* Utility helpers ----------------------------------------------------------------------------- */
+/* Utility helpers ------------------------------------------------------------------------------ */
 
 /**
  * \brief Compiler-safe zeroization of a buffer (will not be optimized away).
@@ -92,7 +97,7 @@ static inline void ubi_secure_zeroize(void *buf, size_t len)
 /** Size of struct ubi_dev_secure_meta. */
 #define UBI_SECURE_DEV_META_SIZE (16)
 
-/* Data-PEB secure record sizes ------------------------------------------------ */
+/* Data-PEB secure record sizes ----------------------------------------------------------------- */
 
 /** Size of the plain EC header payload in bytes. */
 #define UBI_SECURE_PLAIN_EC_HDR_SIZE (16)
@@ -128,7 +133,7 @@ static inline void ubi_secure_zeroize(void *buf, size_t len)
 /** Fixed overhead per secure LEB record: prefix(32) + tag(16) = 48. */
 #define UBI_SECURE_LEB_OVERHEAD (UBI_SECURE_PREFIX_SIZE + UBI_SECURE_TAG_SIZE)
 
-/* Crypto domains -------------------------------------------------------------- */
+/* Crypto domains ------------------------------------------------------------------------------- */
 
 /**
  * \brief Domain byte values for the prefix and nonce.
@@ -146,7 +151,7 @@ enum ubi_secure_domain {
 	UBI_SECURE_DOMAIN_COUNT, /*!< Number of defined secure domains. */
 };
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \brief Common 32-byte prefix for all secure on-flash records.
@@ -187,7 +192,7 @@ struct ubi_vid_secure_meta {
 };
 BUILD_ASSERT(sizeof(struct ubi_vid_secure_meta) == UBI_SECURE_VID_META_SIZE);
 
-/* Parent authentication context structures ------------------------------------ */
+/* Parent authentication context structures ----------------------------------------------------- */
 
 /**
  * \brief Authenticated EC-header context — passed as parent to VID/LEB operations.
@@ -212,7 +217,7 @@ struct ubi_secure_vid_auth_ctx {
 	uint64_t vid_counter; /*!< VID-domain AEAD counter from prefix32. */
 };
 
-/* AAD sizes ------------------------------------------------------------------- */
+/* AAD sizes ------------------------------------------------------------------------------------ */
 
 /** AAD size for secure device header: prefix(32) + peb_idx(4) + offset(8). */
 #define UBI_SECURE_DEV_HDR_AAD_SIZE (44)

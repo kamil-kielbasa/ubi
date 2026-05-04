@@ -6,21 +6,26 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 
+/* Third-party headers: */
 #include <psa/crypto.h>
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/byteorder.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
@@ -32,7 +37,7 @@ static const char LABEL_ERASE_COUNTER[] = "ERASE-COUNTER";
 static const char LABEL_VOLUME_IDENTIFIER[] = "VOLUME-IDENTIFIER";
 static const char LABEL_LEB[] = "LEB";
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, uint8_t *label,
 			   size_t label_cap, size_t *label_len)
@@ -126,7 +131,7 @@ int ubi_secure_derive_child_key(uint32_t root_key_id, const uint8_t *label, size
 		LOG_WRN("HKDF fault injected");
 		return -EIO;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	status = psa_key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_256));
 	if (status != PSA_SUCCESS) {
@@ -200,7 +205,7 @@ int ubi_secure_aead_encrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 		LOG_WRN("AEAD encrypt fault injected");
 		return -EIO;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	const psa_status_t status = psa_aead_encrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len, plaintext,
@@ -229,7 +234,7 @@ int ubi_secure_aead_decrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 		LOG_WRN("AEAD decrypt fault injected");
 		return -EIO;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	const psa_status_t status = psa_aead_decrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len,
@@ -255,7 +260,7 @@ int ubi_secure_generate_salt(uint8_t salt[UBI_SECURE_SALT_SIZE])
 		LOG_WRN("RNG fault injected");
 		return -UBI_SECURE_ENORAND;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	const psa_status_t status = psa_generate_random(salt, UBI_SECURE_SALT_SIZE);
 
@@ -310,7 +315,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 		LOG_WRN("get_key_id fault injected");
 		return -UBI_SECURE_ENOKEY;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	uint32_t root_key_id = 0;
 	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
@@ -366,7 +371,7 @@ int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_
 		LOG_WRN("get_key_id fault injected");
 		return -UBI_SECURE_ENOKEY;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	uint32_t root_key_id = 0;
 	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);

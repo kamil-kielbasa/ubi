@@ -6,18 +6,21 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_test_hooks.h"
 
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
 
+/* Standard library headers: */
 #include <string.h>
 
-/* Static variables ---------------------------------------------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
 static bool hooks_armed[UBI_SECURE_HOOK_COUNT];
 
-/* Public function definitions ----------------------------------------------------------------- */
+/* Public function definitions ------------------------------------------------------------------ */
 
 void ubi_secure_test_hook_reset(void)
 {

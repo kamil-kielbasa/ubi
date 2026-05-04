@@ -12,7 +12,7 @@
  *
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -32,18 +32,20 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ---------------------------- Module types and type definitiones ----------------------------- */
-/* ------------------------- Module interface variables and constants -------------------------- */
-/* ------------------------------ Static variables and constants ------------------------------- */
+/* Module types and type definitiones ----------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
@@ -53,7 +55,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* ------------------------------- Static function declarations -------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -66,7 +68,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
-/* -------------------------------- Static function definitions -------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -79,9 +81,9 @@ static void *ztest_suite_setup(void)
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = erase_block_size;
-	mtd.write_block_size = write_block_size;
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = erase_block_size;
+	flash.write_block_size = write_block_size;
 
 	return NULL;
 }
@@ -149,7 +151,7 @@ static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
 	k_free(peb_ec);
 }
 
-/* --------------------------- Module interface function definitions --------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_volumes, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
@@ -184,7 +186,7 @@ ZTEST(ubi_volumes, create_one_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -219,7 +221,7 @@ ZTEST(ubi_volumes, create_one_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	memset(&read_vol_cfg, 0, sizeof(read_vol_cfg));
@@ -275,7 +277,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 
 	/* 1. Initialize device */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -315,7 +317,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 
 	/* 5. Initialize device */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volume */
@@ -359,7 +361,7 @@ ZTEST(ubi_volumes, create_one_with_remove_with_reboot)
 
 	/* 10. Initialize device */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify removed volume */
@@ -414,7 +416,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create volume */
@@ -454,7 +456,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volume */
@@ -515,7 +517,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify resized volume */
@@ -589,7 +591,7 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create three volumes */
@@ -656,7 +658,7 @@ ZTEST(ubi_volumes, create_many_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volumes */
@@ -757,7 +759,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create three volumes */
@@ -824,7 +826,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volumes */
@@ -896,7 +898,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify existing volumes */
@@ -946,7 +948,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 14. Verify created volumes */
@@ -1015,7 +1017,7 @@ ZTEST(ubi_volumes, create_many_with_remove_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 19. Verify after removed all volumes */
@@ -1107,7 +1109,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 2. Create three volumes */
@@ -1174,7 +1176,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 6. Verify created volumes */
@@ -1254,7 +1256,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 11. Verify existing volumes */
@@ -1311,7 +1313,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 14. Verify created volumes */
@@ -1403,7 +1405,7 @@ ZTEST(ubi_volumes, create_many_with_resizes_lower_and_upper_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	zassert_not_null(ubi);
 
 	/* 19. Verify after resizes of all volumes */

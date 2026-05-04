@@ -28,14 +28,14 @@ int main(void)
     struct flash_pages_info page_info = { 0 };
     flash_get_page_info_by_offs(flash_dev, 0, &page_info);
 
-    struct ubi_mtd mtd = {
+    struct ubi_flash_desc flash = {
         .partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME),
         .erase_block_size = page_info.size,
         .write_block_size = flash_get_write_block_size(flash_dev),
     };
 
     struct ubi_device *ubi = NULL;
-    ubi_device_init(&mtd, NULL, &ubi);
+    ubi_device_init(&flash, NULL, &ubi);
 
     /* Create a volume */
     struct ubi_volume_config cfg = {

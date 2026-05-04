@@ -6,7 +6,7 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 #include <ubi.h>
 #include <ubi_test.h>
@@ -22,16 +22,16 @@
 #include "ubi_test_fixture.h"
 #include "ubi_test_memory.h"
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi = NULL;
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -54,7 +54,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* ------------------------------------- Test definitions -------------------------------------- */
+/* Test definitions ----------------------------------------------------------------------------- */
 
 /**
  * \brief ubi_test_buf_is_erased detects a buffer filled with 0xFF.
@@ -110,7 +110,7 @@ ZTEST(ubi_erased_val, test_erased_buffer_zero_length)
 ZTEST(ubi_erased_val, test_get_erased_val_returns_flash_value)
 {
 	uint8_t erased_val = 0x00;
-	int ret = ubi_test_get_erased_val(&mtd, &erased_val);
+	int ret = ubi_test_get_erased_val(&flash, &erased_val);
 
 	zassert_ok(ret, "ubi_test_get_erased_val should succeed");
 	zassert_equal(erased_val, 0xFF, "Flash simulator erased value should be 0xFF");
@@ -124,7 +124,7 @@ ZTEST(ubi_erased_val, test_get_erased_val_returns_flash_value)
  */
 ZTEST(ubi_erased_val, test_init_classifies_erased_pebs_as_free)
 {
-	g_ubi = ubi_test_init_device(&mtd);
+	g_ubi = ubi_test_init_device(&flash);
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(g_ubi, &info));

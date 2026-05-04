@@ -6,11 +6,13 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_ops.h"
 #include "ubi_backend.h"
 
-/* Backend ops vtable -------------------------------------------------------------------------- */
+/* Backend ops vtable --------------------------------------------------------------------------- */
 
 const struct ubi_backend_ops *ubi_secure_backend(void)
 {

@@ -23,7 +23,7 @@
 #include <stddef.h>
 #include <string.h>
 
-/* ---------------------------------- PSA test key management ---------------------------------- */
+/* PSA test key management ---------------------------------------------------------------------- */
 
 /** 16-byte test root key material (all 0xAA). */
 static const uint8_t UBI_TEST_ROOT_KEY_MATERIAL[16] = {
@@ -63,7 +63,7 @@ static inline void ubi_test_destroy_root_key(void)
 	ubi_test_root_key_id = 0;
 }
 
-/* -------------------------------- Mock callbacks for testing --------------------------------- */
+/* Mock callbacks for testing ------------------------------------------------------------------- */
 
 static inline int mock_get_key_id(uint8_t key_version, uint32_t *key_id_out)
 {

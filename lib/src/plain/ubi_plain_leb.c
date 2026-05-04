@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_internal.h"
@@ -24,11 +24,11 @@
 #include <errno.h>
 #include <stdbool.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				   const void *buf, size_t len, struct ubi_rbt_item **out_new_node);
@@ -36,7 +36,7 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 				    struct ubi_rbt_item *new_node);
 static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 /**
  * Allocate a free PEB, write optional data payload, then write VID header.
@@ -77,7 +77,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	/* Step 2: Write data payload first (if any). */
 	if (buf && len > 0) {
-		ret = ubi_leb_data_write(&ubi->mtd, new_node->value.pnum, buf, len);
+		ret = ubi_leb_data_write(&ubi->flash, new_node->value.pnum, buf, len);
 
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
@@ -87,7 +87,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	}
 
 	/* Step 3: Write VID header — this is the commit point. */
-	ret = ubi_vid_hdr_write(&ubi->mtd, new_node->value.pnum, &vid_hdr);
+	ret = ubi_vid_hdr_write(&ubi->flash, new_node->value.pnum, &vid_hdr);
 
 	if (ret != 0) {
 		LOG_ERR("VID header write failure");
@@ -110,7 +110,7 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 
 	if (old_entry) {
 		struct ubi_ec_hdr old_ec = { 0 };
-		int ec_ret = ubi_ec_hdr_read(&ubi->mtd, old_entry->value.pnum, &old_ec);
+		int ec_ret = ubi_ec_hdr_read(&ubi->flash, old_entry->value.pnum, &old_ec);
 
 		rb_remove(&vol->eba_tbl, &old_entry->node);
 		vol->eba_tbl_count -= 1;
@@ -175,7 +175,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 		goto exit;
 	}
 
-	if (len > (ubi->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
+	if (len > (ubi->flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
 		LOG_ERR("Too big buffer to write in LEB");
 		ret = -ENOSPC;
 		goto exit;
@@ -195,7 +195,7 @@ exit:
 	return ret;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
 			size_t len)
@@ -233,7 +233,7 @@ int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t o
 
 	/* Validate read range against actual data size stored in VID header */
 	struct ubi_vid_hdr vid_hdr = { 0 };
-	ret = ubi_vid_hdr_read(&ubi->mtd, entry->value.pnum, &vid_hdr, true);
+	ret = ubi_vid_hdr_read(&ubi->flash, entry->value.pnum, &vid_hdr, true);
 
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");
@@ -247,7 +247,7 @@ int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t o
 		goto exit;
 	}
 
-	ret = ubi_leb_data_read(&ubi->mtd, entry->value.pnum, offset, buf, len);
+	ret = ubi_leb_data_read(&ubi->flash, entry->value.pnum, offset, buf, len);
 
 	if (ret != 0) {
 		LOG_ERR("LEB data read failure");
@@ -340,7 +340,7 @@ int ubi_plain_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	}
 
 	struct ubi_ec_hdr ec_hdr = { 0 };
-	ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
+	ret = ubi_ec_hdr_read(&ubi->flash, entry->value.pnum, &ec_hdr);
 
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
@@ -416,7 +416,7 @@ int ubi_plain_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, size
 	}
 
 	struct ubi_vid_hdr vid_hdr = { 0 };
-	ret = ubi_vid_hdr_read(&ubi->mtd, entry->value.pnum, &vid_hdr, true);
+	ret = ubi_vid_hdr_read(&ubi->flash, entry->value.pnum, &vid_hdr, true);
 
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");

@@ -7,7 +7,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -28,16 +29,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
@@ -47,7 +48,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* -------------------------------------- Static helpers --------------------------------------- */
+/* Static helpers ------------------------------------------------------------------------------- */
 
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
@@ -69,7 +70,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ad, 0, sizeof(*ad));
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -79,9 +80,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -96,7 +97,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief End-to-end scenario: create two volumes, write, remove one, resize
@@ -133,7 +134,7 @@ ZTEST(ubi_secure_mixed, test_scenario_1)
 	/* 1. Create two volumes and write data. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_1, &vol_id_1));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg_2, &vol_id_2));
 
@@ -172,7 +173,7 @@ ZTEST(ubi_secure_mixed, test_scenario_1)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -212,6 +213,6 @@ ZTEST(ubi_secure_mixed, test_scenario_1)
 	memory_check(&before_init, &after_init, &after_deinit);
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_mixed, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

@@ -23,7 +23,7 @@ CONFIG_UBI_ENABLE=y
 | `CONFIG_UBI_MEM_BACKEND_HEAP` | bool | n | — | Use `k_malloc`/`k_free` for all UBI allocations (legacy) |
 | `CONFIG_UBI_MAX_NR_OF_DEVICES` | int | 1 | 1–4 | Maximum number of concurrent UBI device handles (static backend) |
 | `CONFIG_UBI_MAX_NR_OF_DATA_PEBS` | int | 14 | 1–4096 | Maximum data PEBs per device (static backend pool sizing) |
-| `CONFIG_UBI_MEM_STATS` | bool | n | — | Enable slab pool usage statistics (static backend only) |
+| `CONFIG_UBI_TEST_MEM_STATS` | bool | n | — | Enable slab pool usage statistics (static backend only) |
 | `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` | int | 2 | 2–4 | Number of reserved PEBs for device/volume metadata |
 | `CONFIG_UBI_MAX_NR_OF_VOLUMES` | int | 10 | 1–128 | Maximum number of volumes per device |
 | `CONFIG_UBI_PEB_WRITE_RETRY_COUNT` | int | 3 | 1–5 | Flash write retries on data PEBs before marking bad |
@@ -34,7 +34,6 @@ CONFIG_UBI_ENABLE=y
 | `CONFIG_UBI_TEST_FAULT_INJECTION` | bool | n | — | Controllable allocation failure hook for simulating OOM. Depends on `CONFIG_UBI_TEST_API_ENABLE`. |
 | `CONFIG_UBI_CRYPTO` | bool | n | — | Enable the secure (authenticated-encryption) backend. Requires Mbed TLS PSA Crypto. |
 | `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | int | 4 | 1–255 | Maximum distinct key versions per attach session. Sizes per-key-version bookkeeping arrays. |
-| `CONFIG_UBI_CRYPTO_MAX_ALLOWLIST_LEN` | int | 4 | 1–255 | Maximum entries in `ubi_crypto_policy.allowed_key_versions`. |
 | `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET` | int | 1000000 | — | Max metadata AEAD invocations per {domain, key_version} before KEY_ROTATE event. |
 | `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET` | int | 100000000 | — | Max cumulative authenticated metadata bytes per {domain, key_version}. |
 | `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET` | int | 1000000 | — | Max LEB AEAD invocations per {key_version, volume_id}. |

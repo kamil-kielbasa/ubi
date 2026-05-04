@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_internal.h"
@@ -27,15 +27,15 @@
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void torture_bad_blocks(struct ubi_device *ubi);
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 {
@@ -70,7 +70,7 @@ int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *in
 static void torture_bad_blocks(struct ubi_device *ubi)
 {
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(ubi->mtd.partition_id, &fa);
+	int ret = flash_area_open(ubi->flash.partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure during torture");
@@ -89,11 +89,11 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 			break;
 		}
 
-		const size_t offset = item->pnum * ubi->mtd.erase_block_size;
+		const size_t offset = item->pnum * ubi->flash.erase_block_size;
 		bool passed = false;
 
 		for (size_t i = 0; i < CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE; ++i) {
-			ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+			ret = flash_area_erase(fa, offset, ubi->flash.erase_block_size);
 
 			if (ret == 0) {
 				passed = true;
@@ -112,7 +112,7 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 			ec_hdr.hdr_crc = crc32_ieee((const uint8_t *)&ec_hdr,
 						    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
 
-			ret = ubi_ec_hdr_write(&ubi->mtd, item->pnum, &ec_hdr);
+			ret = ubi_ec_hdr_write(&ubi->flash, item->pnum, &ec_hdr);
 
 			if (ret != 0) {
 				LOG_WRN("Torture passed but EC write failed for PEB %u",
@@ -163,7 +163,7 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 		struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
 
 		struct ubi_ec_hdr ec_hdr = { 0 };
-		ret = ubi_ec_hdr_read(&ubi->mtd, entry->value.pnum, &ec_hdr);
+		ret = ubi_ec_hdr_read(&ubi->flash, entry->value.pnum, &ec_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("EC header read failure");
@@ -184,23 +184,23 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 		}
 
 		const struct flash_area *fa = NULL;
-		ret = flash_area_open(ubi->mtd.partition_id, &fa);
+		ret = flash_area_open(ubi->flash.partition_id, &fa);
 
 		if (ret != 0) {
 			LOG_ERR("Flash area open failure");
 			goto exit;
 		}
 
-		const size_t offset = entry->value.pnum * ubi->mtd.erase_block_size;
+		const size_t offset = entry->value.pnum * ubi->flash.erase_block_size;
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 		if (ubi_test_flash_erase_check_fail()) {
 			ret = -EIO;
 		} else {
-			ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+			ret = flash_area_erase(fa, offset, ubi->flash.erase_block_size);
 		}
-#else
-		ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
-#endif
+#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
+		ret = flash_area_erase(fa, offset, ubi->flash.erase_block_size);
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 		flash_area_close(fa);
 
 		if (ret != 0) {
@@ -224,7 +224,7 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 		ec_hdr.ec += 1;
 		ec_hdr.hdr_crc = crc32_ieee((const uint8_t *)&ec_hdr,
 					    sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
-		ret = ubi_ec_hdr_write(&ubi->mtd, entry->value.pnum, &ec_hdr);
+		ret = ubi_ec_hdr_write(&ubi->flash, entry->value.pnum, &ec_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("EC header write failure");
@@ -264,7 +264,7 @@ exit:
 	 * any that are not active. If recovery succeeds, clear the flag. */
 	if (ubi->read_only_degraded) {
 		struct ubi_dev_hdr dev_hdr = { 0 };
-		int rc = ubi_dev_hdr_read(&ubi->mtd, &dev_hdr);
+		int rc = ubi_dev_hdr_read(&ubi->flash, &dev_hdr);
 
 		if (rc == 0) {
 			LOG_INF("Reserved PEB bank recovered, leaving degraded mode");
@@ -325,7 +325,7 @@ int ubi_plain_device_deinit(struct ubi_device *ubi)
 		ubi->vol_count -= 1;
 	}
 
-	ubi_partition_release(ubi->mtd.partition_id);
+	ubi_partition_release(ubi->flash.partition_id);
 
 	ubi_mem_device_free(ubi);
 	return 0;
@@ -431,7 +431,7 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(ubi->mtd.partition_id, &fa);
+	ret = flash_area_open(ubi->flash.partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -439,7 +439,7 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 	}
 
 	const size_t nr_of_pebs =
-		(fa->fa_size / ubi->mtd.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
+		(fa->fa_size / ubi->flash.erase_block_size) - UBI_DEV_HDR_NR_OF_RES_PEBS;
 
 	flash_area_close(fa);
 
@@ -453,7 +453,7 @@ int ubi_device_get_peb_ec(struct ubi_device *ubi, size_t **peb_ec, size_t *len)
 
 	for (size_t pnum = 0; pnum < nr_of_pebs; ++pnum) {
 		struct ubi_ec_hdr ec_hdr = { 0 };
-		ret = ubi_ec_hdr_read(&ubi->mtd, pnum + UBI_DEV_HDR_NR_OF_RES_PEBS, &ec_hdr);
+		ret = ubi_ec_hdr_read(&ubi->flash, pnum + UBI_DEV_HDR_NR_OF_RES_PEBS, &ec_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("EC header read failure");
@@ -478,9 +478,9 @@ void ubi_test_partition_force_release_all(void)
 	ubi_partition_force_release_all();
 }
 
-int ubi_test_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val)
+int ubi_test_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val)
 {
-	return ubi_get_erased_val(mtd, erased_val);
+	return ubi_get_erased_val(flash, erased_val);
 }
 
 bool ubi_test_buf_is_erased(const void *buf, size_t len, uint8_t erased_val)

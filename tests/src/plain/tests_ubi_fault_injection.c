@@ -20,11 +20,11 @@
 
 #include <string.h>
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -57,7 +57,7 @@ ZTEST_SUITE(ubi_fault_injection, NULL, ztest_suite_setup, ztest_testcase_before,
  */
 ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "fivol",
@@ -70,7 +70,7 @@ ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
 	if (ret == -ENOMEM) {
 		zassert_ok(ubi_device_deinit(ubi));
 
-		ubi = ubi_test_init_device(&mtd);
+		ubi = ubi_test_init_device(&flash);
 
 		struct ubi_device_info info = { 0 };
 		zassert_ok(ubi_device_get_info(ubi, &info));
@@ -90,7 +90,7 @@ ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
  */
 ZTEST(ubi_fault_injection, overwrite_preserves_old_data_on_failure)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "cowvol",
@@ -116,7 +116,7 @@ ZTEST(ubi_fault_injection, overwrite_preserves_old_data_on_failure)
 ZTEST(ubi_fault_injection, invariants_hold_after_create_write_remove)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	zassert_ok(ubi_device_check_invariants(ubi));
 
@@ -151,7 +151,7 @@ ZTEST(ubi_fault_injection, invariants_hold_after_create_write_remove)
 ZTEST(ubi_fault_injection, invariants_hold_after_resize_shrink)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "shrinv",

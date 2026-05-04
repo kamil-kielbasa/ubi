@@ -20,11 +20,11 @@
 
 #include <string.h>
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -60,7 +60,7 @@ ZTEST(ubi_stress_longrun, randomized_churn_with_reboots)
 	uint8_t rbuf[32];
 
 	for (int cycle = 0; cycle < 50; cycle++) {
-		struct ubi_device *ubi = ubi_test_init_device(&mtd);
+		struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 		const struct ubi_volume_config cfg = {
 			.name = "churn",
@@ -99,7 +99,7 @@ ZTEST(ubi_stress_longrun, randomized_churn_with_reboots)
  */
 ZTEST(ubi_stress_longrun, persistence_across_reinit)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "persist",
@@ -114,7 +114,7 @@ ZTEST(ubi_stress_longrun, persistence_across_reinit)
 
 	zassert_ok(ubi_device_deinit(ubi));
 
-	ubi = ubi_test_init_device(&mtd);
+	ubi = ubi_test_init_device(&flash);
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -132,7 +132,7 @@ ZTEST(ubi_stress_longrun, persistence_across_reinit)
  */
 ZTEST(ubi_stress_longrun, mixed_multi_volume_operations)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg_a = {
 		.name = "vol_a",
@@ -192,7 +192,7 @@ ZTEST(ubi_stress_longrun, mixed_multi_volume_operations)
 ZTEST(ubi_stress_longrun, ec_counters_equal_after_500_cycles)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "ec500",

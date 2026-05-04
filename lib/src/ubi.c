@@ -1,43 +1,49 @@
 /**
  * \file    ubi.c
  * \brief   UBI public facade — runtime backend dispatch.
+ * \author  Kamil Kielbasa
  *
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
+/* Public headers: */
 #include "ubi.h"
+
+/* Internal headers: */
 #include "ubi_internal.h"
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 
+/* Standard library headers: */
 #include <errno.h>
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
-/* Device lifecycle ---------------------------------------------------------------- */
+/* Device lifecycle ----------------------------------------------------------------------------- */
 
-int ubi_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_crypto_config *crypto_cfg,
 		    struct ubi_device **ubi)
 {
-	if (!mtd || !ubi) {
-		LOG_ERR("NULL argument: mtd=%p ubi=%p", (const void *)mtd, (const void *)ubi);
+	if (!flash || !ubi) {
+		LOG_ERR("NULL argument: flash=%p ubi=%p", (const void *)flash, (const void *)ubi);
 		return -EINVAL;
 	}
 
 	if (crypto_cfg != NULL) {
 #ifdef CONFIG_UBI_CRYPTO
-		return ubi_secure_backend()->init(mtd, crypto_cfg, ubi);
-#else
+		return ubi_secure_backend()->init(flash, crypto_cfg, ubi);
+#else /* !CONFIG_UBI_CRYPTO */
 		LOG_ERR("Secure backend not available");
 		return -ENOTSUP;
-#endif
+#endif /* CONFIG_UBI_CRYPTO */
 	}
 
-	return ubi_plain_backend()->init(mtd, crypto_cfg, ubi);
+	return ubi_plain_backend()->init(flash, crypto_cfg, ubi);
 }
 
 int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
@@ -70,7 +76,7 @@ int ubi_device_deinit(struct ubi_device *ubi)
 	return ubi->ops->deinit(ubi);
 }
 
-/* Volume management --------------------------------------------------------------- */
+/* Volume management ---------------------------------------------------------------------------- */
 
 int ubi_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg, int *vol_id)
 {
@@ -113,7 +119,7 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
 	return ubi->ops->vol_get_info(ubi, vol_id, vol_cfg, alloc_lebs);
 }
 
-/* LEB operations ------------------------------------------------------------------ */
+/* LEB operations ------------------------------------------------------------------------------- */
 
 int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len)
 {

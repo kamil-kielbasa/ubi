@@ -20,11 +20,11 @@
 
 /* -------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -102,7 +102,7 @@ static void reader_entry(void *p1, void *p2, void *p3)
  */
 ZTEST(ubi_concurrency, concurrent_readers)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "rdvol",
@@ -158,7 +158,7 @@ static void writer_entry(void *p1, void *p2, void *p3)
  */
 ZTEST(ubi_concurrency, reader_writer_interleave)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "rwvol",
@@ -206,7 +206,7 @@ ZTEST(ubi_concurrency, reader_writer_interleave)
  */
 ZTEST(ubi_concurrency, deinit_after_quiescence)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
 		.name = "dqvol",
@@ -240,10 +240,10 @@ ZTEST(ubi_concurrency, deinit_after_quiescence)
  */
 ZTEST(ubi_concurrency, double_init_same_partition)
 {
-	struct ubi_device *ubi1 = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi1 = ubi_test_init_device(&flash);
 
 	struct ubi_device *ubi2 = NULL;
-	int ret = ubi_device_init(&mtd, NULL, &ubi2);
+	int ret = ubi_device_init(&flash, NULL, &ubi2);
 
 	zassert_equal(ret, -EBUSY, "Second init on same partition must return -EBUSY");
 	zassert_is_null(ubi2);
@@ -256,9 +256,9 @@ ZTEST(ubi_concurrency, double_init_same_partition)
  */
 ZTEST(ubi_concurrency, init_after_deinit_same_partition)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	zassert_ok(ubi_device_deinit(ubi));
 
-	ubi = ubi_test_init_device(&mtd);
+	ubi = ubi_test_init_device(&flash);
 	zassert_ok(ubi_device_deinit(ubi));
 }

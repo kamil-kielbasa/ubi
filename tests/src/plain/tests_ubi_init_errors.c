@@ -57,7 +57,7 @@ struct raw_vid_hdr {
 	uint32_t hdr_crc;
 };
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 /* Module-level device pointer for teardown safety.
  * Tests that call ubi_device_init() store the handle here so teardown
@@ -66,7 +66,7 @@ static struct ubi_device *g_ubi = NULL;
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -131,12 +131,12 @@ static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t e
 ZTEST_SUITE(ubi_init_errors, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
-/* --------------------------------- Geometry validation tests --------------------------------- */
+/* Geometry validation tests -------------------------------------------------------------------- */
 
 /**
- * \brief Verify that init with NULL mtd returns -EINVAL.
+ * \brief Verify that init with NULL flash returns -EINVAL.
  *
- * \details Call ubi_device_init() with mtd set to NULL.
+ * \details Call ubi_device_init() with flash set to NULL.
  *
  * \expect Returns -EINVAL.
  */
@@ -156,7 +156,7 @@ ZTEST(ubi_init_errors, init_null_mtd)
  */
 ZTEST(ubi_init_errors, init_null_ubi)
 {
-	zassert_equal(-EINVAL, ubi_device_init(&mtd, NULL, NULL));
+	zassert_equal(-EINVAL, ubi_device_init(&flash, NULL, NULL));
 }
 
 /**
@@ -170,11 +170,11 @@ ZTEST(ubi_init_errors, init_null_ubi)
 ZTEST(ubi_init_errors, double_init_returns_ebusy)
 {
 	struct ubi_device *ubi1 = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi1));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi1));
 	g_ubi = ubi1;
 
 	struct ubi_device *ubi2 = NULL;
-	int ret = ubi_device_init(&mtd, NULL, &ubi2);
+	int ret = ubi_device_init(&flash, NULL, &ubi2);
 	zassert_equal(-EBUSY, ret, "Double init should return -EBUSY");
 	zassert_is_null(ubi2, "Second handle should be NULL");
 
@@ -192,7 +192,7 @@ ZTEST(ubi_init_errors, double_init_returns_ebusy)
 ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -209,7 +209,7 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 	g_ubi = NULL;
 
 	/* Re-init should succeed */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	uint8_t rb[1] = { 0 };
@@ -220,7 +220,7 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 	g_ubi = NULL;
 }
 
-/* -------------------------- Memory allocation failures during init --------------------------- */
+/* Memory allocation failures during init ------------------------------------------------------- */
 
 /**
  * \brief Verify that device allocation failure during init is handled safely.
@@ -235,14 +235,14 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
 	ubi_test_fault_set_alloc_fail_after(0);
 
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail with device alloc failure");
 	zassert_is_null(ubi);
 
 	ubi_test_fault_reset();
 
 	/* Verify partition was released (can init again) */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -260,7 +260,7 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
 ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -278,14 +278,14 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 	 * but the volume alloc (2nd) inside init_collect_volumes fails. */
 	ubi_test_fault_set_alloc_fail_after(1);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail when volume alloc fails");
 	zassert_is_null(ubi);
 
 	ubi_test_fault_reset();
 
 	/* Clean re-init should work */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -304,7 +304,7 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -321,14 +321,14 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 	/* Fail on the 3rd allocation (device=ok, volume=ok, leaf=fail) */
 	ubi_test_fault_set_alloc_fail_after(2);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	zassert_not_equal(0, ret, "Init should fail when leaf alloc fails");
 	zassert_is_null(ubi);
 
 	ubi_test_fault_reset();
 
 	/* Clean re-init should work */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -345,7 +345,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -356,7 +356,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 	 * the scan phase. */
 	ubi_test_fault_set_alloc_fail_after(3);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	/* May succeed if it happens to land on a non-leaf alloc, or fail */
 	if (ret != 0) {
 		zassert_is_null(ubi);
@@ -369,13 +369,13 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 	ubi_test_fault_reset();
 
 	/* Clean re-init should always work */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 }
 
-/* --- Init-time PEB classification edge cases ------------------------------------------------- */
+/* Init-time PEB classification edge cases ------------------------------------------------------ */
 
 /**
  * \brief Verify that PEBs with a semantic VID header pointing to valid volume
@@ -390,7 +390,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -409,21 +409,21 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 
 	/* Find a free PEB and inject a VID with lnum=5 (out of bounds for leb_count=1) */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	const size_t nr_of_pebs = fa->fa_size / mtd.erase_block_size;
+	const size_t nr_of_pebs = fa->fa_size / flash.erase_block_size;
 	size_t free_peb = 0;
 
 	for (size_t p = NR_OF_RES_PEBS; p < nr_of_pebs; ++p) {
 		uint32_t ec_magic;
-		zassert_ok(
-			flash_area_read(fa, p * mtd.erase_block_size, &ec_magic, sizeof(ec_magic)));
+		zassert_ok(flash_area_read(fa, p * flash.erase_block_size, &ec_magic,
+					   sizeof(ec_magic)));
 		if (ec_magic != EC_HDR_MAGIC)
 			continue;
 
 		uint32_t vid_magic = 0;
-		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + EC_HDR_SIZE, &vid_magic,
-					   sizeof(vid_magic)));
+		zassert_ok(flash_area_read(fa, (p * flash.erase_block_size) + EC_HDR_SIZE,
+					   &vid_magic, sizeof(vid_magic)));
 		if (vid_magic == 0xFFFFFFFF) {
 			free_peb = p;
 			break;
@@ -431,14 +431,14 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 	}
 	zassert_true(free_peb >= NR_OF_RES_PEBS, "Need a free PEB");
 
-	zassert_ok(flash_area_erase(fa, free_peb * mtd.erase_block_size, mtd.erase_block_size));
-	raw_write_ec_hdr(fa, free_peb, mtd.erase_block_size, 0);
-	raw_write_vid_hdr(fa, free_peb, mtd.erase_block_size, 5, (uint32_t)vol_id, 100,
+	zassert_ok(flash_area_erase(fa, free_peb * flash.erase_block_size, flash.erase_block_size));
+	raw_write_ec_hdr(fa, free_peb, flash.erase_block_size, 0);
+	raw_write_vid_hdr(fa, free_peb, flash.erase_block_size, 5, (uint32_t)vol_id, 100,
 			  sizeof(data));
 
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -467,22 +467,22 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 	ubi = NULL;
 
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	const size_t peb_idx = NR_OF_RES_PEBS;
-	const size_t peb_offset = peb_idx * mtd.erase_block_size;
+	const size_t peb_offset = peb_idx * flash.erase_block_size;
 
-	zassert_ok(flash_area_erase(fa, peb_offset, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, peb_offset, flash.erase_block_size));
 
 	/* Write valid EC header */
-	raw_write_ec_hdr(fa, peb_idx, mtd.erase_block_size, 0);
+	raw_write_ec_hdr(fa, peb_idx, flash.erase_block_size, 0);
 
 	/* Write partial VID - valid magic but wrong CRC (triggers the
 	 * "non-empty VID detected → re-read with CRC → bad" path) */
@@ -500,7 +500,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -524,7 +524,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -549,21 +549,21 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 	/* The dirty PEB that erase_peb will pick is the one with the lowest EC.
 	 * We need to corrupt its EC header. Find dirty PEBs by scanning flash. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	const size_t nr_of_pebs = fa->fa_size / mtd.erase_block_size;
+	const size_t nr_of_pebs = fa->fa_size / flash.erase_block_size;
 
 	/* Find a PEB with valid EC+VID that is NOT the currently mapped PEB for LEB 0.
 	 * The dirty PEB still has its old EC+VID headers. We need to corrupt its EC. */
 	for (size_t p = NR_OF_RES_PEBS; p < nr_of_pebs; ++p) {
 		struct raw_ec_hdr ec;
-		int ret = flash_area_read(fa, p * mtd.erase_block_size, &ec, sizeof(ec));
+		int ret = flash_area_read(fa, p * flash.erase_block_size, &ec, sizeof(ec));
 
 		if (ret != 0 || ec.magic != EC_HDR_MAGIC)
 			continue;
 
 		struct raw_vid_hdr vid;
-		ret = flash_area_read(fa, (p * mtd.erase_block_size) + EC_HDR_SIZE, &vid,
+		ret = flash_area_read(fa, (p * flash.erase_block_size) + EC_HDR_SIZE, &vid,
 				      sizeof(vid));
 		if (ret != 0)
 			continue;
@@ -621,7 +621,7 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -637,10 +637,10 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 
 	/* Corrupt the vol header on both reserved PEBs: set vol_type to 0xFF */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	for (size_t peb = 0; peb < NR_OF_RES_PEBS; ++peb) {
-		const size_t base = peb * mtd.erase_block_size;
+		const size_t base = peb * flash.erase_block_size;
 
 		/* Read the full reserved PEB content */
 		uint8_t dev_hdr[DEV_HDR_SIZE];
@@ -658,7 +658,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 		memcpy(&vol_hdr_buf[VOL_HDR_SIZE - 4], &new_crc, sizeof(new_crc));
 
 		/* Rewrite PEB */
-		zassert_ok(flash_area_erase(fa, base, mtd.erase_block_size));
+		zassert_ok(flash_area_erase(fa, base, flash.erase_block_size));
 		zassert_ok(flash_area_write(fa, base, dev_hdr, sizeof(dev_hdr)));
 		zassert_ok(flash_area_write(fa, base + DEV_HDR_SIZE, vol_hdr_buf,
 					    sizeof(vol_hdr_buf)));
@@ -667,7 +667,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 	flash_area_close(fa);
 
 	/* Init should fail because vol_type 0xFF is semantically invalid */
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
@@ -688,7 +688,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -715,21 +715,21 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 
 	/* Inject a duplicate LEB 0 with very high sqnum */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	const size_t nr_of_pebs = fa->fa_size / mtd.erase_block_size;
+	const size_t nr_of_pebs = fa->fa_size / flash.erase_block_size;
 	size_t free_peb = 0;
 
 	for (size_t p = NR_OF_RES_PEBS; p < nr_of_pebs; ++p) {
 		uint32_t ec_magic;
-		zassert_ok(
-			flash_area_read(fa, p * mtd.erase_block_size, &ec_magic, sizeof(ec_magic)));
+		zassert_ok(flash_area_read(fa, p * flash.erase_block_size, &ec_magic,
+					   sizeof(ec_magic)));
 		if (ec_magic != EC_HDR_MAGIC)
 			continue;
 
 		uint32_t vid_magic = 0;
-		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + EC_HDR_SIZE, &vid_magic,
-					   sizeof(vid_magic)));
+		zassert_ok(flash_area_read(fa, (p * flash.erase_block_size) + EC_HDR_SIZE,
+					   &vid_magic, sizeof(vid_magic)));
 		if (vid_magic == 0xFFFFFFFF) {
 			free_peb = p;
 			break;
@@ -739,21 +739,21 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 
 	/* Write new data with very high sqnum */
 	const uint8_t new_data[] = { 0xAA, 0xBB, 0xCC };
-	zassert_ok(flash_area_erase(fa, free_peb * mtd.erase_block_size, mtd.erase_block_size));
-	raw_write_ec_hdr(fa, free_peb, mtd.erase_block_size, 0);
-	raw_write_vid_hdr(fa, free_peb, mtd.erase_block_size, 0, (uint32_t)vol_id, 99999,
+	zassert_ok(flash_area_erase(fa, free_peb * flash.erase_block_size, flash.erase_block_size));
+	raw_write_ec_hdr(fa, free_peb, flash.erase_block_size, 0);
+	raw_write_vid_hdr(fa, free_peb, flash.erase_block_size, 0, (uint32_t)vol_id, 99999,
 			  sizeof(new_data));
 
 	uint8_t aligned_buf[16] = { 0 };
 	memcpy(aligned_buf, new_data, sizeof(new_data));
-	zassert_ok(flash_area_write(fa,
-				    (free_peb * mtd.erase_block_size) + EC_HDR_SIZE + VID_HDR_SIZE,
-				    aligned_buf, sizeof(aligned_buf)));
+	zassert_ok(flash_area_write(
+		fa, (free_peb * flash.erase_block_size) + EC_HDR_SIZE + VID_HDR_SIZE, aligned_buf,
+		sizeof(aligned_buf)));
 
 	flash_area_close(fa);
 
 	/* Re-init: higher sqnum should win */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -779,7 +779,7 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -797,7 +797,7 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 	g_ubi = NULL;
 
 	/* Re-init */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const uint8_t d2[] = { 0x22 };
@@ -817,7 +817,7 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 #endif
 }
 
-/* --------------------------------- Geometry validation tests --------------------------------- */
+/* Geometry validation tests -------------------------------------------------------------------- */
 
 /**
  * \brief Init with erase_block_size=0 returns -EINVAL.
@@ -828,11 +828,11 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
  */
 ZTEST(ubi_init_errors, geometry_erase_block_size_zero)
 {
-	struct ubi_mtd bad_mtd = mtd;
-	bad_mtd.erase_block_size = 0;
+	struct ubi_flash_desc bad_flash = flash;
+	bad_flash.erase_block_size = 0;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_flash, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -845,11 +845,11 @@ ZTEST(ubi_init_errors, geometry_erase_block_size_zero)
  */
 ZTEST(ubi_init_errors, geometry_write_block_size_zero)
 {
-	struct ubi_mtd bad_mtd = mtd;
-	bad_mtd.write_block_size = 0;
+	struct ubi_flash_desc bad_flash = flash;
+	bad_flash.write_block_size = 0;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_flash, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -862,11 +862,11 @@ ZTEST(ubi_init_errors, geometry_write_block_size_zero)
  */
 ZTEST(ubi_init_errors, geometry_ebs_not_multiple_of_wbs)
 {
-	struct ubi_mtd bad_mtd = mtd;
-	bad_mtd.write_block_size = 3;
+	struct ubi_flash_desc bad_flash = flash;
+	bad_flash.write_block_size = 3;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_flash, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -879,11 +879,11 @@ ZTEST(ubi_init_errors, geometry_ebs_not_multiple_of_wbs)
  */
 ZTEST(ubi_init_errors, geometry_wbs_exceeds_alignment)
 {
-	struct ubi_mtd bad_mtd = mtd;
-	bad_mtd.write_block_size = 32;
+	struct ubi_flash_desc bad_flash = flash;
+	bad_flash.write_block_size = 32;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_flash, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -896,12 +896,12 @@ ZTEST(ubi_init_errors, geometry_wbs_exceeds_alignment)
  */
 ZTEST(ubi_init_errors, geometry_ebs_too_small_for_headers)
 {
-	struct ubi_mtd bad_mtd = mtd;
-	bad_mtd.erase_block_size = 16;
-	bad_mtd.write_block_size = 1;
+	struct ubi_flash_desc bad_flash = flash;
+	bad_flash.erase_block_size = 16;
+	bad_flash.write_block_size = 1;
 
 	struct ubi_device *ubi = NULL;
-	zassert_equal(-EINVAL, ubi_device_init(&bad_mtd, NULL, &ubi));
+	zassert_equal(-EINVAL, ubi_device_init(&bad_flash, NULL, &ubi));
 	zassert_is_null(ubi);
 }
 
@@ -915,27 +915,27 @@ ZTEST(ubi_init_errors, geometry_ebs_too_small_for_headers)
 ZTEST(ubi_init_errors, reserved_peb_crc_corruption_detected)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	for (size_t peb = 0; peb < NR_OF_RES_PEBS; ++peb) {
-		const size_t base = peb * mtd.erase_block_size;
+		const size_t base = peb * flash.erase_block_size;
 		uint8_t dev_hdr[DEV_HDR_SIZE];
 		zassert_ok(flash_area_read(fa, base, dev_hdr, sizeof(dev_hdr)));
 		dev_hdr[DEV_HDR_SIZE - 1] ^= 0xFF;
 		dev_hdr[DEV_HDR_SIZE - 2] ^= 0xFF;
-		zassert_ok(flash_area_erase(fa, base, mtd.erase_block_size));
+		zassert_ok(flash_area_erase(fa, base, flash.erase_block_size));
 		zassert_ok(flash_area_write(fa, base, dev_hdr, sizeof(dev_hdr)));
 	}
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		/* UBI recovered from corruption — still valid test */
 		g_ubi = ubi;
@@ -955,28 +955,28 @@ ZTEST(ubi_init_errors, reserved_peb_crc_corruption_detected)
 ZTEST(ubi_init_errors, reserved_peb_vol_count_exceeds_max)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	for (size_t peb = 0; peb < NR_OF_RES_PEBS; ++peb) {
-		const size_t base = peb * mtd.erase_block_size;
+		const size_t base = peb * flash.erase_block_size;
 		uint8_t dev_hdr[DEV_HDR_SIZE];
 		zassert_ok(flash_area_read(fa, base, dev_hdr, sizeof(dev_hdr)));
 		dev_hdr[8] = 255;
 		uint32_t new_crc = crc32_ieee(dev_hdr, DEV_HDR_SIZE - 4);
 		memcpy(&dev_hdr[DEV_HDR_SIZE - 4], &new_crc, sizeof(new_crc));
-		zassert_ok(flash_area_erase(fa, base, mtd.erase_block_size));
+		zassert_ok(flash_area_erase(fa, base, flash.erase_block_size));
 		zassert_ok(flash_area_write(fa, base, dev_hdr, sizeof(dev_hdr)));
 	}
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		/* UBI treated the high vol_count as valid — still exercises scan path */
 		g_ubi = ubi;
@@ -995,23 +995,23 @@ ZTEST(ubi_init_errors, reserved_peb_vol_count_exceeds_max)
 ZTEST(ubi_init_errors, one_reserved_peb_corrupt_recovers)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t dev_hdr[DEV_HDR_SIZE];
 	zassert_ok(flash_area_read(fa, 0, dev_hdr, sizeof(dev_hdr)));
 	dev_hdr[DEV_HDR_SIZE - 1] ^= 0xFF;
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	zassert_ok(flash_area_write(fa, 0, dev_hdr, sizeof(dev_hdr)));
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	if (ret == 0) {
 		g_ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
@@ -1033,24 +1033,24 @@ ZTEST(ubi_init_errors, one_reserved_peb_corrupt_recovers)
 ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t dev_hdr[DEV_HDR_SIZE];
 	zassert_ok(flash_area_read(fa, 0, dev_hdr, sizeof(dev_hdr)));
 	dev_hdr[DEV_HDR_SIZE - 1] ^= 0xFF;
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	zassert_ok(flash_area_write(fa, 0, dev_hdr, sizeof(dev_hdr)));
 	flash_area_close(fa);
 
 	ubi_test_fault_set_alloc_fail_after(1);
 
-	(void)ubi_device_init(&mtd, NULL, &ubi);
+	(void)ubi_device_init(&flash, NULL, &ubi);
 	ubi_test_fault_reset();
 
 	if (ubi != NULL) {
@@ -1071,7 +1071,7 @@ ZTEST(ubi_init_errors, erased_partition_triggers_format)
 {
 	/* Partition is already erased by testcase_before - just init */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -1096,7 +1096,7 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
 	ubi_test_fault_set_flash_write_fail_after(2);
 
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	ubi_test_fault_reset();
 
 	if (ret == 0 && ubi != NULL) {
@@ -1116,24 +1116,25 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
 ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
 
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	const size_t peb_idx = NR_OF_RES_PEBS;
-	zassert_ok(flash_area_erase(fa, peb_idx * mtd.erase_block_size, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, peb_idx * flash.erase_block_size, flash.erase_block_size));
 	const uint8_t garbage[EC_HDR_SIZE] = { 0xBA, 0xAD, 0xCA, 0xFE };
-	zassert_ok(flash_area_write(fa, peb_idx * mtd.erase_block_size, garbage, sizeof(garbage)));
+	zassert_ok(
+		flash_area_write(fa, peb_idx * flash.erase_block_size, garbage, sizeof(garbage)));
 
 	flash_area_close(fa);
 
 	ubi_test_fault_set_alloc_fail_after(2);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 	ubi_test_fault_reset();
 
 	if (ret == 0 && ubi != NULL) {
@@ -1143,7 +1144,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 	}
 
 	ubi_test_erase_partition();
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1164,7 +1165,7 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
 {
 	/* First, do a normal init + deinit to format the partition */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1172,7 +1173,7 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
 	/* Now patch the device header on both reserved PEBs to have
 	 * vol_count = CONFIG_UBI_MAX_NR_OF_VOLUMES + 1 (which is 11). */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	struct {
 		uint32_t magic;
@@ -1202,13 +1203,14 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
 		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
 
 	for (size_t i = 0; i < 2; ++i) {
-		zassert_ok(flash_area_erase(fa, i * mtd.erase_block_size, mtd.erase_block_size));
 		zassert_ok(
-			flash_area_write(fa, i * mtd.erase_block_size, &dev_hdr, sizeof(dev_hdr)));
+			flash_area_erase(fa, i * flash.erase_block_size, flash.erase_block_size));
+		zassert_ok(flash_area_write(fa, i * flash.erase_block_size, &dev_hdr,
+					    sizeof(dev_hdr)));
 	}
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 
 	if (ret == 0 && ubi != NULL) {
 		/* If init somehow succeeded (e.g. the PEBs were classified
@@ -1236,7 +1238,7 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 {
 	/* Format and create a volume with leb_count = 1 */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
@@ -1255,15 +1257,15 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 	/* Now manually write a second PEB with the same vol_id but lnum = 5
 	 * (exceeding the volume's leb_count of 1). */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	const size_t nr_pebs = fa->fa_size / mtd.erase_block_size;
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	const size_t nr_pebs = fa->fa_size / flash.erase_block_size;
 
 	/* Find a free PEB (one with a valid EC header but 0xFF VID area) */
 	size_t target_peb = 0;
 	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
 		uint8_t vid_area[VID_HDR_SIZE];
-		zassert_ok(flash_area_read(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE, vid_area,
-					   sizeof(vid_area)));
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE,
+					   vid_area, sizeof(vid_area)));
 		bool all_ff = true;
 		for (size_t j = 0; j < sizeof(vid_area); ++j) {
 			if (vid_area[j] != 0xFF) {
@@ -1279,11 +1281,11 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 	zassert_true(target_peb >= NR_OF_RES_PEBS, "No free PEB found");
 
 	/* Write a VID header with lnum=5 (out of range for the 1-LEB volume) */
-	raw_write_vid_hdr(fa, target_peb, mtd.erase_block_size, 5, (uint32_t)vol_id, 100, 32);
+	raw_write_vid_hdr(fa, target_peb, flash.erase_block_size, 5, (uint32_t)vol_id, 100, 32);
 	flash_area_close(fa);
 
 	/* Reinit — scan should classify the out-of-range PEB as dirty */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Device should still work — the out-of-range PEB was moved to dirty */
@@ -1309,7 +1311,7 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 {
 	/* Format and create a volume, write to LEB 0 */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
@@ -1327,15 +1329,15 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 	/* Find the PEB that has LEB 0 mapped and corrupt its EC header.
 	 * Then write a duplicate LEB 0 on another free PEB with higher sqnum. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	const size_t nr_pebs = fa->fa_size / mtd.erase_block_size;
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	const size_t nr_pebs = fa->fa_size / flash.erase_block_size;
 
 	size_t mapped_peb = 0;
 	size_t free_peb = 0;
 
 	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
 		struct raw_vid_hdr vid = { 0 };
-		zassert_ok(flash_area_read(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE, &vid,
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE, &vid,
 					   sizeof(vid)));
 		if (vid.magic == VID_HDR_MAGIC && vid.vol_id == (uint32_t)vol_id && vid.lnum == 0) {
 			mapped_peb = pnum;
@@ -1349,8 +1351,8 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 			continue;
 		}
 		uint8_t vid_area[VID_HDR_SIZE];
-		zassert_ok(flash_area_read(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE, vid_area,
-					   sizeof(vid_area)));
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE,
+					   vid_area, sizeof(vid_area)));
 		bool all_ff = true;
 		for (size_t j = 0; j < sizeof(vid_area); ++j) {
 			if (vid_area[j] != 0xFF) {
@@ -1366,12 +1368,13 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 	zassert_true(free_peb >= NR_OF_RES_PEBS, "No free PEB found");
 
 	/* Write duplicate LEB 0 with higher sqnum on the free PEB */
-	raw_write_vid_hdr(fa, free_peb, mtd.erase_block_size, 0, (uint32_t)vol_id, 999999, 32);
+	raw_write_vid_hdr(fa, free_peb, flash.erase_block_size, 0, (uint32_t)vol_id, 999999, 32);
 
 	/* Now corrupt the EC header of the original mapped PEB */
-	zassert_ok(flash_area_erase(fa, mapped_peb * mtd.erase_block_size, mtd.erase_block_size));
+	zassert_ok(
+		flash_area_erase(fa, mapped_peb * flash.erase_block_size, flash.erase_block_size));
 	uint8_t garbage_ec[EC_HDR_SIZE] = { 0xDE, 0xAD, 0xBE, 0xEF };
-	zassert_ok(flash_area_write(fa, mapped_peb * mtd.erase_block_size, garbage_ec,
+	zassert_ok(flash_area_write(fa, mapped_peb * flash.erase_block_size, garbage_ec,
 				    sizeof(garbage_ec)));
 
 	flash_area_close(fa);
@@ -1396,7 +1399,7 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 	 * For now, this test still covers the scan path where a PEB with
 	 * garbage EC is classified as bad, and the free PEB with valid
 	 * VID header for the same volume is classified normally. */
-	int ret = ubi_device_init(&mtd, NULL, &ubi);
+	int ret = ubi_device_init(&flash, NULL, &ubi);
 
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
@@ -1419,7 +1422,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 {
 	/* Format and create a volume, write to LEB 0 */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
@@ -1436,15 +1439,15 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 
 	/* Find the mapped PEB and a free PEB */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	const size_t nr_pebs = fa->fa_size / mtd.erase_block_size;
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	const size_t nr_pebs = fa->fa_size / flash.erase_block_size;
 
 	size_t mapped_peb = 0;
 	uint64_t existing_sqnum = 0;
 
 	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
 		struct raw_vid_hdr vid = { 0 };
-		zassert_ok(flash_area_read(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE, &vid,
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE, &vid,
 					   sizeof(vid)));
 		if (vid.magic == VID_HDR_MAGIC && vid.vol_id == (uint32_t)vol_id && vid.lnum == 0) {
 			mapped_peb = pnum;
@@ -1460,8 +1463,8 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 			continue;
 		}
 		uint8_t vid_area[VID_HDR_SIZE];
-		zassert_ok(flash_area_read(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE, vid_area,
-					   sizeof(vid_area)));
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE,
+					   vid_area, sizeof(vid_area)));
 		bool all_ff = true;
 		for (size_t j = 0; j < sizeof(vid_area); ++j) {
 			if (vid_area[j] != 0xFF) {
@@ -1478,12 +1481,12 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 
 	/* Write a duplicate LEB 0 with LOWER sqnum than existing */
 	zassert_true(existing_sqnum > 0, "Existing sqnum should be > 0");
-	raw_write_vid_hdr(fa, free_peb, mtd.erase_block_size, 0, (uint32_t)vol_id,
+	raw_write_vid_hdr(fa, free_peb, flash.erase_block_size, 0, (uint32_t)vol_id,
 			  existing_sqnum - 1, 32);
 	flash_area_close(fa);
 
 	/* Reinit — the older PEB should be discarded to dirty pool */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* Verify the volume is intact and data matches */
@@ -1506,7 +1509,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 {
 	/* Normal init to format */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1515,13 +1518,13 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 	 * The VID area will not be all-0xFF (so it's not classified as free),
 	 * and the CRC check will fail (so it's classified as bad). */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	const size_t nr_pebs = fa->fa_size / mtd.erase_block_size;
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	const size_t nr_pebs = fa->fa_size / flash.erase_block_size;
 
 	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
 		uint8_t vid_area[VID_HDR_SIZE];
-		zassert_ok(flash_area_read(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE, vid_area,
-					   sizeof(vid_area)));
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE,
+					   vid_area, sizeof(vid_area)));
 		bool all_ff = true;
 		for (size_t j = 0; j < sizeof(vid_area); ++j) {
 			if (vid_area[j] != 0xFF) {
@@ -1540,7 +1543,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 				.data_size = 32,
 				.hdr_crc = 0xDEADBEEF, /* intentionally wrong CRC */
 			};
-			zassert_ok(flash_area_write(fa, pnum * mtd.erase_block_size + EC_HDR_SIZE,
+			zassert_ok(flash_area_write(fa, pnum * flash.erase_block_size + EC_HDR_SIZE,
 						    &bad_vid, sizeof(bad_vid)));
 			break;
 		}
@@ -1548,7 +1551,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 	flash_area_close(fa);
 
 	/* Reinit — scan should classify the PEB with bad VID CRC as bad */
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
 	g_ubi = NULL;
@@ -1558,20 +1561,20 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
  * \brief Init with partition size not multiple of erase block size.
  *
  * We can't actually change the partition size, but we can test with a
- * modified mtd where erase_block_size doesn't divide partition size.
+ * modified flash where erase_block_size doesn't divide partition size.
  *
- * \details Configure MTD so the partition size is not a multiple of erase_block_size.
+ * \details Configure flash descriptor so the partition size is not a multiple of erase_block_size.
  *
  * \expect ubi_device_init() returns -EINVAL.
  */
 ZTEST(ubi_init_errors, geometry_partition_not_multiple_of_ebs)
 {
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 	/* Set erase block size to something that doesn't divide the partition */
-	bad_mtd.erase_block_size = mtd.erase_block_size + 1;
+	bad_flash.erase_block_size = flash.erase_block_size + 1;
 
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&bad_mtd, NULL, &ubi);
+	int ret = ubi_device_init(&bad_flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
 		(void)ubi_device_deinit(ubi);
@@ -1583,23 +1586,23 @@ ZTEST(ubi_init_errors, geometry_partition_not_multiple_of_ebs)
 /**
  * \brief Init with partition too small for reserved + data PEBs.
  *
- * \details Configure MTD so the partition holds fewer PEBs than required for reserved PEBs + 1 data PEB.
+ * \details Configure flash descriptor so the partition holds fewer PEBs than required for reserved PEBs + 1 data PEB.
  *
  * \expect ubi_device_init() returns -EINVAL.
  */
 ZTEST(ubi_init_errors, geometry_partition_too_small)
 {
 	/* Use a huge erase block size that results in nr_of_pebs <= NR_OF_RES_PEBS */
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 	/* Set EBS to the full partition size → nr_of_pebs = 1 which is <= 2 */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 	const size_t part_size = fa->fa_size;
 	flash_area_close(fa);
 
-	bad_mtd.erase_block_size = part_size; /* only 1 PEB, need > 2 */
+	bad_flash.erase_block_size = part_size; /* only 1 PEB, need > 2 */
 	struct ubi_device *ubi = NULL;
-	int ret = ubi_device_init(&bad_mtd, NULL, &ubi);
+	int ret = ubi_device_init(&bad_flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
 		g_ubi = ubi;
 		(void)ubi_device_deinit(ubi);

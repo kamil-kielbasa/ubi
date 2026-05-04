@@ -6,22 +6,26 @@
  * \copyright Copyright (c) 2025
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_FLASH_RES_PEB_H
 #define UBI_FLASH_RES_PEB_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_plain_io.h"
 
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 /** Number of PEBs that must remain active at all times. */
 #define UBI_FLASH_RES_PEB_NR_ACTIVE (2)
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /** Classification of a reserved PEB after scanning. */
 enum ubi_flash_res_peb_state {
@@ -54,7 +58,7 @@ struct ubi_flash_res_peb_scan {
 	size_t canonical_peb_idx;
 };
 
-/* Function declarations ----------------------------------------------------------------------- */
+/* Function declarations ------------------------------------------------------------------------ */
 
 /**
  * \brief Scan all reserved PEBs and classify their state.
@@ -64,12 +68,12 @@ struct ubi_flash_res_peb_scan {
  * erased content are classified as spares; PEBs with valid headers
  * as active; all others as corrupt.
  *
- * \param[in] mtd	UBI MTD device structure.
+ * \param[in] flash	Flash partition descriptor.
  * \param[out] scan	Scan result structure.
  *
  * \return 0 on success, negative error code on flash read failure.
  */
-int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan);
+int ubi_flash_res_peb_scan(const struct ubi_flash_desc *flash, struct ubi_flash_res_peb_scan *scan);
 
 /**
  * \brief Validate reserved PEBs and recover if degraded.
@@ -80,12 +84,12 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
  * when only 1 active PEB remains and recovery fails (read-only degraded
  * mode).
  *
- * \param[in] mtd	UBI MTD device structure.
+ * \param[in] flash	Flash partition descriptor.
  * \param[out] dev_hdr	Current device header.
  *
  * \return 0 on success, -EROFS for read-only degraded mode, -EIO if unrecoverable.
  */
-int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr);
+int ubi_flash_res_peb_validate(const struct ubi_flash_desc *flash, struct ubi_dev_hdr *dev_hdr);
 
 /**
  * \brief Write device and volume headers to reserved PEBs.
@@ -93,13 +97,13 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
  * Scans for current state, then writes active PEBs first, promoting
  * spares to replace any that fail. Corrupt PEBs are skipped.
  *
- * \param[in] mtd	UBI MTD device structure.
+ * \param[in] flash	Flash partition descriptor.
  * \param[in] content	Buffer containing the new device and volume data.
  * \param content_len	Size of \p content in bytes.
  *
  * \return 0 on success, negative error code on failure.
  */
-int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
+int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_t *content,
 				size_t content_len);
 
 /**
@@ -108,7 +112,7 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
  * Calls ubi_flash_res_peb_overwrite() and then verifies the result via a
  * fresh scan.
  *
- * \param[in] mtd	UBI MTD device structure.
+ * \param[in] flash	Flash partition descriptor.
  * \param[in] content	Buffer with new headers.
  * \param content_len	Size of \p content in bytes.
  *
@@ -116,7 +120,8 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
  * \retval -EROFS  Data committed but bank is degraded (fewer active PEBs than required).
  * \retval <0      Commit or verification failed entirely (no active PEBs remain).
  */
-int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content, size_t content_len);
+int ubi_flash_res_peb_commit(const struct ubi_flash_desc *flash, const uint8_t *content,
+			     size_t content_len);
 
 /**
  * \brief Find the first active PEB index in a scan result.
@@ -130,14 +135,14 @@ size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *
 /**
  * \brief Read the full content (dev hdr + vol hdrs) from a specific reserved PEB.
  *
- * \param[in] mtd		UBI MTD device structure.
+ * \param[in] flash		Flash partition descriptor.
  * \param peb_idx		Reserved PEB index.
  * \param[out] content		Output buffer (must be at least dev_hdr.size bytes).
  * \param content_len		Size of \p content in bytes.
  *
  * \return 0 on success, negative error code on failure.
  */
-int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, size_t peb_idx, uint8_t *content,
-				   size_t content_len);
+int ubi_flash_res_peb_read_content(const struct ubi_flash_desc *flash, size_t peb_idx,
+				   uint8_t *content, size_t content_len);
 
 #endif /* UBI_FLASH_RES_PEB_H */

@@ -8,28 +8,32 @@
  * \copyright Copyright (c) 2025
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_CACHE_H
 #define UBI_CACHE_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Zephyr headers: */
 #include <zephyr/sys/rb.h>
 #include <zephyr/sys/slist.h>
 #include <zephyr/sys/util.h>
 
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 #define RBT_PTR(p) ((struct rbnode *)((uintptr_t)(p) & ~1))
 
-/* Forward declarations ------------------------------------------------------------------------ */
+/* Forward declarations ------------------------------------------------------------------------- */
 
 struct ubi_volume;
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \brief Red-black tree item used in UBI.
@@ -101,7 +105,7 @@ static inline struct ubi_list_item *ubi_leaf_as_list(void *ptr)
 	return (struct ubi_list_item *)ptr;
 }
 
-/* Module interface function declarations ------------------------------------------------------ */
+/* Module interface function declarations ------------------------------------------------------- */
 
 /**
  * \brief Compare two red-black tree nodes.

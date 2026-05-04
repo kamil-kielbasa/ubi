@@ -12,7 +12,7 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 #include <ubi.h>
 #include <ubi_crypto.h>
@@ -37,18 +37,18 @@
 
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -60,9 +60,9 @@ static void *ztest_suite_setup(void)
 
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -370,7 +370,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_leb_key_null)
 /**
  * \brief ec_hdr_read rejects NULL arguments.
  *
- * \details Calls with NULL mtd, NULL crypto_cfg, NULL ec_hdr, NULL ec_ctx.
+ * \details Calls with NULL flash, NULL crypto_cfg, NULL ec_hdr, NULL ec_ctx.
  *
  * \expect Returns -EINVAL.
  */
@@ -383,15 +383,15 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_null)
 	struct ubi_secure_ec_auth_ctx ctx = { 0 };
 
 	zassert_equal(ubi_secure_ec_hdr_read(NULL, &cfg, 0, &ec, &ctx), -EINVAL);
-	zassert_equal(ubi_secure_ec_hdr_read(&mtd, NULL, 0, &ec, &ctx), -EINVAL);
-	zassert_equal(ubi_secure_ec_hdr_read(&mtd, &cfg, 0, NULL, &ctx), -EINVAL);
-	zassert_equal(ubi_secure_ec_hdr_read(&mtd, &cfg, 0, &ec, NULL), -EINVAL);
+	zassert_equal(ubi_secure_ec_hdr_read(&flash, NULL, 0, &ec, &ctx), -EINVAL);
+	zassert_equal(ubi_secure_ec_hdr_read(&flash, &cfg, 0, NULL, &ctx), -EINVAL);
+	zassert_equal(ubi_secure_ec_hdr_read(&flash, &cfg, 0, &ec, NULL), -EINVAL);
 }
 
 /**
  * \brief vid_hdr_read rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL vid_hdr.
+ * \details Calls with NULL flash and NULL vid_hdr.
  *
  * \expect Returns -EINVAL.
  */
@@ -407,14 +407,14 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_null)
 
 	zassert_equal(ubi_secure_vid_hdr_read(NULL, &cfg, 0, &ec_ctx, &vid, &meta, &vid_ctx),
 		      -EINVAL);
-	zassert_equal(ubi_secure_vid_hdr_read(&mtd, &cfg, 0, &ec_ctx, NULL, &meta, &vid_ctx),
+	zassert_equal(ubi_secure_vid_hdr_read(&flash, &cfg, 0, &ec_ctx, NULL, &meta, &vid_ctx),
 		      -EINVAL);
 }
 
 /**
  * \brief vid_hdr_write rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL vid_hdr.
+ * \details Calls with NULL flash and NULL vid_hdr.
  *
  * \expect Returns -EINVAL.
  */
@@ -428,13 +428,14 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_null)
 	struct ubi_vid_secure_meta meta = { 0 };
 
 	zassert_equal(ubi_secure_vid_hdr_write(NULL, &cfg, 0, &ec_ctx, &vid, &meta, 0, 0), -EINVAL);
-	zassert_equal(ubi_secure_vid_hdr_write(&mtd, &cfg, 0, &ec_ctx, NULL, &meta, 0, 0), -EINVAL);
+	zassert_equal(ubi_secure_vid_hdr_write(&flash, &cfg, 0, &ec_ctx, NULL, &meta, 0, 0),
+		      -EINVAL);
 }
 
 /**
  * \brief leb_data_read rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL buf with nonzero len.
+ * \details Calls with NULL flash and NULL buf with nonzero len.
  *
  * \expect Returns -EINVAL.
  */
@@ -448,14 +449,14 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_null)
 	uint8_t buf[4] = { 0 };
 
 	zassert_equal(ubi_secure_leb_data_read(NULL, &cfg, 0, &vid_ctx, 0, buf, 4), -EINVAL);
-	zassert_equal(ubi_secure_leb_data_read(&mtd, NULL, 0, &vid_ctx, 0, buf, 4), -EINVAL);
-	zassert_equal(ubi_secure_leb_data_read(&mtd, &cfg, 0, NULL, 0, buf, 4), -EINVAL);
+	zassert_equal(ubi_secure_leb_data_read(&flash, NULL, 0, &vid_ctx, 0, buf, 4), -EINVAL);
+	zassert_equal(ubi_secure_leb_data_read(&flash, &cfg, 0, NULL, 0, buf, 4), -EINVAL);
 }
 
 /**
  * \brief leb_data_write rejects NULL arguments.
  *
- * \details Calls with NULL mtd.
+ * \details Calls with NULL flash.
  *
  * \expect Returns -EINVAL.
  */
@@ -476,7 +477,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_null)
 /**
  * \brief ec_hdr_write rejects NULL arguments.
  *
- * \details Calls with NULL mtd.
+ * \details Calls with NULL flash.
  *
  * \expect Returns -EINVAL.
  */
@@ -488,7 +489,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_null)
 	const struct ubi_ec_hdr ec = { 0 };
 
 	zassert_equal(ubi_secure_ec_hdr_write(NULL, &cfg, 0, &ec, 0, 0), -EINVAL);
-	zassert_equal(ubi_secure_ec_hdr_write(&mtd, NULL, 0, &ec, 0, 0), -EINVAL);
+	zassert_equal(ubi_secure_ec_hdr_write(&flash, NULL, 0, &ec, 0, 0), -EINVAL);
 }
 
 /* ==================================== I/O corruption paths ==================================== */
@@ -509,13 +510,13 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_magic)
 	/* Write garbage to PEB 3 EC header area. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t garbage[UBI_SECURE_EC_HDR_SIZE];
 
 	memset(garbage, 0xDE, sizeof(garbage));
 
-	const size_t offset = 3 * mtd.erase_block_size;
+	const size_t offset = 3 * flash.erase_block_size;
 
 	zassert_ok(flash_area_write(fa, offset, garbage, sizeof(garbage)));
 	flash_area_close(fa);
@@ -523,7 +524,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_magic)
 	struct ubi_ec_hdr ec = { 0 };
 	struct ubi_secure_ec_auth_ctx ctx = { 0 };
 
-	zassert_equal(ubi_secure_ec_hdr_read(&mtd, &cfg, 3, &ec, &ctx), -EBADMSG);
+	zassert_equal(ubi_secure_ec_hdr_read(&flash, &cfg, 3, &ec, &ctx), -EBADMSG);
 }
 
 /**
@@ -546,25 +547,25 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_magic)
 		.ec = 0,
 	};
 
-	zassert_ok(ubi_secure_ec_hdr_write(&mtd, &cfg, 3, &ec_hdr,
+	zassert_ok(ubi_secure_ec_hdr_write(&flash, &cfg, 3, &ec_hdr,
 					   cfg.policy.requested_write_key_version, 0));
 
 	/* Read EC to get auth context. */
 	struct ubi_ec_hdr ec_read = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	zassert_ok(ubi_secure_ec_hdr_read(&mtd, &cfg, 3, &ec_read, &ec_ctx));
+	zassert_ok(ubi_secure_ec_hdr_read(&flash, &cfg, 3, &ec_read, &ec_ctx));
 
 	/* Write garbage to VID region. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t garbage[UBI_SECURE_DATA_VID_SIZE];
 
 	memset(garbage, 0xAB, sizeof(garbage));
 
-	const size_t offset = 3 * mtd.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+	const size_t offset = 3 * flash.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 
 	zassert_ok(flash_area_write(fa, offset, garbage, sizeof(garbage)));
 	flash_area_close(fa);
@@ -573,7 +574,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_magic)
 	struct ubi_vid_secure_meta meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	zassert_equal(ubi_secure_vid_hdr_read(&mtd, &cfg, 3, &ec_ctx, &vid, &meta, &vid_ctx),
+	zassert_equal(ubi_secure_vid_hdr_read(&flash, &cfg, 3, &ec_ctx, &vid, &meta, &vid_ctx),
 		      -EBADMSG);
 }
 
@@ -593,7 +594,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_datasize)
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 	uint8_t buf[1] = { 0 };
 
-	zassert_equal(ubi_secure_leb_data_read(&mtd, &cfg, 3, &vid_ctx, 0, buf, 1), -EINVAL);
+	zassert_equal(ubi_secure_leb_data_read(&flash, &cfg, 3, &vid_ctx, 0, buf, 1), -EINVAL);
 }
 
 /**
@@ -612,7 +613,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_out_of_bounds)
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 	uint8_t buf[4] = { 0 };
 
-	zassert_equal(ubi_secure_leb_data_read(&mtd, &cfg, 3, &vid_ctx, 1, buf, 4), -EINVAL);
+	zassert_equal(ubi_secure_leb_data_read(&flash, &cfg, 3, &vid_ctx, 1, buf, 4), -EINVAL);
 }
 
 /* ================================= Init with invalid geometry ================================= */
@@ -620,7 +621,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_out_of_bounds)
 /**
  * \brief Device init rejects write_block_size of zero.
  *
- * \details Passes mtd with write_block_size=0.
+ * \details Passes flash with write_block_size=0.
  *
  * \expect Returns -EINVAL.
  */
@@ -629,19 +630,19 @@ ZTEST(ubi_secure_defensive, test_init_zero_write_block)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
-	bad_mtd.write_block_size = 0;
+	bad_flash.write_block_size = 0;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&bad_mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&bad_flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
 /**
  * \brief Device init rejects erase_block_size of zero.
  *
- * \details Passes mtd with erase_block_size=0.
+ * \details Passes flash with erase_block_size=0.
  *
  * \expect Returns -EINVAL.
  */
@@ -650,19 +651,19 @@ ZTEST(ubi_secure_defensive, test_init_zero_erase_block)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
-	bad_mtd.erase_block_size = 0;
+	bad_flash.erase_block_size = 0;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&bad_mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&bad_flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
 /**
  * \brief Device init rejects oversized write_block_size.
  *
- * \details Passes mtd with write_block_size > max alignment.
+ * \details Passes flash with write_block_size > max alignment.
  *
  * \expect Returns -EINVAL.
  */
@@ -671,13 +672,13 @@ ZTEST(ubi_secure_defensive, test_init_oversized_write_block)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
 	/* Set to a large value unlikely to match any real flash. */
-	bad_mtd.write_block_size = 65536;
+	bad_flash.write_block_size = 65536;
 	struct ubi_device *ubi = NULL;
 
-	const int ret = ubi_device_init(&bad_mtd, &cfg, &ubi);
+	const int ret = ubi_device_init(&bad_flash, &cfg, &ubi);
 
 	if (ret == 0) {
 		/* Geometry was accepted — cleanup. */
@@ -690,7 +691,7 @@ ZTEST(ubi_secure_defensive, test_init_oversized_write_block)
 /**
  * \brief Device init rejects erase block too small for headers.
  *
- * \details Passes mtd with very small erase_block_size.
+ * \details Passes flash with very small erase_block_size.
  *
  * \expect Returns -EINVAL.
  */
@@ -699,13 +700,13 @@ ZTEST(ubi_secure_defensive, test_init_erase_block_too_small)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
 	/* Set erase block to 16 bytes — too small for EC+VID+LEB overhead. */
-	bad_mtd.erase_block_size = 16;
+	bad_flash.erase_block_size = 16;
 	struct ubi_device *ubi = NULL;
 
-	const int ret = ubi_device_init(&bad_mtd, &cfg, &ubi);
+	const int ret = ubi_device_init(&bad_flash, &cfg, &ubi);
 
 	if (ret == 0) {
 		ubi_device_deinit(ubi);
@@ -731,7 +732,7 @@ ZTEST(ubi_secure_defensive, test_init_bad_write_key_version)
 	cfg.policy.requested_write_key_version = 99;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
@@ -753,7 +754,7 @@ ZTEST(ubi_secure_defensive, test_scan_corrupt_ec_marks_bad)
 	struct ubi_device *ubi = NULL;
 
 	/* Format fresh device. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
@@ -762,7 +763,7 @@ ZTEST(ubi_secure_defensive, test_scan_corrupt_ec_marks_bad)
 	/* Corrupt EC header of a data PEB (PEB 3 = first data PEB after 3 reserved). */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t garbage[UBI_SECURE_EC_HDR_SIZE];
 
@@ -771,14 +772,14 @@ ZTEST(ubi_secure_defensive, test_scan_corrupt_ec_marks_bad)
 	garbage[0] = 0xBA;
 	garbage[1] = 0xAD;
 
-	const size_t peb_offset = 3 * mtd.erase_block_size;
+	const size_t peb_offset = 3 * flash.erase_block_size;
 
-	zassert_ok(flash_area_erase(fa, peb_offset, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, peb_offset, flash.erase_block_size));
 	zassert_ok(flash_area_write(fa, peb_offset, garbage, sizeof(garbage)));
 	flash_area_close(fa);
 
 	/* Re-init should succeed but mark the corrupted PEB as bad. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_device_info info = { 0 };
 
@@ -804,7 +805,7 @@ ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_device_info info_before = { 0 };
 
@@ -818,9 +819,9 @@ ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
 	 * Keep VID region erased. This simulates an interrupted write. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	const size_t leb_offset = 4 * mtd.erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = 4 * flash.erase_block_size + UBI_SECURE_LEB_OFFSET;
 	uint8_t nonerased[16] = { 0 };
 
 	nonerased[0] = 0xDE;
@@ -831,7 +832,7 @@ ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
 	zassert_ok(flash_area_write(fa, leb_offset, nonerased, sizeof(nonerased)));
 	flash_area_close(fa);
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_device_info info_after = { 0 };
 
@@ -860,7 +861,7 @@ ZTEST(ubi_secure_defensive, test_scan_orphan_classification)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "orphan",
@@ -882,7 +883,7 @@ ZTEST(ubi_secure_defensive, test_scan_orphan_classification)
 	ubi_test_partition_force_release_all();
 
 	/* Re-init: scan should find orphan PEBs and classify as dirty. */
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_device_info info = { 0 };
 
@@ -909,7 +910,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_len_zero_data)
 	struct ubi_vid_hdr vid = { .data_size = 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 
-	zassert_ok(ubi_secure_leb_data_read(&mtd, &cfg, 3, &vid_ctx, 0, NULL, 0));
+	zassert_ok(ubi_secure_leb_data_read(&flash, &cfg, 3, &vid_ctx, 0, NULL, 0));
 }
 
 /* ============================== vid/leb erased checks with NULL =============================== */
@@ -917,7 +918,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_len_zero_data)
 /**
  * \brief vid_region_is_erased rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL is_erased.
+ * \details Calls with NULL flash and NULL is_erased.
  *
  * \expect Returns -EINVAL.
  */
@@ -926,13 +927,13 @@ ZTEST(ubi_secure_defensive, test_io_vid_region_is_erased_null)
 	bool erased = false;
 
 	zassert_equal(ubi_secure_vid_region_is_erased(NULL, 0, &erased), -EINVAL);
-	zassert_equal(ubi_secure_vid_region_is_erased(&mtd, 0, NULL), -EINVAL);
+	zassert_equal(ubi_secure_vid_region_is_erased(&flash, 0, NULL), -EINVAL);
 }
 
 /**
  * \brief leb_prefix_is_erased rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL is_erased.
+ * \details Calls with NULL flash and NULL is_erased.
  *
  * \expect Returns -EINVAL.
  */
@@ -941,7 +942,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_prefix_is_erased_null)
 	bool erased = false;
 
 	zassert_equal(ubi_secure_leb_prefix_is_erased(NULL, 0, &erased), -EINVAL);
-	zassert_equal(ubi_secure_leb_prefix_is_erased(&mtd, 0, NULL), -EINVAL);
+	zassert_equal(ubi_secure_leb_prefix_is_erased(&flash, 0, NULL), -EINVAL);
 }
 
 /* ================================= IO hook-based error paths ================================== */
@@ -961,7 +962,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_domain)
 
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	/* Build a prefix with correct magic but wrong domain. */
 	struct ubi_crypto_prefix32 prefix = {
@@ -975,7 +976,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_domain)
 
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
-	const size_t offset = 4 * mtd.erase_block_size;
+	const size_t offset = 4 * flash.erase_block_size;
 
 	zassert_ok(flash_area_write(fa, offset, prefix_buf, sizeof(prefix_buf)));
 	flash_area_close(fa);
@@ -983,7 +984,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_domain)
 	struct ubi_ec_hdr ec = { 0 };
 	struct ubi_secure_ec_auth_ctx ctx = { 0 };
 
-	zassert_equal(ubi_secure_ec_hdr_read(&mtd, &cfg, 4, &ec, &ctx), -EBADMSG);
+	zassert_equal(ubi_secure_ec_hdr_read(&flash, &cfg, 4, &ec, &ctx), -EBADMSG);
 }
 
 /**
@@ -1002,7 +1003,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_key_deriv_fail)
 	/* Write a valid-looking EC prefix (correct magic + domain). */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	struct ubi_crypto_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
@@ -1015,7 +1016,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_key_deriv_fail)
 
 	ubi_secure_prefix32_serialize(&prefix, buf);
 
-	const size_t offset = 4 * mtd.erase_block_size;
+	const size_t offset = 4 * flash.erase_block_size;
 
 	zassert_ok(flash_area_write(fa, offset, buf, sizeof(buf)));
 	flash_area_close(fa);
@@ -1024,7 +1025,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_key_deriv_fail)
 	struct ubi_secure_ec_auth_ctx ctx = { 0 };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_ec_hdr_read(&mtd, &cfg, 4, &ec, &ctx);
+	const int ret = ubi_secure_ec_hdr_read(&flash, &cfg, 4, &ec, &ctx);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
 }
@@ -1048,7 +1049,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_key_deriv_fail)
 	};
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_ec_hdr_write(&mtd, &cfg, 4, &ec,
+	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
@@ -1073,7 +1074,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_salt_fail)
 	};
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
-	const int ret = ubi_secure_ec_hdr_write(&mtd, &cfg, 4, &ec,
+	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
@@ -1098,7 +1099,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_aead_fail)
 	};
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
-	const int ret = ubi_secure_ec_hdr_write(&mtd, &cfg, 4, &ec,
+	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
@@ -1123,7 +1124,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_flash_fail)
 	};
 
 	ubi_test_fault_set_flash_write_fail_after(0);
-	const int ret = ubi_secure_ec_hdr_write(&mtd, &cfg, 4, &ec,
+	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when flash write fails");
@@ -1146,7 +1147,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_key_deriv_fail)
 	const struct ubi_vid_secure_meta meta = { 0 };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_vid_hdr_write(&mtd, &cfg, 4, &ec_ctx, &vid, &meta, 0, 0);
+	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta, 0, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
 }
@@ -1168,7 +1169,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_salt_fail)
 	const struct ubi_vid_secure_meta meta = { 0 };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
-	const int ret = ubi_secure_vid_hdr_write(&mtd, &cfg, 4, &ec_ctx, &vid, &meta,
+	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta,
 						 cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
@@ -1191,7 +1192,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_aead_fail)
 	const struct ubi_vid_secure_meta meta = { 0 };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
-	const int ret = ubi_secure_vid_hdr_write(&mtd, &cfg, 4, &ec_ctx, &vid, &meta,
+	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta,
 						 cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
@@ -1214,7 +1215,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_flash_fail)
 	const struct ubi_vid_secure_meta meta = { 0 };
 
 	ubi_test_fault_set_flash_write_fail_after(0);
-	const int ret = ubi_secure_vid_hdr_write(&mtd, &cfg, 4, &ec_ctx, &vid, &meta,
+	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta,
 						 cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when flash write fails");
@@ -1237,7 +1238,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_key_deriv_fail)
 	const uint8_t data[] = { 0xAA, 0xBB };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_leb_data_write(&mtd, &cfg, 4, &ec_ctx, &vid, 0, data,
+	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, data,
 						  sizeof(data), 0, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
@@ -1260,7 +1261,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_salt_fail)
 	const uint8_t data[] = { 0xAA, 0xBB };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
-	const int ret = ubi_secure_leb_data_write(&mtd, &cfg, 4, &ec_ctx, &vid, 0, data,
+	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, data,
 						  sizeof(data),
 						  cfg.policy.requested_write_key_version, 0);
 
@@ -1284,7 +1285,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_aead_fail)
 	const uint8_t data[] = { 0xAA, 0xBB };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
-	const int ret = ubi_secure_leb_data_write(&mtd, &cfg, 4, &ec_ctx, &vid, 0, data,
+	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, data,
 						  sizeof(data),
 						  cfg.policy.requested_write_key_version, 0);
 
@@ -1308,7 +1309,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_flash_fail)
 	const uint8_t data[] = { 0xAA, 0xBB };
 
 	ubi_test_fault_set_flash_write_fail_after(0);
-	const int ret = ubi_secure_leb_data_write(&mtd, &cfg, 4, &ec_ctx, &vid, 0, data,
+	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, data,
 						  sizeof(data),
 						  cfg.policy.requested_write_key_version, 0);
 
@@ -1331,7 +1332,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_key_deriv_fail)
 	/* Write a valid LEB prefix to PEB 4. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	struct ubi_crypto_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
@@ -1344,7 +1345,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_key_deriv_fail)
 
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
-	const size_t leb_offset = 4 * mtd.erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = 4 * flash.erase_block_size + UBI_SECURE_LEB_OFFSET;
 
 	zassert_ok(flash_area_write(fa, leb_offset, prefix_buf, sizeof(prefix_buf)));
 	flash_area_close(fa);
@@ -1354,7 +1355,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_key_deriv_fail)
 	uint8_t buf[2] = { 0 };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_leb_data_read(&mtd, &cfg, 4, &vid_ctx, 0, buf, 2);
+	const int ret = ubi_secure_leb_data_read(&flash, &cfg, 4, &vid_ctx, 0, buf, 2);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
 }
@@ -1374,7 +1375,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_bad_prefix)
 
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	struct ubi_crypto_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
@@ -1387,7 +1388,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_bad_prefix)
 
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
-	const size_t leb_offset = 5 * mtd.erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = 5 * flash.erase_block_size + UBI_SECURE_LEB_OFFSET;
 
 	zassert_ok(flash_area_write(fa, leb_offset, prefix_buf, sizeof(prefix_buf)));
 	flash_area_close(fa);
@@ -1396,7 +1397,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_bad_prefix)
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 	uint8_t buf[2] = { 0 };
 
-	const int ret = ubi_secure_leb_data_read(&mtd, &cfg, 5, &vid_ctx, 0, buf, 2);
+	const int ret = ubi_secure_leb_data_read(&flash, &cfg, 5, &vid_ctx, 0, buf, 2);
 
 	zassert_equal(ret, -EBADMSG);
 }
@@ -1421,18 +1422,18 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_domain)
 		.ec = 0,
 	};
 
-	zassert_ok(ubi_secure_ec_hdr_write(&mtd, &cfg, 5, &ec_hdr,
+	zassert_ok(ubi_secure_ec_hdr_write(&flash, &cfg, 5, &ec_hdr,
 					   cfg.policy.requested_write_key_version, 0));
 
 	struct ubi_ec_hdr ec_read = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	zassert_ok(ubi_secure_ec_hdr_read(&mtd, &cfg, 5, &ec_read, &ec_ctx));
+	zassert_ok(ubi_secure_ec_hdr_read(&flash, &cfg, 5, &ec_read, &ec_ctx));
 
 	/* Write VID prefix with wrong domain. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	struct ubi_crypto_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
@@ -1445,7 +1446,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_domain)
 
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
-	const size_t vid_offset = 5 * mtd.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+	const size_t vid_offset = 5 * flash.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 
 	zassert_ok(flash_area_write(fa, vid_offset, prefix_buf, sizeof(prefix_buf)));
 	flash_area_close(fa);
@@ -1454,7 +1455,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_domain)
 	struct ubi_vid_secure_meta meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	zassert_equal(ubi_secure_vid_hdr_read(&mtd, &cfg, 5, &ec_ctx, &vid, &meta, &vid_ctx),
+	zassert_equal(ubi_secure_vid_hdr_read(&flash, &cfg, 5, &ec_ctx, &vid, &meta, &vid_ctx),
 		      -EBADMSG);
 }
 
@@ -1478,18 +1479,18 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_key_deriv_fail)
 		.ec = 0,
 	};
 
-	zassert_ok(ubi_secure_ec_hdr_write(&mtd, &cfg, 6, &ec_hdr,
+	zassert_ok(ubi_secure_ec_hdr_write(&flash, &cfg, 6, &ec_hdr,
 					   cfg.policy.requested_write_key_version, 0));
 
 	struct ubi_ec_hdr ec_read = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	zassert_ok(ubi_secure_ec_hdr_read(&mtd, &cfg, 6, &ec_read, &ec_ctx));
+	zassert_ok(ubi_secure_ec_hdr_read(&flash, &cfg, 6, &ec_read, &ec_ctx));
 
 	/* Write valid VID prefix. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	struct ubi_crypto_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
@@ -1502,7 +1503,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_key_deriv_fail)
 
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
-	const size_t vid_offset = 6 * mtd.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+	const size_t vid_offset = 6 * flash.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 
 	zassert_ok(flash_area_write(fa, vid_offset, prefix_buf, sizeof(prefix_buf)));
 	flash_area_close(fa);
@@ -1512,7 +1513,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_key_deriv_fail)
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_vid_hdr_read(&mtd, &cfg, 6, &ec_ctx, &vid, &meta, &vid_ctx);
+	const int ret = ubi_secure_vid_hdr_read(&flash, &cfg, 6, &ec_ctx, &vid, &meta, &vid_ctx);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
 }
@@ -1532,7 +1533,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_zero_len)
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 	const struct ubi_vid_hdr vid = { .data_size = 0 };
 
-	const int ret = ubi_secure_leb_data_write(&mtd, &cfg, 4, &ec_ctx, &vid, 0, NULL, 0,
+	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
 	/* Zero-length write should succeed or fail gracefully. */
@@ -1554,14 +1555,14 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_null)
 	bool is_blank = false;
 
 	zassert_equal(ubi_secure_res_peb_detect_mode(NULL, 0, &is_secure, &is_blank), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_detect_mode(&mtd, 0, NULL, &is_blank), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_detect_mode(&mtd, 0, &is_secure, NULL), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_detect_mode(&flash, 0, NULL, &is_blank), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_detect_mode(&flash, 0, &is_secure, NULL), -EINVAL);
 }
 
 /**
  * \brief res_peb_scan rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL scan.
+ * \details Calls with NULL flash and NULL scan.
  *
  * \expect Returns -EINVAL.
  */
@@ -1573,14 +1574,14 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_null)
 	struct ubi_secure_res_peb_scan scan = { 0 };
 
 	zassert_equal(ubi_secure_res_peb_scan(NULL, &cfg, &scan), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_scan(&mtd, NULL, &scan), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_scan(&mtd, &cfg, NULL), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_scan(&flash, NULL, &scan), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_scan(&flash, &cfg, NULL), -EINVAL);
 }
 
 /**
  * \brief res_peb_read_vol_hdrs rejects NULL arguments.
  *
- * \details Calls with NULL mtd.
+ * \details Calls with NULL flash.
  *
  * \expect Returns -EINVAL.
  */
@@ -1593,14 +1594,14 @@ ZTEST(ubi_secure_defensive, test_res_peb_read_vol_hdrs_null)
 	struct ubi_vol_hdr vols[1] = { 0 };
 
 	zassert_equal(ubi_secure_res_peb_read_vol_hdrs(NULL, &cfg, &scan, vols, 1), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_read_vol_hdrs(&mtd, NULL, &scan, vols, 1), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_read_vol_hdrs(&mtd, &cfg, NULL, vols, 1), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_read_vol_hdrs(&flash, NULL, &scan, vols, 1), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_read_vol_hdrs(&flash, &cfg, NULL, vols, 1), -EINVAL);
 }
 
 /**
  * \brief res_peb_commit rejects NULL arguments.
  *
- * \details Calls with NULL mtd and NULL vol_hdrs with nonzero count.
+ * \details Calls with NULL flash and NULL vol_hdrs with nonzero count.
  *
  * \expect Returns -EINVAL.
  */
@@ -1613,10 +1614,10 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_null)
 	const struct ubi_dev_secure_meta dm = { 0 };
 
 	zassert_equal(ubi_secure_res_peb_commit(NULL, &cfg, &dh, &dm, NULL, 0, 0, 0), -EINVAL);
-	zassert_equal(ubi_secure_res_peb_commit(&mtd, NULL, &dh, &dm, NULL, 0, 0, 0), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_commit(&flash, NULL, &dh, &dm, NULL, 0, 0, 0), -EINVAL);
 
 	/* NULL vol_hdrs with vol_count > 0. */
-	zassert_equal(ubi_secure_res_peb_commit(&mtd, &cfg, &dh, &dm, NULL, 1, 0, 0), -EINVAL);
+	zassert_equal(ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 1, 0, 0), -EINVAL);
 }
 
 /**
@@ -1641,7 +1642,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_key_deriv_fail)
 	};
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	const int ret = ubi_secure_res_peb_commit(&mtd, &cfg, &dh, &dm, NULL, 0,
+	const int ret = ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
@@ -1669,7 +1670,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_salt_fail)
 	};
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
-	const int ret = ubi_secure_res_peb_commit(&mtd, &cfg, &dh, &dm, NULL, 0,
+	const int ret = ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
@@ -1697,7 +1698,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_aead_fail)
 	};
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
-	const int ret = ubi_secure_res_peb_commit(&mtd, &cfg, &dh, &dm, NULL, 0,
+	const int ret = ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
 	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
@@ -1718,7 +1719,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_corrupt_peb)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi_test_partition_force_release_all();
@@ -1726,8 +1727,8 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_corrupt_peb)
 	/* Corrupt reserved PEB 0. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 
 	uint8_t garbage[32];
 
@@ -1737,7 +1738,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_corrupt_peb)
 
 	struct ubi_secure_res_peb_scan scan = { 0 };
 
-	zassert_ok(ubi_secure_res_peb_scan(&mtd, &cfg, &scan));
+	zassert_ok(ubi_secure_res_peb_scan(&flash, &cfg, &scan));
 	zassert_true(scan.corrupt_count > 0, "Corrupted reserved PEB should be marked corrupt");
 	zassert_true(scan.auth_count > 0, "Other reserved PEBs should still authenticate");
 }
@@ -1757,7 +1758,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_blank_peb)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi_test_partition_force_release_all();
@@ -1765,13 +1766,13 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_blank_peb)
 	/* Erase reserved PEB 0 to make it blank. */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	flash_area_close(fa);
 
 	struct ubi_secure_res_peb_scan scan = { 0 };
 
-	zassert_ok(ubi_secure_res_peb_scan(&mtd, &cfg, &scan));
+	zassert_ok(ubi_secure_res_peb_scan(&flash, &cfg, &scan));
 	zassert_true(scan.spare_count > 0, "Erased reserved PEB should be spare");
 }
 
@@ -1789,7 +1790,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_key_deriv_fail)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi_test_partition_force_release_all();
@@ -1798,7 +1799,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_key_deriv_fail)
 
 	/* Hook fires once — one PEB will fail derivation, others re-derive. */
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
-	zassert_ok(ubi_secure_res_peb_scan(&mtd, &cfg, &scan));
+	zassert_ok(ubi_secure_res_peb_scan(&flash, &cfg, &scan));
 	zassert_true(scan.corrupt_count > 0, "One PEB should fail with key deriv error");
 }
 
@@ -1813,14 +1814,14 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_blank)
 {
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	flash_area_close(fa);
 
 	bool is_secure = false;
 	bool is_blank = false;
 
-	zassert_ok(ubi_secure_res_peb_detect_mode(&mtd, 0, &is_secure, &is_blank));
+	zassert_ok(ubi_secure_res_peb_detect_mode(&flash, 0, &is_secure, &is_blank));
 	zassert_true(is_blank);
 	zassert_false(is_secure);
 }
@@ -1836,7 +1837,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_plain)
 {
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t garbage[16] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
 
@@ -1846,7 +1847,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_plain)
 	bool is_secure = false;
 	bool is_blank = false;
 
-	zassert_ok(ubi_secure_res_peb_detect_mode(&mtd, 0, &is_secure, &is_blank));
+	zassert_ok(ubi_secure_res_peb_detect_mode(&flash, 0, &is_secure, &is_blank));
 	zassert_false(is_blank);
 	zassert_false(is_secure);
 }
@@ -1862,11 +1863,11 @@ ZTEST(ubi_secure_defensive, test_init_plain_media_mismatch)
 {
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	/* Write non-secure, non-blank data to reserved PEBs 0..2. */
 	for (size_t peb = 0; peb < UBI_DEV_HDR_NR_OF_RES_PEBS; peb++) {
-		const size_t offset = peb * mtd.erase_block_size;
+		const size_t offset = peb * flash.erase_block_size;
 		uint8_t plain_data[16] = { 0x55, 0x42, 0x49, 0x23, 0x01, 0x00, 0x00, 0x00 };
 
 		zassert_ok(flash_area_write(fa, offset, plain_data, sizeof(plain_data)));
@@ -1879,7 +1880,7 @@ ZTEST(ubi_secure_defensive, test_init_plain_media_mismatch)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&mtd, &cfg, &ubi), -EPROTO);
+	zassert_equal(ubi_device_init(&flash, &cfg, &ubi), -EPROTO);
 	zassert_is_null(ubi);
 }
 
@@ -1888,7 +1889,7 @@ ZTEST(ubi_secure_defensive, test_init_plain_media_mismatch)
 /**
  * \brief Device init rejects erase_block_size that does not divide partition size.
  *
- * \details Passes mtd with erase_block_size = 3000 (131072 % 3000 != 0).
+ * \details Passes flash with erase_block_size = 3000 (131072 % 3000 != 0).
  *
  * \expect Returns -EINVAL.
  */
@@ -1897,19 +1898,19 @@ ZTEST(ubi_secure_defensive, test_init_partition_not_multiple)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
-	bad_mtd.erase_block_size = 3000;
+	bad_flash.erase_block_size = 3000;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&bad_mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&bad_flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
 /**
  * \brief Device init rejects write_block_size exceeding alignment limit.
  *
- * \details Passes mtd with write_block_size = 32 (> WRITE_BLOCK_SIZE_ALIGNMENT = 16),
+ * \details Passes flash with write_block_size = 32 (> WRITE_BLOCK_SIZE_ALIGNMENT = 16),
  *          while erase_block_size = 8192 so that erase % write == 0.
  *
  * \expect Returns -EINVAL.
@@ -1919,19 +1920,19 @@ ZTEST(ubi_secure_defensive, test_init_write_exceeds_alignment)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
-	bad_mtd.write_block_size = 32;
+	bad_flash.write_block_size = 32;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&bad_mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&bad_flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
 /**
  * \brief Device init rejects partition with too few PEBs.
  *
- * \details Passes mtd with erase_block_size = 65536 so nr_of_pebs = 2 <= RES_PEB_COUNT.
+ * \details Passes flash with erase_block_size = 65536 so nr_of_pebs = 2 <= RES_PEB_COUNT.
  *
  * \expect Returns -EINVAL.
  */
@@ -1940,19 +1941,19 @@ ZTEST(ubi_secure_defensive, test_init_too_few_pebs)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
-	bad_mtd.erase_block_size = 65536;
+	bad_flash.erase_block_size = 65536;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&bad_mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&bad_flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
 /**
  * \brief Device init rejects erase_block_size not multiple of write_block_size.
  *
- * \details Passes mtd with erase_block_size = 131072 and write_block_size = 3
+ * \details Passes flash with erase_block_size = 131072 and write_block_size = 3
  *          so that erase % write != 0.
  *
  * \expect Returns -EINVAL.
@@ -1962,13 +1963,13 @@ ZTEST(ubi_secure_defensive, test_init_erase_not_multiple_of_write)
 	static struct ubi_crypto_config cfg;
 
 	cfg = ubi_test_mock_crypto_config();
-	struct ubi_mtd bad_mtd = mtd;
+	struct ubi_flash_desc bad_flash = flash;
 
-	bad_mtd.erase_block_size = 131072;
-	bad_mtd.write_block_size = 3;
+	bad_flash.erase_block_size = 131072;
+	bad_flash.write_block_size = 3;
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_device_init(&bad_mtd, &cfg, &ubi), -EINVAL);
+	zassert_equal(ubi_device_init(&bad_flash, &cfg, &ubi), -EINVAL);
 	zassert_is_null(ubi);
 }
 
@@ -2066,7 +2067,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_buf_len_mismatch)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_equal(ubi_leb_write(ubi, 0, 0, NULL, 16), -EINVAL);
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -2175,7 +2176,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_vol_not_found)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	uint8_t buf[16] = { 0x42 };
 
@@ -2197,7 +2198,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_leb_exceeded)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = {
 		.name = "test_exceed",
@@ -2228,7 +2229,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_too_big)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = {
 		.name = "test_toobig",
@@ -2268,7 +2269,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_vol_not_found)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	uint8_t buf[16] = { 0 };
 
@@ -2290,7 +2291,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_leb_exceeded)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = {
 		.name = "test_read_exc",
@@ -2321,7 +2322,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_unmapped)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = {
 		.name = "test_unmapped",
@@ -2352,7 +2353,7 @@ ZTEST(ubi_secure_defensive, test_vol_resize_same_count)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = {
 		.name = "test_same_sz",
@@ -2382,7 +2383,7 @@ ZTEST(ubi_secure_defensive, test_vol_remove_not_found)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_equal(ubi_volume_remove(ubi, 42), -ENOENT);
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -2401,7 +2402,7 @@ ZTEST(ubi_secure_defensive, test_vol_get_info_not_found)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = { 0 };
 	size_t alloc_lebs = 0;
@@ -2424,7 +2425,7 @@ ZTEST(ubi_secure_defensive, test_leb_get_size_unmapped)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	struct ubi_volume_config vol_cfg = {
 		.name = "test_getsz",
@@ -2461,7 +2462,7 @@ ZTEST(ubi_secure_defensive, test_vol_resize_zero_lebs)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_equal(ubi_volume_resize(ubi, 0, &vol_cfg), -EINVAL);
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -2525,7 +2526,7 @@ ZTEST(ubi_secure_defensive, test_ec_hdr_write_counter_overflow)
 		.ec = 0,
 	};
 
-	zassert_equal(ubi_secure_ec_hdr_write(&mtd, &cfg, 4, &ec_hdr, 1,
+	zassert_equal(ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec_hdr, 1,
 					      UBI_SECURE_COUNTER_MAX + 1),
 		      -EOVERFLOW);
 }
@@ -2550,7 +2551,7 @@ ZTEST(ubi_secure_defensive, test_vid_hdr_write_counter_overflow)
 	};
 	const struct ubi_vid_secure_meta vid_meta = { 0 };
 
-	zassert_equal(ubi_secure_vid_hdr_write(&mtd, &cfg, 4, &ec_ctx, &vid_hdr, &vid_meta, 1,
+	zassert_equal(ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid_hdr, &vid_meta, 1,
 					       UBI_SECURE_COUNTER_MAX + 1),
 		      -EOVERFLOW);
 }
@@ -2572,7 +2573,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_counter_overflow)
 	struct ubi_dev_hdr dh = { .magic = UBI_DEV_HDR_MAGIC, .version = UBI_DEV_HDR_VERSION };
 	struct ubi_dev_secure_meta dm = { 0 };
 
-	zassert_equal(ubi_secure_res_peb_commit(&mtd, &cfg, &dh, &dm, NULL, 0, 1,
+	zassert_equal(ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0, 1,
 						UBI_SECURE_COUNTER_MAX + 1),
 		      -EOVERFLOW);
 }

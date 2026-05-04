@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_plain_flash_res_peb.h"
@@ -27,11 +27,11 @@
 #include <stdint.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 /**
  * \brief Recover corrupt/spare reserved PEBs from a valid canonical copy.
@@ -42,15 +42,16 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  *
  * \pre scan->active_count < UBI_FLASH_RES_PEB_NR_ACTIVE (caller must verify).
  *
- * \param[in] mtd		UBI MTD device structure.
+ * \param[in] flash		Flash partition descriptor.
  * \param[in,out] scan		Scan result (updated on successful recovery).
  * \param[in] content		Full reserved-PEB content (dev hdr + vol hdrs).
  * \param content_len		Size of \p content in bytes.
  *
  * \return 0 on success (at least 2 active PEBs after recovery), -EIO on failure.
  */
-static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan,
-				 const uint8_t *content, size_t content_len);
+static int flash_res_peb_recover(const struct ubi_flash_desc *flash,
+				 struct ubi_flash_res_peb_scan *scan, const uint8_t *content,
+				 size_t content_len);
 
 /**
  * \brief Semantically validate a device header beyond magic/CRC.
@@ -66,7 +67,7 @@ static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res
 static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
 						 size_t erase_block_size);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
 						 size_t erase_block_size)
@@ -93,16 +94,17 @@ static bool flash_res_peb_hdr_semantically_valid(const struct ubi_dev_hdr *hdr,
 	return true;
 }
 
-static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan,
-				 const uint8_t *content, size_t content_len)
+static int flash_res_peb_recover(const struct ubi_flash_desc *flash,
+				 struct ubi_flash_res_peb_scan *scan, const uint8_t *content,
+				 size_t content_len)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(scan);
 	__ASSERT_NO_MSG(content);
 	__ASSERT_NO_MSG(scan->active_count < UBI_FLASH_RES_PEB_NR_ACTIVE);
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failed: %d", ret);
@@ -118,16 +120,16 @@ static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res
 			break;
 		}
 
-		const size_t offset = i * mtd->erase_block_size;
+		const size_t offset = i * flash->erase_block_size;
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 		if (ubi_test_flash_erase_check_fail()) {
 			LOG_WRN("Reserved PEB %zu erase faulted (injected)", i);
 			continue;
 		}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+		ret = flash_area_erase(fa, offset, flash->erase_block_size);
 
 		if (ret != 0) {
 			LOG_WRN("Reserved PEB %zu erase failed (dead?), skipping", i);
@@ -174,7 +176,7 @@ static int flash_res_peb_recover(const struct ubi_mtd *mtd, struct ubi_flash_res
 	return 0;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *scan)
 {
@@ -189,15 +191,15 @@ size_t ubi_flash_res_peb_find_first_active(const struct ubi_flash_res_peb_scan *
 	return UBI_DEV_HDR_NR_OF_RES_PEBS;
 }
 
-int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_scan *scan)
+int ubi_flash_res_peb_scan(const struct ubi_flash_desc *flash, struct ubi_flash_res_peb_scan *scan)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(scan);
 
 	memset(scan, 0, sizeof(*scan));
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failed: %d", ret);
@@ -214,7 +216,7 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 
 	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; ++i) {
 		struct ubi_dev_hdr hdr = { 0 };
-		const size_t offset = i * mtd->erase_block_size;
+		const size_t offset = i * flash->erase_block_size;
 
 		ret = flash_area_read(fa, offset, &hdr, sizeof(hdr));
 
@@ -248,7 +250,7 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 		}
 
 		/* Semantic validation beyond magic/CRC */
-		if (!flash_res_peb_hdr_semantically_valid(&hdr, mtd->erase_block_size)) {
+		if (!flash_res_peb_hdr_semantically_valid(&hdr, flash->erase_block_size)) {
 			scan->state[i] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
 			scan->corrupt_count++;
 			continue;
@@ -310,22 +312,22 @@ int ubi_flash_res_peb_scan(const struct ubi_mtd *mtd, struct ubi_flash_res_peb_s
 	return 0;
 }
 
-int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_idx,
+int ubi_flash_res_peb_read_content(const struct ubi_flash_desc *flash, const size_t peb_idx,
 				   uint8_t *content, const size_t content_len)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(content);
 	__ASSERT_NO_MSG(peb_idx < UBI_DEV_HDR_NR_OF_RES_PEBS);
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failed: %d", ret);
 		return ret;
 	}
 
-	const size_t offset = peb_idx * mtd->erase_block_size;
+	const size_t offset = peb_idx * flash->erase_block_size;
 	ret = flash_area_read(fa, offset, content, content_len);
 
 	if (ret != 0) {
@@ -336,21 +338,21 @@ int ubi_flash_res_peb_read_content(const struct ubi_mtd *mtd, const size_t peb_i
 	return ret;
 }
 
-int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *content,
+int ubi_flash_res_peb_overwrite(const struct ubi_flash_desc *flash, const uint8_t *content,
 				const size_t content_len)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(content);
 	__ASSERT_NO_MSG(content_len > 0);
 
-	if (content_len > mtd->erase_block_size) {
+	if (content_len > flash->erase_block_size) {
 		LOG_ERR("Content length %zu exceeds erase block size %zu", content_len,
-			mtd->erase_block_size);
+			flash->erase_block_size);
 		return -EINVAL;
 	}
 
 	struct ubi_flash_res_peb_scan scan = { 0 };
-	int ret = ubi_flash_res_peb_scan(mtd, &scan);
+	int ret = ubi_flash_res_peb_scan(flash, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failed: %d", ret);
@@ -358,7 +360,7 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
 	}
 
 	const struct flash_area *fa = NULL;
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failed: %d", ret);
@@ -378,9 +380,9 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
 			continue;
 		}
 
-		const size_t offset = i * mtd->erase_block_size;
+		const size_t offset = i * flash->erase_block_size;
 
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+		ret = flash_area_erase(fa, offset, flash->erase_block_size);
 
 		if (ret == 0) {
 			ret = flash_area_write(fa, offset, content, content_len);
@@ -405,9 +407,9 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
 				continue;
 			}
 
-			const size_t repl_offset = j * mtd->erase_block_size;
+			const size_t repl_offset = j * flash->erase_block_size;
 
-			ret = flash_area_erase(fa, repl_offset, mtd->erase_block_size);
+			ret = flash_area_erase(fa, repl_offset, flash->erase_block_size);
 
 			if (ret != 0) {
 				scan.state[j] = UBI_FLASH_RES_PEB_STATE_CORRUPT;
@@ -435,9 +437,9 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
 			continue;
 		}
 
-		const size_t offset = i * mtd->erase_block_size;
+		const size_t offset = i * flash->erase_block_size;
 
-		ret = flash_area_erase(fa, offset, mtd->erase_block_size);
+		ret = flash_area_erase(fa, offset, flash->erase_block_size);
 
 		if (ret != 0) {
 			continue;
@@ -462,13 +464,13 @@ int ubi_flash_res_peb_overwrite(const struct ubi_mtd *mtd, const uint8_t *conten
 	return 0;
 }
 
-int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *dev_hdr)
+int ubi_flash_res_peb_validate(const struct ubi_flash_desc *flash, struct ubi_dev_hdr *dev_hdr)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(dev_hdr);
 
 	struct ubi_flash_res_peb_scan scan = { 0 };
-	int ret = ubi_flash_res_peb_scan(mtd, &scan);
+	int ret = ubi_flash_res_peb_scan(flash, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failed: %d", ret);
@@ -503,7 +505,7 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 		return ret;
 	}
 
-	ret = ubi_flash_res_peb_read_content(mtd, canonical, content, content_len);
+	ret = ubi_flash_res_peb_read_content(flash, canonical, content, content_len);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB %zu content read failed: %d", canonical, ret);
@@ -511,7 +513,7 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 		return ret;
 	}
 
-	ret = flash_res_peb_recover(mtd, &scan, content, content_len);
+	ret = flash_res_peb_recover(flash, &scan, content, content_len);
 	ubi_mem_scratch_free(content);
 
 	if (ret != 0) {
@@ -531,13 +533,13 @@ int ubi_flash_res_peb_validate(const struct ubi_mtd *mtd, struct ubi_dev_hdr *de
 	return 0;
 }
 
-int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content,
+int ubi_flash_res_peb_commit(const struct ubi_flash_desc *flash, const uint8_t *content,
 			     const size_t content_len)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(content);
 
-	int ret = ubi_flash_res_peb_overwrite(mtd, content, content_len);
+	int ret = ubi_flash_res_peb_overwrite(flash, content, content_len);
 
 	if (ret != 0) {
 		LOG_ERR("Commit overwrite failed: %d", ret);
@@ -546,7 +548,7 @@ int ubi_flash_res_peb_commit(const struct ubi_mtd *mtd, const uint8_t *content,
 
 	/* Verify the write succeeded */
 	struct ubi_flash_res_peb_scan verify = { 0 };
-	ret = ubi_flash_res_peb_scan(mtd, &verify);
+	ret = ubi_flash_res_peb_scan(flash, &verify);
 
 	if (ret != 0) {
 		LOG_ERR("Commit verification scan failed: %d", ret);

@@ -10,27 +10,33 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_EVENT_H
 #define UBI_SECURE_EVENT_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_internal.h"
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 
+/* Public headers: */
 #include <ubi_crypto.h>
 
+/* Zephyr headers: */
 #include <zephyr/sys/__assert.h>
 
+/* Standard library headers: */
 #include <errno.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 /** Percentage base for budget calculations. */
 #define UBI_SECURE_PERCENT_BASE (100U)
 
-/* Helpers ------------------------------------------------------------------------------------- */
+/* Helpers -------------------------------------------------------------------------------------- */
 
 /**
  * \brief Find the allowlist slot for a given key version.
@@ -195,7 +201,7 @@ static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
 	if (rc != 0
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
 	    || ubi_secure_test_hook_check(UBI_SECURE_HOOK_FRESHNESS_SYNC_FAIL)
-#endif
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 	) {
 		const struct ubi_crypto_event event = {
 			.type = UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE,
@@ -207,7 +213,7 @@ static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
 
 #if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE)
 		ubi->read_only_crypto = true;
-#endif
+#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE */
 	}
 }
 
@@ -247,68 +253,6 @@ static inline unsigned int ubi_secure_usage_pct(uint64_t value, uint64_t budget)
 	return (pct > UBI_SECURE_PERCENT_BASE) ? UBI_SECURE_PERCENT_BASE : pct;
 }
 
-static inline void ubi_secure_check_leb_budget(struct ubi_device *ubi, uint8_t kv, size_t vol_id,
-					       uint64_t counter, uint64_t auth_bytes)
-{
-	__ASSERT_NO_MSG(ubi != NULL);
-
-	if (ubi->crypto_cfg == NULL || ubi->crypto_cfg->event_cb == NULL) {
-		return;
-	}
-
-	const unsigned int counter_pct =
-		ubi_secure_usage_pct(counter, CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET);
-	const unsigned int bytes_pct =
-		ubi_secure_usage_pct(auth_bytes, CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET);
-	const uint8_t usage_pct = (uint8_t)((counter_pct > bytes_pct) ? counter_pct : bytes_pct);
-
-	if (usage_pct >= CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT) {
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = kv,
-				      .volume_id = (uint32_t)vol_id,
-				      .usage_pct = usage_pct },
-		};
-
-		ubi_secure_emit_event(ubi, &event);
-	} else if (usage_pct >= CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT) {
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_SOON,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = kv,
-				      .volume_id = (uint32_t)vol_id,
-				      .usage_pct = usage_pct },
-		};
-
-		ubi_secure_emit_event(ubi, &event);
-	}
-}
-
-/**
- * \brief Check whether projected usage would exhaust the LEB budget.
- *
- * Computes the maximum of counter-budget and byte-budget usage percentages.
- * Returns true when the projected values reach or exceed ROTATE_NOW_PCT.
- *
- * \param[in] projected_counter  Counter value after the planned write.
- * \param[in] projected_bytes    Auth bytes after the planned write.
- *
- * \retval true   Budget exhausted — write must be rejected.
- * \retval false  OK to proceed.
- */
-static inline bool ubi_secure_budget_would_exhaust(uint64_t projected_counter,
-						   uint64_t projected_bytes)
-{
-	const unsigned int counter_pct =
-		ubi_secure_usage_pct(projected_counter, CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET);
-	const unsigned int bytes_pct = ubi_secure_usage_pct(
-		projected_bytes, CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET);
-	const unsigned int usage_pct = (counter_pct > bytes_pct) ? counter_pct : bytes_pct;
-
-	return usage_pct >= CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT;
-}
-
 /**
  * \brief Handle a write-path I/O error: emit RNG/KEY events and enforce
  *        strict read-only.
@@ -340,7 +284,7 @@ static inline int ubi_secure_handle_write_error(struct ubi_device *ubi, int ret,
 		ubi_secure_emit_event(ubi, &ev);
 #if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE)
 		ubi->read_only_crypto = true;
-#endif
+#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE */
 		return 0;
 	}
 	case -UBI_SECURE_ENOKEY: {

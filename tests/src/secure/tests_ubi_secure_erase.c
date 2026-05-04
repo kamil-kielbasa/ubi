@@ -7,7 +7,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -28,16 +29,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
@@ -47,7 +48,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* -------------------------------------- Static helpers --------------------------------------- */
+/* Static helpers ------------------------------------------------------------------------------- */
 
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
@@ -69,7 +70,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ad, 0, sizeof(*ad));
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -79,9 +80,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -96,7 +97,7 @@ static void ztest_suite_before(void *ctx)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Write until partition full, unmap, erase all dirty PEBs.
@@ -126,7 +127,7 @@ ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
 	/* 1. Init, create volume. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info_after_init = { 0 };
@@ -170,7 +171,7 @@ ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	/* 5. Unmap and erase all dirty PEBs one by one.
 	 *    The anchor witness rewrite (§11.6) may recycle the old anchor
@@ -233,7 +234,7 @@ ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
 	/* 1. Init, create volume. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info = { 0 };
@@ -324,7 +325,7 @@ ZTEST(ubi_secure_erase, test_stale_anchor_rejected_after_reboot)
 	/* 1. Init, create, push counter above anchor. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info = { 0 };
@@ -357,7 +358,7 @@ ZTEST(ubi_secure_erase, test_stale_anchor_rejected_after_reboot)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	/* 4. After reboot: the old stale anchor PEB (if it survived flash)
 	 *    must have been rejected in favor of the newer one during scan.
@@ -412,7 +413,7 @@ ZTEST(ubi_secure_erase, test_reclaim_preserves_continuity_witness)
 	int vol_id = -1;
 	const size_t lnum = 0;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 
 	struct ubi_device_info info = { 0 };
@@ -449,7 +450,7 @@ ZTEST(ubi_secure_erase, test_reclaim_preserves_continuity_witness)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -470,6 +471,6 @@ ZTEST(ubi_secure_erase, test_reclaim_preserves_continuity_witness)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_erase, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

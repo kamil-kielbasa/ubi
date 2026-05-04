@@ -6,7 +6,9 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_ops.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_event.h"
@@ -18,25 +20,27 @@
 #include "ubi_mem.h"
 #include "ubi_partition_guard.h"
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/crc.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry);
 static void torture_bad_blocks(struct ubi_device *ubi);
 static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_pnum);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 /**
  * \brief Erase a single dirty PEB and move it to the free pool.
@@ -58,7 +62,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
 					 &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure for PEB %zu", (size_t)entry->value.pnum);
@@ -71,22 +75,22 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	struct ubi_secure_vid_auth_ctx vid_ctx_probe = { 0 };
 	bool had_vid = false;
 
-	if (ubi_secure_vid_hdr_read(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum, &ec_ctx,
+	if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_ctx,
 				    &vid_hdr_probe, &vid_meta_probe, &vid_ctx_probe) == 0) {
 		had_vid = true;
 	}
 
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(ubi->mtd.partition_id, &fa);
+	ret = flash_area_open(ubi->flash.partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		return ret;
 	}
 
-	const size_t offset = entry->value.pnum * ubi->mtd.erase_block_size;
+	const size_t offset = entry->value.pnum * ubi->flash.erase_block_size;
 
-	ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+	ret = flash_area_erase(fa, offset, ubi->flash.erase_block_size);
 	flash_area_close(fa);
 
 	if (ret != 0) {
@@ -98,7 +102,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
-	ret = ubi_secure_ec_hdr_write(&ubi->mtd, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
 				      write_kv, ubi->next_ec_counter);
 	if (ret != 0) {
 		LOG_ERR("EC header write failure");
@@ -170,7 +174,8 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, dirty_pnum, &ec_hdr, &ec_ctx);
+	int ret =
+		ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_pnum, &ec_hdr, &ec_ctx);
 
 	if (ret != 0) {
 		/* Cannot read EC — PEB might already be partially erased.
@@ -182,7 +187,7 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	struct ubi_vid_secure_meta vid_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&ubi->mtd, ubi->crypto_cfg, dirty_pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_pnum, &ec_ctx, &vid_hdr,
 				      &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		/* VID unreadable — no counter state to protect. */
@@ -208,7 +213,7 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	struct ubi_ec_hdr anchor_ec = { 0 };
 	struct ubi_secure_ec_auth_ctx anchor_ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, vol->anchor_pnum, &anchor_ec,
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, vol->anchor_pnum, &anchor_ec,
 				     &anchor_ec_ctx);
 	if (ret != 0) {
 		LOG_WRN("Anchor EC read failure for vol %zu — skipping witness check", vol->vol_id);
@@ -219,8 +224,8 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	struct ubi_vid_secure_meta anchor_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx anchor_vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&ubi->mtd, ubi->crypto_cfg, vol->anchor_pnum, &anchor_ec_ctx,
-				      &anchor_vid, &anchor_meta, &anchor_vid_ctx);
+	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, vol->anchor_pnum,
+				      &anchor_ec_ctx, &anchor_vid, &anchor_meta, &anchor_vid_ctx);
 	if (ret != 0) {
 		LOG_WRN("Anchor VID read failure for vol %zu — skipping witness check",
 			vol->vol_id);
@@ -245,11 +250,11 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 		struct ubi_vid_secure_meta m_meta = { 0 };
 		struct ubi_secure_vid_auth_ctx m_vid_ctx = { 0 };
 
-		if (ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, eba_entry->value.pnum, &m_ec,
-					   &m_ec_ctx) != 0) {
+		if (ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, eba_entry->value.pnum,
+					   &m_ec, &m_ec_ctx) != 0) {
 			continue;
 		}
-		if (ubi_secure_vid_hdr_read(&ubi->mtd, ubi->crypto_cfg, eba_entry->value.pnum,
+		if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, eba_entry->value.pnum,
 					    &m_ec_ctx, &m_vid, &m_meta, &m_vid_ctx) != 0) {
 			continue;
 		}
@@ -274,11 +279,11 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 		struct ubi_vid_secure_meta d_meta = { 0 };
 		struct ubi_secure_vid_auth_ctx d_vid_ctx = { 0 };
 
-		if (ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, dirty_entry->value.pnum,
+		if (ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_entry->value.pnum,
 					   &d_ec, &d_ec_ctx) != 0) {
 			continue;
 		}
-		if (ubi_secure_vid_hdr_read(&ubi->mtd, ubi->crypto_cfg, dirty_entry->value.pnum,
+		if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_entry->value.pnum,
 					    &d_ec_ctx, &d_vid, &d_meta, &d_vid_ctx) != 0) {
 			continue;
 		}
@@ -308,7 +313,7 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	struct ubi_ec_hdr new_ec = { 0 };
 	struct ubi_secure_ec_auth_ctx new_ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, new_pnum, &new_ec, &new_ec_ctx);
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec, &new_ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC read failure on anchor rewrite PEB %zu", new_pnum);
 		goto rewrite_bad;
@@ -335,8 +340,8 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	/* Write zero-length LEB data. */
-	ret = ubi_secure_leb_data_write(&ubi->mtd, ubi->crypto_cfg, new_pnum, &new_ec_ctx, &new_vid,
-					write_kv, NULL, 0, write_kv, 0);
+	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
+					&new_vid, write_kv, NULL, 0, write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("Anchor rewrite LEB failure on PEB %zu", new_pnum);
 		goto rewrite_bad;
@@ -345,8 +350,8 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	/* Write VID header — commit point. */
 	const uint64_t vid_counter = ubi->next_vid_counter;
 
-	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, new_pnum, &new_ec_ctx, &new_vid,
-				       &new_meta, write_kv, vid_counter);
+	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
+				       &new_vid, &new_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("Anchor rewrite VID failure on PEB %zu", new_pnum);
 		goto rewrite_bad;
@@ -404,7 +409,7 @@ rewrite_bad: {
 static void torture_bad_blocks(struct ubi_device *ubi)
 {
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(ubi->mtd.partition_id, &fa);
+	int ret = flash_area_open(ubi->flash.partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure during torture");
@@ -423,11 +428,11 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 			break;
 		}
 
-		const size_t offset = item->pnum * ubi->mtd.erase_block_size;
+		const size_t offset = item->pnum * ubi->flash.erase_block_size;
 		bool passed = false;
 
 		for (size_t i = 0; i < CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE; ++i) {
-			ret = flash_area_erase(fa, offset, ubi->mtd.erase_block_size);
+			ret = flash_area_erase(fa, offset, ubi->flash.erase_block_size);
 
 			if (ret == 0) {
 				passed = true;
@@ -448,7 +453,7 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 			const uint8_t write_kv =
 				ubi->crypto_cfg->policy.requested_write_key_version;
 
-			ret = ubi_secure_ec_hdr_write(&ubi->mtd, ubi->crypto_cfg, item->pnum,
+			ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->crypto_cfg, item->pnum,
 						      &ec_hdr, write_kv, 0);
 
 			if (ret != 0) {
@@ -485,7 +490,7 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 	flash_area_close(fa);
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)
 {
@@ -578,7 +583,7 @@ exit:
 	 * Re-scan reserved PEBs — if all are now authenticated, clear the flag. */
 	if (ubi->read_only_degraded) {
 		struct ubi_secure_res_peb_scan rescan = { 0 };
-		const int rc = ubi_secure_res_peb_scan(&ubi->mtd, ubi->crypto_cfg, &rescan);
+		const int rc = ubi_secure_res_peb_scan(&ubi->flash, ubi->crypto_cfg, &rescan);
 
 		if (rc == 0 && rescan.auth_count >= UBI_SECURE_RES_PEB_NR_ACTIVE) {
 			LOG_INF("Reserved PEB bank recovered, leaving degraded mode");
@@ -687,7 +692,7 @@ int ubi_secure_device_deinit(struct ubi_device *ubi)
 		ubi->vol_count--;
 	}
 
-	ubi_partition_release(ubi->mtd.partition_id);
+	ubi_partition_release(ubi->flash.partition_id);
 	ubi_mem_device_free(ubi);
 	return 0;
 }

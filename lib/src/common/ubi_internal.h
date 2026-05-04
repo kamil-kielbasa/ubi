@@ -6,19 +6,20 @@
  * \copyright Copyright (c) 2025
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_INTERNAL_H
 #define UBI_INTERNAL_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
-/* Public header: */
+/* Public headers: */
 #include "ubi.h"
 #include "ubi_test.h"
 
 #if defined(CONFIG_UBI_CRYPTO)
 #include <ubi_crypto.h>
-#endif
+#endif /* CONFIG_UBI_CRYPTO */
 
 /* Internal headers: */
 #include "ubi_backend.h"
@@ -34,7 +35,7 @@
 #include <stdint.h>
 #include <string.h>
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \brief UBI volume representation.
@@ -53,7 +54,7 @@ struct ubi_volume {
 
 #if defined(CONFIG_UBI_CRYPTO)
 	size_t anchor_pnum; /**< PEB index of hidden anchor (SIZE_MAX = none). */
-#endif
+#endif /* CONFIG_UBI_CRYPTO */
 };
 
 /**
@@ -68,25 +69,25 @@ struct ubi_device {
 	enum ubi_device_mode mode; /**< Backend mode (plain or secure). */
 	const struct ubi_backend_ops *ops; /**< Backend operations vtable. */
 
-	struct ubi_mtd mtd; /**< Underlying MTD (Memory Technology Device). */
+	struct ubi_flash_desc flash; /**< Underlying flash partition descriptor. */
+
+	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
 
 #if defined(CONFIG_UBI_CRYPTO)
 	const struct ubi_crypto_config
 		*crypto_cfg; /**< Secure backend crypto config (NULL for plain). */
-	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter (write_active_kv). */
-	uint64_t next_ec_counter; /**< Next unused EC-domain AEAD counter. */
-	uint64_t next_dev_hdr_counter; /**< Next unused reserved-PEB AEAD counter. */
-	uint64_t cached_device_revision; /**< Cached dev_hdr revision for freshness snapshots. */
-	bool read_only_crypto; /**< Sticky crypto-initiated read-only (§14.4). */
-	size_t freshness_mutations_since_sync; /**< Mutations since last sync_freshness call. */
+	bool read_only_crypto; /**< Sticky crypto-initiated read-only. */
+	uint8_t reserved_key_version; /**< Key version currently used by reserved PEBs. */
 	uint32_t key_peb_refcount[CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS]; /**< Per-allowlist-slot
 	    PEB refcount: number of on-flash objects authenticated with each key version.
 	    Includes data-PEB EC/VID/LEB objects AND reserved-PEB objects.
 	    Indexed by allowlist position, not by raw key_version value. */
-	uint8_t reserved_key_version; /**< Key version currently used by reserved PEBs. */
-#endif
-
-	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
+	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter. */
+	uint64_t next_ec_counter; /**< Next unused EC-domain AEAD counter. */
+	uint64_t next_dev_hdr_counter; /**< Next unused reserved-PEB AEAD counter. */
+	uint64_t cached_device_revision; /**< Cached dev_hdr revision for freshness snapshots. */
+	size_t freshness_mutations_since_sync; /**< Mutations since last sync_freshness call. */
+#endif /* CONFIG_UBI_CRYPTO */
 
 	size_t total_data_peb_count; /**< Total usable data PEBs (cached at init). */
 	size_t leb_size; /**< Usable data size per LEB in bytes (cached at init). */
@@ -117,10 +118,10 @@ struct ubi_device {
 
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	bool test_write_shutdown; /**< Test-only: when true, all mutations are blocked. */
-#endif
+#endif /* CONFIG_UBI_TEST_API_ENABLE */
 };
 
-/* Mutation gate ------------------------------------------------------------------------------ */
+/* Mutation gate -------------------------------------------------------------------------------- */
 
 /**
  * \brief Classification of UBI mutation operations.
@@ -167,13 +168,13 @@ static inline int ubi_mutation_allowed(const struct ubi_device *ubi,
 	if (ubi->test_write_shutdown) {
 		return -EROFS;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_API_ENABLE */
 
 #if defined(CONFIG_UBI_CRYPTO)
 	if (ubi->read_only_crypto) {
 		return -EROFS;
 	}
-#endif
+#endif /* CONFIG_UBI_CRYPTO */
 
 	if (op_class == UBI_MUT_RESERVED_METADATA && ubi->read_only_degraded) {
 		return -EROFS;
@@ -204,12 +205,12 @@ static inline size_t ubi_reserved_peb_count(struct ubi_device *ubi)
 		if (ubi->mode == UBI_MODE_SECURE && entry->value.vol->anchor_pnum != SIZE_MAX) {
 			total += 1;
 		}
-#endif
+#endif /* CONFIG_UBI_CRYPTO */
 	}
 	return total;
 }
 
-/* Internal helper function declarations ------------------------------------------------------- */
+/* Internal helper function declarations -------------------------------------------------------- */
 
 /**
  * \brief Move a PEB to the bad blocks list.
@@ -239,25 +240,11 @@ void ubi_move_to_bad_blocks(struct ubi_device *ubi, size_t pnum, size_t erase_co
 struct ubi_volume *ubi_find_volume(struct ubi_device *ubi, int vol_id);
 
 /**
- * \brief Validate a volume name supplied by the caller.
- *
- * A valid name is non-empty and NUL-terminated within UBI_VOLUME_NAME_MAX_LEN bytes.
- *
- * \param[in] name  Name buffer (UBI_VOLUME_NAME_MAX_LEN bytes).
- *
- * \retval true  Name is valid.
- * \retval false Name is empty or missing NUL terminator.
- */
-static inline bool ubi_validate_volume_name(const char *name)
-{
-	const size_t len = strnlen(name, UBI_VOLUME_NAME_MAX_LEN);
-	return (len > 0 && len < UBI_VOLUME_NAME_MAX_LEN);
-}
-
-/**
  * \brief Validate a full volume configuration.
  *
- * Checks name validity, volume type enumerator, and that leb_count > 0.
+ * Checks that the name is non-empty and NUL-terminated within
+ * UBI_VOLUME_NAME_MAX_LEN bytes, the volume type enumerator is valid,
+ * and that leb_count > 0.
  *
  * \param[in] cfg  Volume configuration to validate.
  *
@@ -266,7 +253,9 @@ static inline bool ubi_validate_volume_name(const char *name)
  */
 static inline bool ubi_volume_config_is_valid(const struct ubi_volume_config *cfg)
 {
-	if (!ubi_validate_volume_name(cfg->name))
+	const size_t name_len = strnlen(cfg->name, UBI_VOLUME_NAME_MAX_LEN);
+
+	if (name_len == 0 || name_len >= UBI_VOLUME_NAME_MAX_LEN)
 		return false;
 	if (cfg->type != UBI_VOLUME_TYPE_STATIC && cfg->type != UBI_VOLUME_TYPE_DYNAMIC)
 		return false;
@@ -282,12 +271,12 @@ static inline bool ubi_volume_config_is_valid(const struct ubi_volume_config *cf
  * the area. The returned value is typically 0xFF for NOR flash but may differ
  * on other technologies.
  *
- * \param[in] mtd          UBI MTD descriptor.
+ * \param[in] flash          Flash partition descriptor.
  * \param[out] erased_val  Erased byte value for the partition.
  *
  * \return 0 on success, or negative errno on failure.
  */
-int ubi_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val);
+int ubi_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val);
 
 /**
  * \brief Check whether a buffer is entirely filled with the erased byte value.

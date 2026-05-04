@@ -2130,7 +2130,7 @@ Recommended Kconfig knobs for SECURE mode:
 |---|---|
 | `CONFIG_UBI_CRYPTO` | Enables SECURE mode support. |
 | `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | Maximum number of distinct key versions that one attach session may inventory and track internally. The on-flash `key_version` field itself remains 8-bit. |
-| `CONFIG_UBI_CRYPTO_MAX_ALLOWLIST_LEN` | Maximum number of `uint8_t` key-version entries accepted in the runtime allowlist array. |
+| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | Maximum number of `uint8_t` key-version entries accepted in the runtime allowlist array. |
 | `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT` | Soft threshold for usage-budget warnings. Crossing it emits `KEY_ROTATE_SOON`. |
 | `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT` | Hard threshold for usage-budget exhaustion. Crossing it emits `KEY_ROTATE_NOW` and may reject further writes by policy. |
 | `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET` | Maximum allowed metadata AEAD invocation count per `{domain, key_version}`. |
@@ -2233,7 +2233,7 @@ The detailed illustrative API is in Appendix A, but the architectural expectatio
 1. SECURE mode is **PSA-only**.
 2. There is **one public initialization entry point** for both plain and secure mode:
    ```c
-   int ubi_device_init(const struct ubi_mtd *mtd,
+   int ubi_device_init(const struct ubi_flash_desc *flash,
                        const struct ubi_crypto_config *crypto_cfg,
                        struct ubi_device **ubi);
    ```
@@ -2553,7 +2553,7 @@ The library uses **one public initialization entry point**. The `crypto_cfg` poi
  *
  * Only one active handle per flash partition is allowed.
  *
- * @param[in]  mtd        Flash partition descriptor (caller retains ownership).
+ * @param[in]  flash        Flash partition descriptor (caller retains ownership).
  * @param[in]  crypto_cfg SECURE configuration, or NULL for plain mode.
  *                        The caller retains ownership; UBI copies what it needs.
  * @param[out] ubi        Pointer to receive the UBI device handle (NULL on failure).
@@ -2566,7 +2566,7 @@ The library uses **one public initialization entry point**. The `crypto_cfg` poi
  * @retval -ENOMEM  Allocation failure.
  * @retval -EIO     Unrecoverable flash I/O error.
  */
-int ubi_device_init(const struct ubi_mtd *mtd,
+int ubi_device_init(const struct ubi_flash_desc *flash,
                     const struct ubi_crypto_config *crypto_cfg,
                     struct ubi_device **ubi);
 ```

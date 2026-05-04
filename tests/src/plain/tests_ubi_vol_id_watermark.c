@@ -13,7 +13,7 @@
  *
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -28,30 +28,32 @@
 /* Standard headers: */
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define DEV_HDR_SIZE (32U)
 #define VOL_HDR_SIZE (48U)
 #define NR_OF_RES_PEBS (2U)
 
-/* ---------------------------- Module types and type definitiones ----------------------------- */
-/* ------------------------- Module interface variables and constants -------------------------- */
-/* ------------------------------ Static variables and constants ------------------------------- */
+/* Module types and type definitiones ----------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* ------------------------------- Static function declarations -------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* -------------------------------- Static function definitions -------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -75,7 +77,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* --------------------------- Module interface function definitions --------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_vol_id_watermark, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, NULL);
@@ -89,7 +91,7 @@ ZTEST_SUITE(ubi_vol_id_watermark, NULL, ztest_suite_setup, ztest_testcase_before
  */
 ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg_a = {
@@ -127,7 +129,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
  */
 ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg_a = {
@@ -145,7 +147,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 
 	/* Reinit from flash (simulated reboot). */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg_b = {
@@ -171,7 +173,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
  */
 ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume_ids)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg0 = {
@@ -216,7 +218,7 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
 	g_ubi = NULL;
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_get_info(ubi, id0, &read_cfg, &alloc));
@@ -248,15 +250,15 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
  */
 ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	/* Write vol_id_watermark = UINT32_MAX directly into the reserved PEB. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	for (size_t peb = 0; peb < NR_OF_RES_PEBS; ++peb) {
-		const size_t base = peb * mtd.erase_block_size;
+		const size_t base = peb * flash.erase_block_size;
 		uint8_t hdr_buf[DEV_HDR_SIZE] = { 0 };
 
 		zassert_ok(flash_area_read(fa, base, hdr_buf, sizeof(hdr_buf)));
@@ -269,7 +271,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 		uint32_t crc = crc32_ieee(hdr_buf, DEV_HDR_SIZE - sizeof(uint32_t));
 		memcpy(&hdr_buf[28], &crc, sizeof(crc));
 
-		zassert_ok(flash_area_erase(fa, base, mtd.erase_block_size));
+		zassert_ok(flash_area_erase(fa, base, flash.erase_block_size));
 		zassert_ok(flash_area_write(fa, base, hdr_buf, sizeof(hdr_buf)));
 	}
 
@@ -280,7 +282,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 	g_ubi = NULL;
 
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	/* volume_create must fail. */

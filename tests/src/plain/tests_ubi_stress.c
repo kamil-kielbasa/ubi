@@ -14,7 +14,7 @@
  *
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -36,24 +36,26 @@
 #include <stddef.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ---------------------------- Module types and type definitiones ----------------------------- */
-/* ------------------------- Module interface variables and constants -------------------------- */
-/* ------------------------------ Static variables and constants ------------------------------- */
+/* Module types and type definitiones ----------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
 extern struct sys_heap _system_heap;
 #endif
 
-/* ------------------------------- Static function declarations -------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -61,7 +63,7 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* -------------------------------- Static function definitions -------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -74,9 +76,9 @@ static void *ztest_suite_setup(void)
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = erase_block_size;
-	mtd.write_block_size = write_block_size;
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = erase_block_size;
+	flash.write_block_size = write_block_size;
 
 	return NULL;
 }
@@ -104,7 +106,7 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-/* --------------------------- Module interface function definitions --------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_stress, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
@@ -122,7 +124,7 @@ ZTEST_SUITE(ubi_stress, NULL, ztest_suite_setup, ztest_testcase_before, ztest_te
 ZTEST(ubi_stress, wear_leveling_distribution)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "wl",
@@ -195,7 +197,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &mem_before));
 
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "stress",
@@ -259,7 +261,7 @@ ZTEST(ubi_stress, repeated_write_erase_cycles)
 ZTEST(ubi_stress, fill_entire_partition)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -316,7 +318,7 @@ ZTEST(ubi_stress, multiple_init_deinit_cycles)
 
 	for (size_t cycle = 0; cycle < 20; cycle++) {
 		struct ubi_device *ubi = NULL;
-		zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+		zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 		if (cycle == 0) {
 			const struct ubi_volume_config cfg = {

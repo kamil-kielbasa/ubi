@@ -1,6 +1,7 @@
 /**
  * \file    ubi_partition_guard.h
  * \brief   Prevents multiple UBI device handles for the same flash partition.
+ * \author  Kamil Kielbasa
  *
  * A lightweight static registry keyed by partition_id (uint8_t).
  * Thread-safe: uses a dedicated mutex independent of per-device locks.
@@ -11,7 +12,9 @@
 #ifndef UBI_PARTITION_GUARD_H
 #define UBI_PARTITION_GUARD_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Standard library headers: */
 #include <stdint.h>
 
 /**

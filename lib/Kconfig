@@ -59,14 +59,6 @@ config UBI_MAX_NR_OF_DATA_PEBS
 	  pool. Must be >= total_data_peb_count of every flash
 	  partition managed by UBI.
 
-config UBI_MEM_STATS
-	bool "Enable UBI memory pool statistics"
-	default n
-	depends on UBI_MEM_BACKEND_STATIC
-	help
-	  When enabled, UBI logs slab pool high-water marks
-	  during device deinit for diagnostic purposes.
-
 module = UBI
 module-str = ubi
 source "subsys/logging/Kconfig.template.log_config"
@@ -77,6 +69,14 @@ config UBI_TEST_API_ENABLE
 	  Expose ubi_device_get_peb_ec() and
 	  ubi_device_check_invariants() for test suites.
 	  Do not enable in production builds.
+
+config UBI_TEST_MEM_STATS
+	bool "Enable UBI memory pool statistics"
+	default n
+	depends on UBI_TEST_API_ENABLE && UBI_MEM_BACKEND_STATIC
+	help
+	  When enabled, UBI logs slab pool high-water marks
+	  during device deinit for diagnostic purposes.
 
 config UBI_TEST_FAULT_INJECTION
 	bool "Enable UBI fault injection hooks"

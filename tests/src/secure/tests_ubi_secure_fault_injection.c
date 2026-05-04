@@ -10,7 +10,7 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 #include <ubi.h>
 #include <ubi_crypto.h>
@@ -27,19 +27,19 @@
 
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -51,9 +51,9 @@ static void *ztest_suite_setup(void)
 
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -80,7 +80,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* --------------------------------- Secure init helper ---------------------------------------- */
+/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -88,12 +88,12 @@ static struct ubi_device *sec_init(void)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 	return ubi;
 }
 
-/* -------------------------------- Test definitions ------------------------------------------- */
+/* Test definitions ----------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that volume create with alloc failure does NOT leave a
@@ -162,7 +162,7 @@ ZTEST(ubi_secure_fault_injection, test_overwrite_preserves_old_data_on_failure)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --------------------------------- Suite registration ---------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_fault_injection, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);

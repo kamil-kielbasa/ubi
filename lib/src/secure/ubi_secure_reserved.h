@@ -6,26 +6,31 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_SECURE_RESERVED_H
 #define UBI_SECURE_RESERVED_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_types.h"
 #include "ubi_plain_io.h"
 
+/* Public headers: */
 #include <ubi_crypto.h>
 
+/* Standard library headers: */
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 /** Number of reserved PEBs that must be kept active. */
 #define UBI_SECURE_RES_PEB_NR_ACTIVE (2)
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /** Classification of a secure reserved PEB after scanning. */
 enum ubi_secure_res_peb_state {
@@ -60,7 +65,7 @@ struct ubi_secure_res_peb_scan {
 	uint32_t revision[UBI_DEV_HDR_NR_OF_RES_PEBS];
 };
 
-/* Function declarations ----------------------------------------------------------------------- */
+/* Function declarations ------------------------------------------------------------------------ */
 
 /**
  * \brief Scan and authenticate all reserved PEBs.
@@ -69,14 +74,15 @@ struct ubi_secure_res_peb_scan {
  * authentication. Selects the PEB with the highest authenticated revision
  * as canonical.
  *
- * \param[in]  mtd         UBI MTD descriptor.
+ * \param[in]  flash         Flash partition descriptor.
  * \param[in]  crypto_cfg  Crypto configuration (for get_key_id callback).
  * \param[out] scan        Scan result.
  *
  * \retval 0    Success.
  * \retval -EIO Flash read failure.
  */
-int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
+			    const struct ubi_crypto_config *crypto_cfg,
 			    struct ubi_secure_res_peb_scan *scan);
 
 /**
@@ -85,7 +91,7 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
  * After scanning, reads and authenticates the secure volume headers tied
  * to the canonical device header generation.
  *
- * \param[in]  mtd         UBI MTD descriptor.
+ * \param[in]  flash         Flash partition descriptor.
  * \param[in]  crypto_cfg  Crypto configuration.
  * \param[in]  scan        Completed scan result (canonical PEB selected).
  * \param[out] vol_hdrs    Array of vol_count volume headers.
@@ -95,7 +101,7 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
  * \retval -EOVERFLOW  vol_count exceeds max_vols.
  * \retval -EIO        Auth failure on a volume header.
  */
-int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
+int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 				     const struct ubi_crypto_config *crypto_cfg,
 				     const struct ubi_secure_res_peb_scan *scan,
 				     struct ubi_vol_hdr *vol_hdrs, size_t max_vols);
@@ -106,7 +112,7 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
  * Encrypts the device header + dev_secure_meta and all volume headers,
  * then writes them to all active + spare reserved PEBs.
  *
- * \param[in] mtd         UBI MTD descriptor.
+ * \param[in] flash         Flash partition descriptor.
  * \param[in] crypto_cfg  Crypto configuration.
  * \param[in] dev_hdr     Device header to commit.
  * \param[in] dev_meta    Secure metadata to commit.
@@ -119,7 +125,8 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
  * \retval -EIO    Flash or crypto failure.
  * \retval -EROFS  Committed but degraded (fewer active PEBs than required).
  */
-int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
+			      const struct ubi_crypto_config *crypto_cfg,
 			      const struct ubi_dev_hdr *dev_hdr,
 			      const struct ubi_dev_secure_meta *dev_meta,
 			      const struct ubi_vol_hdr *vol_hdrs, size_t vol_count,
@@ -130,7 +137,7 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
  *
  * Reads the first 4 bytes (magic) from the PEB to determine mode.
  *
- * \param[in] mtd       UBI MTD descriptor.
+ * \param[in] flash       Flash partition descriptor.
  * \param     peb_idx   Reserved PEB index.
  * \param[out] is_secure   True if secure magic found.
  * \param[out] is_blank    True if all bytes are erased.
@@ -138,7 +145,7 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
  * \retval 0    Success.
  * \retval -EIO Flash read error.
  */
-int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bool *is_secure,
-				   bool *is_blank);
+int ubi_secure_res_peb_detect_mode(const struct ubi_flash_desc *flash, size_t peb_idx,
+				   bool *is_secure, bool *is_blank);
 
 #endif /* UBI_SECURE_RESERVED_H */

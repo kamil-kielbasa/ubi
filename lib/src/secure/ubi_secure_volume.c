@@ -6,7 +6,9 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_ops.h"
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_crypto.h"
@@ -17,19 +19,21 @@
 #include "ubi_plain_io.h"
 #include "ubi_mem.h"
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/crc.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 /**
  * \brief Allocate a free PEB and write a hidden anchor (zero-length LEB).
@@ -68,7 +72,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
+	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
 
 	if (ret != 0) {
 		LOG_ERR("EC read failure on anchor PEB %zu", pnum);
@@ -100,7 +104,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	/* 4. Write zero-length LEB data (prefix32 + tag16, no payload). */
-	ret = ubi_secure_leb_data_write(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
 					write_kv, NULL, 0, write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("Anchor LEB write failure on PEB %zu", pnum);
@@ -124,7 +128,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 		goto mark_bad;
 	}
 
-	ret = ubi_secure_vid_hdr_write(&ubi->mtd, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
 				       &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("Anchor VID write failure on PEB %zu", pnum);
@@ -150,7 +154,7 @@ mark_bad: {
 }
 }
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 /**
  * \brief Read device header via secure reserved scan, bump revision.
@@ -166,7 +170,7 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	__ASSERT_NO_MSG(vol_count != NULL);
 
 	struct ubi_secure_res_peb_scan scan = { 0 };
-	int ret = ubi_secure_res_peb_scan(&ubi->mtd, ubi->crypto_cfg, &scan);
+	int ret = ubi_secure_res_peb_scan(&ubi->flash, ubi->crypto_cfg, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failure");
@@ -188,8 +192,8 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 
 	/* Read volume headers. */
 	if (scan.dev_hdr.vol_count > 0) {
-		ret = ubi_secure_res_peb_read_vol_hdrs(&ubi->mtd, ubi->crypto_cfg, &scan, vol_hdrs,
-						       CONFIG_UBI_MAX_NR_OF_VOLUMES);
+		ret = ubi_secure_res_peb_read_vol_hdrs(&ubi->flash, ubi->crypto_cfg, &scan,
+						       vol_hdrs, CONFIG_UBI_MAX_NR_OF_VOLUMES);
 		if (ret != 0) {
 			LOG_ERR("Volume header read failure");
 			return ret;
@@ -225,7 +229,7 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	const int ret = ubi_secure_ec_hdr_read(&ubi->mtd, ubi->crypto_cfg, item->value.pnum,
+	const int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, item->value.pnum,
 					       &ec_hdr, &ec_ctx);
 	if (ret != 0) {
 		LOG_WRN("EC header read failure for PEB %zu, marking bad", item->value.pnum);
@@ -246,7 +250,7 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	return 0;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,
 			     int *vol_id)
@@ -368,7 +372,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
-	ret = ubi_secure_res_peb_commit(&ubi->mtd, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
+	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
 					new_vol_count, write_kv, ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during create commit");
@@ -527,7 +531,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
-	ret = ubi_secure_res_peb_commit(&ubi->mtd, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
+	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
 					existing_vol_count, write_kv, ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during resize commit");
@@ -634,7 +638,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
-	ret = ubi_secure_res_peb_commit(&ubi->mtd, ubi->crypto_cfg, &dev_hdr, &dev_meta,
+	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta,
 					new_vol_hdrs, new_count, write_kv,
 					ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {

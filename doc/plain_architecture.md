@@ -241,7 +241,7 @@ When `ubi_device_init()` runs, it scans the flash and builds an in-RAM cache of 
 struct ubi_device (128 B)
 |
 |-- mutex                       Zephyr mutex for thread safety
-|-- mtd                         Flash partition config (partition_id, block sizes)
+|-- flash                         Flash partition config (partition_id, block sizes)
 |
 |-- free_pebs (Red-Black Tree, keyed by erase counter)
 |   |
@@ -451,7 +451,7 @@ stateDiagram-v2
 ### Flow Overview
 
 ```
-ubi_device_init(mtd, NULL, &ubi)
+ubi_device_init(flash, NULL, &ubi)
         |
         v
   Allocate ubi_device, init mutex, init RBTs
@@ -549,7 +549,7 @@ This ensures that even after an unexpected power loss, the most recent successfu
 
 UBI does not assume that erased flash reads as `0xFF`. The erased byte value is queried at runtime via Zephyr's `flash_area_erased_val()` API. Two internal helpers abstract all erased-state checks:
 
-- **`ubi_get_erased_val(mtd, &val)`** — queries the hardware-reported erased byte value for the partition, once.
+- **`ubi_get_erased_val(flash, &val)`** — queries the hardware-reported erased byte value for the partition, once.
 - **`ubi_buf_is_erased(buf, len, val)`** — returns `true` if every byte in `buf` equals `val`.
 
 During PEB scan, the erased value is obtained once and passed to all classification helpers. Reserved PEB scan likewise derives the erased magic pattern from the actual erased byte value.

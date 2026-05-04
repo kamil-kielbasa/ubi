@@ -14,7 +14,7 @@
  *
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -29,30 +29,32 @@
 /* Standard headers: */
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define DEV_HDR_SIZE (32U)
 #define VOL_HDR_SIZE (48U)
 #define NR_OF_RES_PEBS (2U)
 
-/* ---------------------------- Module types and type definitiones ----------------------------- */
-/* ------------------------- Module interface variables and constants -------------------------- */
-/* ------------------------------ Static variables and constants ------------------------------- */
+/* Module types and type definitiones ----------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* ------------------------------- Static function declarations -------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* -------------------------------- Static function definitions -------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
-	ubi_test_setup_mtd(&mtd);
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -79,7 +81,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* --------------------------- Module interface function definitions --------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_mutation_gate, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, NULL);
@@ -96,7 +98,7 @@ ZTEST_SUITE(ubi_mutation_gate, NULL, ztest_suite_setup, ztest_testcase_before,
 ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	/* Create a volume and write data so we can test read paths too. */
@@ -122,7 +124,8 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 	/* Enable global write shutdown. */
 	ubi_test_set_write_shutdown(ubi, true);
 
-	/* -- Reserved metadata mutators -- */
+	/* Reserved metadata mutators ------------------------------------------------------------------- */
+
 	const struct ubi_volume_config new_cfg = {
 		.name = "blocked",
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -142,7 +145,8 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 
 	zassert_equal(-EROFS, ubi_volume_remove(ubi, vol_id), "volume_remove must be blocked");
 
-	/* -- Data-path mutators -- */
+	/* Data-path mutators --------------------------------------------------------------------------- */
+
 	const uint8_t new_data[16] = {
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11,
 		0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99,
@@ -154,10 +158,12 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 
 	zassert_equal(-EROFS, ubi_leb_unmap(ubi, vol_id, 0), "leb_unmap must be blocked");
 
-	/* -- Maintenance mutators -- */
+	/* Maintenance mutators ------------------------------------------------------------------------- */
+
 	zassert_equal(-EROFS, ubi_device_erase_peb(ubi), "erase_peb must be blocked");
 
-	/* -- Read-only operations must still work -- */
+	/* Read-only operations must still work --------------------------------------------------------- */
+
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(1, info.volume_count, "get_info should still work");
@@ -208,7 +214,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 {
 	/* Normal init with a volume. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 	g_ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
@@ -226,10 +232,10 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 	 * but recovery from scratch_alloc path may still succeed on the simulator.
 	 * If it does, we skip — degraded mode is not achievable here. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	for (size_t peb = 0; peb < NR_OF_RES_PEBS; ++peb) {
-		const size_t base = peb * mtd.erase_block_size;
+		const size_t base = peb * flash.erase_block_size;
 		uint8_t hdr_buf[DEV_HDR_SIZE] = { 0 };
 
 		zassert_ok(flash_area_read(fa, base, hdr_buf, sizeof(hdr_buf)));
@@ -238,13 +244,13 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 		hdr_buf[DEV_HDR_SIZE - 1] ^= 0xFF;
 		hdr_buf[DEV_HDR_SIZE - 2] ^= 0xFF;
 
-		zassert_ok(flash_area_erase(fa, base, mtd.erase_block_size));
+		zassert_ok(flash_area_erase(fa, base, flash.erase_block_size));
 		zassert_ok(flash_area_write(fa, base, hdr_buf, sizeof(hdr_buf)));
 	}
 
 	flash_area_close(fa);
 
-	int init_ret = ubi_device_init(&mtd, NULL, &ubi);
+	int init_ret = ubi_device_init(&flash, NULL, &ubi);
 
 	if (init_ret != 0 || ubi == NULL) {
 		/* Init failed entirely — can't test degraded mode. */
@@ -306,7 +312,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
  */
 ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
 {
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	/* Create a first volume so the reserved PEBs contain real data. */
@@ -320,7 +326,7 @@ ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
 
 	/* Corrupt reserved PEB 0: flip the CRC bytes in the device header. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t hdr_buf[DEV_HDR_SIZE] = { 0 };
 	zassert_ok(flash_area_read(fa, 0, hdr_buf, sizeof(hdr_buf)));
@@ -328,7 +334,7 @@ ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
 	hdr_buf[DEV_HDR_SIZE - 1] ^= 0xFF;
 	hdr_buf[DEV_HDR_SIZE - 2] ^= 0xFF;
 
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	zassert_ok(flash_area_write(fa, 0, hdr_buf, sizeof(hdr_buf)));
 	flash_area_close(fa);
 
@@ -371,7 +377,7 @@ ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
 ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	/* Create a volume so reserved PEBs contain real data. */
@@ -392,7 +398,7 @@ ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
 
 	/* Corrupt reserved PEB 0: flip CRC bytes in the device header. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t hdr_buf[DEV_HDR_SIZE] = { 0 };
 	zassert_ok(flash_area_read(fa, 0, hdr_buf, sizeof(hdr_buf)));
@@ -400,7 +406,7 @@ ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
 	hdr_buf[DEV_HDR_SIZE - 1] ^= 0xFF;
 	hdr_buf[DEV_HDR_SIZE - 2] ^= 0xFF;
 
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	zassert_ok(flash_area_write(fa, 0, hdr_buf, sizeof(hdr_buf)));
 	flash_area_close(fa);
 
@@ -471,7 +477,7 @@ ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
 ZTEST(ubi_mutation_gate, erase_peb_recovers_reserved_bank)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	struct ubi_device *ubi = ubi_test_init_device(&mtd);
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
 	g_ubi = ubi;
 
 	/* Create a volume so reserved PEBs contain real data. */
@@ -485,7 +491,7 @@ ZTEST(ubi_mutation_gate, erase_peb_recovers_reserved_bank)
 
 	/* Corrupt reserved PEB 0: flip CRC bytes in the device header. */
 	const struct flash_area *fa = NULL;
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t hdr_buf[DEV_HDR_SIZE] = { 0 };
 	zassert_ok(flash_area_read(fa, 0, hdr_buf, sizeof(hdr_buf)));
@@ -493,7 +499,7 @@ ZTEST(ubi_mutation_gate, erase_peb_recovers_reserved_bank)
 	hdr_buf[DEV_HDR_SIZE - 1] ^= 0xFF;
 	hdr_buf[DEV_HDR_SIZE - 2] ^= 0xFF;
 
-	zassert_ok(flash_area_erase(fa, 0, mtd.erase_block_size));
+	zassert_ok(flash_area_erase(fa, 0, flash.erase_block_size));
 	zassert_ok(flash_area_write(fa, 0, hdr_buf, sizeof(hdr_buf)));
 	flash_area_close(fa);
 

@@ -6,7 +6,9 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_io.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_ser.h"
@@ -15,20 +17,22 @@
 #include "ubi_plain_io.h"
 #include "ubi_mem.h"
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Flash write fault injection ----------------------------------------------------------------- */
+/* Flash write fault injection ------------------------------------------------------------------ */
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 
@@ -45,7 +49,7 @@ static inline int secure_flash_write(const struct flash_area *fa, off_t offset, 
 	return flash_area_write(fa, offset, data, len);
 }
 
-#else
+#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
 
 static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
 				     size_t len)
@@ -58,19 +62,19 @@ static inline int secure_flash_write(const struct flash_area *fa, off_t offset, 
 
 #endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
-int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			   size_t peb_idx, struct ubi_ec_hdr *ec_hdr,
-			   struct ubi_secure_ec_auth_ctx *ec_ctx)
+int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
+			   const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			   struct ubi_ec_hdr *ec_hdr, struct ubi_secure_ec_auth_ctx *ec_ctx)
 {
-	if (mtd == NULL || crypto_cfg == NULL || ec_hdr == NULL || ec_ctx == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || ec_hdr == NULL || ec_ctx == NULL) {
 		LOG_ERR("ec_hdr_read: NULL argument");
 		return -EINVAL;
 	}
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -78,7 +82,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 	}
 
 	uint8_t raw[UBI_SECURE_EC_HDR_SIZE] = { 0 };
-	const size_t offset = peb_idx * mtd->erase_block_size;
+	const size_t offset = peb_idx * flash->erase_block_size;
 
 	ret = flash_area_read(fa, offset, raw, sizeof(raw));
 	flash_area_close(fa);
@@ -158,11 +162,11 @@ int ubi_secure_ec_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_co
 	return 0;
 }
 
-int ubi_secure_ec_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			    size_t peb_idx, const struct ubi_ec_hdr *ec_hdr, uint8_t key_version,
-			    uint64_t counter)
+int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
+			    const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			    const struct ubi_ec_hdr *ec_hdr, uint8_t key_version, uint64_t counter)
 {
-	if (mtd == NULL || crypto_cfg == NULL || ec_hdr == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || ec_hdr == NULL) {
 		LOG_ERR("ec_hdr_write: NULL argument");
 		return -EINVAL;
 	}
@@ -212,7 +216,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	ubi_secure_build_nonce(prefix.domain, prefix.salt, prefix.counter, nonce);
 
 	/* Build AAD. */
-	const size_t offset = peb_idx * mtd->erase_block_size;
+	const size_t offset = peb_idx * flash->erase_block_size;
 	uint8_t aad[UBI_SECURE_EC_HDR_AAD_SIZE] = { 0 };
 
 	ubi_secure_build_ec_hdr_aad(out_buf, (uint32_t)peb_idx, offset, aad);
@@ -234,7 +238,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	/* Write to flash. */
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		return -EIO;
@@ -251,19 +255,20 @@ int ubi_secure_ec_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	return 0;
 }
 
-int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			    size_t peb_idx, const struct ubi_secure_ec_auth_ctx *ec_ctx,
+int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
+			    const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			    const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			    struct ubi_vid_hdr *vid_hdr, struct ubi_vid_secure_meta *vid_meta,
 			    struct ubi_secure_vid_auth_ctx *vid_ctx)
 {
-	if (mtd == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
+	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
 	    vid_meta == NULL || vid_ctx == NULL) {
 		LOG_ERR("vid_hdr_read: NULL argument");
 		return -EINVAL;
 	}
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -271,7 +276,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	}
 
 	uint8_t raw[UBI_SECURE_DATA_VID_SIZE] = { 0 };
-	const size_t offset = peb_idx * mtd->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 
 	ret = flash_area_read(fa, offset, raw, sizeof(raw));
 	flash_area_close(fa);
@@ -355,13 +360,14 @@ int ubi_secure_vid_hdr_read(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	return 0;
 }
 
-int ubi_secure_vid_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			     size_t peb_idx, const struct ubi_secure_ec_auth_ctx *ec_ctx,
+int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
+			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			     const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			     const struct ubi_vid_hdr *vid_hdr,
 			     const struct ubi_vid_secure_meta *vid_meta, uint8_t key_version,
 			     uint64_t counter)
 {
-	if (mtd == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
+	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
 	    vid_meta == NULL) {
 		LOG_ERR("vid_hdr_write: NULL argument");
 		return -EINVAL;
@@ -412,7 +418,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_
 	ubi_secure_build_nonce(prefix.domain, prefix.salt, prefix.counter, nonce);
 
 	/* Build AAD. */
-	const size_t offset = peb_idx * mtd->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 	uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
 
 	ubi_secure_build_data_vid_aad(out_buf, (uint32_t)peb_idx, offset, ec_ctx->ec,
@@ -440,7 +446,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_
 	/* Write to flash. */
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		return -EIO;
@@ -457,11 +463,12 @@ int ubi_secure_vid_hdr_write(const struct ubi_mtd *mtd, const struct ubi_crypto_
 	return 0;
 }
 
-int ubi_secure_leb_data_read(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			     size_t peb_idx, const struct ubi_secure_vid_auth_ctx *vid_ctx,
-			     size_t offset, void *buf, size_t len)
+int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
+			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
+			     void *buf, size_t len)
 {
-	if (mtd == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
 		LOG_ERR("leb_data_read: NULL argument");
 		return -EINVAL;
 	}
@@ -490,9 +497,9 @@ int ubi_secure_leb_data_read(const struct ubi_mtd *mtd, const struct ubi_crypto_
 	}
 
 	/* Read prefix from flash first to obtain the authoritative key_version. */
-	const size_t leb_offset = peb_idx * mtd->erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -598,12 +605,13 @@ int ubi_secure_leb_data_read(const struct ubi_mtd *mtd, const struct ubi_crypto_
 	return 0;
 }
 
-int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-			      size_t peb_idx, const struct ubi_secure_ec_auth_ctx *ec_ctx,
+int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
+			      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const void *buf,
 			      size_t len, uint8_t key_version, uint64_t counter)
 {
-	if (mtd == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
 		LOG_ERR("leb_data_write: NULL argument");
 		return -EINVAL;
 	}
@@ -653,7 +661,7 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 	ubi_secure_build_nonce(prefix.domain, prefix.salt, prefix.counter, nonce);
 
 	/* Build AAD. */
-	const size_t leb_offset = peb_idx * mtd->erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
 	uint8_t aad[UBI_SECURE_LEB_AAD_SIZE] = { 0 };
 
 	ubi_secure_build_leb_aad(prefix_buf, (uint32_t)peb_idx, leb_offset, ec_ctx->ec,
@@ -662,7 +670,7 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 
 	/* Encrypt. */
 	const size_t ct_tag_size = len + UBI_SECURE_TAG_SIZE;
-	const size_t ct_write_size = ROUND_UP(ct_tag_size, mtd->write_block_size);
+	const size_t ct_write_size = ROUND_UP(ct_tag_size, flash->write_block_size);
 	uint8_t *ct_buf = NULL;
 
 	ret = ubi_mem_scratch_alloc(ct_write_size, &ct_buf);
@@ -693,7 +701,7 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 	/* Write prefix + ciphertext+tag to flash. */
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		ubi_mem_scratch_free(ct_buf);
@@ -723,14 +731,14 @@ int ubi_secure_leb_data_write(const struct ubi_mtd *mtd, const struct ubi_crypto
 
 #if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
 
-int ubi_secure_leb_data_write_chunked(const struct ubi_mtd *mtd,
+int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 				      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 				      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 				      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv,
 				      const void *buf, size_t len, uint8_t key_version,
 				      uint64_t counter_base)
 {
-	if (mtd == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
 		LOG_ERR("leb_data_write_chunked: NULL argument");
 		return -EINVAL;
 	}
@@ -774,13 +782,13 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_mtd *mtd,
 
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
-	const size_t leb_offset = peb_idx * mtd->erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
 	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
 	const size_t chunk_count = (len + chunk_size - 1) / chunk_size;
 
 	/* Allocate per-chunk scratch buffer (largest chunk ct+tag, aligned). */
 	const size_t max_ct_tag = chunk_size + UBI_SECURE_TAG_SIZE;
-	const size_t chunk_scratch_size = ROUND_UP(max_ct_tag, mtd->write_block_size);
+	const size_t chunk_scratch_size = ROUND_UP(max_ct_tag, flash->write_block_size);
 	uint8_t *chunk_buf = NULL;
 
 	ret = ubi_mem_scratch_alloc(chunk_scratch_size, &chunk_buf);
@@ -793,7 +801,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_mtd *mtd,
 	/* Open flash once for prefix + all chunks. */
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		ubi_mem_scratch_free(chunk_buf);
@@ -814,7 +822,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_mtd *mtd,
 	for (size_t i = 0; i < chunk_count; i++) {
 		const size_t chunk_data_size = MIN(chunk_size, len - i * chunk_size);
 		const size_t ct_tag_actual = chunk_data_size + UBI_SECURE_TAG_SIZE;
-		const size_t chunk_write_size = ROUND_UP(ct_tag_actual, mtd->write_block_size);
+		const size_t chunk_write_size = ROUND_UP(ct_tag_actual, flash->write_block_size);
 
 		/* Build per-chunk nonce: domain || salt || be48(counter_base + i). */
 		uint8_t chunk_counter[UBI_SECURE_COUNTER_SIZE];
@@ -872,12 +880,12 @@ fail:
 	return (ret == 0) ? -EIO : ret;
 }
 
-int ubi_secure_leb_data_read_chunked(const struct ubi_mtd *mtd,
+int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 				     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 				     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
 				     void *buf, size_t len)
 {
-	if (mtd == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
 		LOG_ERR("leb_data_read_chunked: NULL argument");
 		return -EINVAL;
 	}
@@ -907,9 +915,9 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_mtd *mtd,
 	}
 
 	/* Read prefix from flash. */
-	const size_t leb_offset = peb_idx * mtd->erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t leb_offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -1045,15 +1053,16 @@ cleanup:
 
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 
-int ubi_secure_vid_region_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, bool *is_erased)
+int ubi_secure_vid_region_is_erased(const struct ubi_flash_desc *flash, size_t peb_idx,
+				    bool *is_erased)
 {
-	if (mtd == NULL || is_erased == NULL) {
+	if (flash == NULL || is_erased == NULL) {
 		LOG_ERR("vid_region_is_erased: NULL argument");
 		return -EINVAL;
 	}
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -1062,7 +1071,7 @@ int ubi_secure_vid_region_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, b
 
 	/* Read magic field of the VID region prefix. */
 	uint8_t buf[sizeof(uint32_t)] = { 0 };
-	const size_t offset = peb_idx * mtd->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 
 	ret = flash_area_read(fa, offset, buf, sizeof(buf));
 	flash_area_close(fa);
@@ -1074,7 +1083,7 @@ int ubi_secure_vid_region_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, b
 
 	uint8_t erased_val = 0;
 
-	ret = ubi_get_erased_val(mtd, &erased_val);
+	ret = ubi_get_erased_val(flash, &erased_val);
 	if (ret != 0) {
 		LOG_ERR("get_erased_val failed: %d", ret);
 		return ret;
@@ -1084,15 +1093,16 @@ int ubi_secure_vid_region_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, b
 	return 0;
 }
 
-int ubi_secure_leb_prefix_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, bool *is_erased)
+int ubi_secure_leb_prefix_is_erased(const struct ubi_flash_desc *flash, size_t peb_idx,
+				    bool *is_erased)
 {
-	if (mtd == NULL || is_erased == NULL) {
+	if (flash == NULL || is_erased == NULL) {
 		LOG_ERR("leb_prefix_is_erased: NULL argument");
 		return -EINVAL;
 	}
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -1101,7 +1111,7 @@ int ubi_secure_leb_prefix_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, b
 
 	/* Read magic field of the LEB region prefix. */
 	uint8_t buf[sizeof(uint32_t)] = { 0 };
-	const size_t offset = peb_idx * mtd->erase_block_size + UBI_SECURE_LEB_OFFSET;
+	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
 
 	ret = flash_area_read(fa, offset, buf, sizeof(buf));
 	flash_area_close(fa);
@@ -1113,7 +1123,7 @@ int ubi_secure_leb_prefix_is_erased(const struct ubi_mtd *mtd, size_t peb_idx, b
 
 	uint8_t erased_val = 0;
 
-	ret = ubi_get_erased_val(mtd, &erased_val);
+	ret = ubi_get_erased_val(flash, &erased_val);
 	if (ret != 0) {
 		LOG_ERR("get_erased_val failed: %d", ret);
 		return ret;

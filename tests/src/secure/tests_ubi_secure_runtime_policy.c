@@ -10,7 +10,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -30,16 +31,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
 /** Grouped test state — zeroed by memset in suite before(). */
@@ -78,7 +79,7 @@ struct runtime_policy_test_state {
 
 static struct runtime_policy_test_state ts;
 
-/* -------------------------------------- Event callbacks -------------------------------------- */
+/* Event callbacks ------------------------------------------------------------------------------ */
 
 /**
  * \brief Comprehensive event tracker — returns CONTINUE.
@@ -175,7 +176,7 @@ rejecting_check_freshness(const struct ubi_crypto_freshness *freshness, void *us
 	return UBI_CRYPTO_ROLLBACK_REJECT;
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -185,9 +186,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -213,7 +214,7 @@ static void ztest_suite_after(void *ctx)
 	}
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Event callback returning ENTER_READ_ONLY blocks subsequent writes.
@@ -238,7 +239,7 @@ ZTEST(ubi_secure_runtime_policy, test_event_enter_read_only_blocks_writes)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	/* Let sync succeed for every call so far. Now make the next sync fail.
@@ -280,7 +281,7 @@ ZTEST(ubi_secure_runtime_policy, test_reads_work_in_crypto_ro)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0xDE, 0xAD, 0xBE, 0xEF };
@@ -319,7 +320,7 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_write)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	/* volume_create also triggers freshness sync. */
 	const size_t sync_before_create = ts.sync_call_count;
@@ -356,7 +357,7 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_failure_emits_event)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	/* Now make sync fail. */
@@ -392,7 +393,7 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_erase)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	/* Write to LEB 0, then overwrite → creates dirty PEB. */
@@ -431,7 +432,7 @@ ZTEST(ubi_secure_runtime_policy, test_erase_blocked_in_crypto_ro)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	/* Make next sync fail → event → read-only. */
@@ -468,7 +469,7 @@ ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
 
 	int vol_id1 = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg1, &vol_id1));
 
 	/* Trigger read-only: make sync fail on next call. */
@@ -491,7 +492,7 @@ ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
 	zassert_equal(ret, -EROFS, "Expected -EROFS, got %d", ret);
 }
 
-/* ---------------------------------- Budget & key lifecycle ----------------------------------- */
+/* Budget & key lifecycle ----------------------------------------------------------------------- */
 
 /**
  * \brief ROTATE_SOON event fires when LEB write budget crosses soft threshold.
@@ -515,7 +516,7 @@ ZTEST(ubi_secure_runtime_policy, test_budget_rotate_soon_event)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0xAA, 0xBB, 0xCC, 0xDD };
@@ -557,7 +558,7 @@ ZTEST(ubi_secure_runtime_policy, test_budget_rotate_now_rejects_write)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0x11, 0x22, 0x33, 0x44 };
@@ -605,7 +606,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0xAA, 0xBB, 0xCC, 0xDD };
@@ -626,7 +627,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
 	cfg.policy.allowed_key_versions = allowed_v12;
 	cfg.policy.allowed_key_versions_len = 2;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	struct ubi_device_info info = { 0 };
 
@@ -702,7 +703,7 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0xDE, 0xAD, 0xBE, 0xEF };
@@ -719,7 +720,7 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 	cfg.policy.allowed_key_versions = allowed_v12;
 	cfg.policy.allowed_key_versions_len = 2;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 
@@ -732,7 +733,7 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 	cfg.policy.allowed_key_versions = allowed_v2;
 	cfg.policy.allowed_key_versions_len = 1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	/* Volume 0 data PEBs (kv=1) were excluded from scan — LEB not mapped.
 	 * Read fails because the data is inaccessible under the new policy. */
@@ -773,7 +774,7 @@ ZTEST(ubi_secure_runtime_policy, test_missing_key_on_write)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0x01, 0x02, 0x03, 0x04 };
@@ -791,7 +792,7 @@ ZTEST(ubi_secure_runtime_policy, test_missing_key_on_write)
 	cfg.get_key_id = selective_get_key_id;
 	ts.fail_key_version = 2;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	/* Existing kv=1 data is still readable. */
 	uint8_t rdata[4] = { 0 };
@@ -831,7 +832,7 @@ ZTEST(ubi_secure_runtime_policy, test_rollback_policy_mismatch_event)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata[] = { 0x01, 0x02, 0x03, 0x04 };
@@ -843,7 +844,7 @@ ZTEST(ubi_secure_runtime_policy, test_rollback_policy_mismatch_event)
 	/* Phase 2: Re-init with rejecting check_freshness. */
 	cfg.check_freshness = rejecting_check_freshness;
 
-	int ret = ubi_device_init(&mtd, &cfg, &g_ubi);
+	int ret = ubi_device_init(&flash, &cfg, &g_ubi);
 
 	zassert_equal(ret, -EACCES, "Expected -EACCES from rollback rejection, got %d", ret);
 	zassert_equal(ts.rollback_mismatch_count, 1,
@@ -878,7 +879,7 @@ ZTEST(ubi_secure_runtime_policy, test_sticky_ro_cleared_on_reinit)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	/* Let sync succeed so far. Now make the NEXT sync fail. */
@@ -905,7 +906,7 @@ ZTEST(ubi_secure_runtime_policy, test_sticky_ro_cleared_on_reinit)
 	ts.sync_call_count = 0;
 	ts.sync_fail_after = 0;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	/* Write should now succeed again. */
 	zassert_ok(ubi_leb_write(g_ubi, vol_id, 1, wdata2, sizeof(wdata2)));
@@ -942,7 +943,7 @@ ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
 
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
 
 	const uint8_t wdata_v1[] = { 0xAA, 0xBB, 0xCC, 0xDD };
@@ -958,7 +959,7 @@ ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
 	cfg.policy.allowed_key_versions = allowed_v12;
 	cfg.policy.allowed_key_versions_len = 2;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	/* Old kv=1 data readable. */
 	uint8_t rdata[4] = { 0 };
@@ -1005,7 +1006,7 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 
 	cfg.event_cb = tracking_event_cb;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c' },
@@ -1067,7 +1068,7 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 	cfg.policy.allowed_key_versions = allowed_v12;
 	cfg.policy.allowed_key_versions_len = 2;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &g_ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
 	/* Read data from kv=1 still works (allowlist has both). */
 	uint8_t rdata_v1b[sizeof(wdata_v1b)] = { 0 };
@@ -1148,7 +1149,7 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 	zassert_mem_equal(rdata2, data_final, sizeof(data_final));
 }
 
-/* ---------------------------------------- Suite def ------------------------------------------ */
+/* Suite def ------------------------------------------------------------------------------------ */
 
 ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_suite_after, NULL);

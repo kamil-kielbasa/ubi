@@ -1,23 +1,26 @@
 /**
  * \file    ubi_plain_ops.h
  * \brief   Plain backend operation declarations for the ops vtable.
+ * \author  Kamil Kielbasa
  *
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_PLAIN_OPS_H
 #define UBI_PLAIN_OPS_H
 
-/* Forward declarations ------------------------------------------------------------------------ */
+/* Forward declarations ------------------------------------------------------------------------- */
 
 struct ubi_device;
 struct ubi_volume_config;
 
+/* Standard library headers: */
 #include <stdbool.h>
 #include <stddef.h>
 
-/* Plain backend operation declarations -------------------------------------------------------- */
+/* Plain backend operation declarations --------------------------------------------------------- */
 
 /* ubi_core_runtime.c */
 int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);

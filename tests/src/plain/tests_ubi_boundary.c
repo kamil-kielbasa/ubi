@@ -12,7 +12,7 @@
  *
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* UBI header: */
 #include <ubi.h>
@@ -33,7 +33,7 @@
 #include <stddef.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -44,13 +44,15 @@
 #define UBI_EC_HDR_SIZE (16)
 #define UBI_VID_HDR_SIZE (32)
 
-/* ---------------------------- Module types and type definitiones ----------------------------- */
-/* ------------------------- Module interface variables and constants -------------------------- */
-/* ------------------------------ Static variables and constants ------------------------------- */
+/* Module types and type definitiones ----------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+/* Module interface variables and constants ----------------------------------------------------- */
 
-/* ------------------------------- Static function declarations -------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void);
 static void ztest_suite_after(void *ctx);
@@ -58,7 +60,7 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-/* -------------------------------- Static function definitions -------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -71,9 +73,9 @@ static void *ztest_suite_setup(void)
 	const size_t write_block_size = flash_get_write_block_size(flash_dev);
 	const size_t erase_block_size = page_info.size;
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = erase_block_size;
-	mtd.write_block_size = write_block_size;
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = erase_block_size;
+	flash.write_block_size = write_block_size;
 
 	return NULL;
 }
@@ -101,7 +103,7 @@ static void ztest_testcase_teardown(void *ctx)
 	return;
 }
 
-/* --------------------------- Module interface function definitions --------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
@@ -120,7 +122,7 @@ ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_
 ZTEST(ubi_boundary, write_max_leb_data)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "max_leb",
@@ -130,7 +132,7 @@ ZTEST(ubi_boundary, write_max_leb_data)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	const size_t max_data = mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	const size_t max_data = flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
 	uint8_t *wbuf = k_malloc(max_data);
 	zassert_not_null(wbuf);
 	memset(wbuf, 0xAB, max_data);
@@ -176,7 +178,7 @@ ZTEST(ubi_boundary, write_max_leb_data)
 ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "exceed",
@@ -186,7 +188,7 @@ ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	const size_t max_data = mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	const size_t max_data = flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
 	uint8_t *wbuf = k_malloc(max_data + 1);
 	zassert_not_null(wbuf);
 	memset(wbuf, 0xCD, max_data + 1);
@@ -212,7 +214,7 @@ ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 ZTEST(ubi_boundary, read_at_exact_boundary)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "rbound",
@@ -247,7 +249,7 @@ ZTEST(ubi_boundary, read_at_exact_boundary)
 ZTEST(ubi_boundary, write_alignment_boundary)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "align",
@@ -293,7 +295,7 @@ ZTEST(ubi_boundary, write_alignment_boundary)
 ZTEST(ubi_boundary, write_sub_alignment)
 {
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "sub",
@@ -327,7 +329,7 @@ ZTEST(ubi_boundary, write_sub_alignment)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------ Sequence number monotonicity across remount ------------------------ */
+/* Sequence number monotonicity across remount -------------------------------------------------- */
 
 /* Raw VID header for direct flash reads. */
 struct raw_vid_hdr {
@@ -353,7 +355,7 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 {
 	/* First session: write LEB 0. */
 	struct ubi_device *ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	const struct ubi_volume_config cfg = {
 		.name = "sqn",
@@ -370,7 +372,7 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 
 	/* Second session: write LEB 1. */
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, NULL, &ubi));
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
 	/* Re-read vol_id after remount. */
 	struct ubi_volume_config cfg2;
@@ -384,13 +386,13 @@ ZTEST(ubi_boundary, sqnum_monotonic_across_remount)
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(FIXED_PARTITION_ID(ubi_partition), &fa));
 
-	const size_t nr_of_pebs = fa->fa_size / mtd.erase_block_size;
+	const size_t nr_of_pebs = fa->fa_size / flash.erase_block_size;
 	uint64_t sqnum_leb0 = 0;
 	uint64_t sqnum_leb1 = 0;
 
 	for (size_t p = CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS; p < nr_of_pebs; ++p) {
 		struct raw_vid_hdr vid;
-		zassert_ok(flash_area_read(fa, (p * mtd.erase_block_size) + UBI_EC_HDR_SIZE, &vid,
+		zassert_ok(flash_area_read(fa, (p * flash.erase_block_size) + UBI_EC_HDR_SIZE, &vid,
 					   sizeof(vid)));
 
 		if (vid.magic != 0x55424921)

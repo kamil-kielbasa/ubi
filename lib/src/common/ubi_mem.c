@@ -6,7 +6,7 @@
  * \copyright Copyright (c) 2025
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_mem.h"
@@ -25,7 +25,7 @@
 /* Standard library headers: */
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
@@ -34,17 +34,13 @@ BUILD_ASSERT(sizeof(struct ubi_list_item) == 12, "ubi_list_item must be 12 bytes
 BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes");
 #if defined(CONFIG_UBI_CRYPTO)
 BUILD_ASSERT(sizeof(struct ubi_volume) == 48, "ubi_volume must be 48 bytes (secure)");
-#if defined(CONFIG_ARCH_POSIX)
-BUILD_ASSERT(sizeof(struct ubi_device) == 196, "ubi_device must be 196 bytes (secure, posix)");
-#else
-BUILD_ASSERT(sizeof(struct ubi_device) == 200, "ubi_device must be 200 bytes (secure, 32-bit)");
-#endif
-#else
+BUILD_ASSERT(sizeof(struct ubi_device) == 196, "ubi_device must be 196 bytes (secure)");
+#else /* !CONFIG_UBI_CRYPTO */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
 BUILD_ASSERT(sizeof(struct ubi_device) == 136, "ubi_device must be 136 bytes");
-#endif
+#endif /* CONFIG_UBI_CRYPTO */
 
-/* Fault injection support --------------------------------------------------------------------- */
+/* Fault injection support ---------------------------------------------------------------------- */
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 
@@ -106,9 +102,9 @@ static inline bool fault_should_fail(void)
 	((UBI_MEM_SCRATCH_BASE_SIZE > UBI_MEM_SCRATCH_CHUNKED_SIZE) ? \
 		 UBI_MEM_SCRATCH_BASE_SIZE :                          \
 		 UBI_MEM_SCRATCH_CHUNKED_SIZE)
-#else
+#else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 #define UBI_MEM_SCRATCH_SIZE UBI_MEM_SCRATCH_BASE_SIZE
-#endif
+#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 #define UBI_MEM_SLAB_ALIGN 4
 
 K_MEM_SLAB_DEFINE_STATIC(device_slab, sizeof(struct ubi_device), UBI_MEM_DEVICE_POOL_COUNT,
@@ -120,7 +116,7 @@ K_MEM_SLAB_DEFINE_STATIC(leaf_slab, sizeof(union ubi_leaf_item), UBI_MEM_LEAF_PO
 K_MEM_SLAB_DEFINE_STATIC(scratch_slab, UBI_MEM_SCRATCH_SIZE, UBI_MEM_SCRATCH_POOL_COUNT,
 			 UBI_MEM_SLAB_ALIGN);
 
-/* ----- Device ----- */
+/* Device --------------------------------------------------------------------------------------- */
 
 int ubi_mem_device_alloc(struct ubi_device **out)
 {
@@ -133,7 +129,7 @@ int ubi_mem_device_alloc(struct ubi_device **out)
 		LOG_ERR("Device allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	void *block = NULL;
 	int ret = k_mem_slab_alloc(&device_slab, &block, K_NO_WAIT);
@@ -155,7 +151,7 @@ void ubi_mem_device_free(struct ubi_device *dev)
 	}
 }
 
-/* ----- Volume ----- */
+/* Volume --------------------------------------------------------------------------------------- */
 
 int ubi_mem_volume_alloc(struct ubi_volume **out)
 {
@@ -168,7 +164,7 @@ int ubi_mem_volume_alloc(struct ubi_volume **out)
 		LOG_ERR("Volume allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	void *block = NULL;
 	int ret = k_mem_slab_alloc(&volume_slab, &block, K_NO_WAIT);
@@ -190,7 +186,7 @@ void ubi_mem_volume_free(struct ubi_volume *vol)
 	}
 }
 
-/* ----- Leaf (16 B) ----- */
+/* Leaf (16 B) ---------------------------------------------------------------------------------- */
 
 int ubi_mem_leaf_alloc(void **out)
 {
@@ -203,7 +199,7 @@ int ubi_mem_leaf_alloc(void **out)
 		LOG_ERR("Leaf allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	void *block = NULL;
 	int ret = k_mem_slab_alloc(&leaf_slab, &block, K_NO_WAIT);
@@ -225,7 +221,7 @@ void ubi_mem_leaf_free(void *ptr)
 	}
 }
 
-/* ----- Scratch ----- */
+/* Scratch -------------------------------------------------------------------------------------- */
 
 int ubi_mem_scratch_alloc(size_t len, uint8_t **out)
 {
@@ -238,7 +234,7 @@ int ubi_mem_scratch_alloc(size_t len, uint8_t **out)
 		LOG_ERR("Scratch allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	if (len > UBI_MEM_SCRATCH_SIZE) {
 		LOG_ERR("Scratch request %zu exceeds budget %d", len, UBI_MEM_SCRATCH_SIZE);
@@ -265,7 +261,7 @@ void ubi_mem_scratch_free(uint8_t *ptr)
 	}
 }
 
-/* ----- Diagnostic (test API) ----- */
+/* Diagnostic (test API) ------------------------------------------------------------------------ */
 
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 
@@ -280,7 +276,7 @@ int ubi_mem_diag_alloc(size_t size, void **out)
 		LOG_ERR("Diagnostic allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	void *ptr = k_malloc(size);
 
@@ -310,7 +306,7 @@ void ubi_mem_diag_free(void *ptr)
 
 #if defined(CONFIG_UBI_MEM_BACKEND_HEAP)
 
-/* ----- Device ----- */
+/* Device --------------------------------------------------------------------------------------- */
 
 int ubi_mem_device_alloc(struct ubi_device **out)
 {
@@ -323,7 +319,7 @@ int ubi_mem_device_alloc(struct ubi_device **out)
 		LOG_ERR("Device allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	struct ubi_device *dev = k_malloc(sizeof(*dev));
 
@@ -344,7 +340,7 @@ void ubi_mem_device_free(struct ubi_device *dev)
 	}
 }
 
-/* ----- Volume ----- */
+/* Volume --------------------------------------------------------------------------------------- */
 
 int ubi_mem_volume_alloc(struct ubi_volume **out)
 {
@@ -357,7 +353,7 @@ int ubi_mem_volume_alloc(struct ubi_volume **out)
 		LOG_ERR("Volume allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	struct ubi_volume *vol = k_malloc(sizeof(*vol));
 
@@ -378,7 +374,7 @@ void ubi_mem_volume_free(struct ubi_volume *vol)
 	}
 }
 
-/* ----- Leaf (16 B) ----- */
+/* Leaf (16 B) ---------------------------------------------------------------------------------- */
 
 int ubi_mem_leaf_alloc(void **out)
 {
@@ -391,7 +387,7 @@ int ubi_mem_leaf_alloc(void **out)
 		LOG_ERR("Leaf allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	void *ptr = k_malloc(sizeof(union ubi_leaf_item));
 
@@ -412,7 +408,7 @@ void ubi_mem_leaf_free(void *ptr)
 	}
 }
 
-/* ----- Scratch ----- */
+/* Scratch -------------------------------------------------------------------------------------- */
 
 int ubi_mem_scratch_alloc(size_t len, uint8_t **out)
 {
@@ -425,7 +421,7 @@ int ubi_mem_scratch_alloc(size_t len, uint8_t **out)
 		LOG_ERR("Scratch allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	uint8_t *ptr = k_malloc(len);
 
@@ -446,7 +442,7 @@ void ubi_mem_scratch_free(uint8_t *ptr)
 	}
 }
 
-/* ----- Diagnostic (test API) ----- */
+/* Diagnostic (test API) ------------------------------------------------------------------------ */
 
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 
@@ -461,7 +457,7 @@ int ubi_mem_diag_alloc(size_t size, void **out)
 		LOG_ERR("Diagnostic allocation fault injected");
 		return -ENOMEM;
 	}
-#endif
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
 
 	void *ptr = k_malloc(size);
 

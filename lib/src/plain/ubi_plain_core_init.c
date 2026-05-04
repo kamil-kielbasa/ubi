@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_internal.h"
@@ -33,26 +33,26 @@
 #include <stdbool.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_REGISTER(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs);
 static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev_hdr *dev_hdr);
 static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs);
 static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg);
 
-/* Internal helper definitions ----------------------------------------------------------------- */
+/* Internal helper definitions ------------------------------------------------------------------ */
 
-int ubi_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val)
+int ubi_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val)
 {
-	__ASSERT_NO_MSG(mtd);
+	__ASSERT_NO_MSG(flash);
 	__ASSERT_NO_MSG(erased_val);
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure for erased value query");
@@ -93,7 +93,7 @@ struct ubi_volume *ubi_find_volume(struct ubi_device *ubi, int vol_id)
 	return entry->value.vol;
 }
 
-/* Init sub-functions ------------------------------------------------------------------ */
+/* Init sub-functions --------------------------------------------------------------------------- */
 
 /**
  * \brief Format the UBI device by mounting and initializing all PEBs.
@@ -103,7 +103,7 @@ struct ubi_volume *ubi_find_volume(struct ubi_device *ubi, int vol_id)
  */
 static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
-	int ret = ubi_dev_mount(&ubi_dev->mtd);
+	int ret = ubi_dev_mount(&ubi_dev->flash);
 
 	if (ret != 0) {
 		LOG_ERR("Device mount failure");
@@ -118,7 +118,7 @@ static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 		crc32_ieee((const uint8_t *)&ec_hdr, sizeof(ec_hdr) - sizeof(ec_hdr.hdr_crc));
 
 	const struct flash_area *fa = NULL;
-	ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);
+	ret = flash_area_open(ubi_dev->flash.partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -126,8 +126,8 @@ static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 	}
 
 	for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < nr_of_pebs; ++peb_idx) {
-		const size_t offset = peb_idx * ubi_dev->mtd.erase_block_size;
-		ret = flash_area_erase(fa, offset, ubi_dev->mtd.erase_block_size);
+		const size_t offset = peb_idx * ubi_dev->flash.erase_block_size;
+		ret = flash_area_erase(fa, offset, ubi_dev->flash.erase_block_size);
 
 		if (ret != 0) {
 			LOG_ERR("Flash erase failure");
@@ -139,7 +139,7 @@ static int init_format_device(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 	flash_area_close(fa);
 
 	for (size_t peb_idx = UBI_DEV_HDR_NR_OF_RES_PEBS; peb_idx < nr_of_pebs; ++peb_idx) {
-		ret = ubi_ec_hdr_write(&ubi_dev->mtd, peb_idx, &ec_hdr);
+		ret = ubi_ec_hdr_write(&ubi_dev->flash, peb_idx, &ec_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("EC header write failure");
@@ -157,7 +157,7 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_dev
 {
 	for (size_t vol_idx = 0; vol_idx < dev_hdr->vol_count; ++vol_idx) {
 		struct ubi_vol_hdr vol_hdr = { 0 };
-		int ret = ubi_vol_hdr_read(&ubi_dev->mtd, vol_idx, &vol_hdr);
+		int ret = ubi_vol_hdr_read(&ubi_dev->flash, vol_idx, &vol_hdr);
 
 		if (ret != 0) {
 			LOG_ERR("Volume header read failure");
@@ -216,7 +216,7 @@ static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_peb
 
 	for (size_t pnum = UBI_DEV_HDR_NR_OF_RES_PEBS; pnum < nr_of_pebs; ++pnum) {
 		struct ubi_ec_hdr ec_hdr = { 0 };
-		int ret = ubi_ec_hdr_read(&ubi_dev->mtd, pnum, &ec_hdr);
+		int ret = ubi_ec_hdr_read(&ubi_dev->flash, pnum, &ec_hdr);
 
 		if (ret == 0) {
 			ec_sum += ec_hdr.ec;
@@ -245,7 +245,7 @@ enum scan_result {
 static int validate_ec_header(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 			      struct ubi_ec_hdr *ec_hdr)
 {
-	int ret = ubi_ec_hdr_read(&dev->mtd, pnum, ec_hdr);
+	int ret = ubi_ec_hdr_read(&dev->flash, pnum, ec_hdr);
 
 	if (ret != 0) {
 		struct ubi_list_item *item = NULL;
@@ -282,7 +282,7 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 			       struct ubi_vid_hdr *vid_hdr, uint8_t erased_val)
 {
 	/* First read without CRC — detect empty (free/uncommitted) PEBs. */
-	int ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, false);
+	int ret = ubi_vid_hdr_read(&dev->flash, pnum, vid_hdr, false);
 
 	if (ret != 0) {
 		LOG_ERR("VID header read failure for PEB %zu", pnum);
@@ -299,10 +299,10 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 		 * offset 0 of the data area. Since writes always start at
 		 * offset 0, a non-erased prefix proves partial data presence.
 		 */
-		const size_t probe_len = MIN(dev->mtd.write_block_size, dev->leb_size);
+		const size_t probe_len = MIN(dev->flash.write_block_size, dev->leb_size);
 		uint8_t probe_buf[WRITE_BLOCK_SIZE_ALIGNMENT] = { 0 };
 
-		ret = ubi_leb_data_read(&dev->mtd, pnum, 0, probe_buf, probe_len);
+		ret = ubi_leb_data_read(&dev->flash, pnum, 0, probe_buf, probe_len);
 
 		if (ret != 0) {
 			LOG_ERR("Data area probe read failure for PEB %zu", pnum);
@@ -338,7 +338,7 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 
 	/* Re-read with CRC validation; corrupt header means bad PEB. */
 	memset(vid_hdr, 0, sizeof(*vid_hdr));
-	ret = ubi_vid_hdr_read(&dev->mtd, pnum, vid_hdr, true);
+	ret = ubi_vid_hdr_read(&dev->flash, pnum, vid_hdr, true);
 
 	if (ret != 0) {
 		LOG_ERR("VID header CRC validation failure for PEB %zu", pnum);
@@ -450,7 +450,7 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 	}
 
 	struct ubi_ec_hdr exist_ec = { 0 };
-	ret = ubi_ec_hdr_read(&dev->mtd, existing->value.pnum, &exist_ec);
+	ret = ubi_ec_hdr_read(&dev->flash, existing->value.pnum, &exist_ec);
 
 	if (ret != 0) {
 		rb_remove(&vol->eba_tbl, &existing->node);
@@ -469,7 +469,7 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 	}
 
 	struct ubi_vid_hdr exist_vid = { 0 };
-	ret = ubi_vid_hdr_read(&dev->mtd, existing->value.pnum, &exist_vid, true);
+	ret = ubi_vid_hdr_read(&dev->flash, existing->value.pnum, &exist_vid, true);
 
 	if (ret != 0) {
 		rb_remove(&vol->eba_tbl, &existing->node);
@@ -517,7 +517,7 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg)
 {
 	uint8_t erased_val = 0xFF;
-	int ev_ret = ubi_get_erased_val(&ubi_dev->mtd, &erased_val);
+	int ev_ret = ubi_get_erased_val(&ubi_dev->flash, &erased_val);
 
 	if (ev_ret != 0) {
 		LOG_ERR("Failed to query erased value");
@@ -572,24 +572,24 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 	return 0;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
-static int ubi_plain_device_init(const struct ubi_mtd *mtd,
+static int ubi_plain_device_init(const struct ubi_flash_desc *flash,
 				 const struct ubi_crypto_config *crypto_cfg,
 				 struct ubi_device **ubi)
 {
 	ARG_UNUSED(crypto_cfg);
 	int ret = -1;
 
-	if (!mtd || !ubi)
+	if (!flash || !ubi)
 		return -EINVAL;
 
 	/* Check partition availability before allocating — avoids wasting a slab
 	 * block when the partition is already in use. */
-	ret = ubi_partition_acquire(mtd->partition_id);
+	ret = ubi_partition_acquire(flash->partition_id);
 
 	if (ret != 0) {
-		LOG_ERR("Partition %u already in use by another UBI handle", mtd->partition_id);
+		LOG_ERR("Partition %u already in use by another UBI handle", flash->partition_id);
 		*ubi = NULL;
 		return -EBUSY;
 	}
@@ -599,11 +599,11 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 
 	if (ret != 0) {
 		LOG_ERR("Device allocation failure");
-		ubi_partition_release(mtd->partition_id);
+		ubi_partition_release(flash->partition_id);
 		return ret;
 	}
 	k_mutex_init(&ubi_dev->mutex);
-	ubi_dev->mtd = *mtd;
+	ubi_dev->flash = *flash;
 	ubi_dev->mode = UBI_MODE_PLAIN;
 	ubi_dev->ops = ubi_plain_backend();
 	ubi_dev->free_pebs.lessthan_fn = ubi_cache_cmp;
@@ -612,7 +612,7 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 	ubi_dev->vols.lessthan_fn = ubi_cache_cmp;
 
 	const struct flash_area *fa = NULL;
-	ret = flash_area_open(ubi_dev->mtd.partition_id, &fa);
+	ret = flash_area_open(ubi_dev->flash.partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -627,36 +627,36 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 	}
 
 	/* Validate flash geometry. */
-	if (ubi_dev->mtd.write_block_size == 0 || ubi_dev->mtd.erase_block_size == 0) {
+	if (ubi_dev->flash.write_block_size == 0 || ubi_dev->flash.erase_block_size == 0) {
 		LOG_ERR("Invalid geometry: write_block_size or erase_block_size is zero");
 		flash_area_close(fa);
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	if (fa->fa_size % ubi_dev->mtd.erase_block_size != 0) {
+	if (fa->fa_size % ubi_dev->flash.erase_block_size != 0) {
 		LOG_ERR("Partition size not a multiple of erase block size");
 		flash_area_close(fa);
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	if (ubi_dev->mtd.erase_block_size % ubi_dev->mtd.write_block_size != 0) {
+	if (ubi_dev->flash.erase_block_size % ubi_dev->flash.write_block_size != 0) {
 		LOG_ERR("Erase block size not a multiple of write block size");
 		flash_area_close(fa);
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	if (ubi_dev->mtd.write_block_size > WRITE_BLOCK_SIZE_ALIGNMENT) {
+	if (ubi_dev->flash.write_block_size > WRITE_BLOCK_SIZE_ALIGNMENT) {
 		LOG_ERR("write_block_size %zu exceeds max supported alignment %d",
-			ubi_dev->mtd.write_block_size, WRITE_BLOCK_SIZE_ALIGNMENT);
+			ubi_dev->flash.write_block_size, WRITE_BLOCK_SIZE_ALIGNMENT);
 		flash_area_close(fa);
 		ret = -EINVAL;
 		goto exit;
 	}
 
-	const size_t nr_of_pebs = fa->fa_size / ubi_dev->mtd.erase_block_size;
+	const size_t nr_of_pebs = fa->fa_size / ubi_dev->flash.erase_block_size;
 
 	if (nr_of_pebs <= UBI_DEV_HDR_NR_OF_RES_PEBS) {
 		LOG_ERR("Partition too small: need > %d PEBs for reserved + data",
@@ -666,7 +666,7 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 		goto exit;
 	}
 
-	if (ubi_dev->mtd.erase_block_size < (UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE)) {
+	if (ubi_dev->flash.erase_block_size < (UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE)) {
 		LOG_ERR("Erase block too small for EC + VID headers");
 		flash_area_close(fa);
 		ret = -EINVAL;
@@ -676,7 +676,7 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 	flash_area_close(fa);
 
 	bool is_mounted = false;
-	ret = ubi_dev_is_mounted(&ubi_dev->mtd, &is_mounted);
+	ret = ubi_dev_is_mounted(&ubi_dev->flash, &is_mounted);
 
 	if (ret != 0) {
 		LOG_ERR("Device check mount failure");
@@ -693,7 +693,7 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 
 	/* Read device header and reconstruct volume table. */
 	struct ubi_dev_hdr dev_hdr = { 0 };
-	ret = ubi_dev_hdr_read(&ubi_dev->mtd, &dev_hdr);
+	ret = ubi_dev_hdr_read(&ubi_dev->flash, &dev_hdr);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Device in degraded mode: reserved PEB redundancy lost");
@@ -705,7 +705,7 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 
 	/* Cache geometry for fast internal lookups. */
 	ubi_dev->total_data_peb_count = nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
-	ubi_dev->leb_size = ubi_dev->mtd.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	ubi_dev->leb_size = ubi_dev->flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
 
 #if defined(CONFIG_UBI_MEM_BACKEND_STATIC)
 	if (ubi_dev->total_data_peb_count > CONFIG_UBI_MAX_NR_OF_DATA_PEBS) {
@@ -721,7 +721,7 @@ static int ubi_plain_device_init(const struct ubi_mtd *mtd,
 		ret = -ENOMEM;
 		goto exit;
 	}
-#endif
+#endif /* CONFIG_UBI_MEM_BACKEND_STATIC */
 
 	ret = init_collect_volumes(ubi_dev, &dev_hdr);
 

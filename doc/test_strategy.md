@@ -241,10 +241,10 @@ Each test suite uses the standard ZTest fixture. Shared helpers in `tests/src/` 
 ```c
 #include "ubi_test_fixture.h"
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 static void *ztest_suite_setup(void) {
-    ubi_test_setup_mtd(&mtd);
+    ubi_test_setup_mtd(&flash);
     return NULL;
 }
 

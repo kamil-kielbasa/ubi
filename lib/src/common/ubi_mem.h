@@ -11,28 +11,32 @@
  *   isolation from the application heap.
  *
  * - **Heap** (`CONFIG_UBI_MEM_BACKEND_HEAP`): delegates to `k_malloc` /
- *   `k_free` (legacy behaviour).
+ *   `k_free`.
  *
  * \copyright Copyright (c) 2025
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_MEM_H
 #define UBI_MEM_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
-/* Forward declarations ------------------------------------------------------------------------ */
+/* Forward declarations ------------------------------------------------------------------------- */
+
 struct ubi_device;
 struct ubi_volume;
 struct ubi_rbt_item;
 struct ubi_list_item;
 
-/* Module interface function declarations ------------------------------------------------------ */
+/* Module interface function declarations ------------------------------------------------------- */
 
-/* ----- Device allocation ----- */
+/* Device allocation ---------------------------------------------------------------------------- */
 
 /**
  * \brief Allocate a zeroed `struct ubi_device`.
@@ -49,7 +53,7 @@ int ubi_mem_device_alloc(struct ubi_device **out);
  */
 void ubi_mem_device_free(struct ubi_device *dev);
 
-/* ----- Volume allocation ----- */
+/* Volume allocation ---------------------------------------------------------------------------- */
 
 /**
  * \brief Allocate a zeroed `struct ubi_volume`.
@@ -66,7 +70,7 @@ int ubi_mem_volume_alloc(struct ubi_volume **out);
  */
 void ubi_mem_volume_free(struct ubi_volume *vol);
 
-/* ----- Leaf item allocation (rbt_item / list_item — 16 B block) ----- */
+/* Leaf item allocation (rbt_item / list_item — 16 B block) ------------------------------------- */
 
 /**
  * \brief Allocate a zeroed 16-byte leaf item block.
@@ -86,7 +90,7 @@ int ubi_mem_leaf_alloc(void **out);
  */
 void ubi_mem_leaf_free(void *ptr);
 
-/* ----- Scratch buffer (variable-size, transient) ----- */
+/* Scratch buffer (variable-size, transient) ---------------------------------------------------- */
 
 /**
  * \brief Acquire a scratch buffer of at least \p len bytes.
@@ -109,7 +113,7 @@ int ubi_mem_scratch_alloc(size_t len, uint8_t **out);
  */
 void ubi_mem_scratch_free(uint8_t *ptr);
 
-/* ----- Diagnostic allocation (test API only) ----- */
+/* Diagnostic allocation (test API only) -------------------------------------------------------- */
 
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 

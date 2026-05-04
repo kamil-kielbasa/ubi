@@ -6,7 +6,9 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Internal headers: */
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_ser.h"
@@ -14,19 +16,21 @@
 #include "ubi_internal.h"
 #include "ubi_plain_io.h"
 
+/* Zephyr headers: */
 #include <zephyr/logging/log.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/byteorder.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Flash write fault injection ----------------------------------------------------------------- */
+/* Flash write fault injection ------------------------------------------------------------------ */
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 
@@ -43,7 +47,7 @@ static inline int secure_flash_write(const struct flash_area *fa, off_t offset, 
 	return flash_area_write(fa, offset, data, len);
 }
 
-#else
+#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
 
 static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
 				     size_t len)
@@ -68,7 +72,7 @@ static inline int secure_flash_write(const struct flash_area *fa, off_t offset, 
 /** Ciphertext+tag for volume header: 48 + 16 = 64. */
 #define VOL_HDR_CT_TAG_SIZE (VOL_HDR_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
@@ -85,7 +89,7 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key
 			   uint64_t flash_offset, uint64_t device_revision, uint8_t parent_kv,
 			   uint8_t *out_buf);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
@@ -259,18 +263,18 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key
 	return ret;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
-int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bool *is_secure,
-				   bool *is_blank)
+int ubi_secure_res_peb_detect_mode(const struct ubi_flash_desc *flash, size_t peb_idx,
+				   bool *is_secure, bool *is_blank)
 {
-	if (mtd == NULL || is_secure == NULL || is_blank == NULL) {
+	if (flash == NULL || is_secure == NULL || is_blank == NULL) {
 		LOG_ERR("res_peb_detect_mode: NULL argument");
 		return -EINVAL;
 	}
 
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -278,7 +282,7 @@ int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bo
 	}
 
 	uint8_t buf[4] = { 0 };
-	const size_t offset = peb_idx * mtd->erase_block_size;
+	const size_t offset = peb_idx * flash->erase_block_size;
 
 	ret = flash_area_read(fa, offset, buf, sizeof(buf));
 	flash_area_close(fa);
@@ -295,7 +299,7 @@ int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bo
 	/* Check for blank (all erased). */
 	uint8_t erased_val = 0;
 
-	ret = ubi_get_erased_val(mtd, &erased_val);
+	ret = ubi_get_erased_val(flash, &erased_val);
 	if (ret != 0) {
 		LOG_ERR("get_erased_val failed: %d", ret);
 		return ret;
@@ -305,10 +309,11 @@ int ubi_secure_res_peb_detect_mode(const struct ubi_mtd *mtd, size_t peb_idx, bo
 	return 0;
 }
 
-int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
+			    const struct ubi_crypto_config *crypto_cfg,
 			    struct ubi_secure_res_peb_scan *scan)
 {
-	if (mtd == NULL || crypto_cfg == NULL || scan == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || scan == NULL) {
 		LOG_ERR("res_peb_scan: NULL argument");
 		return -EINVAL;
 	}
@@ -319,7 +324,7 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	 * For scan phase, we try each allowlisted version against each PEB.
 	 */
 	const struct flash_area *fa = NULL;
-	int ret = flash_area_open(mtd->partition_id, &fa);
+	int ret = flash_area_open(flash->partition_id, &fa);
 
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
@@ -328,7 +333,7 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 
 	uint8_t erased_val = 0;
 
-	ret = ubi_get_erased_val(mtd, &erased_val);
+	ret = ubi_get_erased_val(flash, &erased_val);
 	if (ret != 0) {
 		LOG_ERR("get_erased_val failed: %d", ret);
 		flash_area_close(fa);
@@ -339,7 +344,7 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 
 	for (size_t peb = 0; peb < UBI_DEV_HDR_NR_OF_RES_PEBS; peb++) {
 		uint8_t raw[UBI_SECURE_DEV_HDR_SIZE] = { 0 };
-		const size_t offset = peb * mtd->erase_block_size;
+		const size_t offset = peb * flash->erase_block_size;
 
 		ret = flash_area_read(fa, offset, raw, sizeof(raw));
 		if (ret != 0) {
@@ -432,12 +437,12 @@ int ubi_secure_res_peb_scan(const struct ubi_mtd *mtd, const struct ubi_crypto_c
 	return 0;
 }
 
-int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
+int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 				     const struct ubi_crypto_config *crypto_cfg,
 				     const struct ubi_secure_res_peb_scan *scan,
 				     struct ubi_vol_hdr *vol_hdrs, size_t max_vols)
 {
-	if (mtd == NULL || crypto_cfg == NULL || scan == NULL || vol_hdrs == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || scan == NULL || vol_hdrs == NULL) {
 		LOG_ERR("res_peb_read_vol_hdrs: NULL argument");
 		return -EINVAL;
 	}
@@ -462,14 +467,14 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_mtd *mtd,
 
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		ubi_secure_destroy_key(child_key_id);
 		return -EIO;
 	}
 
-	const size_t peb_offset = scan->canonical_peb_idx * mtd->erase_block_size;
+	const size_t peb_offset = scan->canonical_peb_idx * flash->erase_block_size;
 
 	for (size_t i = 0; i < scan->dev_hdr.vol_count; i++) {
 		uint8_t raw[UBI_SECURE_VOL_HDR_SIZE] = { 0 };
@@ -536,13 +541,14 @@ cleanup:
 	return ret;
 }
 
-int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
+			      const struct ubi_crypto_config *crypto_cfg,
 			      const struct ubi_dev_hdr *dev_hdr,
 			      const struct ubi_dev_secure_meta *dev_meta,
 			      const struct ubi_vol_hdr *vol_hdrs, size_t vol_count,
 			      uint8_t key_version, uint64_t counter)
 {
-	if (mtd == NULL || crypto_cfg == NULL || dev_hdr == NULL || dev_meta == NULL) {
+	if (flash == NULL || crypto_cfg == NULL || dev_hdr == NULL || dev_meta == NULL) {
 		LOG_ERR("res_peb_commit: NULL argument");
 		return -EINVAL;
 	}
@@ -594,7 +600,7 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
 	/* Write to each reserved PEB. */
 	const struct flash_area *fa = NULL;
 
-	ret = flash_area_open(mtd->partition_id, &fa);
+	ret = flash_area_open(flash->partition_id, &fa);
 	if (ret != 0) {
 		LOG_ERR("Flash area open failure");
 		ret = -EIO;
@@ -604,10 +610,10 @@ int ubi_secure_res_peb_commit(const struct ubi_mtd *mtd, const struct ubi_crypto
 	size_t active_written = 0;
 
 	for (size_t peb = 0; peb < UBI_DEV_HDR_NR_OF_RES_PEBS; peb++) {
-		const size_t peb_offset = peb * mtd->erase_block_size;
+		const size_t peb_offset = peb * flash->erase_block_size;
 
 		/* Erase this reserved PEB. */
-		ret = flash_area_erase(fa, peb_offset, mtd->erase_block_size);
+		ret = flash_area_erase(fa, peb_offset, flash->erase_block_size);
 		if (ret != 0) {
 			LOG_ERR("Erase failure on reserved PEB %zu", peb);
 			continue;

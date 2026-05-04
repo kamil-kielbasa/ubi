@@ -7,7 +7,7 @@
  *
  */
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
 /* Internal headers: */
 #include "ubi_internal.h"
@@ -23,22 +23,22 @@
 #include <errno.h>
 #include <string.h>
 
-/* Module defines ------------------------------------------------------------------------------ */
+/* Module defines ------------------------------------------------------------------------------- */
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function declarations ---------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
 
 static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 int vol_count_delta);
 static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item);
 
-/* Static function definitions ----------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
 static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 int vol_count_delta)
 {
-	int ret = ubi_dev_hdr_read(&ubi->mtd, hdr);
+	int ret = ubi_dev_hdr_read(&ubi->flash, hdr);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded at runtime");
@@ -60,7 +60,7 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item)
 {
 	struct ubi_ec_hdr ec_hdr = { 0 };
-	int ret = ubi_ec_hdr_read(&ubi->mtd, item->value.pnum, &ec_hdr);
+	int ret = ubi_ec_hdr_read(&ubi->flash, item->value.pnum, &ec_hdr);
 
 	if (ret != 0) {
 		LOG_WRN("EC header read failure for PEB %zu, marking bad", item->value.pnum);
@@ -80,7 +80,7 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	return 0;
 }
 
-/* Module interface function definitions ------------------------------------------------------- */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_plain_volume_create(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,
 			    int *vol_id)
@@ -182,7 +182,7 @@ int ubi_plain_volume_create(struct ubi_device *ubi, const struct ubi_volume_conf
 	dev_hdr.hdr_crc =
 		crc32_ieee((const uint8_t *)&dev_hdr, sizeof(dev_hdr) - sizeof(dev_hdr.hdr_crc));
 
-	ret = ubi_vol_hdr_append(&ubi->mtd, &dev_hdr, &new_vol_hdr);
+	ret = ubi_vol_hdr_append(&ubi->flash, &dev_hdr, &new_vol_hdr);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during create commit");
@@ -273,7 +273,7 @@ int ubi_plain_volume_resize(struct ubi_device *ubi, int vol_id,
 		goto exit;
 	}
 
-	ret = ubi_vol_hdr_update(&ubi->mtd, &dev_hdr, vol->vol_id, vol_cfg->leb_count);
+	ret = ubi_vol_hdr_update(&ubi->flash, &dev_hdr, vol->vol_id, vol_cfg->leb_count);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during resize commit");
@@ -345,7 +345,7 @@ int ubi_plain_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	struct ubi_volume *vol = entry->value.vol;
-	ret = ubi_vol_hdr_remove(&ubi->mtd, &dev_hdr, vol->vol_id);
+	ret = ubi_vol_hdr_remove(&ubi->flash, &dev_hdr, vol->vol_id);
 
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during remove commit");

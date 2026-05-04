@@ -8,16 +8,19 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_H
 #define UBI_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Standard library headers: */
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-/* Defines ------------------------------------------------------------------------------------- */
+/* Defines -------------------------------------------------------------------------------------- */
 
 /**
  * \def UBI_VOLUME_NAME_MAX_LEN
@@ -25,7 +28,7 @@
  */
 #define UBI_VOLUME_NAME_MAX_LEN (16)
 
-/* Forward declarations ------------------------------------------------------------------------ */
+/* Forward declarations ------------------------------------------------------------------------- */
 
 /**
  * \brief Forward declaration of the UBI device structure.
@@ -42,7 +45,7 @@ struct ubi_device;
  */
 struct ubi_crypto_config;
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \defgroup ubi_structs UBI Data Structures
@@ -50,12 +53,12 @@ struct ubi_crypto_config;
  */
 
 /**
- * \brief Memory technology device (MTD) descriptor.
+ * \brief Flash partition descriptor.
  *
  * Describes the underlying flash partition used by UBI, including its
  * geometry (write and erase block sizes).
  */
-struct ubi_mtd {
+struct ubi_flash_desc {
 	uint8_t partition_id; /*!< Flash partition identifier (from FIXED_PARTITION_ID). */
 
 	size_t write_block_size; /*!< Minimum write block size in bytes. */
@@ -133,13 +136,13 @@ struct ubi_volume_config {
  * initialization still succeeds but the device enters degraded
  * read-only mode — check \c ubi_device_info.read_only_degraded.
  *
- * \pre \p mtd fields must be non-zero and geometrically consistent:
+ * \pre \p flash fields must be non-zero and geometrically consistent:
  *      write_block_size > 0, erase_block_size > 0,
  *      erase_block_size % write_block_size == 0,
  *      partition size % erase_block_size == 0,
  *      partition must hold at least UBI_DEV_HDR_NR_OF_RES_PEBS + 1 PEBs.
  *
- * \param[in] mtd 		Flash partition descriptor (caller retains ownership).
+ * \param[in] flash 		Flash partition descriptor (caller retains ownership).
  * \param[in] crypto_cfg	Crypto configuration for secure mode, or NULL for plain.
  *                              When non-NULL the secure backend is selected;
  *                              when NULL the plain backend is selected.
@@ -154,7 +157,7 @@ struct ubi_volume_config {
  * \retval -ENOTSUP Secure backend requested but not available.
  * \retval -EIO     Unrecoverable flash I/O error.
  */
-int ubi_device_init(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
+int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_crypto_config *crypto_cfg,
 		    struct ubi_device **ubi);
 
 /**
@@ -325,7 +328,7 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
  *
  * Maps the LEB if not already mapped, then writes \p len bytes from \p buf.
  * Works for both static and dynamic volumes. \p len must not exceed the LEB
- * data size. Unaligned lengths are internally padded to \c mtd.write_block_size.
+ * data size. Unaligned lengths are internally padded to \c flash.write_block_size.
  *
  * \param[in] ubi 		UBI device handle.
  * \param[in] vol_id 		Volume identifier.

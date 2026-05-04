@@ -11,14 +11,17 @@
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_TEST_H
 #define UBI_TEST_H
 
-/* Include files ------------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
+/* Public headers: */
 #include <ubi.h>
 
-/* Test API ------------------------------------------------------------------------------------ */
+/* Test API ------------------------------------------------------------------------------------- */
 
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 
@@ -69,12 +72,12 @@ void ubi_test_partition_force_release_all(void);
  * Thin wrapper around the internal ubi_get_erased_val() helper, exposed
  * for unit testing. See ubi_internal.h for details.
  *
- * \param[in] mtd          UBI MTD descriptor.
+ * \param[in] flash          Flash partition descriptor.
  * \param[out] erased_val  Erased byte value for the partition.
  *
  * \return 0 on success, or negative errno on failure.
  */
-int ubi_test_get_erased_val(const struct ubi_mtd *mtd, uint8_t *erased_val);
+int ubi_test_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val);
 
 /**
  * \brief Check whether a buffer is entirely erased (test API).
@@ -102,7 +105,7 @@ void ubi_test_set_write_shutdown(struct ubi_device *ubi, bool shutdown);
 
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
-/* Fault injection API ------------------------------------------------------------------------- */
+/* Fault injection API -------------------------------------------------------------------------- */
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 

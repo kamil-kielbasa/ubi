@@ -11,7 +11,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -32,19 +33,19 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -56,9 +57,9 @@ static void *ztest_suite_setup(void)
 
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -84,7 +85,7 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* --------------------------------- Secure init helper ---------------------------------------- */
+/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -92,17 +93,17 @@ static struct ubi_device *sec_init(void)
 	cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 	return ubi;
 }
 
-/* ------------------------------ Device init/deinit error paths ------------------------------- */
+/* Device init/deinit error paths --------------------------------------------------------------- */
 
 /**
- * \brief Verify that ubi_device_init() rejects a NULL MTD descriptor.
+ * \brief Verify that ubi_device_init() rejects a NULL flash descriptor.
  *
- * \details Call ubi_device_init() with mtd=NULL and a valid crypto config.
+ * \details Call ubi_device_init() with flash=NULL and a valid crypto config.
  *
  * \expected Returns -EINVAL.
  */
@@ -127,7 +128,7 @@ ZTEST(ubi_secure_error_handling, test_init_null_ubi)
 	static struct ubi_crypto_config cfg;
 	cfg = ubi_test_mock_crypto_config();
 
-	zassert_equal(-EINVAL, ubi_device_init(&mtd, &cfg, NULL));
+	zassert_equal(-EINVAL, ubi_device_init(&flash, &cfg, NULL));
 }
 
 /**
@@ -186,7 +187,7 @@ ZTEST(ubi_secure_error_handling, test_erase_peb_null)
 	zassert_equal(-EINVAL, ubi_device_erase_peb(NULL));
 }
 
-/* ------------------------------------ Volume error paths ------------------------------------- */
+/* Volume error paths --------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_volume_create() rejects NULL parameters.
@@ -398,7 +399,7 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_nonexistent)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------------ LEB I/O error paths ------------------------------------ */
+/* LEB I/O error paths -------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_write() rejects a NULL data buffer.
@@ -575,7 +576,7 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_null)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ----------------------------------- Functional edge cases ----------------------------------- */
+/* Functional edge cases ------------------------------------------------------------------------ */
 
 /**
  * \brief Verify that overwriting an existing LEB moves the old PEB to dirty.
@@ -710,7 +711,7 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_with_mapped_lebs)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ----------------------- Additional error handling and edge case tests ----------------------- */
+/* Additional error handling and edge case tests ------------------------------------------------ */
 
 /**
  * \brief Verify that writing to an out-of-range LEB number is rejected.
@@ -970,7 +971,7 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_out_of_range)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- No-volumes error paths for remaining API functions --- */
+/* No-volumes error paths for remaining API functions ------------------------------------------- */
 
 /**
  * \brief Verify that ubi_volume_get_info() fails when no volumes exist.
@@ -1069,7 +1070,7 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_no_volumes)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Volume-not-found error paths for LEB operations --- */
+/* Volume-not-found error paths for LEB operations ---------------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_write() fails when the volume does not exist.
@@ -1214,7 +1215,7 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_vol_not_found)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------ LEB limit exceeded for remaining functions ------------------------- */
+/* LEB limit exceeded for remaining functions --------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_read() rejects an out-of-range LEB number.
@@ -1301,7 +1302,7 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_out_of_range)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Contract tests: invalid type, zero leb_count --- */
+/* Contract tests: invalid type, zero leb_count ------------------------------------------------- */
 
 /**
  * \brief Verify that creating a volume with an invalid type is rejected.
@@ -1383,7 +1384,7 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_zero_lebs_rejected)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Idempotent unmap, no-op map, static write --- */
+/* Idempotent unmap, no-op map, static write ---------------------------------------------------- */
 
 /**
  * \brief Verify that unmapping an unmapped LEB twice is safe (idempotent).
@@ -1483,7 +1484,7 @@ ZTEST(ubi_secure_error_handling, test_static_volume_write_allowed)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------------ Unmapped LEB paths ------------------------------------- */
+/* Unmapped LEB paths --------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_get_size() fails when the LEB is not mapped.
@@ -1514,7 +1515,7 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_unmapped)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------- Volume create duplicate name -------------------------------- */
+/* Volume create duplicate name ----------------------------------------------------------------- */
 
 /**
  * \brief Verify that creating a volume with a duplicate name returns the
@@ -1591,7 +1592,7 @@ ZTEST(ubi_secure_error_handling, test_volume_create_duplicate_name_different_con
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------ Volume create with invalid name ------------------------------ */
+/* Volume create with invalid name -------------------------------------------------------------- */
 
 /**
  * \brief Verify that creating a volume with an empty name returns -EINVAL.
@@ -1764,7 +1765,7 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_trim)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* --- Additional coverage paths --- */
+/* Additional coverage paths -------------------------------------------------------------------- */
 
 /**
  * \brief Verify volume_create with identical config returns existing vol_id.
@@ -2296,7 +2297,7 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_preserves_data)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_error_handling, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);

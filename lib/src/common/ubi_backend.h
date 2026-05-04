@@ -1,22 +1,24 @@
 /**
  * \file    ubi_backend.h
  * \brief   UBI backend operations interface for runtime backend selection.
+ * \author  Kamil Kielbasa
  *
  * \copyright Copyright (c) 2026
  */
 
-/* Include guard ------------------------------------------------------------------------------- */
+/* Include guard -------------------------------------------------------------------------------- */
+
 #ifndef UBI_BACKEND_H
 #define UBI_BACKEND_H
 
-/* Forward declarations ------------------------------------------------------------------------ */
+/* Forward declarations ------------------------------------------------------------------------- */
 
-struct ubi_mtd;
+struct ubi_flash_desc;
 struct ubi_device;
 struct ubi_crypto_config;
 struct ubi_volume_config;
 
-/* Types and type definitions ------------------------------------------------------------------ */
+/* Types and type definitions ------------------------------------------------------------------- */
 
 /**
  * \brief Backend mode for a UBI device.
@@ -25,8 +27,8 @@ struct ubi_volume_config;
  * crypto_cfg pointer.
  */
 enum ubi_device_mode {
-	UBI_MODE_PLAIN = 0,
-	UBI_MODE_SECURE = 1,
+	UBI_MODE_PLAIN = 0, /**< Plain backend — CRC-only integrity. */
+	UBI_MODE_SECURE = 1, /**< Secure backend — AES-128-CCM authenticated encryption. */
 };
 
 /**
@@ -40,30 +42,33 @@ enum ubi_device_mode {
  */
 struct ubi_backend_ops {
 	/* Device lifecycle */
-	int (*init)(const struct ubi_mtd *mtd, const struct ubi_crypto_config *crypto_cfg,
-		    struct ubi_device **ubi);
-	int (*get_info)(struct ubi_device *ubi, struct ubi_device_info *info);
-	int (*deinit)(struct ubi_device *ubi);
-	int (*erase_peb)(struct ubi_device *ubi);
+	int (*init)(const struct ubi_flash_desc *flash, const struct ubi_crypto_config *crypto_cfg,
+		    struct ubi_device **ubi); /**< Initialize device. */
+	int (*deinit)(struct ubi_device *ubi); /**< Shut down and free resources. */
+	int (*get_info)(struct ubi_device *ubi,
+			struct ubi_device_info *info); /**< Query device state. */
+	int (*erase_peb)(struct ubi_device *ubi); /**< Reclaim one dirty PEB. */
 
 	/* Volume management */
 	int (*vol_create)(struct ubi_device *ubi, const struct ubi_volume_config *vol_cfg,
-			  int *vol_id);
+			  int *vol_id); /**< Create a new volume. */
 	int (*vol_resize)(struct ubi_device *ubi, int vol_id,
-			  const struct ubi_volume_config *vol_cfg);
-	int (*vol_remove)(struct ubi_device *ubi, int vol_id);
+			  const struct ubi_volume_config *vol_cfg); /**< Resize a volume. */
+	int (*vol_remove)(struct ubi_device *ubi, int vol_id); /**< Remove a volume. */
 	int (*vol_get_info)(struct ubi_device *ubi, int vol_id, struct ubi_volume_config *vol_cfg,
-			    size_t *alloc_lebs);
+			    size_t *alloc_lebs); /**< Query volume configuration. */
 
 	/* LEB operations */
 	int (*leb_write)(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
-			 size_t len);
+			 size_t len); /**< Write data to a LEB. */
 	int (*leb_read)(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
-			size_t len);
-	int (*leb_map)(struct ubi_device *ubi, int vol_id, size_t lnum);
-	int (*leb_unmap)(struct ubi_device *ubi, int vol_id, size_t lnum);
-	int (*leb_is_mapped)(struct ubi_device *ubi, int vol_id, size_t lnum, bool *is_mapped);
-	int (*leb_get_size)(struct ubi_device *ubi, int vol_id, size_t lnum, size_t *size);
+			size_t len); /**< Read data from a LEB. */
+	int (*leb_map)(struct ubi_device *ubi, int vol_id, size_t lnum); /**< Map a LEB. */
+	int (*leb_unmap)(struct ubi_device *ubi, int vol_id, size_t lnum); /**< Unmap a LEB. */
+	int (*leb_is_mapped)(struct ubi_device *ubi, int vol_id, size_t lnum,
+			     bool *is_mapped); /**< Check LEB mapping. */
+	int (*leb_get_size)(struct ubi_device *ubi, int vol_id, size_t lnum,
+			    size_t *size); /**< Get LEB data size. */
 };
 
 /**

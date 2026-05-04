@@ -16,7 +16,8 @@
  * \copyright Copyright (c) 2026
  */
 
-/* --------------------------------------- Include files --------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
@@ -36,16 +37,16 @@
 #include <errno.h>
 #include <string.h>
 
-/* -------------------------------------- Module defines --------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* ------------------------------------- Static variables -------------------------------------- */
+/* Static variables ----------------------------------------------------------------------------- */
 
-static struct ubi_mtd mtd = { 0 };
+static struct ubi_flash_desc flash = { 0 };
 
 /* Module-level device pointer for teardown safety. */
 static struct ubi_device *g_ubi = NULL;
@@ -58,7 +59,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* -------------------------------------- Static helpers --------------------------------------- */
+/* Static helpers ------------------------------------------------------------------------------- */
 
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
@@ -80,7 +81,7 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ad, 0, sizeof(*ad));
 }
 
-/* ---------------------------------- Suite setup / teardown ----------------------------------- */
+/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -90,9 +91,9 @@ static void *ztest_suite_setup(void)
 	struct flash_pages_info page_info = { 0 };
 	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
 
-	mtd.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	mtd.erase_block_size = page_info.size;
-	mtd.write_block_size = flash_get_write_block_size(flash_dev);
+	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash.erase_block_size = page_info.size;
+	flash.write_block_size = flash_get_write_block_size(flash_dev);
 
 	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
 	ubi_test_import_root_key();
@@ -119,7 +120,7 @@ static void ztest_testcase_after(void *ctx)
 	}
 }
 
-/* ------------------------------------------- Tests ------------------------------------------- */
+/* Tests ---------------------------------------------------------------------------------------- */
 
 /**
  * \brief Interrupted LEB data write preserves old mapping (COW).
@@ -148,7 +149,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_preserves_old_mapping)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -211,7 +212,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_vid_commit_preserves_old_mapping)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -265,7 +266,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_first_write_leaves_unmapped)
 	struct ubi_device *ubi = NULL;
 	int vol_id = -1;
 
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -321,7 +322,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_survives_reboot)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -345,7 +346,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_survives_reboot)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* Verify old data survives reboot. The half-written PEB is classified
@@ -395,7 +396,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_write_preserves_continuity)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -453,7 +454,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_write_preserves_continuity)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* After reboot: volume must still be recognized with anchor intact. */
@@ -513,7 +514,7 @@ ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
 	int vol_id2 = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* Create volume 1 -> reserved revision N. */
@@ -522,14 +523,14 @@ ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
 	/* Save snapshot of reserved PEB 0 content (the revision N copy). */
 	const struct flash_area *fa = NULL;
 
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	uint8_t stale_bank[8192] = { 0 };
 	const size_t peb0_offset = 0;
 
-	zassert_true(mtd.erase_block_size <= sizeof(stale_bank),
+	zassert_true(flash.erase_block_size <= sizeof(stale_bank),
 		     "stale_bank buffer too small for erase_block_size");
-	zassert_ok(flash_area_read(fa, peb0_offset, stale_bank, mtd.erase_block_size));
+	zassert_ok(flash_area_read(fa, peb0_offset, stale_bank, flash.erase_block_size));
 	flash_area_close(fa);
 
 	/* Create volume 2 -> reserved revision N+1. */
@@ -537,9 +538,9 @@ ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
 
 	/* Overwrite reserved PEB bank 0 with the stale (revision N) snapshot.
 	 * This simulates a replay attack on one bank. */
-	zassert_ok(flash_area_open(mtd.partition_id, &fa));
-	zassert_ok(flash_area_erase(fa, peb0_offset, mtd.erase_block_size));
-	zassert_ok(flash_area_write(fa, peb0_offset, stale_bank, mtd.erase_block_size));
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	zassert_ok(flash_area_erase(fa, peb0_offset, flash.erase_block_size));
+	zassert_ok(flash_area_write(fa, peb0_offset, stale_bank, flash.erase_block_size));
 	flash_area_close(fa);
 
 	/* Reboot. */
@@ -553,7 +554,7 @@ ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
 
 	/* Re-init: scan should pick PEB bank 1 (revision N+1), reject stale PEB 0. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
@@ -612,7 +613,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_reserved_commit_no_ghost_volume)
 	int vol_id2 = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* Create volume 1 successfully. */
@@ -648,7 +649,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_reserved_commit_no_ghost_volume)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* After reboot: reserved PEB commit erases both banks before writing.
@@ -709,7 +710,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* Reserved commit for volume_create does:
@@ -739,7 +740,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
 
 	/* Init should succeed regardless -- it handles partial writes. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* The device must be in a consistent state. */
@@ -802,7 +803,7 @@ ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
 	int vol_id = -1;
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
@@ -828,12 +829,12 @@ ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
 	{
 		const struct flash_area *fa = NULL;
 
-		zassert_ok(flash_area_open(mtd.partition_id, &fa));
+		zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 		const size_t anchor_peb = 2; /* UBI_DEV_HDR_NR_OF_RES_PEBS */
 
-		zassert_ok(flash_area_erase(fa, anchor_peb * mtd.erase_block_size,
-					    mtd.erase_block_size));
+		zassert_ok(flash_area_erase(fa, anchor_peb * flash.erase_block_size,
+					    flash.erase_block_size));
 		flash_area_close(fa);
 	}
 
@@ -841,7 +842,7 @@ ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
 	 * Init must detect anchor_pnum == SIZE_MAX and re-create the anchor. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
-	zassert_ok(ubi_device_init(&mtd, &cfg, &ubi));
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 
 	/* Volume must be recognized. */
@@ -873,7 +874,7 @@ ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
 #endif
 }
 
-/* ------------------------------------ Suite registration ------------------------------------- */
+/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_recovery, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,
 	    NULL);
