@@ -652,7 +652,12 @@ struct ubi_crypto_prefix32 {
 Properties:
 
 - `magic` is **32 bits**,
-- `wrapper_version` is fixed for the current format and reserved for explicit future compatibility decisions,
+- `wrapper_version` is fixed for the current on-flash format; every secure
+  read path validates it immediately after the magic check and rejects
+  records whose `wrapper_version` does not match the build-time
+  `UBI_SECURE_WRAPPER_VERSION` with `-EBADMSG`, before any key
+  derivation or AEAD work — an unknown format version is a parse-time
+  error, never an authentication failure,
 - `salt` stays **6 bytes**,
 - `counter` stays **6 bytes**,
 - the prefix is plaintext for parsing,
@@ -767,6 +772,7 @@ Important points:
 - if authenticated `vid_hdr.data_size == 0`, SECURE still writes a zero-length secure LEB record using the base `prefix32 || tag16` layout with zero ciphertext bytes,
 - for that zero-length case, one AEAD invocation is still consumed and `leb_total_auth_bytes` advances by the fixed zero-length LEB AAD size,
 - single-tag mode is valid only when authenticated `payload_bytes < 65536`,
+- this CCM payload limit is enforced at runtime: `ubi_secure_leb_data_write` rejects `len > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD` (65535) with `-EFBIG`, `ubi_secure_leb_data_read` rejects `vid_hdr.data_size > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD` with `-EBADMSG`, and in non-chunked builds device init rejects geometries with `leb_size > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD` with `-EINVAL`,
 - the architecture does **not** require buffering the full maximum LEB capacity when the logical payload is shorter,
 - but single-tag mode still requires full authentication of the complete recorded payload before any plaintext may be returned,
 - if flash write alignment requires a longer terminal write, any extra bytes must appear only after `tag16`, must be written as the flash erased value, and are outside the authenticated record,

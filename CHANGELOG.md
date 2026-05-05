@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.0] - 2026-05-05
+
+### Changed
+
+- Secure read paths reject records with an unknown `prefix32.wrapper_version`
+  (`-EBADMSG`) right after the magic check, before any key derivation.
+  Applied at all six deserialize sites: EC, VID, LEB single-tag, LEB
+  chunked, reserved-PEB device header, reserved-PEB volume header.
+- Single-tag LEB IO path enforces the AES-128-CCM payload limit at
+  runtime: with q = 2 the CCM length field is 2 bytes, so any payload
+  of 65536 bytes or more is unrepresentable.
+  `ubi_secure_leb_data_write` rejects `len > 65535` with `-EFBIG`;
+  `ubi_secure_leb_data_read` rejects `vid_hdr->data_size > 65535` with
+  `-EBADMSG`; both checks fire before any key derivation or flash IO.
+  In non-chunked builds, device init rejects geometries whose
+  `leb_size > 65535` with `-EINVAL`.
+
+### Added
+
+- New constant `UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD` (= 65535).
+- Seven defensive ZTESTs in `ubi_secure_defensive`:
+  `test_init_dev_hdr_bad_wrapper_version`,
+  `test_init_vol_hdr_bad_wrapper_version`,
+  `test_io_ec_hdr_read_bad_wrapper_version`,
+  `test_io_vid_hdr_read_bad_wrapper_version`,
+  `test_io_leb_data_read_bad_wrapper_version`,
+  `test_io_leb_data_write_payload_exceeds_ccm_limit`,
+  `test_io_leb_data_read_data_size_exceeds_ccm_limit`.
+
 ## [0.51.0] - 2026-05-05
 
 ### Added

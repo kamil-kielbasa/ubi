@@ -46,6 +46,14 @@
 /** Maximum value representable in a 48-bit counter. */
 #define UBI_SECURE_COUNTER_MAX (0xFFFFFFFFFFFFULL)
 
+/** Maximum authenticated payload (bytes) for a single AES-128-CCM
+ *  invocation with q = 2 (length-field width = 2 bytes): the encoded
+ *  payload length must fit in 2 bytes, so payload_len < 2^16 = 65536,
+ *  i.e. up to 65535 inclusive.  Used as a runtime guard on the secure
+ *  LEB single-tag IO path to reject payloads that would overflow the
+ *  CCM length field. */
+#define UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD (65535U)
+
 /** Size of the reserved field in the prefix. */
 #define UBI_SECURE_PREFIX_RESERVED_SIZE (12)
 

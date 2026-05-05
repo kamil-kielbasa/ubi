@@ -1460,6 +1460,324 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_domain)
 }
 
 /**
+ * \brief Device init rejects reserved-PEB records with an unsupported
+ *        wrapper_version.
+ *
+ * \details Writes a synthetic device-header prefix into reserved PEB 0
+ *          with valid magic + DEVICE_HEADER domain but a bogus
+ *          wrapper_version.  Subsequent ubi_device_init() must fail to
+ *          authenticate any reserved-PEB copy and return an error.
+ *
+ * \expect ubi_device_init returns a non-zero error.
+ */
+ZTEST(ubi_secure_defensive, test_init_dev_hdr_bad_wrapper_version)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	const struct flash_area *fa = NULL;
+
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+
+	struct ubi_crypto_prefix32 prefix = {
+		.magic = UBI_SECURE_PREFIX_MAGIC,
+		.wrapper_version = UBI_SECURE_WRAPPER_VERSION + 1, /* unsupported */
+		.domain = UBI_SECURE_DOMAIN_DEVICE_HEADER,
+		.key_version = cfg.policy.requested_write_key_version,
+		.flags = 0,
+	};
+	uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
+
+	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
+
+	/* Plant the bogus prefix into every reserved PEB. */
+	for (size_t i = 0; i < CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+		zassert_ok(flash_area_write(fa, i * flash.erase_block_size, prefix_buf,
+					    sizeof(prefix_buf)));
+	}
+	flash_area_close(fa);
+
+	struct ubi_device *ubi = NULL;
+
+	zassert_not_equal(ubi_device_init(&flash, &cfg, &ubi), 0,
+			  "init must reject unsupported wrapper_version");
+	if (ubi != NULL) {
+		ubi_device_deinit(ubi);
+	}
+}
+
+/**
+ * \brief Device init rejects reserved-PEB volume-header records with an
+ *        unsupported wrapper_version.
+ *
+ * \details Builds a fully valid reserved-PEB layout via ubi_device_init
+ *          + ubi_volume_create (so dev_hdr authenticates), then patches
+ *          the wrapper_version byte in the vol_hdr prefix on every
+ *          reserved-PEB copy.  The on-flash bit transition is 1->0 only
+ *          (NOR-safe).  This isolates the vol-hdr authenticate code path
+ *          in ubi_secure_res_peb_read_vol_hdrs (separate from the
+ *          dev_hdr path covered by the previous test).
+ *
+ * \expect Subsequent ubi_device_init returns a non-zero error.
+ */
+ZTEST(ubi_secure_defensive, test_init_vol_hdr_bad_wrapper_version)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	struct ubi_device *ubi = NULL;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = "test_vol",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	ubi_test_partition_force_release_all();
+
+	const struct flash_area *fa = NULL;
+
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+
+	/* Patch the wrapper_version byte in the vol_hdr prefix on every
+	 * reserved-PEB copy.  We rewrite the full 32-byte prefix so that
+	 * only the wrapper_version byte transitions 1 -> 0 (NOR-safe);
+	 * all other bytes are programmed to their existing values. */
+	for (size_t i = 0; i < CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+		const size_t vol_prefix_offset =
+			i * flash.erase_block_size + UBI_SECURE_DEV_HDR_SIZE;
+		uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
+
+		zassert_ok(flash_area_read(fa, vol_prefix_offset, prefix_buf, sizeof(prefix_buf)));
+
+		struct ubi_crypto_prefix32 prefix = { 0 };
+
+		ubi_secure_prefix32_deserialize(prefix_buf, &prefix);
+		zassert_equal(prefix.wrapper_version, UBI_SECURE_WRAPPER_VERSION);
+		zassert_equal(prefix.domain, UBI_SECURE_DOMAIN_VOLUME_HEADER);
+
+		/* Force unsupported wrapper_version (1 -> 0 transition). */
+		prefix.wrapper_version = 0;
+		ubi_secure_prefix32_serialize(&prefix, prefix_buf);
+
+		zassert_ok(flash_area_write(fa, vol_prefix_offset, prefix_buf, sizeof(prefix_buf)));
+	}
+	flash_area_close(fa);
+
+	zassert_not_equal(ubi_device_init(&flash, &cfg, &ubi), 0,
+			  "init must reject unsupported vol_hdr wrapper_version");
+	if (ubi != NULL) {
+		ubi_device_deinit(ubi);
+	}
+}
+
+/**
+ * \brief ec_hdr_read rejects records with an unsupported wrapper_version.
+ *
+ * \details Writes a prefix with valid magic + ERASE_COUNTER domain but a
+ *          bogus wrapper_version (current + 1).  The read path must reject
+ *          before any key derivation.
+ *
+ * \expect Returns -EBADMSG.
+ */
+ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_wrapper_version)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	const struct flash_area *fa = NULL;
+
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+
+	struct ubi_crypto_prefix32 prefix = {
+		.magic = UBI_SECURE_PREFIX_MAGIC,
+		.wrapper_version = UBI_SECURE_WRAPPER_VERSION + 1, /* unsupported */
+		.domain = UBI_SECURE_DOMAIN_ERASE_COUNTER,
+		.key_version = cfg.policy.requested_write_key_version,
+		.flags = 0,
+	};
+	uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
+
+	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
+
+	const size_t offset = 4 * flash.erase_block_size;
+
+	zassert_ok(flash_area_write(fa, offset, prefix_buf, sizeof(prefix_buf)));
+	flash_area_close(fa);
+
+	struct ubi_ec_hdr ec = { 0 };
+	struct ubi_secure_ec_auth_ctx ctx = { 0 };
+
+	zassert_equal(ubi_secure_ec_hdr_read(&flash, &cfg, 4, &ec, &ctx), -EBADMSG);
+}
+
+/**
+ * \brief vid_hdr_read rejects records with an unsupported wrapper_version.
+ *
+ * \details Writes a valid EC then a VID prefix with a bogus wrapper_version.
+ *
+ * \expect Returns -EBADMSG.
+ */
+ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_wrapper_version)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	const struct ubi_ec_hdr ec_hdr = {
+		.magic = UBI_EC_HDR_MAGIC,
+		.version = UBI_EC_HDR_VERSION,
+		.ec = 0,
+	};
+
+	zassert_ok(ubi_secure_ec_hdr_write(&flash, &cfg, 5, &ec_hdr,
+					   cfg.policy.requested_write_key_version, 0));
+
+	struct ubi_ec_hdr ec_read = { 0 };
+	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
+
+	zassert_ok(ubi_secure_ec_hdr_read(&flash, &cfg, 5, &ec_read, &ec_ctx));
+
+	const struct flash_area *fa = NULL;
+
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+
+	struct ubi_crypto_prefix32 prefix = {
+		.magic = UBI_SECURE_PREFIX_MAGIC,
+		.wrapper_version = UBI_SECURE_WRAPPER_VERSION + 1, /* unsupported */
+		.domain = UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+		.key_version = cfg.policy.requested_write_key_version,
+		.flags = 0,
+	};
+	uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
+
+	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
+
+	const size_t vid_offset = 5 * flash.erase_block_size + UBI_SECURE_EC_HDR_SIZE;
+
+	zassert_ok(flash_area_write(fa, vid_offset, prefix_buf, sizeof(prefix_buf)));
+	flash_area_close(fa);
+
+	struct ubi_vid_hdr vid = { 0 };
+	struct ubi_vid_secure_meta meta = { 0 };
+	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
+
+	zassert_equal(ubi_secure_vid_hdr_read(&flash, &cfg, 5, &ec_ctx, &vid, &meta, &vid_ctx),
+		      -EBADMSG);
+}
+
+/**
+ * \brief leb_data_read rejects records with an unsupported wrapper_version.
+ *
+ * \details Writes a LEB prefix with valid magic + LEB domain but a bogus
+ *          wrapper_version.  The read path must reject before any key
+ *          derivation.
+ *
+ * \expect Returns -EBADMSG.
+ */
+ZTEST(ubi_secure_defensive, test_io_leb_data_read_bad_wrapper_version)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	const struct flash_area *fa = NULL;
+
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+
+	struct ubi_crypto_prefix32 prefix = {
+		.magic = UBI_SECURE_PREFIX_MAGIC,
+		.wrapper_version = UBI_SECURE_WRAPPER_VERSION + 1, /* unsupported */
+		.domain = UBI_SECURE_DOMAIN_LEB,
+		.key_version = cfg.policy.requested_write_key_version,
+		.flags = 0,
+	};
+	uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
+
+	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
+
+	const size_t leb_offset = 5 * flash.erase_block_size + UBI_SECURE_LEB_OFFSET;
+
+	zassert_ok(flash_area_write(fa, leb_offset, prefix_buf, sizeof(prefix_buf)));
+	flash_area_close(fa);
+
+	struct ubi_vid_hdr vid = { .data_size = 2, .vol_id = 0, .lnum = 0, .sqnum = 1 };
+	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
+	uint8_t buf[2] = { 0 };
+
+	const int ret = ubi_secure_leb_data_read(&flash, &cfg, 5, &vid_ctx, 0, buf, 2);
+
+	zassert_equal(ret, -EBADMSG);
+}
+
+/* ============================ Single-tag CCM payload guard ===================================== */
+
+/**
+ * \brief leb_data_write rejects payloads exceeding the single-tag CCM limit.
+ *
+ * \details Single-tag AES-128-CCM with q = 2 encodes the payload length
+ *          in a 2-byte field, so it cannot authenticate payloads of
+ *          65536 bytes or more.  The write path must reject
+ *          `len > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD` before any
+ *          key derivation or flash IO.
+ *
+ * \expect Returns -EFBIG.
+ */
+ZTEST(ubi_secure_defensive, test_io_leb_data_write_payload_exceeds_ccm_limit)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
+	const struct ubi_vid_hdr vid = { .data_size = UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD + 1U };
+	static const uint8_t dummy = 0;
+
+	/* len > 65535 must be rejected with -EFBIG; buf may be a stub since the
+	 * guard fires before any read of the payload. */
+	const int ret =
+		ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, &dummy,
+					  (size_t)UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD + 1U,
+					  cfg.policy.requested_write_key_version, 0);
+
+	zassert_equal(ret, -EFBIG, "Expected -EFBIG, got %d", ret);
+}
+
+/**
+ * \brief leb_data_read rejects records advertising data_size beyond the
+ *        single-tag CCM limit.
+ *
+ * \details Build a vid_hdr with data_size > 65535 and call the read API.
+ *          The guard must fire before any flash IO or key derivation,
+ *          since CCM with q = 2 cannot decode a payload that does not
+ *          fit in its 2-byte length field.
+ *
+ * \expect Returns -EBADMSG.
+ */
+ZTEST(ubi_secure_defensive, test_io_leb_data_read_data_size_exceeds_ccm_limit)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_vid_hdr vid = { .data_size = UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD + 1U };
+	const struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
+	uint8_t buf[1] = { 0 };
+
+	const int ret = ubi_secure_leb_data_read(&flash, &cfg, 4, &vid_ctx, 0, buf, 1);
+
+	zassert_equal(ret, -EBADMSG, "Expected -EBADMSG, got %d", ret);
+}
+
+/**
  * \brief vid_hdr_read returns error when key derivation fails.
  *
  * \details Writes EC then valid VID prefix, arms GET_KEY_ID_FAIL.

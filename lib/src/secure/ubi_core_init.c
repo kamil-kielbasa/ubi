@@ -1076,6 +1076,14 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 #else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 	ubi_dev->leb_size =
 		ubi_dev->flash.erase_block_size - UBI_SECURE_LEB_OFFSET - UBI_SECURE_LEB_OVERHEAD;
+
+	if (ubi_dev->leb_size > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD) {
+		LOG_ERR("Single-tag leb_size %zu exceeds CCM limit %u; enable "
+			"CONFIG_UBI_CRYPTO_LEB_CHUNKED for this geometry",
+			ubi_dev->leb_size, UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD);
+		ret = -EINVAL;
+		goto exit;
+	}
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 
 	/* Detect mode: blank, secure, or plain. */

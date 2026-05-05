@@ -109,6 +109,12 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
 		return -EBADMSG;
 	}
 
+	if (prefix->wrapper_version != UBI_SECURE_WRAPPER_VERSION) {
+		LOG_ERR("Unsupported wrapper_version %u in device header (expected %u)",
+			prefix->wrapper_version, UBI_SECURE_WRAPPER_VERSION);
+		return -EBADMSG;
+	}
+
 	if (prefix->domain != UBI_SECURE_DOMAIN_DEVICE_HEADER) {
 		LOG_ERR("Unexpected domain in device header: %u", prefix->domain);
 		return -EBADMSG;
@@ -495,6 +501,13 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 		if (prefix.magic != UBI_SECURE_PREFIX_MAGIC ||
 		    prefix.domain != UBI_SECURE_DOMAIN_VOLUME_HEADER) {
 			LOG_ERR("Vol hdr %zu bad prefix", i);
+			ret = -EBADMSG;
+			goto cleanup;
+		}
+
+		if (prefix.wrapper_version != UBI_SECURE_WRAPPER_VERSION) {
+			LOG_ERR("Vol hdr %zu unsupported wrapper_version %u (expected %u)", i,
+				prefix.wrapper_version, UBI_SECURE_WRAPPER_VERSION);
 			ret = -EBADMSG;
 			goto cleanup;
 		}

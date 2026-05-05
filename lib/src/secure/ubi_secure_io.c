@@ -102,6 +102,12 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
 		return -EBADMSG;
 	}
 
+	if (prefix.wrapper_version != UBI_SECURE_WRAPPER_VERSION) {
+		LOG_ERR("Unsupported wrapper_version %u in EC at PEB %zu (expected %u)",
+			prefix.wrapper_version, peb_idx, UBI_SECURE_WRAPPER_VERSION);
+		return -EBADMSG;
+	}
+
 	if (prefix.domain != UBI_SECURE_DOMAIN_ERASE_COUNTER) {
 		LOG_ERR("Unexpected domain %u in EC at PEB %zu", prefix.domain, peb_idx);
 		return -EBADMSG;
@@ -296,6 +302,12 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 		return -EBADMSG;
 	}
 
+	if (prefix.wrapper_version != UBI_SECURE_WRAPPER_VERSION) {
+		LOG_ERR("Unsupported wrapper_version %u in VID at PEB %zu (expected %u)",
+			prefix.wrapper_version, peb_idx, UBI_SECURE_WRAPPER_VERSION);
+		return -EBADMSG;
+	}
+
 	if (prefix.domain != UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER) {
 		LOG_ERR("Unexpected domain %u in VID at PEB %zu", prefix.domain, peb_idx);
 		return -EBADMSG;
@@ -480,6 +492,12 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 
 	const uint32_t data_size = vid_ctx->vid_hdr->data_size;
 
+	if (data_size > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD) {
+		LOG_ERR("LEB single-tag data_size %u exceeds CCM limit %u at PEB %zu", data_size,
+			UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD, peb_idx);
+		return -EBADMSG;
+	}
+
 	/* Zero-length record: nothing to read. */
 	if (data_size == 0) {
 		if (len != 0) {
@@ -522,6 +540,13 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 
 	if (prefix.magic != UBI_SECURE_PREFIX_MAGIC || prefix.domain != UBI_SECURE_DOMAIN_LEB) {
 		LOG_ERR("Bad LEB prefix at PEB %zu", peb_idx);
+		flash_area_close(fa);
+		return -EBADMSG;
+	}
+
+	if (prefix.wrapper_version != UBI_SECURE_WRAPPER_VERSION) {
+		LOG_ERR("Unsupported wrapper_version %u in LEB at PEB %zu (expected %u)",
+			prefix.wrapper_version, peb_idx, UBI_SECURE_WRAPPER_VERSION);
 		flash_area_close(fa);
 		return -EBADMSG;
 	}
@@ -619,6 +644,12 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	if (buf == NULL && len != 0) {
 		LOG_ERR("leb_data_write: NULL buf with len %zu", len);
 		return -EINVAL;
+	}
+
+	if (len > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD) {
+		LOG_ERR("LEB single-tag write len %zu exceeds CCM limit %u at PEB %zu", len,
+			UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD, peb_idx);
+		return -EFBIG;
 	}
 
 	/* Derive LEB key for {key_version, volume_id}. */
@@ -940,6 +971,13 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 
 	if (prefix.magic != UBI_SECURE_PREFIX_MAGIC || prefix.domain != UBI_SECURE_DOMAIN_LEB) {
 		LOG_ERR("Bad chunked LEB prefix at PEB %zu", peb_idx);
+		flash_area_close(fa);
+		return -EBADMSG;
+	}
+
+	if (prefix.wrapper_version != UBI_SECURE_WRAPPER_VERSION) {
+		LOG_ERR("Unsupported wrapper_version %u in chunked LEB at PEB %zu (expected %u)",
+			prefix.wrapper_version, peb_idx, UBI_SECURE_WRAPPER_VERSION);
 		flash_area_close(fa);
 		return -EBADMSG;
 	}
