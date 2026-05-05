@@ -30,6 +30,7 @@ if(CONFIG_UBI_CRYPTO)
     zephyr_library_sources(
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_core_init.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_backend.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_budget.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_crypto.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_ser.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/secure/ubi_secure_reserved.c

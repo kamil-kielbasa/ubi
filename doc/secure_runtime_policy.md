@@ -89,6 +89,41 @@ computed against the Kconfig budgets (`UBI_CRYPTO_LEB_WRITE_BUDGET`,
 `UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET`) and `KEY_ROTATE_SOON` or
 `KEY_ROTATE_NOW` events are emitted when thresholds are crossed.
 
+## Metadata Usage Budget
+
+In addition to the per-`{key_version, volume_id}` LEB budget, each
+metadata-bearing AEAD record class is enforced under the active
+`write_active_key_version`:
+
+- **DEV** — encrypted device-header records (one per reserved-PEB commit).
+- **VOL** — encrypted volume-header records (`vol_count` per reserved-PEB commit).
+- **EC** — secure erase-counter headers written on every PEB erase.
+- **VID** — volume-ID headers written on every LEB write.
+
+DEV and VOL share the same on-flash counter (`next_dev_hdr_counter`); EC
+uses `next_ec_counter`; VID uses `next_vid_counter`. The per-record
+authenticated-byte sizes are derived from existing AAD/plaintext/record-size
+macros and are `BUILD_ASSERT`-locked in `ubi_secure_budget.c`.
+
+**Pre-commit check**: before any flash mutation, the backend projects the
+post-commit counter and authenticated-byte total. If either crosses
+`ROTATE_NOW_PCT` of `UBI_CRYPTO_METADATA_COUNTER_BUDGET` /
+`UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `KEY_ROTATE_NOW` is emitted,
+sticky `read_only_crypto` is set, and the operation is rejected with
+`-ENOSPC` (or `-EROFS` if the gate already trips on a subsequent call).
+
+**Post-commit check**: after the on-flash counter has been bumped, usage
+percentages are evaluated and `KEY_ROTATE_SOON` or `KEY_ROTATE_NOW` is
+emitted when thresholds are crossed.
+
+**Budget reset on rotation**: per-domain RAM-only "budget bases" are captured
+during `ubi_device_init`. When a successful rotation occurs (eager rotation
+at attach because `requested_write_key_version` differs from the on-flash
+key version), the bases are set to the current counter values so all
+subsequent writes count from zero under the new HKDF child keys. When the
+write-active kv is unchanged across a reattach, the bases stay at zero so
+the cumulative budget under that kv carries forward.
+
 ## Error Propagation
 
 Internal crypto error codes (`UBI_SECURE_ENORAND`, `UBI_SECURE_ENOKEY`,

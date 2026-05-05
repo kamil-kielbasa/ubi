@@ -25,6 +25,7 @@
 
 /* Standard library headers: */
 #include <stdbool.h>
+#include <stdint.h>
 
 /* Types and type definitions ------------------------------------------------------------------- */
 
@@ -75,6 +76,30 @@ void ubi_secure_test_hook_set(enum ubi_secure_test_hook_stage stage, bool armed)
  * \retval false  Hook not armed — proceed normally.
  */
 bool ubi_secure_test_hook_check(enum ubi_secure_test_hook_stage stage);
+
+/* Forward declaration so we don't need to pull in ubi_internal.h. */
+struct ubi_device;
+
+/**
+ * \brief Test-only override of the global metadata counters.
+ *
+ * Allows tests to drive any metadata-domain counter close to the
+ * ROTATE_NOW threshold using only a handful of real flash operations,
+ * which is necessary on geometries (e.g. native_sim) where the free-PEB
+ * count is far smaller than CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET.
+ *
+ * Each parameter sets the corresponding `next_*_counter` field on the
+ * UBI device.  Subsequent metadata writes will use these values as their
+ * starting AEAD counter (the on-flash records remain self-consistent
+ * because they embed the counter value used at write time).
+ *
+ * \param[in,out] ubi      UBI device handle.
+ * \param[in]     dev_hdr  New value for next_dev_hdr_counter.
+ * \param[in]     ec       New value for next_ec_counter.
+ * \param[in]     vid      New value for next_vid_counter.
+ */
+void ubi_secure_test_set_metadata_counters(struct ubi_device *ubi, uint64_t dev_hdr, uint64_t ec,
+					   uint64_t vid);
 
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 #endif /* UBI_SECURE_TEST_HOOKS_H */

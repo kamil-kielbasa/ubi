@@ -85,6 +85,18 @@ struct ubi_device {
 	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter. */
 	uint64_t next_ec_counter; /**< Next unused EC-domain AEAD counter. */
 	uint64_t next_dev_hdr_counter; /**< Next unused reserved-PEB AEAD counter. */
+	/* Per-domain budget bases — counter values at the moment the current
+	 * write-active key version was activated.  Subtraction yields the true
+	 * number of AEAD invocations performed under the active kv.  RAM-only;
+	 * captured by ubi_secure_budget_init_bases() during attach.  DEVICE_HEADER
+	 * and VOLUME_HEADER are tracked separately even though they share the
+	 * on-flash counter (next_dev_hdr_counter): they use distinct HKDF
+	 * child keys and have different per-record AAD sizes, so the VOLUME_HEADER
+	 * bytes-budget fills faster than the DEVICE_HEADER one. */
+	uint64_t budget_base_dev; /**< Base for DEVICE_HEADER domain. */
+	uint64_t budget_base_vol; /**< Base for VOLUME_HEADER domain. */
+	uint64_t budget_base_ec; /**< Base for ERASE_COUNTER domain. */
+	uint64_t budget_base_vid; /**< Base for VOLUME_IDENTIFIER domain. */
 	uint64_t cached_device_revision; /**< Cached dev_hdr revision for freshness snapshots. */
 	size_t freshness_mutations_since_sync; /**< Mutations since last sync_freshness call. */
 #endif /* CONFIG_UBI_CRYPTO */

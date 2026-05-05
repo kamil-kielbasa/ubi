@@ -35,9 +35,9 @@ BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes"
 #if defined(CONFIG_UBI_CRYPTO)
 BUILD_ASSERT(sizeof(struct ubi_volume) == 48, "ubi_volume must be 48 bytes (secure)");
 #if defined(CONFIG_X86) || defined(CONFIG_ARCH_POSIX)
-BUILD_ASSERT(sizeof(struct ubi_device) == 196, "ubi_device must be 196 bytes (secure, x86)");
+BUILD_ASSERT(sizeof(struct ubi_device) == 228, "ubi_device must be 228 bytes (secure, x86)");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 200, "ubi_device must be 200 bytes (secure, ARM)");
+BUILD_ASSERT(sizeof(struct ubi_device) == 232, "ubi_device must be 232 bytes (secure, ARM)");
 #endif
 #else /* !CONFIG_UBI_CRYPTO */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");

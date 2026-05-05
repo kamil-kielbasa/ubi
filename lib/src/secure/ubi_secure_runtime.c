@@ -10,6 +10,7 @@
 
 /* Internal headers: */
 #include "ubi_secure_ops.h"
+#include "ubi_secure_budget.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_event.h"
 #include "ubi_secure_io.h"
@@ -59,11 +60,21 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	__ASSERT_NO_MSG(ubi != NULL);
 	__ASSERT_NO_MSG(entry != NULL);
 
+	/* Each erase writes one new EC header under the active write_active_kv.
+	 * Reject before any flash mutation. */
+	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	int ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER,
+						 ubi->next_ec_counter + 1, write_kv, 0);
+	if (ret != 0) {
+		LOG_ERR("EC-domain budget rejected erase for PEB %zu", (size_t)entry->value.pnum);
+		return ret;
+	}
+
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
-					 &ec_ctx);
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure for PEB %zu", (size_t)entry->value.pnum);
 		goto mark_bad;
@@ -100,8 +111,6 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 
 	ec_hdr.ec += 1;
 
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
-
 	ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
 				      write_kv, ubi->next_ec_counter);
 	if (ret != 0) {
@@ -111,6 +120,9 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	}
 
 	ubi->next_ec_counter++;
+
+	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER, ubi->next_ec_counter,
+					write_kv, 0);
 
 	/* Update key-version refcounts: old objects destroyed, new EC written. */
 	ubi_secure_key_refcount_dec_and_check(ubi, ec_ctx.key_version);

@@ -10,6 +10,7 @@
 
 /* Internal headers: */
 #include "ubi_secure_reserved.h"
+#include "ubi_secure_budget.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_event.h"
 #include "ubi_secure_ser.h"
@@ -769,6 +770,10 @@ static int secure_format(const struct ubi_flash_desc *flash,
 		return ret;
 	}
 
+	/* Fresh format under the requested write_active_kv — no rotation,
+	 * cumulative budget bases stay at zero. */
+	ubi_secure_budget_init_bases(ubi_dev, false);
+
 	return 0;
 }
 
@@ -777,12 +782,13 @@ static int secure_format(const struct ubi_flash_desc *flash,
  */
 static int secure_attach(const struct ubi_flash_desc *flash,
 			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev,
-			 uint64_t *out_device_revision)
+			 uint64_t *out_device_revision, bool *out_rotation_happened)
 {
 	__ASSERT_NO_MSG(flash != NULL);
 	__ASSERT_NO_MSG(crypto_cfg != NULL);
 	__ASSERT_NO_MSG(ubi_dev != NULL);
 	__ASSERT_NO_MSG(out_device_revision != NULL);
+	__ASSERT_NO_MSG(out_rotation_happened != NULL);
 
 	/* Scan and authenticate reserved PEBs. */
 	struct ubi_secure_res_peb_scan scan = { 0 };
@@ -887,6 +893,13 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 		LOG_ERR("Volume collection failure");
 		return ret;
 	}
+
+	/* Capture per-domain budget bases.  Eager rotation (new_kv changed)
+	 * starts a fresh budget under the new HKDF child keys; otherwise the
+	 * cumulative budget under the unchanged active kv carries forward.
+	 * Actual capture is deferred to after data-PEB scan so that EC and VID
+	 * counters reflect the full on-flash state. */
+	*out_rotation_happened = (new_kv != scan.dev_prefix.key_version);
 
 	return 0;
 }
@@ -1085,9 +1098,12 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 
 	uint64_t device_revision = 0;
 
+	bool rotation_happened = false;
+
 	if (any_secure) {
 		/* Existing secure media → attach. */
-		ret = secure_attach(flash, crypto_cfg, ubi_dev, &device_revision);
+		ret = secure_attach(flash, crypto_cfg, ubi_dev, &device_revision,
+				    &rotation_happened);
 	} else {
 		/* All blank → format. */
 		ret = secure_format(flash, crypto_cfg, ubi_dev);
@@ -1109,6 +1125,15 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	if (ret != 0) {
 		LOG_ERR("Data PEB scan failure");
 		goto exit;
+	}
+
+	/* Capture per-domain budget bases now that EC and VID counters reflect
+	 * the full on-flash state.  For attach, rotation_happened is true when
+	 * the requested write_active_kv differs from what was on flash; for
+	 * format the value is always false (set above).  See secure_architecture.md
+	 * §9.7. */
+	if (any_secure) {
+		ubi_secure_budget_init_bases(ubi_dev, rotation_happened);
 	}
 
 	/* Re-create missing hidden anchors for orphaned volumes.

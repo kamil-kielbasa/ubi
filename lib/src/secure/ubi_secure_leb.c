@@ -10,6 +10,7 @@
 
 /* Internal headers: */
 #include "ubi_secure_ops.h"
+#include "ubi_secure_budget.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_event.h"
 #include "ubi_secure_io.h"
@@ -32,55 +33,6 @@
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function definitions ------------------------------------------------------------------ */
-
-static void check_leb_budget(struct ubi_device *ubi, uint8_t kv, size_t vol_id, uint64_t counter,
-			     uint64_t auth_bytes)
-{
-	__ASSERT_NO_MSG(ubi != NULL);
-
-	if (ubi->crypto_cfg == NULL || ubi->crypto_cfg->event_cb == NULL) {
-		return;
-	}
-
-	const unsigned int counter_pct =
-		ubi_secure_usage_pct(counter, CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET);
-	const unsigned int bytes_pct =
-		ubi_secure_usage_pct(auth_bytes, CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET);
-	const uint8_t usage_pct = (uint8_t)((counter_pct > bytes_pct) ? counter_pct : bytes_pct);
-
-	if (usage_pct >= CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT) {
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = kv,
-				      .volume_id = (uint32_t)vol_id,
-				      .usage_pct = usage_pct },
-		};
-
-		ubi_secure_emit_event(ubi, &event);
-	} else if (usage_pct >= CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT) {
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_SOON,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = kv,
-				      .volume_id = (uint32_t)vol_id,
-				      .usage_pct = usage_pct },
-		};
-
-		ubi_secure_emit_event(ubi, &event);
-	}
-}
-
-static bool budget_would_exhaust(uint64_t projected_counter, uint64_t projected_bytes)
-{
-	const unsigned int counter_pct =
-		ubi_secure_usage_pct(projected_counter, CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET);
-	const unsigned int bytes_pct = ubi_secure_usage_pct(
-		projected_bytes, CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET);
-	const unsigned int usage_pct = (counter_pct > bytes_pct) ? counter_pct : bytes_pct;
-
-	return usage_pct >= CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT;
-}
 
 /**
  * \brief Mark a PEB that failed a write as bad.
@@ -186,13 +138,15 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	const uint64_t projected_counter = old_write_counter + aead_invocations;
 	const uint64_t projected_bytes = old_total_auth_bytes + leb_auth_bytes_this_write;
+	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	if (projected_counter > UBI_SECURE_COUNTER_MAX) {
-		const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+		LOG_ERR("LEB AEAD counter would overflow (kv=%u vol_id=%d)", (unsigned)write_kv,
+			vol->vol_id);
 		struct ubi_crypto_event ev = {
 			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
 			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = kv,
+			.rotation = { .key_version = write_kv,
 				      .volume_id = (uint32_t)vol->vol_id,
 				      .usage_pct = 100 },
 		};
@@ -200,17 +154,18 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 		return -EOVERFLOW;
 	}
 
-	if (budget_would_exhaust(projected_counter, projected_bytes)) {
-		const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
-		struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = kv,
-				      .volume_id = (uint32_t)vol->vol_id,
-				      .usage_pct = CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT },
-		};
-		ubi_secure_emit_event(ubi, &ev);
-		return -ENOSPC;
+	int ret = ubi_secure_budget_leb_pre(ubi, write_kv, (uint32_t)vol->vol_id, projected_counter,
+					    projected_bytes);
+	if (ret != 0) {
+		LOG_ERR("LEB-domain budget rejected write: vol_id=%d lnum=%zu", vol->vol_id, lnum);
+		return ret;
+	}
+
+	ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+					     ubi->next_vid_counter + 1, write_kv, 0);
+	if (ret != 0) {
+		LOG_ERR("VID-domain budget rejected write: vol_id=%d lnum=%zu", vol->vol_id, lnum);
+		return ret;
 	}
 
 	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
@@ -223,8 +178,8 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, new_node->value.pnum,
-					 &ec_hdr, &ec_ctx);
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, new_node->value.pnum, &ec_hdr,
+				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure on free PEB %zu", new_node->value.pnum);
 		leb_mark_peb_bad(ubi, new_node);
@@ -257,8 +212,6 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 		.leb_write_counter = counter_base + aead_invocations,
 		.leb_total_auth_bytes = old_total_auth_bytes + leb_auth_bytes_this_write,
 	};
-
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	/* Step 1: Write LEB data payload first (if any). */
 	if (buf != NULL && len > 0) {
@@ -298,9 +251,11 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	ubi_secure_key_refcount_inc(ubi, write_kv);
 	ubi_secure_key_refcount_inc(ubi, write_kv);
 
-	/* Check LEB usage budget thresholds. */
-	check_leb_budget(ubi, write_kv, vol->vol_id, vid_meta.leb_write_counter,
-			 vid_meta.leb_total_auth_bytes);
+	ubi_secure_budget_leb_post(ubi, write_kv, (uint32_t)vol->vol_id, vid_meta.leb_write_counter,
+				   vid_meta.leb_total_auth_bytes);
+
+	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+					ubi->next_vid_counter, write_kv, 0);
 
 	*out_new_node = new_node;
 	return 0;

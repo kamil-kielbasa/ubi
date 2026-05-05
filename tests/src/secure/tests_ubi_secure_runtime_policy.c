@@ -20,6 +20,8 @@
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+#include "ubi_secure_test_hooks.h"
+
 #include <psa/crypto.h>
 
 #include <zephyr/ztest.h>
@@ -492,92 +494,7 @@ ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
 	zassert_equal(ret, -EROFS, "Expected -EROFS, got %d", ret);
 }
 
-/* Budget & key lifecycle ----------------------------------------------------------------------- */
-
-/**
- * \brief ROTATE_SOON event fires when LEB write budget crosses soft threshold.
- *
- * \details Repeatedly overwrite the same LEB until the usage percentage
- *          reaches ROTATE_SOON_PCT. Verify the event is emitted.
- *
- * \expected At least one KEY_ROTATE_SOON event after enough writes.
- */
-ZTEST(ubi_secure_runtime_policy, test_budget_rotate_soon_event)
-{
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
-
-	cfg.event_cb = tracking_event_cb;
-
-	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'u', 'b', 'i', '_', '0' },
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 1,
-	};
-
-	int vol_id = -1;
-
-	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
-	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
-
-	const uint8_t wdata[] = { 0xAA, 0xBB, 0xCC, 0xDD };
-	const size_t target_writes = (size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET *
-				     CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / 100;
-
-	for (size_t i = 0; i < target_writes + 1; i++) {
-		int ret = ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata));
-
-		if (ret != 0) {
-			break;
-		}
-		(void)ubi_device_erase_peb(g_ubi);
-	}
-
-	zassert_true(ts.rotate_soon_count >= 1, "Expected KEY_ROTATE_SOON event");
-}
-
-/**
- * \brief ROTATE_NOW rejects write when LEB budget reaches hard threshold.
- *
- * \details Overwrite a LEB until the projected counter reaches ROTATE_NOW_PCT.
- *          Verify that the write is rejected before any flash mutation and that
- *          a KEY_ROTATE_NOW event is emitted.
- *
- * \expected Write returns -ENOSPC and rotate_now_count >= 1.
- */
-ZTEST(ubi_secure_runtime_policy, test_budget_rotate_now_rejects_write)
-{
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
-
-	cfg.event_cb = tracking_event_cb;
-
-	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'u', 'b', 'i', '_', '0' },
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 1,
-	};
-
-	int vol_id = -1;
-
-	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
-	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
-
-	const uint8_t wdata[] = { 0x11, 0x22, 0x33, 0x44 };
-	const size_t now_threshold =
-		(size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / 100;
-
-	int last_ret = 0;
-
-	for (size_t i = 0; i <= now_threshold + 5; i++) {
-		last_ret = ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata));
-		if (last_ret != 0) {
-			break;
-		}
-		(void)ubi_device_erase_peb(g_ubi);
-	}
-
-	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC, got %d", last_ret);
-	zassert_true(ts.rotate_now_count >= 1, "Expected KEY_ROTATE_NOW event");
-}
+/* Key lifecycle tests ------------------------------------------------------------------------- */
 
 /**
  * \brief KEY_RETIRABLE fires after all data-PEB objects for a retired key
@@ -1149,7 +1066,530 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 	zassert_mem_equal(rdata2, data_final, sizeof(data_final));
 }
 
-/* Suite def ------------------------------------------------------------------------------------ */
+/* Metadata-domain budget tests --------------------------------------------------------------- */
+
+/*
+ * The metadata-domain budget tests rely on ubi_secure_test_set_metadata_counters()
+ * to advance the global next_*_counter values close to ROTATE_NOW_PCT in a
+ * single step.  This keeps the tests usable on small geometries
+ * (e.g. native_sim has ~14 free PEBs while CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET
+ * is 100) and lets each test isolate exactly one metadata domain by
+ * preloading the others to zero.
+ */
+
+#define BUDGET_NOW_THRESHOLD                                                                      \
+	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / \
+	 100)
+#define BUDGET_SOON_THRESHOLD                                                                      \
+	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / \
+	 100)
+/* Headroom — how far below NOW the counter starts.  Must be small enough
+ * that the hard threshold is reached within the few free PEBs available
+ * on native_sim, yet leave room for at least one successful operation
+ * before the rejection.                                                  */
+#define BUDGET_HEADROOM 5
+
+/**
+ * \brief Reserved-area (DEVICE_HEADER + VOLUME_HEADER) write-budget exhaustion.
+ *
+ * \details Pre-stages the shared reserved-PEB AEAD counter just below the
+ *          hard threshold via the test hook, then issues volume_resize
+ *          calls.  Each commit advances the counter by 1 + vol_count, so
+ *          a handful of resizes crosses ROTATE_NOW_PCT.  The pre-commit
+ *          budget must reject with -ENOSPC, emit KEY_ROTATE_NOW and put
+ *          the device in sticky read-only state — every subsequent
+ *          mutation class returns -EROFS, reads still succeed.
+ *          Reattach with a new requested_write_key_version installs a
+ *          fresh budget under new HKDF child keys and unblocks volume ops.
+ */
+ZTEST(ubi_secure_runtime_policy, test_reserved_metadata_budget_exhausts_blocks_until_rotation)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	const uint8_t persisted[] = { 0xCA, 0xFE };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, persisted, sizeof(persisted)));
+
+	/* Drive the reserved-PEB counter close to the hard threshold; leave
+	 * EC and VID at zero so only the reserved-area domain can trip. */
+	ubi_secure_test_set_metadata_counters(g_ubi, BUDGET_NOW_THRESHOLD - BUDGET_HEADROOM, 0, 0);
+
+	/* Each commit advances next_dev_hdr_counter by 1 + vol_count
+	 * (vol_count == 1 here ⇒ +2 per resize).  Alternate leb_count so
+	 * every call is a real resize. */
+	struct ubi_volume_config grown = vol_cfg;
+	int last_ret = 0;
+
+	for (size_t i = 0; i < BUDGET_HEADROOM + 5; i++) {
+		grown.leb_count = (i & 1) ? 2 : 3;
+
+		last_ret = ubi_volume_resize(g_ubi, vol_id, &grown);
+		if (last_ret != 0) {
+			break;
+		}
+	}
+
+	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC, got %d", last_ret);
+	zassert_equal(ts.rotate_now_count, 1, "Expected exactly one KEY_ROTATE_NOW event, got %zu",
+		      ts.rotate_now_count);
+
+	const uint8_t wdata[] = { 0xDE, 0xAD };
+
+	zassert_equal(ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata)), -EROFS,
+		      "Writes must be blocked after metadata exhaustion");
+	zassert_equal(ubi_device_erase_peb(g_ubi), -EROFS,
+		      "Erase must be blocked after metadata exhaustion");
+
+	struct ubi_volume_config bigger = grown;
+	bigger.leb_count = grown.leb_count + 1;
+	zassert_equal(ubi_volume_resize(g_ubi, vol_id, &bigger), -EROFS,
+		      "Volume ops must be blocked after metadata exhaustion");
+
+	uint8_t rdata[sizeof(persisted)] = { 0 };
+	zassert_ok(ubi_leb_read(g_ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, persisted, sizeof(persisted));
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	struct ubi_volume_config post_rotation = grown;
+	post_rotation.leb_count = 5;
+	zassert_ok(ubi_volume_resize(g_ubi, vol_id, &post_rotation));
+}
+
+/**
+ * \brief ERASE_COUNTER write-budget exhaustion.
+ *
+ * \details Pre-stages BUDGET_HEADROOM + 1 dirty PEBs by writing distinct
+ *          LEBs and shrinking the volume (only the VID and reserved
+ *          counters move during pre-staging).  The test hook then drives
+ *          the EC counter close to the hard threshold while VID and
+ *          reserved are reset to zero — guaranteeing that the budget that
+ *          eventually trips is the EC budget, not VID and not the
+ *          reserved-area budget.  A pure-erase loop runs until -ENOSPC.
+ *          KEY_ROTATE_NOW is emitted exactly once, subsequent mutations
+ *          are -EROFS, and reattach with a new kv unblocks erase.
+ */
+ZTEST(ubi_secure_runtime_policy, test_ec_metadata_budget_exhausts_blocks_until_rotation)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+
+	/* Need BUDGET_HEADROOM + 1 dirty PEBs (one extra to cover the
+	 * single rejected erase attempt that triggers exhaustion). */
+	const size_t needed_dirty = BUDGET_HEADROOM + 1;
+
+	zassert_true(info.free_peb_count >= needed_dirty,
+		     "Test geometry too small: free_peb_count=%zu, needed=%zu", info.free_peb_count,
+		     needed_dirty);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = needed_dirty,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	/* Pre-stage: write to each LEB once, then shrink so they all become
+	 * dirty.  EC counter stays at zero (no erase yet). */
+	const uint8_t pad = 0x55;
+
+	for (size_t i = 0; i < needed_dirty; i++) {
+		zassert_ok(ubi_leb_write(g_ubi, vol_id, i, &pad, sizeof(pad)));
+	}
+
+	struct ubi_volume_config shrunk = vol_cfg;
+	shrunk.leb_count = 1;
+	zassert_ok(ubi_volume_resize(g_ubi, vol_id, &shrunk));
+
+	/* Drive the EC counter close to the hard threshold; reset reserved
+	 * and VID so they cannot trip first. */
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, BUDGET_NOW_THRESHOLD - BUDGET_HEADROOM, 0);
+
+	int last_ret = 0;
+	size_t erases_done = 0;
+
+	for (size_t i = 0; i < needed_dirty; i++) {
+		last_ret = ubi_device_erase_peb(g_ubi);
+		if (last_ret != 0) {
+			break;
+		}
+		erases_done++;
+	}
+
+	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC from erase, got %d", last_ret);
+	zassert_equal(erases_done, BUDGET_HEADROOM - 1,
+		      "Expected exactly %u successful erases before exhaustion, got %zu",
+		      (unsigned)(BUDGET_HEADROOM - 1), erases_done);
+	zassert_equal(ts.rotate_now_count, 1, "Expected exactly one KEY_ROTATE_NOW, got %zu",
+		      ts.rotate_now_count);
+
+	zassert_equal(ubi_device_erase_peb(g_ubi), -EROFS,
+		      "Erase must be blocked after EC metadata exhaustion");
+	zassert_equal(ubi_leb_write(g_ubi, vol_id, 0, &pad, sizeof(pad)), -EROFS,
+		      "Writes must be blocked after EC metadata exhaustion");
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_device_erase_peb(g_ubi));
+}
+
+/**
+ * \brief VOLUME_IDENTIFIER write-budget exhaustion.
+ *
+ * \details Pre-stages the VID counter close to the hard threshold (and
+ *          resets reserved + EC to zero so they cannot trip first), then
+ *          writes to distinct LEBs.  Each write advances the global VID
+ *          counter by one and the per-{kv, vol_id} LEB counter by one
+ *          (well below the LEB-domain budget).  After BUDGET_HEADROOM
+ *          successful writes the VID pre-check rejects the call with
+ *          -ENOSPC and KEY_ROTATE_NOW is emitted.
+ */
+ZTEST(ubi_secure_runtime_policy, test_vid_metadata_budget_exhausts_blocks_until_rotation)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+
+	const size_t needed_lebs = BUDGET_HEADROOM + 1;
+
+	zassert_true(info.free_peb_count >= needed_lebs,
+		     "Test geometry too small: free_peb_count=%zu, needed=%zu", info.free_peb_count,
+		     needed_lebs);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = needed_lebs,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, BUDGET_NOW_THRESHOLD - BUDGET_HEADROOM);
+
+	const uint8_t pad = 0x77;
+	int last_ret = 0;
+	size_t writes_done = 0;
+
+	for (size_t i = 0; i < needed_lebs; i++) {
+		last_ret = ubi_leb_write(g_ubi, vol_id, i, &pad, sizeof(pad));
+		if (last_ret != 0) {
+			break;
+		}
+		writes_done++;
+	}
+
+	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC from leb_write, got %d", last_ret);
+	zassert_equal(writes_done, BUDGET_HEADROOM - 1,
+		      "Expected exactly %u successful writes before VID exhaustion, got %zu",
+		      (unsigned)(BUDGET_HEADROOM - 1), writes_done);
+	zassert_equal(ts.rotate_now_count, 1, "Expected exactly one KEY_ROTATE_NOW, got %zu",
+		      ts.rotate_now_count);
+
+	zassert_equal(ubi_leb_write(g_ubi, vol_id, 0, &pad, sizeof(pad)), -EROFS,
+		      "Writes must be blocked after VID exhaustion");
+	zassert_equal(ubi_device_erase_peb(g_ubi), -EROFS,
+		      "Erase must be blocked after VID exhaustion");
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, &pad, sizeof(pad)));
+}
+
+/**
+ * \brief Metadata-domain KEY_ROTATE_SOON fires before NOW.
+ *
+ * \details Pre-stages the VID counter just below ROTATE_SOON_PCT, then
+ *          performs leb_write calls until SOON is observed.  The pre-check
+ *          must pass (usage < NOW_PCT), the post-write check must emit
+ *          KEY_ROTATE_SOON and the device must keep accepting operations
+ *          (no KEY_ROTATE_NOW, no sticky RO).
+ */
+ZTEST(ubi_secure_runtime_policy, test_metadata_rotate_soon_emitted_below_now)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+
+	const size_t needed_lebs = BUDGET_HEADROOM + 1;
+
+	zassert_true(info.free_peb_count >= needed_lebs,
+		     "Test geometry too small: free_peb_count=%zu, needed=%zu", info.free_peb_count,
+		     needed_lebs);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = needed_lebs,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	/* Start one tick below SOON.  The first write will fire SOON; we
+	 * never approach NOW because the loop stops at SOON. */
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, BUDGET_SOON_THRESHOLD - 1);
+
+	const uint8_t pad = 0xA5;
+
+	for (size_t i = 0; i < needed_lebs; i++) {
+		zassert_ok(ubi_leb_write(g_ubi, vol_id, i, &pad, sizeof(pad)));
+		if (ts.rotate_soon_count >= 1) {
+			break;
+		}
+	}
+
+	zassert_true(ts.rotate_soon_count >= 1, "Expected at least one KEY_ROTATE_SOON event");
+	zassert_equal(ts.rotate_now_count, 0,
+		      "KEY_ROTATE_NOW must not fire below hard threshold (got %zu)",
+		      ts.rotate_now_count);
+}
+
+/**
+ * \brief Metadata budget bases reset on key-version rotation.
+ *
+ * \details Exhausts the VID budget under kv=1 (proxy for any metadata
+ *          domain — all four use the same Kconfig limits), reattaches with
+ *          kv=2 and confirms a VID-domain write that previously hit
+ *          -ENOSPC now succeeds.  No new KEY_ROTATE_NOW must fire under
+ *          the rotated kv.
+ */
+ZTEST(ubi_secure_runtime_policy, test_metadata_budget_resets_on_key_rotation_reattach)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+
+	const size_t needed_lebs = BUDGET_HEADROOM + 1;
+
+	zassert_true(info.free_peb_count >= needed_lebs,
+		     "Test geometry too small: free_peb_count=%zu, needed=%zu", info.free_peb_count,
+		     needed_lebs);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = needed_lebs,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, BUDGET_NOW_THRESHOLD - BUDGET_HEADROOM);
+
+	const uint8_t pad = 0xC3;
+	int last_ret = 0;
+
+	for (size_t i = 0; i < needed_lebs; i++) {
+		last_ret = ubi_leb_write(g_ubi, vol_id, i, &pad, sizeof(pad));
+		if (last_ret != 0) {
+			break;
+		}
+	}
+
+	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC pre-rotation, got %d", last_ret);
+	zassert_equal(ts.rotate_now_count, 1, "Expected exactly one KEY_ROTATE_NOW, got %zu",
+		      ts.rotate_now_count);
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	const size_t now_count_before_reattach = ts.rotate_now_count;
+
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	/* Overwriting an existing LEB consumes a free PEB (and dirties the
+	 * old one); after rotation the fresh budget allows it. */
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, &pad, sizeof(pad)));
+
+	zassert_equal(ts.rotate_now_count, now_count_before_reattach,
+		      "KEY_ROTATE_NOW must not refire under fresh kv (got %zu, expected %zu)",
+		      ts.rotate_now_count, now_count_before_reattach);
+}
+
+/* LEB-domain budget tests --------------------------------------------------------------------- */
+
+/*
+ * The LEB budget tracks per-{kv, vol_id, lnum} write counter and
+ * authenticated bytes.  These tests overwrite the same lnum repeatedly
+ * (write + erase) so the per-LEB counter rises by one per iteration.
+ *
+ * The hook ubi_secure_test_set_metadata_counters() is called every
+ * iteration to reset the EC and reserved counters to zero — that keeps
+ * any metadata-domain budget from tripping first and lets each test
+ * assert that the LEB budget alone caused the failure.
+ */
+
+#define LEB_BUDGET_NOW_THRESHOLD \
+	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / 100)
+#define LEB_BUDGET_SOON_THRESHOLD \
+	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / 100)
+
+/**
+ * \brief LEB-domain KEY_ROTATE_SOON fires before NOW.
+ *
+ * \details Repeatedly write+erase the same LEB; reset the metadata
+ *          counters every iteration so only the LEB per-{kv, vol_id, lnum}
+ *          counter advances.  Stop the loop as soon as KEY_ROTATE_SOON
+ *          is observed.  The post-write check must emit SOON before NOW;
+ *          operations must keep succeeding.
+ */
+ZTEST(ubi_secure_runtime_policy, test_leb_budget_rotate_soon_emitted_below_now)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	const uint8_t wdata[] = { 0xAA, 0xBB, 0xCC, 0xDD };
+
+	for (size_t i = 0; i < LEB_BUDGET_NOW_THRESHOLD; i++) {
+		ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, 0);
+
+		zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata)));
+		(void)ubi_device_erase_peb(g_ubi);
+
+		if (ts.rotate_soon_count >= 1) {
+			break;
+		}
+	}
+
+	zassert_true(ts.rotate_soon_count >= 1, "Expected at least one KEY_ROTATE_SOON event");
+	zassert_equal(ts.rotate_now_count, 0,
+		      "KEY_ROTATE_NOW must not fire below hard threshold (got %zu)",
+		      ts.rotate_now_count);
+}
+
+/**
+ * \brief LEB-domain write-budget exhaustion.
+ *
+ * \details Repeatedly write+erase the same LEB while resetting the
+ *          metadata counters every iteration so only the LEB per-{kv,
+ *          vol_id, lnum} counter advances.  After ROTATE_NOW_PCT writes
+ *          the LEB pre-check rejects the next write with -ENOSPC,
+ *          KEY_ROTATE_NOW is emitted and sticky read-only blocks all
+ *          subsequent mutation classes.
+ */
+ZTEST(ubi_secure_runtime_policy, test_leb_budget_exhausts_blocks_until_rotation)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	const uint8_t wdata[] = { 0x11, 0x22, 0x33, 0x44 };
+	int last_ret = 0;
+
+	for (size_t i = 0; i <= LEB_BUDGET_NOW_THRESHOLD; i++) {
+		ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, 0);
+
+		last_ret = ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata));
+		if (last_ret != 0) {
+			break;
+		}
+		(void)ubi_device_erase_peb(g_ubi);
+	}
+
+	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC from leb_write, got %d", last_ret);
+	zassert_equal(ts.rotate_now_count, 1, "Expected exactly one KEY_ROTATE_NOW, got %zu",
+		      ts.rotate_now_count);
+
+	zassert_equal(ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata)), -EROFS,
+		      "Writes must be blocked after LEB exhaustion");
+	zassert_equal(ubi_device_erase_peb(g_ubi), -EROFS,
+		      "Erase must be blocked after LEB exhaustion");
+}
 
 ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_suite_after, NULL);

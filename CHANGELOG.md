@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.0] - 2026-05-05
+
+### Added
+
+- Secure backend now enforces a per-domain write-budget for all four
+  metadata domains (device header, volume header, erase counter, volume
+  identifier) under the active write key version, alongside the existing
+  per-LEB data budget.  Reaching `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT` of
+  any budget emits `KEY_ROTATE_SOON` while the operation still completes;
+  reaching `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT` emits `KEY_ROTATE_NOW`,
+  rejects the operation with `-ENOSPC` and transitions the device to
+  read-only.  Subsequent writes, erases and volume mutations return
+  `-EROFS` until the device is reattached with a new
+  `requested_write_key_version`; reads remain available throughout.
+- New `ubi_secure_budget_pre()` / `ubi_secure_budget_post()` API takes a
+  `ubi_secure_domain` so callers no longer have to pick between
+  metadata-only and LEB-only variants.
+
 ## [0.50.0] - 2026-05-04
 
 ### Changed

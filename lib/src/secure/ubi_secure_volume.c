@@ -10,6 +10,7 @@
 
 /* Internal headers: */
 #include "ubi_secure_ops.h"
+#include "ubi_secure_budget.h"
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_event.h"
@@ -155,6 +156,56 @@ mark_bad: {
 }
 
 /* Static function definitions ------------------------------------------------------------------ */
+
+/**
+ * \brief Pre-commit budget check for the reserved-PEB area (DEVICE_HEADER + VOLUME_HEADER).
+ *
+ * Both domains share the same on-flash AEAD counter (next_dev_hdr_counter):
+ * one commit writes 1 DEVICE_HEADER record at counter C and N VOLUME_HEADER
+ * records at C+1..C+N.  Pre-checks both projected post-commit counters;
+ * either crossing ROTATE_NOW_PCT triggers KEY_ROTATE_NOW + sticky
+ * read_only_crypto and rejects the commit with -ENOSPC.
+ */
+static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count)
+{
+	__ASSERT_NO_MSG(ubi != NULL);
+
+	const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+
+	int ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_DEVICE_HEADER,
+						 ubi->next_dev_hdr_counter + 1, kv, 0);
+	if (ret != 0) {
+		return ret;
+	}
+
+	if (vol_count > 0) {
+		ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_VOLUME_HEADER,
+						     ubi->next_dev_hdr_counter + 1 + vol_count, kv,
+						     0);
+	}
+
+	return ret;
+}
+
+/**
+ * \brief Post-commit budget check (SOON emit) for the reserved-PEB area.
+ *
+ * Caller must have already bumped ubi->next_dev_hdr_counter so that it
+ * reflects the post-commit value.
+ */
+static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count)
+{
+	__ASSERT_NO_MSG(ubi != NULL);
+
+	const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+
+	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_DEVICE_HEADER,
+					ubi->next_dev_hdr_counter, kv, 0);
+	if (vol_count > 0) {
+		ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_VOLUME_HEADER,
+						ubi->next_dev_hdr_counter, kv, 0);
+	}
+}
 
 /**
  * \brief Read device header via secure reserved scan, bump revision.
@@ -372,6 +423,15 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
+	/* Per-domain budget pre-check (DEV + VOL) before any flash mutation. */
+	ret = reserved_commit_budget_pre(ubi, new_vol_count);
+	if (ret != 0) {
+		LOG_ERR("Reserved metadata budget exhausted (create); device entered crypto RO");
+		ubi_mem_leaf_free(item);
+		ubi_mem_volume_free(vol);
+		goto exit;
+	}
+
 	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
 					new_vol_count, write_kv, ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
@@ -391,6 +451,9 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 
 	/* Commit succeeded — update RAM state. */
 	ubi->next_dev_hdr_counter += 1 + new_vol_count;
+
+	/* Post-commit budget check (SOON emit). */
+	reserved_commit_budget_post(ubi, new_vol_count);
 
 	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
 	if (write_kv != ubi->reserved_key_version) {
@@ -531,6 +594,13 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
+	/* Per-domain budget pre-check (DEV + VOL) before any flash mutation. */
+	ret = reserved_commit_budget_pre(ubi, existing_vol_count);
+	if (ret != 0) {
+		LOG_ERR("Reserved metadata budget exhausted (resize); device entered crypto RO");
+		goto exit;
+	}
+
 	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
 					existing_vol_count, write_kv, ubi->next_dev_hdr_counter);
 	if (ret == -EROFS) {
@@ -546,6 +616,9 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 
 	/* Flash commit succeeded — now safe to mutate RAM state. */
 	ubi->next_dev_hdr_counter += 1 + existing_vol_count;
+
+	/* Post-commit budget check (SOON emit). */
+	reserved_commit_budget_post(ubi, existing_vol_count);
 
 	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
 	if (write_kv != ubi->reserved_key_version) {
@@ -638,6 +711,13 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
+	/* Per-domain budget pre-check (DEV + VOL) before any flash mutation. */
+	ret = reserved_commit_budget_pre(ubi, new_count);
+	if (ret != 0) {
+		LOG_ERR("Reserved metadata budget exhausted (remove); device entered crypto RO");
+		goto exit;
+	}
+
 	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta,
 					new_vol_hdrs, new_count, write_kv,
 					ubi->next_dev_hdr_counter);
@@ -654,6 +734,9 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 
 	/* Flash commit succeeded — reclaim PEBs. */
 	ubi->next_dev_hdr_counter += 1 + new_count;
+
+	/* Post-commit budget check (SOON emit). */
+	reserved_commit_budget_post(ubi, new_count);
 
 	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
 	if (write_kv != ubi->reserved_key_version) {
