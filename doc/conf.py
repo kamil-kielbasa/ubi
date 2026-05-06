@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.59.0'
+version = '0.58.0'
 
 # -- General configuration ---------------------------------------------------
 
