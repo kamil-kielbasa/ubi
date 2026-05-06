@@ -1610,3 +1610,33 @@ ZTEST(ubi_init_errors, geometry_partition_too_small)
 	}
 	zassert_not_equal(ret, 0, "Init should fail with partition too small");
 }
+
+/* CRYPTO-disabled dispatch test ---------------------------------------------------------------- */
+
+#ifndef CONFIG_UBI_CRYPTO
+
+#include <ubi_crypto.h>
+
+/**
+ * \brief Verify -ENOTSUP when crypto_cfg != NULL and CONFIG_UBI_CRYPTO=n.
+ *
+ * \details Build the public dispatcher contract from `lib/src/ubi.c`: when the
+ *          caller passes a non-NULL crypto_cfg but the secure backend is not
+ *          compiled in, ubi_device_init() must reject with -ENOTSUP without
+ *          dereferencing any callbacks. Audit §10.1 (former #6).
+ *
+ * \expect ubi_device_init returns -ENOTSUP, device handle is NULL.
+ */
+ZTEST(ubi_init_errors, crypto_cfg_without_crypto_kconfig_returns_enotsup)
+{
+	/* Minimal crypto_cfg — content is irrelevant: the dispatcher rejects
+	 * before any field is read because CONFIG_UBI_CRYPTO is not selected. */
+	const struct ubi_crypto_config cfg = { 0 };
+
+	struct ubi_device *ubi = NULL;
+	int ret = ubi_device_init(&flash, &cfg, &ubi);
+	zassert_equal(-ENOTSUP, ret, "Expected -ENOTSUP, got %d", ret);
+	zassert_is_null(ubi);
+}
+
+#endif /* !CONFIG_UBI_CRYPTO */

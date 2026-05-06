@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.55.0] - 2026-05-06
+
+### Added
+
+- Plain dispatcher test verifying `ubi_device_init()` returns `-ENOTSUP`
+  when a non-NULL `crypto_cfg` is passed but `CONFIG_UBI_CRYPTO=n`.
+
+### Changed
+
+- `ubi_device_init()` now rejects, with `-EINVAL`, a `crypto_cfg` whose
+  `allowed_key_versions` contains duplicate entries.
+- Secure attach now rejects, with `-EINVAL`, a reattach whose
+  `requested_write_key_version` is below the on-flash
+  `write_active_key_version` (key versions must be monotonically
+  non-decreasing; protects against accidental downgrade and uint8_t
+  wrap-around).
+
 ## [0.54.0] - 2026-05-06
 
 ### Added

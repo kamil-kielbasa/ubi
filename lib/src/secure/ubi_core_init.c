@@ -69,6 +69,20 @@ static int validate_crypto_cfg(const struct ubi_crypto_config *cfg)
 		return -EINVAL;
 	}
 
+	/* Reject duplicates in the allowlist: each key version slot tracks
+	 * independent refcount/budget bookkeeping; a duplicate entry would
+	 * waste a slot and create ambiguity in operator-visible state. */
+	for (size_t i = 0; i < cfg->policy.allowed_key_versions_len; i++) {
+		for (size_t j = i + 1; j < cfg->policy.allowed_key_versions_len; j++) {
+			if (cfg->policy.allowed_key_versions[i] ==
+			    cfg->policy.allowed_key_versions[j]) {
+				LOG_ERR("Crypto config has duplicate kv=%u in allowlist (slots %zu and %zu)",
+					cfg->policy.allowed_key_versions[i], i, j);
+				return -EINVAL;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -808,6 +822,20 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 		LOG_ERR("On-flash write_active_key_version %u not in allowlist",
 			scan.dev_meta.write_active_key_version);
 		return -EACCES;
+	}
+
+	/* Reject downgrade: the requested write key version must not be lower
+	 * than the on-flash write_active_key_version.  Key versions are
+	 * monotonically non-decreasing for the lifetime of the device; allowing
+	 * a downgrade would reuse a uint8_t slot that may have been retired
+	 * (wrap-around hazard) and would invalidate freshness/budget invariants
+	 * built around monotonic key progression. */
+	if (crypto_cfg->policy.requested_write_key_version <
+	    scan.dev_meta.write_active_key_version) {
+		LOG_ERR("requested_write_key_version=%u below on-flash write_active_key_version=%u (downgrade rejected)",
+			crypto_cfg->policy.requested_write_key_version,
+			scan.dev_meta.write_active_key_version);
+		return -EINVAL;
 	}
 
 	/* Authenticate volume headers and collect into RAM. */

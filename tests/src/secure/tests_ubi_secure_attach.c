@@ -254,6 +254,76 @@ ZTEST(ubi_secure_attach, test_write_key_version_not_in_allowlist)
 	zassert_is_null(ubi);
 }
 
+/**
+ * \brief Allowlist with duplicate entries — rejected.
+ *
+ * \details Each key version slot tracks independent refcount and budget
+ *          bookkeeping; a duplicate entry would waste a slot and create
+ *          ambiguity in operator-visible state.  `validate_crypto_cfg`
+ *          rejects duplicates with -EINVAL before any flash access.
+ *          Audit §10.1 (former #7).
+ *
+ * \expected ubi_device_init returns -EINVAL, device handle is NULL.
+ */
+ZTEST(ubi_secure_attach, test_allowlist_duplicates_rejected)
+{
+	static const uint8_t allowed_with_dup[] = { 1, 1, 2 };
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_device *ubi = NULL;
+
+	cfg.policy.allowed_key_versions = allowed_with_dup;
+	cfg.policy.allowed_key_versions_len = sizeof(allowed_with_dup);
+	cfg.policy.requested_write_key_version = 1;
+
+	int ret = ubi_device_init(&flash, &cfg, &ubi);
+	zassert_equal(ret, -EINVAL, "Expected -EINVAL for allowlist with duplicates, got %d", ret);
+	zassert_is_null(ubi);
+}
+
+/**
+ * \brief Reattach with `requested_write_key_version` below the on-flash
+ *        `write_active_key_version` — rejected (downgrade / wrap-around guard).
+ *
+ * \details Key versions are monotonically non-decreasing for the lifetime
+ *          of the device.  A reattach that requests a lower kv would reuse
+ *          a uint8_t slot that may already have been retired and would
+ *          invalidate the freshness and budget invariants built around
+ *          monotonic key progression — including a hard wrap-around at the
+ *          uint8_t boundary (255 → 0).  `secure_attach` rejects with
+ *          -EINVAL after authenticating the on-flash device header.
+ *          Audit §4.5 ("Zakaz wrap-around key_version").
+ *
+ * \expected First init (kv=2) succeeds; second init with kv=1 returns
+ *           -EINVAL and leaves the handle NULL.
+ */
+ZTEST(ubi_secure_attach, test_requested_write_kv_downgrade_rejected)
+{
+	static const uint8_t allowed[] = { 1, 2 };
+
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	cfg.policy.allowed_key_versions = allowed;
+	cfg.policy.allowed_key_versions_len = sizeof(allowed);
+	cfg.policy.requested_write_key_version = 2;
+
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	zassert_not_null(ubi);
+	zassert_ok(ubi_device_deinit(ubi));
+	ubi = NULL;
+
+	/* Reattach with a lower requested_write_key_version — must fail. */
+	cfg.policy.requested_write_key_version = 1;
+	int ret = ubi_device_init(&flash, &cfg, &ubi);
+	zassert_equal(ret, -EINVAL, "Expected -EINVAL for kv downgrade, got %d", ret);
+	zassert_is_null(ubi);
+
+	/* Sanity: same kv (=2) still attaches successfully. */
+	cfg.policy.requested_write_key_version = 2;
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	zassert_not_null(ubi);
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
 /* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_attach, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
