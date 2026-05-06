@@ -37,8 +37,18 @@ VOLUME_NAMES = [
 ]
 
 # Printable ASCII strings that should not appear on encrypted media.
-# Minimum 8 chars to reduce false positives.
-ASCII_RE = re.compile(rb"[\x20-\x7e]{8,}")
+#
+# Random ciphertext is uniformly distributed over [0..255], so a byte is
+# printable with probability ~95/256 ~= 0.371. With a threshold of 8 the
+# expected count of printable runs in even a few KiB of ciphertext is in
+# the hundreds, drowning real leaks. At 20 the expected count drops to
+# ~1.5e-9 per offset, i.e. effectively zero across the whole flash image.
+#
+# Real plaintext leaks (test array prefixes, root key, volume names) are
+# already caught explicitly by the binary-pattern list above (7-16 bytes
+# each); the ASCII regex is only a defense-in-depth net for *unknown*
+# structured plaintext, which in practice is much longer than 20 bytes.
+ASCII_RE = re.compile(rb"[\x20-\x7e]{20,}")
 
 # ── Scan logic ────────────────────────────────────────────────────────
 
@@ -77,8 +87,10 @@ def scan_flash(flash_path: Path, erase_block_size: int = 8192) -> list[dict]:
     for m in ASCII_RE.finditer(data_area):
         text = m.group().decode("ascii", errors="replace")
         # Skip erased areas (all 0xFF is not printable, won't match)
-        # Skip common non-secret patterns (UBI magic etc)
-        if any(skip in text for skip in ["UBI#", "UBI!"]):
+        # Skip on-flash UBI magics (not secrets):
+        #   - "UBI#" / "UBI!" : plain UBI volume / EC headers
+        #   - "UBIS"          : secure header prefix magic (UBI_SECURE_PREFIX_MAGIC)
+        if any(skip in text for skip in ["UBI#", "UBI!", "UBIS"]):
             continue
         abs_offset = data_start + m.start()
         findings.append({
