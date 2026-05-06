@@ -136,6 +136,27 @@ int ubi_mem_diag_alloc(size_t size, void **out);
  */
 void ubi_mem_diag_free(void *ptr);
 
+/**
+ * \brief Re-initialize all internal allocator pools (test API).
+ *
+ * Test-only safety net for cleaning up after a test that aborted via
+ * `zassert*` before reaching `ubi_device_deinit()` and therefore leaked
+ * a `struct ubi_device` (or other) into its slab. Without this, a single
+ * leaked allocation in the static backend (slab pool count = 1 by default)
+ * causes every subsequent test to fail at `ubi_device_init()` with
+ * `-ENOMEM`, producing a misleading cascade of failures.
+ *
+ * Under the static backend (`CONFIG_UBI_MEM_BACKEND_STATIC`) this calls
+ * `k_mem_slab_init()` on each pool, dropping all live allocations.
+ * Under the heap backend (`CONFIG_UBI_MEM_BACKEND_HEAP`) this is a no-op
+ * (heap-allocated leaks remain leaked but the heap normally has headroom).
+ *
+ * \warning Discards every live `struct ubi_device` / `struct ubi_volume`
+ *          / leaf / scratch handle. Call only when the test harness has
+ *          guaranteed that no such handles are still held by user code.
+ */
+void ubi_mem_force_reset_all_slabs(void);
+
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
 #endif /* UBI_MEM_H */

@@ -494,16 +494,26 @@ ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
 
 	for (size_t peb = nr_res_pebs; peb < nr_pebs; peb++) {
 		const size_t peb_off = peb * flash.erase_block_size;
-		uint8_t byte_val = 0;
+		uint8_t byte_val = 0xFF;
 
 		(void)flash_area_read(fa, peb_off + chunk2_ct_off, &byte_val, 1);
 
-		/* Flip one bit. */
-		byte_val ^= 0x01;
+		/* Flash simulator with EXPLICIT_ERASE uses AND-only writes
+		 * (NAND semantics): writing Y to an unerased byte X yields
+		 * X & Y. An XOR-then-write strategy is therefore unreliable
+		 * (only ~50 % of bytes change). Force destructive change by
+		 * clearing all bits — guaranteed to differ unless the byte
+		 * was already 0x00 (probability ~1/256 for ciphertext, and
+		 * verified by the read-back assertion below). */
+		const uint8_t cleared = 0x00;
 
-		/* Flash simulator may not allow direct overwrite without erase.
-		 * Use the DOUBLE_WRITES config which allows re-writing. */
-		(void)flash_area_write(fa, peb_off + chunk2_ct_off, &byte_val, 1);
+		(void)flash_area_write(fa, peb_off + chunk2_ct_off, &cleared, 1);
+
+		uint8_t after = 0xFF;
+
+		(void)flash_area_read(fa, peb_off + chunk2_ct_off, &after, 1);
+		zassert_equal(after, 0x00, "Tamper write did not stick at PEB %zu (was 0x%02x)",
+			      peb, byte_val);
 	}
 
 	flash_area_close(fa);

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.59.0] - 2026-05-06
+
+### Fixed
+
+- Restored the `native_sim` chunked test build. The chunked board
+  config inherited an outdated baseline and no longer matched what
+  the secure test suites depend on; this prevented the chunked
+  configuration from being verified at all.
+- Removed a cascading-failure pattern in the secure test runner:
+  when a single test aborted before completing teardown, every
+  subsequent test in the same binary observed exhausted internal
+  pools and reported a misleading allocation failure. The shared
+  test-only reset path now fully restores the allocator state, so
+  a leak in one test no longer poisons the rest of the run.
+- Hardened the chunked tamper test against the flash simulator's
+  NAND-style write semantics. The previous bit-flip strategy was
+  silently a no-op on roughly half of the runs, depending on the
+  random ciphertext byte, and is now replaced by a deterministic
+  destructive write with a read-back guard.
+- Aligned the coverage-secure CI configuration with the runtime
+  contract assumed by the coexistence test (two concurrent device
+  handles). The CI build was previously inheriting the single-handle
+  default, so the coexistence test failed only on the
+  `coverage-secure` job.
+- Tightened the host-side flash forensic scanner
+  (`scripts/scan_flash.py`) so that it no longer flags ciphertext as
+  a leak. The previous 8-character printable-ASCII threshold was
+  statistically guaranteed to false-positive on encrypted regions
+  once a second secure partition was added to the test image; the
+  scanner now uses a 20-character threshold and ignores the secure
+  prefix magic, while explicit binary patterns (test arrays, root
+  key, volume names) still detect real plaintext leaks.
+
 ## [0.57.0] - 2026-05-06
 
 ### Added

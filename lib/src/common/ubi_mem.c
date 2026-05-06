@@ -300,6 +300,21 @@ void ubi_mem_diag_free(void *ptr)
 	}
 }
 
+void ubi_mem_force_reset_all_slabs(void)
+{
+	/* Re-initialize each slab's free-list. The buffers were declared by
+	 * K_MEM_SLAB_DEFINE_STATIC as `_k_mem_slab_buf_<name>` in this same
+	 * translation unit, so they are accessible by name here. */
+	(void)k_mem_slab_init(&device_slab, _k_mem_slab_buf_device_slab,
+			      WB_UP(sizeof(struct ubi_device)), UBI_MEM_DEVICE_POOL_COUNT);
+	(void)k_mem_slab_init(&volume_slab, _k_mem_slab_buf_volume_slab,
+			      WB_UP(sizeof(struct ubi_volume)), UBI_MEM_VOLUME_POOL_COUNT);
+	(void)k_mem_slab_init(&leaf_slab, _k_mem_slab_buf_leaf_slab,
+			      WB_UP(sizeof(union ubi_leaf_item)), UBI_MEM_LEAF_POOL_COUNT);
+	(void)k_mem_slab_init(&scratch_slab, _k_mem_slab_buf_scratch_slab,
+			      WB_UP(UBI_MEM_SCRATCH_SIZE), UBI_MEM_SCRATCH_POOL_COUNT);
+}
+
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
 #endif /* CONFIG_UBI_MEM_BACKEND_STATIC */
@@ -479,6 +494,13 @@ void ubi_mem_diag_free(void *ptr)
 	if (ptr) {
 		k_free(ptr);
 	}
+}
+
+void ubi_mem_force_reset_all_slabs(void)
+{
+	/* No-op on heap backend: leaked allocations remain leaked. The heap
+	 * normally has enough headroom that this is not catastrophic across a
+	 * single test run. */
 }
 
 #endif /* CONFIG_UBI_TEST_API_ENABLE */

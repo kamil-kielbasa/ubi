@@ -480,6 +480,11 @@ exit:
 void ubi_test_partition_force_release_all(void)
 {
 	ubi_partition_force_release_all();
+	/* Drop any device/volume/leaf/scratch handles leaked by tests that
+	 * aborted via zassert before calling ubi_device_deinit(). Without
+	 * this, a single leak in the static backend (default slab pool
+	 * count = 1) cascades into -ENOMEM on every subsequent test. */
+	ubi_mem_force_reset_all_slabs();
 }
 
 int ubi_test_get_erased_val(const struct ubi_flash_desc *flash, uint8_t *erased_val)
