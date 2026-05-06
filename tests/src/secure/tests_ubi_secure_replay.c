@@ -355,8 +355,7 @@ ZTEST(ubi_secure_replay, test_replay_vid_record_to_other_peb_rejected)
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(g_ubi, &info));
 	zassert_true(info.bad_peb_count >= 1,
-		     "Expected at least one bad PEB after VID replay, got %zu",
-		     info.bad_peb_count);
+		     "Expected at least one bad PEB after VID replay, got %zu", info.bad_peb_count);
 
 	uint8_t rb0[sizeof(p0)] = { 0 };
 	uint8_t rb1[sizeof(p1)] = { 0 };
