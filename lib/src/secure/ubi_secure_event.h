@@ -83,6 +83,34 @@ static inline void ubi_secure_key_refcount_inc(struct ubi_device *ubi, uint8_t k
 }
 
 /**
+ * \brief Increment reserved-PEB refcount for one (key version, volume count) state.
+ *
+ * Reserved-PEB tracking: each reserved PEB contains one secure DEV header plus
+ * one secure VOL header per existing volume.  Their total contribution to the
+ * key-version refcount is therefore `nr_res_pebs * (1 + vol_count)`.
+ *
+ * Called at attach (initial inc for the on-flash reserved key version) and as
+ * part of every reserved metadata commit transition (paired with the dec
+ * helper below).
+ *
+ * \param[in,out] ubi          UBI device (caller holds mutex).
+ * \param[in]     kv           Reserved-PEB key version.
+ * \param[in]     nr_res_pebs  Number of reserved PEBs counted (full set or auth_count in degraded).
+ * \param[in]     vol_count    Number of secure VOL headers per reserved PEB.
+ */
+static inline void ubi_secure_reserved_refcount_inc(struct ubi_device *ubi, uint8_t kv,
+						    size_t nr_res_pebs, uint16_t vol_count)
+{
+	__ASSERT_NO_MSG(ubi != NULL);
+
+	const size_t total = nr_res_pebs * ((size_t)vol_count + 1);
+
+	for (size_t i = 0; i < total; i++) {
+		ubi_secure_key_refcount_inc(ubi, kv);
+	}
+}
+
+/**
  * \brief Build an ubi_crypto_freshness snapshot from current device state.
  *
  * \param[in] ubi  UBI device (caller holds mutex).
@@ -161,6 +189,32 @@ static inline void ubi_secure_key_refcount_dec_and_check(struct ubi_device *ubi,
 		};
 
 		ubi_secure_emit_event(ubi, &event);
+	}
+}
+
+/**
+ * \brief Decrement reserved-PEB refcount for one (key version, volume count) state.
+ *
+ * Mirror of \ref ubi_secure_reserved_refcount_inc.  Used at every reserved
+ * metadata commit transition to release the contribution of the previous
+ * (key version, volume count) state.  The caller should always inc the new
+ * contribution before dec'ing the old one so that the refcount under
+ * `kv` never transiently drops to zero between the two operations.
+ *
+ * \param[in,out] ubi          UBI device (caller holds mutex).
+ * \param[in]     kv           Reserved-PEB key version being released.
+ * \param[in]     nr_res_pebs  Number of reserved PEBs counted.
+ * \param[in]     vol_count    Number of secure VOL headers per reserved PEB.
+ */
+static inline void ubi_secure_reserved_refcount_dec(struct ubi_device *ubi, uint8_t kv,
+						    size_t nr_res_pebs, uint16_t vol_count)
+{
+	__ASSERT_NO_MSG(ubi != NULL);
+
+	const size_t total = nr_res_pebs * ((size_t)vol_count + 1);
+
+	for (size_t i = 0; i < total; i++) {
+		ubi_secure_key_refcount_dec_and_check(ubi, kv);
 	}
 }
 

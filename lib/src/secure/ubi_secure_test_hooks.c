@@ -56,4 +56,21 @@ void ubi_secure_test_set_metadata_counters(struct ubi_device *ubi, uint64_t dev_
 	ubi->next_vid_counter = vid;
 }
 
+void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_t *dev_hdr,
+					   uint64_t *ec, uint64_t *vid)
+{
+	if (ubi == NULL) {
+		return;
+	}
+	if (dev_hdr != NULL) {
+		*dev_hdr = ubi->next_dev_hdr_counter;
+	}
+	if (ec != NULL) {
+		*ec = ubi->next_ec_counter;
+	}
+	if (vid != NULL) {
+		*vid = ubi->next_vid_counter;
+	}
+}
+
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */

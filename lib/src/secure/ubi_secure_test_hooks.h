@@ -101,5 +101,22 @@ struct ubi_device;
 void ubi_secure_test_set_metadata_counters(struct ubi_device *ubi, uint64_t dev_hdr, uint64_t ec,
 					   uint64_t vid);
 
+/**
+ * \brief Test-only read of the global metadata counters.
+ *
+ * Mirrors \ref ubi_secure_test_set_metadata_counters; intended for tests
+ * that need to verify counter state directly (e.g. that
+ * `next_vid_counter` resets to 0 on key-version rotation).
+ *
+ * Any output pointer may be NULL to skip that field.
+ *
+ * \param[in]  ubi      UBI device handle.
+ * \param[out] dev_hdr  Current value of next_dev_hdr_counter (or NULL).
+ * \param[out] ec       Current value of next_ec_counter (or NULL).
+ * \param[out] vid      Current value of next_vid_counter (or NULL).
+ */
+void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_t *dev_hdr,
+					   uint64_t *ec, uint64_t *vid);
+
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 #endif /* UBI_SECURE_TEST_HOOKS_H */

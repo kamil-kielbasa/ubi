@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.53.0] - 2026-05-06
+
+### Changed
+
+- Eager reserved-PEB upgrade on key-version rotation now resets the
+  on-flash and in-RAM VID-domain counter floor to 0.  Reattaching
+  with the same key version still preserves the monotonic floor.
+- Reserved-PEB key-version refcount now also counts secure volume
+  headers (one per volume on every reserved PEB), and reserved
+  metadata commits release the old (kv, vol_count) contribution only
+  after the new one has been added.  Documentation in
+  `secure_runtime_policy.md` updated to match `secure_architecture.md`.
+
+### Added
+
+- Four ZTESTs in `ubi_secure_runtime_policy`:
+  `test_vid_floor_resets_on_rotation`,
+  `test_vid_floor_persists_within_same_kv`,
+  `test_vid_floor_reset_writes_use_low_counters`,
+  `test_reserved_refcount_no_spurious_key_retirable`.
+
 ## [0.52.0] - 2026-05-05
 
 ### Changed

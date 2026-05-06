@@ -455,16 +455,13 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	/* Post-commit budget check (SOON emit). */
 	reserved_commit_budget_post(ubi, new_vol_count);
 
-	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
-	if (write_kv != ubi->reserved_key_version) {
-		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-			ubi_secure_key_refcount_dec_and_check(ubi, ubi->reserved_key_version);
-		}
-		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-			ubi_secure_key_refcount_inc(ubi, write_kv);
-		}
-		ubi->reserved_key_version = write_kv;
-	}
+	/* Reserved-PEB refcount transition: release old (kv, vol_count), then
+	 * acquire new (kv, vol_count).  Inc-first / dec-last avoids transient
+	 * zero on the old kv when kv is unchanged. */
+	ubi_secure_reserved_refcount_inc(ubi, write_kv, UBI_DEV_HDR_NR_OF_RES_PEBS, new_vol_count);
+	ubi_secure_reserved_refcount_dec(ubi, ubi->reserved_key_version, UBI_DEV_HDR_NR_OF_RES_PEBS,
+					 existing_vol_count);
+	ubi->reserved_key_version = write_kv;
 
 	vol->vol_id = new_vol_hdr.vol_id;
 	ubi_copy_name_from_hdr(vol->cfg.name, new_vol_hdr.name);
@@ -620,16 +617,14 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	/* Post-commit budget check (SOON emit). */
 	reserved_commit_budget_post(ubi, existing_vol_count);
 
-	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
-	if (write_kv != ubi->reserved_key_version) {
-		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-			ubi_secure_key_refcount_dec_and_check(ubi, ubi->reserved_key_version);
-		}
-		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-			ubi_secure_key_refcount_inc(ubi, write_kv);
-		}
-		ubi->reserved_key_version = write_kv;
-	}
+	/* Reserved-PEB refcount transition: vol_count unchanged on resize,
+	 * but kv may advance.  Inc-first / dec-last keeps the old kv from
+	 * transiently dropping to zero. */
+	ubi_secure_reserved_refcount_inc(ubi, write_kv, UBI_DEV_HDR_NR_OF_RES_PEBS,
+					 existing_vol_count);
+	ubi_secure_reserved_refcount_dec(ubi, ubi->reserved_key_version, UBI_DEV_HDR_NR_OF_RES_PEBS,
+					 existing_vol_count);
+	ubi->reserved_key_version = write_kv;
 
 	if (vol_cfg->leb_count < vol->cfg.leb_count) {
 		for (size_t lnum = vol_cfg->leb_count; lnum < vol->cfg.leb_count; lnum++) {
@@ -738,16 +733,13 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	/* Post-commit budget check (SOON emit). */
 	reserved_commit_budget_post(ubi, new_count);
 
-	/* Update reserved-PEB key refcount: old kv released, new kv acquired. */
-	if (write_kv != ubi->reserved_key_version) {
-		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-			ubi_secure_key_refcount_dec_and_check(ubi, ubi->reserved_key_version);
-		}
-		for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-			ubi_secure_key_refcount_inc(ubi, write_kv);
-		}
-		ubi->reserved_key_version = write_kv;
-	}
+	/* Reserved-PEB refcount transition: vol_count drops by one on remove,
+	 * and kv may advance.  Inc-first / dec-last keeps the old kv from
+	 * transiently dropping to zero. */
+	ubi_secure_reserved_refcount_inc(ubi, write_kv, UBI_DEV_HDR_NR_OF_RES_PEBS, new_count);
+	ubi_secure_reserved_refcount_dec(ubi, ubi->reserved_key_version, UBI_DEV_HDR_NR_OF_RES_PEBS,
+					 existing_vol_count);
+	ubi->reserved_key_version = write_kv;
 
 	struct ubi_volume *vol = vol_entry->value.vol;
 	struct rbnode *eba_node = NULL;

@@ -55,7 +55,7 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
 |--------|----------------------|--------------------------------------|
-| Functional correctness | Full — all 544 tests run (543 pass, 1 skip, 39 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 548 tests run (547 pass, 1 skip, 39 suites) | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |

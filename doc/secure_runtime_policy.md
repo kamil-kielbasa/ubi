@@ -60,7 +60,11 @@ read-only flag which only blocks reserved-metadata mutations.
 
 During attach, the init scan counts refcounts per data PEB: one for each
 EC header plus two for each VID-bearing PEB (VID header + LEB data record).
-Reserved PEB objects are excluded (small constant, no lifecycle pairing).
+Reserved PEBs are also counted: every reserved PEB contributes one secure
+device header plus one secure volume header per existing volume
+(`nr_res_pebs * (1 + vol_count)`), so a key version is only retirable
+once both its data-PEB objects and its reserved-PEB objects have been
+replaced.
 
 At runtime:
 
@@ -69,8 +73,24 @@ At runtime:
 - **Erase**: decrement refcount for the old EC key version (×1), plus VID key
   version (×2) if the PEB had a VID header. Increment by 1 for the
   write-active key version (new EC header written after erase).
+- **Reserved metadata commit** (`volume_create` / `volume_resize` /
+  `volume_remove`): the (kv, vol_count) contribution of the new state is
+  added before the old state's contribution is released ("inc-first /
+  dec-last").  This avoids transiently dropping the active kv's refcount
+  to zero, which would otherwise spuriously fire `KEY_RETIRABLE`.
 - **KEY_RETIRABLE**: emitted when a non-write-active key version's refcount
   reaches zero.
+
+## VID-Domain Counter Floor on Key Rotation
+
+The authenticated `vid_next_counter_floor` field in the secure device
+header records the next unused VID-domain AEAD counter for the current
+write-active key version.  When attach detects that
+`requested_write_key_version` differs from the on-flash write-active key
+version, the eager reserved-PEB upgrade restarts the floor at zero:
+`K_volume_identifier[new_kv]` is a fresh HKDF child key, so its 48-bit
+nonce range is unused under the new version.  Reattaching with the same
+key version preserves the monotonic floor.
 
 ## LEB Usage Budget
 

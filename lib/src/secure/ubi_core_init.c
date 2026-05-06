@@ -754,12 +754,11 @@ static int secure_format(const struct ubi_flash_desc *flash,
 	ubi_dev->vol_count = 0;
 	ubi_dev->read_only_degraded = (ret == -EROFS);
 
-	/* Track reserved-PEB key version and refcount. */
+	/* Track reserved-PEB key version and refcount.  Initial format has no
+	 * volumes, so the contribution is just one DEV header per reserved PEB. */
 	ubi_dev->reserved_key_version = crypto_cfg->policy.requested_write_key_version;
-	for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-		ubi_secure_key_refcount_inc(ubi_dev,
-					    crypto_cfg->policy.requested_write_key_version);
-	}
+	ubi_secure_reserved_refcount_inc(ubi_dev, crypto_cfg->policy.requested_write_key_version,
+					 UBI_DEV_HDR_NR_OF_RES_PEBS, 0);
 
 	/* Format data PEBs: erase and write secure EC headers. */
 	const size_t nr_of_pebs = fa_size_for_format / ubi_dev->flash.erase_block_size;
@@ -851,6 +850,11 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 		upd_hdr.hdr_crc = crc32_ieee((const uint8_t *)&upd_hdr,
 					     sizeof(upd_hdr) - sizeof(upd_hdr.hdr_crc));
 		upd_meta.write_active_key_version = new_kv;
+		/* K_volume_identifier[new_kv] is a fresh HKDF child key whose
+		 * 48-bit nonce range is fully unused; restart the VID counter
+		 * at 0 so future writes do not skip into the middle of that
+		 * range. */
+		upd_meta.vid_next_counter_floor = 0;
 
 		ret = ubi_secure_res_peb_commit(flash, crypto_cfg, &upd_hdr, &upd_meta, vol_hdrs,
 						scan.dev_hdr.vol_count, new_kv,
@@ -862,29 +866,29 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 			ubi_dev->next_dev_hdr_counter += 1 + scan.dev_hdr.vol_count;
 			*out_device_revision = upd_hdr.revision;
 			ubi_dev->reserved_key_version = new_kv;
-			for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-				ubi_secure_key_refcount_inc(ubi_dev, new_kv);
-			}
+			ubi_dev->next_vid_counter = 0;
+			ubi_secure_reserved_refcount_inc(ubi_dev, new_kv,
+							 UBI_DEV_HDR_NR_OF_RES_PEBS,
+							 scan.dev_hdr.vol_count);
 		} else if (ret != 0) {
 			/* Key may not be provisioned yet — defer upgrade. */
 			LOG_WRN("Key upgrade deferred: commit failed (%d)", ret);
 			ubi_dev->reserved_key_version = scan.dev_prefix.key_version;
-			for (size_t i = 0; i < scan.auth_count; i++) {
-				ubi_secure_key_refcount_inc(ubi_dev, scan.dev_prefix.key_version);
-			}
+			ubi_secure_reserved_refcount_inc(ubi_dev, scan.dev_prefix.key_version,
+							 scan.auth_count, scan.dev_hdr.vol_count);
 		} else {
 			ubi_dev->next_dev_hdr_counter += 1 + scan.dev_hdr.vol_count;
 			*out_device_revision = upd_hdr.revision;
 			ubi_dev->reserved_key_version = new_kv;
-			for (size_t i = 0; i < UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-				ubi_secure_key_refcount_inc(ubi_dev, new_kv);
-			}
+			ubi_dev->next_vid_counter = 0;
+			ubi_secure_reserved_refcount_inc(ubi_dev, new_kv,
+							 UBI_DEV_HDR_NR_OF_RES_PEBS,
+							 scan.dev_hdr.vol_count);
 		}
 	} else {
 		ubi_dev->reserved_key_version = scan.dev_prefix.key_version;
-		for (size_t i = 0; i < scan.auth_count; i++) {
-			ubi_secure_key_refcount_inc(ubi_dev, scan.dev_prefix.key_version);
-		}
+		ubi_secure_reserved_refcount_inc(ubi_dev, scan.dev_prefix.key_version,
+						 scan.auth_count, scan.dev_hdr.vol_count);
 	}
 
 	/* Collect volumes into RAM — vol_count is incremented per-insert. */

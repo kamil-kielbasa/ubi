@@ -1591,5 +1591,211 @@ ZTEST(ubi_secure_runtime_policy, test_leb_budget_exhausts_blocks_until_rotation)
 		      "Erase must be blocked after LEB exhaustion");
 }
 
+/* VID-domain counter floor reset on key-version rotation -------------------------------------- */
+
+/*
+ * When the write-active key version advances, the authenticated
+ * `vid_next_counter_floor` is reinitialized to 0:
+ * `K_volume_identifier[new_kv]` is a fresh HKDF child key whose 48-bit
+ * nonce range is fully unused, so the counter must restart from the
+ * bottom rather than skip into the middle.
+ *
+ * The tests below drive `next_vid_counter` to a high value under
+ * kv=1, snapshot it into reserved metadata via a volume_create, and
+ * then verify the on-rotation behaviour at reattach.
+ */
+
+/**
+ * \brief vid_next_counter_floor is reset to 0 when write-active kv advances.
+ */
+ZTEST(ubi_secure_runtime_policy, test_vid_floor_resets_on_rotation)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	/* Drive the in-RAM VID counter high before any reserved commit.
+	 * The next reserved commit will snapshot this into the on-flash
+	 * vid_next_counter_floor. */
+	const uint64_t high_floor = 100;
+
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, high_floor);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	uint64_t vid_after_create = 0;
+
+	ubi_secure_test_get_metadata_counters(g_ubi, NULL, NULL, &vid_after_create);
+	zassert_true(vid_after_create > high_floor,
+		     "Pre-rotation: counter must have advanced past the high floor (got %llu)",
+		     (unsigned long long)vid_after_create);
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	uint64_t vid_after_rotate = UINT64_MAX;
+
+	ubi_secure_test_get_metadata_counters(g_ubi, NULL, NULL, &vid_after_rotate);
+	zassert_equal(vid_after_rotate, 0,
+		      "Post-rotation: next_vid_counter must reset to 0 under fresh kv (got %llu)",
+		      (unsigned long long)vid_after_rotate);
+}
+
+/**
+ * \brief vid_next_counter_floor is monotonic within a single write-active kv.
+ *
+ * Reattaching with the same kv must NOT reset the counter — the spec only
+ * permits reset when the write-active key version advances.
+ */
+ZTEST(ubi_secure_runtime_policy, test_vid_floor_persists_within_same_kv)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	const uint64_t high_floor = 50;
+
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, high_floor);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	uint64_t vid_after_reattach = 0;
+
+	ubi_secure_test_get_metadata_counters(g_ubi, NULL, NULL, &vid_after_reattach);
+	zassert_true(vid_after_reattach >= high_floor,
+		     "Same-kv reattach must preserve monotonic floor (got %llu, expected >= %llu)",
+		     (unsigned long long)vid_after_reattach, (unsigned long long)high_floor);
+}
+
+/**
+ * \brief First VID write after rotation consumes a low counter value.
+ *
+ * Confirms that on-flash records under the new kv start at counter 0 — i.e.
+ * the reset actually impacts subsequent writes (not just the in-RAM field).
+ */
+ZTEST(ubi_secure_runtime_policy, test_vid_floor_reset_writes_use_low_counters)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	const uint64_t high_floor = 200;
+
+	ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, high_floor);
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	const uint8_t wdata[] = { 0xDE, 0xAD, 0xBE, 0xEF };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata)));
+
+	uint64_t vid_after_write = UINT64_MAX;
+
+	ubi_secure_test_get_metadata_counters(g_ubi, NULL, NULL, &vid_after_write);
+	zassert_equal(vid_after_write, 1,
+		      "Post-rotation write must consume VID counter 0 (next == 1, got %llu)",
+		      (unsigned long long)vid_after_write);
+}
+
+/* Reserved-PEB refcount transitions ------------------------------------------------------------ */
+
+/*
+ * Reserved-PEB key-version refcount accounts for one DEV header plus one
+ * VOL header per volume on every reserved PEB.  Every reserved metadata
+ * commit (volume_create / volume_resize / volume_remove) transitions the
+ * (kv, vol_count) state and must apply the new contribution before
+ * releasing the old one ("inc-first / dec-last").  Otherwise the refcount
+ * for an unchanged kv would transiently drop to zero and could spuriously
+ * fire KEY_RETIRABLE for the still-active write key version.
+ */
+
+/**
+ * \brief volume_create / volume_remove must not emit KEY_RETIRABLE for the
+ *        still-active write key version.
+ *
+ * \details Format with kv=1, then exercise the reserved metadata commit
+ *          path through create + remove cycles without changing
+ *          requested_write_key_version.  The reserved-PEB refcount under
+ *          kv=1 must remain > 0 throughout (DEV header on every reserved
+ *          PEB never goes away while the device is alive), so no
+ *          KEY_RETIRABLE event for kv=1 may be emitted.  A regression in
+ *          the inc-first / dec-last ordering would surface here as a
+ *          spurious KEY_RETIRABLE during the dec step of the create or
+ *          remove transition.
+ */
+ZTEST(ubi_secure_runtime_policy, test_reserved_refcount_no_spurious_key_retirable)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+	zassert_equal(ts.key_retirable_count, 0,
+		      "volume_create must not emit KEY_RETIRABLE for active kv (got %zu)",
+		      ts.key_retirable_count);
+
+	zassert_ok(ubi_volume_remove(g_ubi, vol_id));
+	zassert_equal(ts.key_retirable_count, 0,
+		      "volume_remove must not emit KEY_RETIRABLE for active kv (got %zu)",
+		      ts.key_retirable_count);
+}
+
 ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_suite_after, NULL);
