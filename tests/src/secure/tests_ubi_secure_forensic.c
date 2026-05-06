@@ -382,11 +382,11 @@ ZTEST(ubi_secure_forensic, test_leb_tail_padding_uses_erased_value)
 	/* Layout constants — kept private from public test API; documented here.
 	 * LEB region starts at peb_offset + 160 (UBI_SECURE_LEB_OFFSET).
 	 * Prefix is 32 bytes, tag is 16 bytes appended after ciphertext.
-	 * Magic is the first 4 bytes of the prefix, little-endian. */
+	 * Magic is the first 4 bytes of the prefix, big-endian (sys_put_be32). */
 	const size_t leb_offset_in_peb = 160U;
 	const size_t prefix_size = 32U;
 	const size_t tag_size = 16U;
-	const uint8_t magic_le[4] = { 0x53, 0x49, 0x42, 0x55 }; /* 'SIBU' = 0x55424953 LE */
+	const uint8_t magic_be[4] = { 'U', 'B', 'I', 'S' }; /* 0x55424953 BE */
 
 	/* Skip if write block size doesn't introduce padding for our payload. */
 	const size_t payload_len = 5U;
@@ -438,7 +438,7 @@ ZTEST(ubi_secure_forensic, test_leb_tail_padding_uses_erased_value)
 		const size_t leb_off = off + leb_offset_in_peb;
 
 		zassert_ok(flash_area_read(fa, leb_off, prefix_buf, sizeof(prefix_buf)));
-		if (memcmp(prefix_buf, magic_le, sizeof(magic_le)) != 0) {
+		if (memcmp(prefix_buf, magic_be, sizeof(magic_be)) != 0) {
 			continue;
 		}
 

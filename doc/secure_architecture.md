@@ -2049,6 +2049,8 @@ flowchart LR
     E --> F["application may remove key from allowlist\nand purge PSA key material"]
 ```
 
+**Implementation note (UBI SECURE).** This taxonomy is informational ("SECURE *should* distinguish ... for operator clarity"). The current implementation emits only `KEY_RETIRABLE` for state 4 — the security-relevant transition that authorizes purging key material. States 1–3 are not surfaced as dedicated events because they are already observable from the application side without library support: state 1 (soft rotation) corresponds to the application's own `requested_write_key_version` change, optionally combined with `KEY_ROTATE_NOW` and `ubi_secure_get_write_active_key_version()`; states 2 and 3 are intermediate progress markers with no security action attached. A future revision may add `KEY_SOFT_ROTATION`, `KEY_LIVE_REWRITE_COMPLETED`, and `KEY_MEDIA_SCRUB_COMPLETED` events if operator tooling needs them.
+
 ---
 
 ## 14. Events, policy, and read-only transitions
