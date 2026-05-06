@@ -36,26 +36,41 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 
 | Suite | File | Tests | Focus | Environment |
 |-------|------|------:|-------|-------------|
-| `ubi_secure_api` | `tests_ubi_secure_api.c` | 3 | Crypto type sizes, secure format on blank, plain unaffected by secure types | native_sim |
-| `ubi_secure_attach` | `tests_ubi_secure_attach.c` | 8 | Format/attach, mode mismatch, freshness rejection, NULL callbacks, allowlist validation | native_sim |
+| `ubi_secure_api` | `tests_ubi_secure_api.c` | 7 | Crypto type sizes, secure format on blank, plain unaffected by secure types, runtime backend selection sanity, getter `write_active_key_version` | native_sim |
+| `ubi_secure_attach` | `tests_ubi_secure_attach.c` | 10 | Format/attach, mode mismatch, freshness rejection, NULL callbacks, allowlist validation, allowlist duplicates rejected, requested write_kv downgrade rejected | native_sim |
 | `ubi_secure_device` | `tests_ubi_secure_device.c` | 2 | Secure init/deinit, info sane, reboot persistence | native_sim |
-| `ubi_secure_volumes` | `tests_ubi_secure_volumes.c` | 7 | Create, remove, resize, shrink, multi-volume persistence, vid_counter_floor reconstruction (parity with `ubi_volumes`) | native_sim |
+| `ubi_secure_volumes` | `tests_ubi_secure_volumes.c` | 8 | Create, remove, resize, shrink, multi-volume persistence, vid_counter_floor reconstruction (parity with `ubi_volumes`) | native_sim |
 | `ubi_secure_write_read` | `tests_ubi_secure_write_read.c` | 3 | Single/multi LEB write/read, overwrite (parity with `ubi_write_read`) | native_sim |
 | `ubi_secure_map` | `tests_ubi_secure_map_unmap.c` | 4 | Map/unmap lifecycle, dirty PEB accounting, unmap→reboot persistence, unmap→erase→reboot (parity with `ubi_map`) | native_sim |
 | `ubi_secure_erase` | `tests_ubi_secure_erase.c` | 4 | Fill-unmap-erase cycle, anchor wear-leveling migration, stale-anchor rejection after reboot, reclaim continuity witness preservation (parity with `ubi_erase`) | native_sim |
 | `ubi_secure_mixed` | `tests_ubi_secure_mixed.c` | 1 | Multi-volume create/write/remove/resize/map/reboot (parity with `ubi_mixed`) | native_sim |
 | `ubi_secure_tamper` | `tests_ubi_secure_tamper.c` | 2 | LEB data tampering smoke, reserved PEB tampering smoke | native_sim |
-| `ubi_secure_runtime_policy` | `tests_ubi_secure_runtime_policy.c` | 21 | Sticky crypto read-only, event escalation, freshness sync cadence, sync failure events, reads in read-only, LEB & metadata (DEV/VOL/EC/VID) budget SOON/NOW thresholds, budget reset on key-rotation reattach, KEY_RETIRABLE, allowlist reject, missing key, rollback mismatch, sticky read-only reinit, mixed-key rotation | native_sim |
+| `ubi_secure_replay` | `tests_ubi_secure_replay.c` | 3 | Replay of authentic EC/VID/LEB record to a different physical PEB — parent-child AAD binding (`peb_index` in AAD) rejects forgery: EC/VID replay marks destination PEB bad on reattach, LEB replay raises `AUTH_FAILURE` on read | native_sim |
+| `ubi_secure_coexistence` | `tests_ubi_secure_coexistence.c` | 2 | Plain UBI device on `ubi_partition` and secure UBI device on `ubi_partition_2` operate concurrently without cross-talk; partition guard still rejects double attach with `-EBUSY` (requires `ubi_partition_2` in DT, native_sim only) | native_sim |
+| `ubi_secure_runtime_policy` | `tests_ubi_secure_runtime_policy.c` | 25 | Sticky crypto read-only, event escalation, freshness sync cadence, sync failure events, reads in read-only, per-domain (LEB / DEV / VOL / EC / VID) budget SOON/NOW thresholds, budget reset on key-rotation reattach, KEY_RETIRABLE, allowlist reject, missing key, rollback mismatch, sticky read-only reinit, mixed-key rotation | native_sim |
 | `ubi_secure_recovery` | `tests_ubi_secure_recovery.c` | 9 | Interrupted data write COW preservation, interrupted VID commit, first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create, init-time anchor re-creation for orphaned volumes | native_sim |
 | `ubi_secure_chunked` | `tests_ubi_secure_chunked.c` | 11 | Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback (requires `CONFIG_UBI_CRYPTO_LEB_CHUNKED=y`) | native_sim |
-| `ubi_secure_forensic` | `tests_ubi_secure_forensic.c` | 5 | Portable forensic scan: plaintext data absence, volume name absence, key material absence, post-overwrite+erase absence, negative test validates scanner on plain backend | native_sim |
-| **Total (secure)** | | **74** | | |
+| `ubi_secure_forensic` | `tests_ubi_secure_forensic.c` | 6 | Portable forensic scan: plaintext data absence, volume name absence, key material absence, post-overwrite+erase absence, negative test validates scanner on plain backend, magic-prefix sweep | native_sim |
+| `ubi_secure_error_handling` | `tests_ubi_secure_error_handling.c` | 74 | Secure-side parity for plain `ubi_error_handling`: NULL/out-of-range params, no-space, contract tests, corrupt EC/VID auth headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
+| `ubi_secure_fault_injection` | `tests_ubi_secure_fault_injection.c` | 2 | Transactional safety on secure backend under malloc/flash faults during create/write (requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`) | native_sim |
+| `ubi_secure_mutation_gate` | `tests_ubi_secure_mutation_gate.c` | 1 | Central mutation gate sanity on secure backend (write-shutdown blocks mutators with `-EROFS`) | native_sim |
+| `ubi_secure_vol_id_watermark` | `tests_ubi_secure_vol_id_watermark.c` | 3 | Persistent vol_id high-watermark on secure backend (parity with plain `ubi_vol_id_watermark`) | native_sim |
+| `ubi_secure_coverage` | `tests_ubi_secure_coverage.c` | 16 | Branch-coverage-driven secure-path tests: dirty PEB accounting, LEB overwrite recovery and persistence, leb_get_size, map/unmap lifecycle, volume-remove variants, flash-write fault on EC/VID, erase-all-dirty | native_sim |
+| `ubi_secure_crypto_faults` | `tests_ubi_secure_crypto_faults.c` | 18 | Crypto primitive fault hooks (AEAD encrypt/decrypt fail, RNG fail, HKDF fail) inserted via `ubi_secure_test_hook_set` exercise error propagation on init/write/read paths (requires `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION=y`) | native_sim |
+| `ubi_secure_defensive` | `tests_ubi_secure_defensive.c` | 109 | Defensive header-shape validation: `bad_wrapper_version`, `exceeds_ccm_limit`, malformed prefix/AAD/tag fields across EC/VID/LEB records | native_sim |
+| **Total (secure)** | | **309** | | |
+
+> Counts above are for the `secure` build (`CONFIG_UBI_CRYPTO=y`,
+> `CONFIG_UBI_CRYPTO_LEB_CHUNKED=n`).  The `chunked` build adds the
+> `ubi_secure_chunked` suite (11 ZTEST).  Plain tests from the section
+> above are also linked into the secure build (so the secure
+> binary executes 251 + 309 = 560 ZTEST in total, 41 suites).
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
 |--------|----------------------|--------------------------------------|
-| Functional correctness | Full — all 553 tests run (551 pass, 2 skip, 39 suites) | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 560 tests run (558 pass, 2 skip, 41 suites) in the `secure` config; the `plain` and `chunked` configs run subsets | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |

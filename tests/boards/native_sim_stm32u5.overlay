@@ -20,5 +20,10 @@
 			label = "ubi_partition";
 			reg = <0x00000000 DT_SIZE_K(128)>;
 		};
+
+		ubi_partition_2: partition@20000 {
+			label = "ubi_partition_2";
+			reg = <0x00020000 DT_SIZE_K(128)>;
+		};
 	};
 };

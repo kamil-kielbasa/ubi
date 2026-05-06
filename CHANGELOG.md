@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.57.0] - 2026-05-06
+
+### Added
+
+- Plain + secure backend coexistence regression test
+  (`ubi_secure_coexistence` suite): a plain UBI device on
+  `ubi_partition` and a secure UBI device on a second partition
+  `ubi_partition_2` operate in parallel without state bleed-through,
+  survive a deinit/reattach cycle, and the partition guard still
+  rejects a second attach to either partition with `-EBUSY`.
+
+### Changed
+
+- Test build raises `CONFIG_UBI_MAX_NR_OF_DEVICES` to `2` for the
+  `native_sim` secure config so the coexistence suite can hold two
+  device handles concurrently. Production defaults are unaffected.
+
 ## [0.56.0] - 2026-05-06
 
 ### Added

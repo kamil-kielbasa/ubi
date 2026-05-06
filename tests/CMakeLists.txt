@@ -67,6 +67,13 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_coverage.c
                                src/secure/tests_ubi_secure_defensive.c
                                src/secure/tests_ubi_secure_replay.c)
+    # Coexistence test requires a second flash partition labelled
+    # `ubi_partition_2` in the active devicetree (provided by native_sim
+    # overlays, absent on HW boards).
+    dt_nodelabel(ubi_part2_path NODELABEL "ubi_partition_2")
+    if(DEFINED ubi_part2_path)
+        target_sources(app PRIVATE src/secure/tests_ubi_secure_coexistence.c)
+    endif()
     if(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
         target_sources(app PRIVATE src/secure/tests_ubi_secure_chunked.c)
     endif()
