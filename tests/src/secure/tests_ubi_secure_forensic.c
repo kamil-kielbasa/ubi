@@ -366,6 +366,97 @@ ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
 		     "Forensic scan failed to detect plaintext on plain backend — scanner bug");
 }
 
+/**
+ * \brief LEB write tail-padding bytes equal the flash erased value.
+ *
+ * \details Write a small payload whose ciphertext+tag is shorter than one
+ *          flash write block, deinit, then scan all data PEBs for the
+ *          secure prefix magic ('UBIS' = 0x55424953 LE).  For each
+ *          matching PEB, confirm the bytes between [tag-end, write-block-end]
+ *          equal the flash erased value (rather than the previous 0x00).
+ *
+ * \expected At least one LEB found, and tail bytes equal erased_val.
+ */
+ZTEST(ubi_secure_forensic, test_leb_tail_padding_uses_erased_value)
+{
+	/* Layout constants — kept private from public test API; documented here.
+	 * LEB region starts at peb_offset + 160 (UBI_SECURE_LEB_OFFSET).
+	 * Prefix is 32 bytes, tag is 16 bytes appended after ciphertext.
+	 * Magic is the first 4 bytes of the prefix, little-endian. */
+	const size_t leb_offset_in_peb = 160U;
+	const size_t prefix_size = 32U;
+	const size_t tag_size = 16U;
+	const uint8_t magic_le[4] = { 0x53, 0x49, 0x42, 0x55 }; /* 'SIBU' = 0x55424953 LE */
+
+	/* Skip if write block size doesn't introduce padding for our payload. */
+	const size_t payload_len = 5U;
+	const size_t ct_tag_size = payload_len + tag_size;
+	const size_t ct_write_size =
+		((ct_tag_size + flash.write_block_size - 1) / flash.write_block_size) *
+		flash.write_block_size;
+
+	if (ct_write_size <= ct_tag_size) {
+		ztest_test_skip();
+		return;
+	}
+
+	uint8_t erased_val = 0;
+
+	zassert_ok(ubi_test_get_erased_val(&flash, &erased_val));
+
+	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 't', 'a', 'i', 'l' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 1,
+	};
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+	const uint8_t small_payload[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	g_ubi = ubi;
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, small_payload, sizeof(small_payload)));
+	g_ubi = NULL;
+	zassert_ok(ubi_device_deinit(ubi));
+
+	/* Scan data PEBs for the secure LEB prefix and verify tail padding. */
+	const struct flash_area *fa = NULL;
+
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+
+	const size_t start_offset = 2U * flash.erase_block_size;
+	size_t leb_found = 0;
+	uint8_t prefix_buf[4] = { 0 };
+	uint8_t tail_buf[16] = { 0 };
+	const size_t tail_len = ct_write_size - ct_tag_size;
+
+	zassert_true(tail_len <= sizeof(tail_buf), "tail_buf too small");
+
+	for (size_t off = start_offset; off < UBI_PARTITION_SIZE; off += flash.erase_block_size) {
+		const size_t leb_off = off + leb_offset_in_peb;
+
+		zassert_ok(flash_area_read(fa, leb_off, prefix_buf, sizeof(prefix_buf)));
+		if (memcmp(prefix_buf, magic_le, sizeof(magic_le)) != 0) {
+			continue;
+		}
+
+		const size_t tail_off = leb_off + prefix_size + ct_tag_size;
+
+		zassert_ok(flash_area_read(fa, tail_off, tail_buf, tail_len));
+		for (size_t i = 0; i < tail_len; i++) {
+			zassert_equal(tail_buf[i], erased_val,
+				      "PEB at off %zu: tail byte %zu = 0x%02x, want 0x%02x", off, i,
+				      tail_buf[i], erased_val);
+		}
+		leb_found++;
+	}
+
+	flash_area_close(fa);
+	zassert_true(leb_found >= 1, "no LEB prefix found on flash");
+}
+
 /* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_forensic, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,

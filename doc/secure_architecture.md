@@ -855,6 +855,8 @@ Normative rule:
 - If checked on read, an inner CRC mismatch after successful AEAD verification is a **format violation of authenticated plaintext**, not a separate authenticity result.
 - Inner CRC fields must not be used for nonce construction, AAD cross-record binding, rollback logic, or key-retirement logic.
 
+**Implementation note (UBI SECURE).** The secure read path deliberately does **not** re-verify inner `hdr_crc` fields after a successful AEAD verification. The 16-byte CCM tag already authenticates the entire serialized record (prefix + plaintext, including any inner CRC fields), so a second CRC check would be redundant for security and would only catch internal serializer bugs already covered by unit tests. Inner CRC fields are still computed on write so that the embedded plain payload stays self-consistent for plain-backend interop and external tooling, but the secure backend treats them as opaque authenticated bytes.
+
 ---
 
 ## 8. Nonce and AAD

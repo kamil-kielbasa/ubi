@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.54.0] - 2026-05-06
+
+### Added
+
+- Public API `ubi_secure_get_write_active_key_version()` that returns the
+  authenticated write-active key version of a secure UBI device.  Returns
+  `-EINVAL` on NULL arguments and `-ENOTSUP` on a plain-mode device.
+- Init-time reserved-generation fit guard: secure init rejects
+  geometries where one reserved generation
+  (`UBI_SECURE_DEV_HDR_SIZE + CONFIG_UBI_MAX_NR_OF_VOLUMES * UBI_SECURE_VOL_HDR_SIZE`)
+  cannot fit inside one reserved PEB.
+- Five ZTESTs in `ubi_secure_api` and `ubi_secure_forensic`:
+  `test_get_write_active_kv_null_args`,
+  `test_get_write_active_kv_plain_mode`,
+  `test_get_write_active_kv_after_format_and_rotation`,
+  `test_reserved_generation_fit_guard_rejects_small_eb`,
+  `test_leb_tail_padding_uses_erased_value`.
+
+### Changed
+
+- LEB write tail padding now uses the flash erased value (typically `0xFF`)
+  instead of `0x00`, so the unused tail of the final write block matches
+  what an erase would leave behind.  Applies to both single-tag and
+  chunked write paths.
+- `secure_architecture.md` §7.10 expanded with an implementation note
+  stating that the secure read path deliberately does not re-verify
+  inner CRC fields after a successful AEAD verification (the CCM tag
+  already covers full record integrity).
+
 ## [0.53.0] - 2026-05-06
 
 ### Changed

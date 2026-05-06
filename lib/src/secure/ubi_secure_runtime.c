@@ -531,6 +531,24 @@ int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *i
 	return 0;
 }
 
+int ubi_secure_get_write_active_key_version(struct ubi_device *ubi, uint8_t *out_kv)
+{
+	if (ubi == NULL || out_kv == NULL) {
+		LOG_ERR("get_write_active_key_version: NULL argument");
+		return -EINVAL;
+	}
+
+	if (ubi->mode != UBI_MODE_SECURE) {
+		LOG_ERR("get_write_active_key_version: device is not in secure mode");
+		return -ENOTSUP;
+	}
+
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+	*out_kv = ubi->reserved_key_version;
+	k_mutex_unlock(&ubi->mutex);
+	return 0;
+}
+
 int ubi_secure_device_erase_peb(struct ubi_device *ubi)
 {
 	if (ubi == NULL) {

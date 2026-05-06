@@ -711,9 +711,21 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 		return -ENOMEM;
 	}
 
-	/* Zero-fill padding region so flash sees deterministic bytes. */
+	/* Pad the tail of the write block with the flash erased value so the
+	 * region appears unmodified to forensic readers and matches what a
+	 * subsequent erase would leave behind. */
 	if (ct_write_size > ct_tag_size) {
-		memset(&ct_buf[ct_tag_size], 0, ct_write_size - ct_tag_size);
+		uint8_t erased_val = 0;
+
+		ret = ubi_get_erased_val(flash, &erased_val);
+		if (ret != 0) {
+			LOG_ERR("get_erased_val failed: %d", ret);
+			ubi_mem_scratch_free(ct_buf);
+			ubi_secure_destroy_key(child_key_id);
+			return ret;
+		}
+
+		memset(&ct_buf[ct_tag_size], erased_val, ct_write_size - ct_tag_size);
 	}
 
 	size_t ct_len = 0;
@@ -847,6 +859,9 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 		goto fail;
 	}
 
+	/* Cache erased value for tail padding (one syscall instead of per-chunk). */
+	const uint8_t erased_val = flash_area_erased_val(fa);
+
 	/* Encrypt and write each chunk. */
 	const uint8_t *src = (const uint8_t *)buf;
 
@@ -885,7 +900,8 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 
 		/* Pad if needed for flash alignment. */
 		if (chunk_write_size > ct_tag_actual) {
-			memset(&chunk_buf[ct_tag_actual], 0, chunk_write_size - ct_tag_actual);
+			memset(&chunk_buf[ct_tag_actual], erased_val,
+			       chunk_write_size - ct_tag_actual);
 		}
 
 		/* Write chunk to flash. */

@@ -137,6 +137,118 @@ ZTEST(ubi_secure_api, test_crypto_type_sizes)
 	zassert_equal(UBI_CRYPTO_EVENT_ENTER_READ_ONLY, 1);
 }
 
+/**
+ * \brief get_write_active_key_version rejects NULL arguments.
+ *
+ * \details Both the device handle and the output pointer are required.
+ *
+ * \expected -EINVAL when either argument is NULL.
+ */
+ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
+{
+	uint8_t kv = 0xAA;
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_device *ubi = NULL;
+
+	zassert_equal(ubi_secure_get_write_active_key_version(NULL, &kv), -EINVAL);
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	zassert_equal(ubi_secure_get_write_active_key_version(ubi, NULL), -EINVAL);
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief get_write_active_key_version returns -ENOTSUP on plain-mode device.
+ *
+ * \expected -ENOTSUP when device was initialized with crypto_cfg=NULL.
+ */
+ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
+{
+	struct ubi_device *ubi = NULL;
+	uint8_t kv = 0xAA;
+
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
+	zassert_equal(ubi_secure_get_write_active_key_version(ubi, &kv), -ENOTSUP);
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief get_write_active_key_version returns the formatted key version.
+ *
+ * \details After format-on-blank with requested kv=1, the getter must
+ *          return 1. After reattach with rotation to kv=2 in the
+ *          allowlist, the getter must return 2.
+ *
+ * \expected kv == 1 after format; kv == 2 after rotation reattach.
+ */
+ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_device *ubi = NULL;
+	uint8_t kv = 0;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	zassert_ok(ubi_secure_get_write_active_key_version(ubi, &kv));
+	zassert_equal(kv, 1, "expected formatted kv=1, got %u", kv);
+	zassert_ok(ubi_device_deinit(ubi));
+
+	/* Reattach with kv=2 requested and allowed. */
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+
+	ubi = NULL;
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	kv = 0;
+	zassert_ok(ubi_secure_get_write_active_key_version(ubi, &kv));
+	zassert_equal(kv, 2, "expected post-rotation kv=2, got %u", kv);
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+/**
+ * \brief Reserved-generation fit guard rejects too-small erase blocks.
+ *
+ * \details One secure reserved generation must fit inside one reserved PEB:
+ *          erase_block_size >= UBI_SECURE_DEV_HDR_SIZE +
+ *                              CONFIG_UBI_MAX_NR_OF_VOLUMES * UBI_SECURE_VOL_HDR_SIZE
+ *          (i.e. 96 + 96 * N).  Init must reject any geometry that violates
+ *          this bound.
+ *
+ * \expected ubi_device_init returns -EINVAL when erase_block_size is below
+ *           the fit threshold but above all earlier sanity bounds.
+ */
+ZTEST(ubi_secure_api, test_reserved_generation_fit_guard_rejects_small_eb)
+{
+	const size_t fit_threshold = 96U + (size_t)CONFIG_UBI_MAX_NR_OF_VOLUMES * 96U;
+
+	/* Pick an erase block above the LEB-overhead minimum (208 bytes) but
+	 * below the fit threshold.  512 satisfies that for typical
+	 * CONFIG_UBI_MAX_NR_OF_VOLUMES values (default 10 -> 1056). */
+	const size_t small_eb = 512U;
+
+	if (small_eb >= fit_threshold) {
+		ztest_test_skip();
+		return;
+	}
+
+	struct ubi_flash_desc bad_flash = flash;
+
+	bad_flash.erase_block_size = small_eb;
+	bad_flash.write_block_size = 4U;
+
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_device *ubi = NULL;
+
+	const int ret = ubi_device_init(&bad_flash, &cfg, &ubi);
+
+	zassert_equal(ret, -EINVAL,
+		      "expected -EINVAL for erase_block_size %zu < fit threshold %zu, got %d",
+		      small_eb, fit_threshold, ret);
+	zassert_is_null(ubi);
+}
+
 /* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_api, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

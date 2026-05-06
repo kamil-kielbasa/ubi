@@ -1034,6 +1034,26 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 		goto exit;
 	}
 
+	/* Reserved-generation fit check: one secure reserved generation
+	 * (DEV_HDR + N * VOL_HDR, N up to CONFIG_UBI_MAX_NR_OF_VOLUMES) must
+	 * fit inside one reserved PEB.  Reject any geometry that could not
+	 * host the maximum-volumes case. */
+	{
+		const size_t max_reserved_generation_bytes =
+			UBI_SECURE_DEV_HDR_SIZE +
+			((size_t)CONFIG_UBI_MAX_NR_OF_VOLUMES * UBI_SECURE_VOL_HDR_SIZE);
+
+		if (ubi_dev->flash.erase_block_size < max_reserved_generation_bytes) {
+			LOG_ERR("Erase block %zu too small for reserved generation "
+				"(need %zu for %d volumes)",
+				ubi_dev->flash.erase_block_size, max_reserved_generation_bytes,
+				CONFIG_UBI_MAX_NR_OF_VOLUMES);
+			flash_area_close(fa);
+			ret = -EINVAL;
+			goto exit;
+		}
+	}
+
 	flash_area_close(fa);
 
 	/* Cache geometry for fast internal lookups. */

@@ -223,4 +223,27 @@ struct ubi_crypto_config {
 
 /** \} ubi_crypto_types */
 
+/* Forward declarations ------------------------------------------------------------------------- */
+
+struct ubi_device;
+
+/* Public functions ----------------------------------------------------------------------------- */
+
+/**
+ * \brief Query the authenticated write-active key version of a secure UBI device.
+ *
+ * Returns the key version currently in force on flash for new write operations
+ * (mirrors the authenticated \c write_active_key_version field of the device
+ * header). The value is stable between key rotations and equals the key version
+ * the secure backend will use for the next mutation.
+ *
+ * \param[in] ubi      UBI device handle (must be initialized in secure mode).
+ * \param[out] out_kv  Receives the current write-active key version.
+ *
+ * \retval 0        Success.
+ * \retval -EINVAL  NULL pointer.
+ * \retval -ENOTSUP Device is not in secure mode.
+ */
+int ubi_secure_get_write_active_key_version(struct ubi_device *ubi, uint8_t *out_kv);
+
 #endif /* UBI_CRYPTO_H */
