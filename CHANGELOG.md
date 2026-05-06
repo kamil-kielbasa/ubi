@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.56.0] - 2026-05-06
+
+### Added
+
+- Replay-to-other-location regression tests (`ubi_secure_replay` suite):
+  forging an authentic EC, VID, or LEB record into a different physical
+  PEB is rejected by the parent-child AAD binding (`peb_index` in AAD).
+  EC and VID replay marks the destination PEB as bad on reattach; LEB
+  replay raises `AUTH_FAILURE` on the next read of the affected mapping.
+
 ## [0.55.0] - 2026-05-06
 
 ### Added

@@ -65,7 +65,8 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_vol_id_watermark.c
                                src/secure/tests_ubi_secure_crypto_faults.c
                                src/secure/tests_ubi_secure_coverage.c
-                               src/secure/tests_ubi_secure_defensive.c)
+                               src/secure/tests_ubi_secure_defensive.c
+                               src/secure/tests_ubi_secure_replay.c)
     if(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
         target_sources(app PRIVATE src/secure/tests_ubi_secure_chunked.c)
     endif()
