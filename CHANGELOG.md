@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.60.0] - 2026-05-07
+
+### Added
+
+- Forced-rekey end-to-end regression test
+  (`ubi_secure_runtime_policy.test_forced_rekey_with_stale_objects`)
+  covering the scenario from `secure_architecture.md` Appendix B §3:
+  after the operator raises `requested_write_key_version` while
+  stale free, dirty and mapped data PEBs from the previous key
+  version still exist on flash, the attach path eagerly upgrades
+  reserved metadata to the new key version, every previously
+  committed payload remains readable across the rotation, new
+  writes commit under the new key version, and the
+  `KEY_RETIRABLE` event for the retired key version is withheld
+  until the last stale object has been recycled and then fires
+  exactly for the retired key version. This closes the final
+  outstanding security-relevant audit gap.
+
 ## [0.59.0] - 2026-05-07
 
 ### Added

@@ -1797,5 +1797,191 @@ ZTEST(ubi_secure_runtime_policy, test_reserved_refcount_no_spurious_key_retirabl
 		      ts.key_retirable_count);
 }
 
+/* Forced rekey with stale objects -------------------------------------------------------------- */
+
+/**
+ * \brief Forced rekey leaves stale free / dirty / mapped kv=N-1 objects on
+ *        flash while attach eagerly upgrades reserved metadata to kv=N,
+ *        and KEY_RETIRABLE for kv=N-1 fires only after every stale object
+ *        has been recycled.
+ *
+ * \details Sequence:
+ *            1. Format with kv=1, create one volume, write LEB 0 and LEB 1.
+ *            2. Overwrite LEB 0 — leaves a dirty data PEB authenticated
+ *               under kv=1, while LEB 0/LEB 1 stay mapped under kv=1 and
+ *               the remaining unused PEBs carry kv=1 EC headers (free
+ *               pool under kv=1).
+ *            3. Re-init with `requested_write_key_version = 2`,
+ *               allowlist = [1, 2].  Attach must:
+ *                 - eagerly upgrade reserved metadata to kv=2,
+ *                 - leave stale kv=1 data objects (mapped + dirty + free)
+ *                   in place,
+ *                 - keep all previously written data readable,
+ *                 - NOT emit KEY_RETIRABLE(kv=1) yet (stale kv=1 objects
+ *                   still hold a refcount).
+ *            4. New writes must succeed and bind to kv=2 (forensically
+ *               unobservable here, but the write path requires the
+ *               write key to be available — see the missing-key test).
+ *            5. Drain: overwrite every mapped LEB and erase every dirty
+ *               PEB until the kv=1 refcount reaches zero.
+ *               KEY_RETIRABLE(kv=1) must then fire exactly once.
+ *
+ * \expected
+ *  - Phase 3: dirty_peb_count > 0, both LEBs read back the kv=1 payload,
+ *    no KEY_RETIRABLE event.
+ *  - Phase 4: write to LEB 0 with kv=2 succeeds and reads back.
+ *  - Phase 5: KEY_RETIRABLE(kv=1) emitted at least once.
+ */
+ZTEST(ubi_secure_runtime_policy, test_forced_rekey_with_stale_objects)
+{
+	/* Phase 1+2: Format + write + overwrite under kv=1. */
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = tracking_event_cb;
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'u', 'b', 'i', '_', '0' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+
+	int vol_id = -1;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+	zassert_ok(ubi_volume_create(g_ubi, &vol_cfg, &vol_id));
+
+	const uint8_t wdata_v1_a[] = { 0xA1, 0xA2, 0xA3, 0xA4 };
+	const uint8_t wdata_v1_b[] = { 0xB1, 0xB2, 0xB3, 0xB4 };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata_v1_a, sizeof(wdata_v1_a)));
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 1, wdata_v1_b, sizeof(wdata_v1_b)));
+
+	/* Overwrite LEB 0 — produces a dirty kv=1 data PEB. */
+	const uint8_t wdata_v1_a2[] = { 0xC1, 0xC2, 0xC3, 0xC4 };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata_v1_a2, sizeof(wdata_v1_a2)));
+
+	struct ubi_device_info info_before_rekey = { 0 };
+
+	zassert_ok(ubi_device_get_info(g_ubi, &info_before_rekey));
+	zassert_true(info_before_rekey.dirty_peb_count >= 1,
+		     "Overwrite must leave at least one dirty kv=1 PEB (got %zu)",
+		     info_before_rekey.dirty_peb_count);
+	zassert_true(info_before_rekey.free_peb_count >= 1,
+		     "Free pool with kv=1 EC headers must remain (got %zu)",
+		     info_before_rekey.free_peb_count);
+
+	zassert_ok(ubi_device_deinit(g_ubi));
+	g_ubi = NULL;
+
+	/* Reset event tracking — only events emitted under kv=2 matter from
+	 * this point on. */
+	memset(&ts, 0, sizeof(ts));
+
+	/* Phase 3: Forced rekey to kv=2 with allowlist=[1,2]. */
+	static const uint8_t allowed_v12[] = { 1, 2 };
+
+	cfg.policy.requested_write_key_version = 2;
+	cfg.policy.allowed_key_versions = allowed_v12;
+	cfg.policy.allowed_key_versions_len = 2;
+	cfg.event_cb = tracking_event_cb;
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
+
+	struct ubi_device_info info_after_rekey = { 0 };
+
+	zassert_ok(ubi_device_get_info(g_ubi, &info_after_rekey));
+
+	/* Stale kv=1 objects must coexist with the freshly upgraded kv=2
+	 * reserved metadata: dirty pool from the pre-rekey overwrite is
+	 * still on flash, mapped data PEBs survive untouched, and free PEBs
+	 * still carry kv=1 EC headers (lazy upgrade — they only get a kv=2
+	 * EC when the wear-leveling allocator next picks them). */
+	zassert_true(info_after_rekey.dirty_peb_count >= 1,
+		     "Forced rekey must preserve stale kv=1 dirty PEBs (got %zu)",
+		     info_after_rekey.dirty_peb_count);
+
+	/* No premature KEY_RETIRABLE — stale kv=1 still holds the refcount. */
+	zassert_equal(ts.key_retirable_count, 0,
+		      "KEY_RETIRABLE(kv=1) must NOT fire while stale kv=1 "
+		      "objects still exist (got %zu events)",
+		      ts.key_retirable_count);
+
+	/* Mixed-kv read: previously committed data is still authentic. */
+	uint8_t rdata[4] = { 0 };
+
+	zassert_ok(ubi_leb_read(g_ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, wdata_v1_a2, sizeof(wdata_v1_a2),
+			  "LEB 0 (kv=1) must remain readable after forced rekey");
+	zassert_ok(ubi_leb_read(g_ubi, vol_id, 1, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, wdata_v1_b, sizeof(wdata_v1_b),
+			  "LEB 1 (kv=1) must remain readable after forced rekey");
+
+	/* Phase 4: New write under kv=2 succeeds and reads back. */
+	const uint8_t wdata_v2[] = { 0xE1, 0xE2, 0xE3, 0xE4 };
+
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata_v2, sizeof(wdata_v2)));
+	zassert_ok(ubi_leb_read(g_ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
+	zassert_mem_equal(rdata, wdata_v2, sizeof(wdata_v2),
+			  "Post-rekey write must read back unchanged");
+
+	/* Phase 5: drain stale kv=1 — overwrite remaining kv=1 LEB and
+	 * cycle write+erase until KEY_RETIRABLE(kv=1) fires or we run out
+	 * of safety budget. */
+	struct ubi_device_info info = { 0 };
+
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+
+	const size_t total_pebs = info.free_peb_count + info.dirty_peb_count + 2;
+	const size_t max_cycles = total_pebs * 4;
+
+	/* Overwrite LEB 1 once with kv=2 to dirty its kv=1 data PEB. */
+	zassert_ok(ubi_leb_write(g_ubi, vol_id, 1, wdata_v2, sizeof(wdata_v2)));
+
+	for (size_t i = 0; i < max_cycles && ts.key_retirable_count == 0; i++) {
+		memset(&info, 0, sizeof(info));
+		zassert_ok(ubi_device_get_info(g_ubi, &info));
+
+		while (info.dirty_peb_count > 0) {
+			int ret = ubi_device_erase_peb(g_ubi);
+
+			if (ret != 0) {
+				break;
+			}
+			memset(&info, 0, sizeof(info));
+			zassert_ok(ubi_device_get_info(g_ubi, &info));
+		}
+
+		if (ts.key_retirable_count > 0) {
+			break;
+		}
+
+		/* Force more wear-leveling cycles by alternating overwrites. */
+		const uint8_t churn[] = { (uint8_t)i, 0xAA, 0x55, 0xFF };
+
+		(void)ubi_leb_write(g_ubi, vol_id, (i & 1u) ? 1 : 0, churn, sizeof(churn));
+	}
+
+	/* Final flush: unmap both LEBs (release their mapped PEBs into dirty
+	 * pool) then erase everything. */
+	(void)ubi_leb_unmap(g_ubi, vol_id, 0);
+	(void)ubi_leb_unmap(g_ubi, vol_id, 1);
+
+	memset(&info, 0, sizeof(info));
+	zassert_ok(ubi_device_get_info(g_ubi, &info));
+	while (info.dirty_peb_count > 0) {
+		zassert_ok(ubi_device_erase_peb(g_ubi));
+		memset(&info, 0, sizeof(info));
+		zassert_ok(ubi_device_get_info(g_ubi, &info));
+	}
+
+	zassert_true(ts.key_retirable_count >= 1,
+		     "KEY_RETIRABLE(kv=1) must fire after all stale kv=1 objects "
+		     "are recycled (got %zu)",
+		     ts.key_retirable_count);
+	zassert_equal(ts.key_retirable_kv, 1, "Last KEY_RETIRABLE must be for kv=1, got %u",
+		      ts.key_retirable_kv);
+}
+
 ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_suite_after, NULL);
