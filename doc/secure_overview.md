@@ -90,22 +90,10 @@ Secure UBI derives every working key from a single per-version root,
 `IKM[v]`. The root is referenced by a **PSA key identifier**; raw root
 bytes never enter the UBI API.
 
-```{mermaid}
-flowchart TD
-    IKM["IKM[key_version]<br/>(>= 256 bits, device-unique, PSA-managed)"]
-    PRK["PRK[key_version]<br/>HKDF-Extract"]
-    DH["K_device_header[key_version]"]
-    VH["K_volume_header[key_version]"]
-    ECH["K_erase_counter[key_version]"]
-    VID["K_volume_identifier[key_version]"]
-    LEB["K_leb[key_version][volume_id]<br/>(per-volume LEB key)"]
-
-    IKM --> PRK
-    PRK --> DH
-    PRK --> VH
-    PRK --> ECH
-    PRK --> VID
-    PRK --> LEB
+```{image} img/key_hierarchy.svg
+:alt: Secure UBI key hierarchy — IKM[v] is HKDF-extracted into PRK[v], which is HKDF-expanded into per-domain child keys (device, volume, EC, VID, LEB); the LEB key is further bound to the durable volume_id.
+:align: center
+:width: 720px
 ```
 
 Properties to remember:

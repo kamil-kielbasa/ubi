@@ -101,13 +101,15 @@ not for users of the library.
 
 UBI reserves the first N PEBs for device and volume metadata, stored in a dual-bank configuration for crash resilience. N is configurable via `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` (default 2, range 2–4). The remaining PEBs (N through total-1) are data blocks available for volume use.
 
+```{image} img/onflash_layout.svg
+:alt: UBI on-flash layout — reserved PEBs followed by data PEBs, each data PEB starting with an EC header (offset 0) and a VID header (offset 512) before the LEB data area.
+:align: center
+:width: 720px
 ```
-Flash Partition (default: N=2 reserved PEBs)
-+====================+====================+=====+====================+
-| PEB 0 (Reserved)   | PEB 1 (Reserved)   | ... | PEB total-1        |
-| Device Header Bank | Device Header Bank |     | Data Block         |
-+====================+====================+=====+====================+
 
+The diagram above is the high-level view. The detailed byte layout of the reserved PEBs (which the SVG glosses over) is:
+
+```
 Reserved PEB Layout (reserved PEBs are mirrors):
 
 Offset 0x000  +----------------------+
@@ -119,22 +121,9 @@ Offset 0x050  | Volume 1 Hdr  (48 B) |
               +----------------------+
               |         ...          |  (up to CONFIG_UBI_MAX_NR_OF_VOLUMES)
               +----------------------+
-
-
-Data PEB Layout (PEB N through PEB total-1):
-
-Offset 0x000  +----------------------+
-              | EC Header    (16 B)  |  magic, version, erase_counter, CRC
-              +----------------------+
-Offset 0x010  | VID Header   (32 B)  |  magic, vol_id, leb_num, sqnum, data_size, CRC
-              +----------------------+
-Offset 0x030  |                      |
-              |     User Data        |  up to (erase_block_size - 48) bytes
-              |                      |
-              +----------------------+
 ```
 
-When a data PEB is **free** (not assigned to any volume), its VID header area is erased (filled with the hardware-reported erased byte value). The EC header is always present on valid PEBs.
+A data PEB starts with a 16-byte **EC header** at offset 0 (magic, version, erase_counter, CRC), followed by a 32-byte **VID header** at offset 0x010 (magic, vol_id, leb_num, sqnum, data_size, CRC), followed by the user-data area. When a data PEB is **free** (not assigned to any volume), its VID header area is erased (filled with the hardware-reported erased byte value). The EC header is always present on valid PEBs.
 
 ---
 

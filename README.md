@@ -7,18 +7,9 @@
 
 UBI is a lightweight **wear-leveling and logical volume management layer** for raw flash on [Zephyr RTOS](https://www.zephyrproject.org/). It sits between application-level storage logic and the physical flash device, providing logical eraseblocks, metadata redundancy, bad block handling, and crash-safe LEB-to-PEB mapping.
 
-```
-┌─────────────────────────────────────────┐
-│          Application / Storage          │
-├─────────────────────────────────────────┤
-│              UBI Public API             │
-│  volume mgmt ─ LEB I/O ─ wear-leveling  │
-├─────────────────────────────────────────┤
-│     Zephyr Flash Map (flash_area API)   │
-├─────────────────────────────────────────┤
-│        Physical Flash (NOR / NAND)      │
-└─────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="doc/img/stack.svg" alt="UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash" width="600">
+</p>
 
 ## Key Properties
 
@@ -98,19 +89,16 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 
 ## Documentation
 
-| Document | What you will find |
-|----------|--------------------|
-| [What is UBI?](https://kamil-kielbasa.github.io/ubi/what_is_ubi.html) | What UBI is, why it exists on Zephyr, when to use it (and when not), feature summary |
-| [Concepts at a Glance](https://kamil-kielbasa.github.io/ubi/concepts.html) | Five key concepts (PEB/LEB/EC/VID/EBA) and how UBI works in 6 steps |
-| [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery, resource usage |
-| [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/secure_overview.html) | Developer-targeted overview of Secure UBI — what it does, key hierarchy, threat model, application contract, key lifecycle |
-| [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/secure_workflow.html) | How to wire Secure UBI into your application — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling |
-| [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/onflash_format_spec.html) | Normative byte-level reference — record layouts, AAD, nonce rules, on-flash counters, lifecycle invariants, recovery scenarios, runtime policy |
-| [Quick Start](https://kamil-kielbasa.github.io/ubi/quick_start.html) | Build, run the sample, and write your first volume in about 5 minutes |
-| [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) | Kconfig options, DeviceTree overlays, sizing guidelines |
-| [API Reference](https://kamil-kielbasa.github.io/ubi/api.html) | Auto-generated from Doxygen — all public types and functions |
-| [Test Strategy](https://kamil-kielbasa.github.io/ubi/test_strategy.html) | Build / test / coverage / forensic scan, test categories, environments, gaps |
-| [Contributing](https://kamil-kielbasa.github.io/ubi/contributing.html) | Repository layout, local dev loop, PR checklist |
+Full documentation is published at **<https://kamil-kielbasa.github.io/ubi/>**. Quick links to the most-used pages:
+
+- [What is UBI?](https://kamil-kielbasa.github.io/ubi/what_is_ubi.html) — 5-minute orientation, when (and when not) to use UBI.
+- [Quick Start](https://kamil-kielbasa.github.io/ubi/quick_start.html) — build, run the sample, write your first volume.
+- [Cookbook](https://kamil-kielbasa.github.io/ubi/cookbook.html) — STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store.
+- [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) — on-flash layout, wear-leveling, dual-bank, recovery.
+- [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
+- [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/secure_workflow.html) — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling.
+- [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/onflash_format_spec.html) — normative byte-level reference.
+- [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/api.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/contributing.html)
 
 ## Project Quality
 

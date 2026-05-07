@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.70.0] - 2026-05-07
+
+### Changed
+
+- The Cookbook chapter has graduated from a stub list of intended
+  recipes to six runnable, copy-paste-ready end-to-end recipes:
+  bringing UBI up on STM32U5 (`b_u585i_iot02a`) with a 128 KiB
+  partition; bringing UBI up on nRF5340 (`nrf5340dk/nrf5340/cpuapp`)
+  with a 64 KiB partition; A/B firmware slots backed by two
+  `STATIC` volumes plus a small `fw_meta` volume to flip the active
+  marker; periodic garbage collection driven by a delayable
+  `k_work` that calls `ubi_device_erase_peb()` and also serves the
+  degraded read-only self-heal path; key rotation against PSA from
+  version 1 to version 2, including the exact moment at which it is
+  safe to call `psa_destroy_key()` (after `KEY_RETIRABLE`); and a
+  freshness store implemented on top of Zephyr Settings, with both
+  the attach-time `check_freshness` callback and the post-commit
+  `sync_freshness` callback wired up. Each recipe spells out the
+  pitfalls and the tuning knobs in addition to the code, so the
+  developer reading it ends up with a working integration rather
+  than a snippet that compiles but is wrong on the second power
+  cycle.
+- Three hero diagrams have been promoted from ASCII / Mermaid to
+  hand-authored SVG and live under `doc/img/`. `stack.svg` shows
+  the four-layer software stack (Application → UBI Public API →
+  Zephyr `flash_area` / PSA Crypto → Physical Flash) and replaces
+  both the README ASCII art and the small Mermaid graph in
+  *What is UBI?*. `onflash_layout.svg` shows the partition as a
+  strip of PEBs (reserved / mapped / free / dirty) plus a zoomed-in
+  PEB with EC header at offset 0, VID header at offset 512, and
+  the LEB data area, replacing the outer ASCII frame in *Plain
+  Architecture* (the byte-level reserved-PEB ASCII stays — the SVG
+  glosses over the volume-header table inside reserved PEBs).
+  `key_hierarchy.svg` shows the Secure UBI key tree
+  (`IKM[v]` →`HKDF-Extract` → `PRK[v]` → `HKDF-Expand` → five
+  per-domain child keys, with the LEB key further bound to the
+  durable `volume_id`) and replaces the Mermaid version in
+  *Secure Overview*. SVGs are theme-neutral so they read on both
+  the GitHub README (light/dark) and the Sphinx site.
+- `README.md` has been slimmed to its v1.0.0 target shape: the
+  ASCII stack box is gone in favour of `doc/img/stack.svg`, and the
+  long Documentation table has collapsed into a short list of seven
+  curated bullet links plus a one-line pointer to the published
+  docs site. The Properties / When to Use / When NOT to Use / Quick
+  Start / Project Quality / License / Contact sections are
+  unchanged. Total length drops by roughly 30%.
+
 ## [0.69.0] - 2026-05-07
 
 ### Changed

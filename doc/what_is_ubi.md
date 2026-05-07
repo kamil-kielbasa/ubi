@@ -24,16 +24,10 @@ sectors. It is *not* a filesystem.
 
 ## Where UBI sits in the stack
 
-```{mermaid}
-graph TD
-    App["Application / Storage Logic"]
-    UBI["UBI Layer<br/>(volumes, wear-leveling, bad blocks)"]
-    FM["Zephyr Flash Map API"]
-    HW["Physical Flash (NOR / NAND)"]
-
-    App --> UBI
-    UBI --> FM
-    FM --> HW
+```{image} img/stack.svg
+:alt: UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash
+:align: center
+:width: 600px
 ```
 
 UBI consumes a single Zephyr flash partition and exposes multiple logical

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+     role="img" aria-label="Secure UBI key hierarchy: per-version IKM is HKDF-extracted into a PRK, then HKDF-expanded into per-domain child keys">
+  <title>Secure UBI key hierarchy</title>
+  <desc>Each key version v has its own root IKM (PSA-managed, ≥256 bits, device-unique). HKDF-Extract produces PRK[v]. HKDF-Expand with a fixed domain label produces five child keys: K_device_header, K_volume_header, K_erase_counter, K_volume_identifier, and K_leb. K_leb is further bound to the durable volume_id so each volume gets a unique per-volume LEB key.</desc>
+
+  <defs>
+    <style>
+      .box      { stroke: #6b7c93; stroke-width: 1.5; rx: 6; }
+      .ikm      { fill: #97aac4; }
+      .prk      { fill: #b0c4dc; }
+      .child    { fill: #c2d4ec; }
+      .leaf     { fill: #d6e4f5; }
+      .lbl      { fill: #1f2d3d; font-size: 13px; font-weight: 600; text-anchor: middle; }
+      .sub      { fill: #1f2d3d; font-size: 11px; text-anchor: middle; }
+      .edge     { stroke: #6b7c93; stroke-width: 1.2; fill: none; }
+      .edge-lbl { fill: #6b7c93; font-size: 11px; font-style: italic; }
+      .heading  { fill: #1f2d3d; font-size: 15px; font-weight: 700; text-anchor: middle; }
+    </style>
+    <marker id="arr2" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#6b7c93"/>
+    </marker>
+  </defs>
+
+  <text class="heading" x="360" y="26">Secure UBI key hierarchy (per key version v)</text>
+
+  <!-- IKM -->
+  <rect class="box ikm" x="260" y="50" width="200" height="50"/>
+  <text class="lbl" x="360" y="72">IKM[v]</text>
+  <text class="sub" x="360" y="90">PSA-managed, ≥256 bits, device-unique</text>
+
+  <!-- arrow IKM -> PRK -->
+  <line class="edge" x1="360" y1="100" x2="360" y2="135" marker-end="url(#arr2)"/>
+  <text class="edge-lbl" x="370" y="120" text-anchor="start">HKDF-Extract</text>
+
+  <!-- PRK -->
+  <rect class="box prk" x="285" y="140" width="150" height="40"/>
+  <text class="lbl" x="360" y="165">PRK[v]</text>
+
+  <!-- arrow PRK -> children fan-out -->
+  <line class="edge" x1="360" y1="180" x2="360" y2="210" marker-end="url(#arr2)"/>
+  <text class="edge-lbl" x="370" y="200" text-anchor="start">HKDF-Expand · fixed labels</text>
+
+  <!-- horizontal fan -->
+  <line class="edge" x1="80"  y1="230" x2="640" y2="230"/>
+  <line class="edge" x1="80"  y1="230" x2="80"  y2="260"/>
+  <line class="edge" x1="220" y1="230" x2="220" y2="260"/>
+  <line class="edge" x1="360" y1="210" x2="360" y2="260"/>
+  <line class="edge" x1="500" y1="230" x2="500" y2="260"/>
+  <line class="edge" x1="640" y1="230" x2="640" y2="260"/>
+
+  <!-- 5 children -->
+  <g>
+    <rect class="box child" x="20"  y="260" width="120" height="50"/>
+    <text class="lbl" x="80"  y="282">K_device_header[v]</text>
+    <text class="sub" x="80"  y="298">device header</text>
+  </g>
+  <g>
+    <rect class="box child" x="160" y="260" width="120" height="50"/>
+    <text class="lbl" x="220" y="282">K_volume_header[v]</text>
+    <text class="sub" x="220" y="298">volume metadata</text>
+  </g>
+  <g>
+    <rect class="box child" x="300" y="260" width="120" height="50"/>
+    <text class="lbl" x="360" y="282">K_erase_counter[v]</text>
+    <text class="sub" x="360" y="298">EC headers</text>
+  </g>
+  <g>
+    <rect class="box child" x="440" y="260" width="120" height="50"/>
+    <text class="lbl" x="500" y="282">K_volume_identifier[v]</text>
+    <text class="sub" x="500" y="298">VID headers</text>
+  </g>
+  <g>
+    <rect class="box child" x="580" y="260" width="120" height="50"/>
+    <text class="lbl" x="640" y="282">K_leb[v]</text>
+    <text class="sub" x="640" y="298">parent for per-volume keys</text>
+  </g>
+
+  <!-- LEB key further bound to volume_id -->
+  <line class="edge" x1="640" y1="310" x2="640" y2="345" marker-end="url(#arr2)"/>
+  <text class="edge-lbl" x="650" y="332" text-anchor="start">+ volume_id</text>
+
+  <rect class="box leaf" x="560" y="350" width="160" height="50"/>
+  <text class="lbl" x="640" y="372">K_leb[v][volume_id]</text>
+  <text class="sub" x="640" y="388">unique per (version, volume)</text>
+</svg>
