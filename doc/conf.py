@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.68.0'
+version = '0.69.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -41,7 +41,13 @@ redirects = {
     # PR 3: Getting Started split into Quick Start (essence) and Test Strategy
     # (build/test/coverage tooling).
     'getting_started': 'quick_start.html',
-    # PR 4 will add entries here as old pages are merged away.
+    # PR 4: Secure Architecture split into a developer-targeted Overview
+    # plus the normative On-Flash Format Specification, and the three small
+    # secure spec satellites folded into the spec itself.
+    'secure_architecture': 'onflash_format_spec.html',
+    'secure_volume_lifecycle': 'onflash_format_spec.html',
+    'secure_recovery_notes': 'onflash_format_spec.html',
+    'secure_runtime_policy': 'onflash_format_spec.html',
 }
 
 source_suffix = ['.rst', '.md']

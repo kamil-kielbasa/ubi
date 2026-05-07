@@ -30,7 +30,7 @@ UBI is a lightweight **wear-leveling and logical volume management layer** for r
 | Metadata redundancy | Dual-bank reserved PEBs (configurable 2–4 copies) |
 | Crash recovery | Sequence-number-based conflict resolution on init |
 | Dynamic volume resize | Grow and shrink volumes at runtime |
-| Authenticated encryption | Optional AES-128-CCM backend encrypting all on-flash structures ([Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html)) |
+| Authenticated encryption | Optional AES-128-CCM backend encrypting all on-flash structures ([Secure Overview](https://kamil-kielbasa.github.io/ubi/secure_overview.html)) |
 | Filesystem | **No** — raw block-level I/O, not file-level |
 | Flash footprint | ~9.2 KB plain / ~59.3 KB secure (Cortex-M33, `-Os`, default config) |
 | Static RAM (BSS) | Depends on Kconfig (see [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html#memory-sizing-guide)) |
@@ -103,7 +103,9 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 | [What is UBI?](https://kamil-kielbasa.github.io/ubi/what_is_ubi.html) | What UBI is, why it exists on Zephyr, when to use it (and when not), feature summary |
 | [Concepts at a Glance](https://kamil-kielbasa.github.io/ubi/concepts.html) | Five key concepts (PEB/LEB/EC/VID/EBA) and how UBI works in 6 steps |
 | [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery, resource usage |
-| [Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html) | Authenticated encryption of all on-flash structures — key hierarchy, nonce/AAD, counter continuity, anchors, freshness exports |
+| [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/secure_overview.html) | Developer-targeted overview of Secure UBI — what it does, key hierarchy, threat model, application contract, key lifecycle |
+| [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/secure_workflow.html) | How to wire Secure UBI into your application — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling |
+| [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/onflash_format_spec.html) | Normative byte-level reference — record layouts, AAD, nonce rules, on-flash counters, lifecycle invariants, recovery scenarios, runtime policy |
 | [Quick Start](https://kamil-kielbasa.github.io/ubi/quick_start.html) | Build, run the sample, and write your first volume in about 5 minutes |
 | [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) | Kconfig options, DeviceTree overlays, sizing guidelines |
 | [API Reference](https://kamil-kielbasa.github.io/ubi/api.html) | Auto-generated from Doxygen — all public types and functions |

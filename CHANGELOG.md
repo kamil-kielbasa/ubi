@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.69.0] - 2026-05-07
+
+### Changed
+
+- The Secure UBI documentation has been split along the
+  audience boundary it always conflated. What used to be a
+  single 3000-line `secure_architecture.md` page — half
+  developer onboarding, half normative byte-level reference,
+  half release checklist — is now three pages addressed to
+  three different readers. The normative content (record
+  layouts, AAD bindings, nonce rules, on-flash counter
+  semantics, dual-bank reserved metadata, anchor witnesses,
+  recovery scenarios, runtime policy) now lives in
+  `onflash_format_spec.md` (renamed from `secure_architecture.md`
+  via `git mv` so version history is preserved). The two
+  developer-facing entry points are new: `secure_overview.md`
+  is a five-page Architecture chapter that explains what
+  Secure UBI does, the key hierarchy with one Mermaid diagram,
+  the threat model as a table, the application contract
+  (allowlist, RNG, freshness callback, event callback), and
+  the four-state key lifecycle (soft rotation → live rewrite
+  → media scrub → key retired) again with one Mermaid diagram.
+  `secure_workflow.md` is a User Guide chapter that walks the
+  application author through prerequisites, `crypto_cfg`
+  fields, the exact callback contracts, lazy and forced key
+  rotation as workflows, the event handler shape, and
+  retirement.
+- The three small secure spec satellites
+  (`secure_volume_lifecycle.md`, `secure_recovery_notes.md`,
+  `secure_runtime_policy.md`) have been folded into
+  `onflash_format_spec.md` as chapters 19, 20, and 21
+  respectively, so the format spec is now a single
+  self-contained reference instead of a hub page that
+  scatters readers across orphan satellites.
+- The Secure UBI ZTEST traceability tables (Lifecycle step →
+  ZTEST, Recovery scenario → ZTEST, Release checklist →
+  ZTEST) have been moved out of the user-facing secure docs
+  and into `test_strategy.md` under a new dedicated section.
+  This restores user docs to "what the system does"
+  (specification + workflow) and concentrates "how the system
+  is verified" (ZTEST mapping) in the one place where test
+  strategy is already discussed.
+- `doc/conf.py` gains four redirects (`secure_architecture`,
+  `secure_volume_lifecycle`, `secure_recovery_notes`,
+  `secure_runtime_policy` → `onflash_format_spec.html`) so
+  external bookmarks and search-engine results to any of the
+  four old URLs continue to land on the live spec.
+- `README.md` and `doc/plain_architecture.md` now point at
+  `secure_overview.html` for the developer-facing entry and
+  at `onflash_format_spec.html` for the normative reference,
+  so newcomers no longer hit the 3000-line spec as their
+  first encounter with Secure UBI.
+
 ## [0.68.0] - 2026-05-07
 
 ### Changed

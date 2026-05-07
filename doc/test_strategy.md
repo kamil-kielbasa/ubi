@@ -428,3 +428,78 @@ Tests build with strict warnings to catch issues at compile time:
 3. Follow the fixture pattern: init -> operate -> assert -> deinit
 4. If testing a new file, add it to `tests/CMakeLists.txt`
 5. Build and run: `bash scripts/run_tests.sh`
+
+## ZTEST traceability for Secure UBI
+
+The tables below map each Secure UBI lifecycle step, recovery
+scenario, and release-checklist item to the specific ZTESTs that
+exercise it. All tests live under `tests/src/secure/` and run as part
+of the secure ZTEST suite (`bash scripts/run_tests.sh native_sim
+secure`). Items marked **review-only** are design / code-review
+constraints with no direct runtime test (intentional; documented for
+traceability).
+
+The corresponding normative behaviour is specified in
+{doc}`onflash_format_spec` chapters 19 (Secure volume lifecycle), 20
+(Secure recovery scenarios), and Appendix C (release checklist).
+
+### Lifecycle step → ZTEST coverage
+
+| Lifecycle step       | Implementation                                                       | ZTEST(s)                                                                                                                                        |
+|----------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| Create               | `ubi_secure_volume_create()` (`lib/src/secure/ubi_secure_volume.c`)  | `ubi_secure_volumes::test_create_one_with_reboot`, `ubi_secure_volumes::test_create_many_with_reboot`                                           |
+| Resize (grow)        | `ubi_secure_volume_resize()` (grow branch)                           | `ubi_secure_volumes::test_resize_upper_with_reboot`, `ubi_secure_coverage::test_volume_resize_grow`, `ubi_secure_coverage::test_volume_resize_persists` |
+| Shrink               | `ubi_secure_volume_resize()` (shrink branch)                         | `ubi_secure_volumes::test_shrink_with_reboot`, `ubi_secure_volumes::test_shrink_erase_reboot`, `ubi_secure_coverage::test_volume_resize_shrink` |
+| Remove               | `ubi_secure_volume_remove()`                                         | `ubi_secure_coverage::test_volume_remove_basic`, `ubi_secure_coverage::test_volume_remove_persists`, `ubi_secure_coverage::test_volume_remove_with_mapped_lebs`, `ubi_secure_volumes::test_create_remove_with_reboot` |
+| Unmap                | `ubi_secure_leb_unmap()` (`lib/src/secure/ubi_secure_leb.c`)         | `ubi_secure_coverage::test_leb_unmap`, `ubi_secure_map::test_unmap_reboot_before_erase`, `ubi_secure_map::test_unmap_erase_reboot`              |
+| Erase and reclaim    | `ubi_secure_device_erase_peb()` + anchor witness (§11.6)            | `ubi_secure_erase::test_anchor_participates_in_wear_leveling`, `ubi_secure_erase::test_reclaim_preserves_continuity_witness`, `ubi_secure_erase::test_fill_unmap_erase_cycle` |
+| Reboot recovery      | `ubi_secure_device_init()` scan path (`lib/src/secure/ubi_core_init.c`) | `ubi_secure_map::test_all_lebs_lifecycle_with_reboot`, `ubi_secure_recovery::test_interrupted_data_write_survives_reboot`, `ubi_secure_recovery::test_init_recreates_missing_anchor` |
+
+### Recovery scenario → ZTEST coverage
+
+| Scenario                                   | ZTEST(s)                                                                                                                                                              |
+|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `unmap → reboot` (before erase)            | `ubi_secure_map::test_unmap_reboot_before_erase`                                                                                                                      |
+| `unmap → erase → reboot`                   | `ubi_secure_map::test_unmap_erase_reboot`                                                                                                                             |
+| `shrink → reboot` (before erase)           | `ubi_secure_volumes::test_shrink_with_reboot`                                                                                                                         |
+| `shrink → erase → reboot`                  | `ubi_secure_volumes::test_shrink_erase_reboot`                                                                                                                        |
+| `remove all volumes → reboot → create`     | `ubi_secure_volumes::test_vid_counter_floor_remove_create_reboot`                                                                                                     |
+| Anchor migration during erase              | `ubi_secure_erase::test_anchor_participates_in_wear_leveling`, `ubi_secure_erase::test_reclaim_preserves_continuity_witness`                                          |
+| Stale anchor after reboot                  | `ubi_secure_erase::test_stale_anchor_rejected_after_reboot`, `ubi_secure_recovery::test_init_recreates_missing_anchor`                                                |
+| Emergency reserve refill                   | `ubi_secure_erase::test_fill_unmap_erase_cycle`                                                                                                                       |
+| Dual-bank reserved metadata recovery       | `ubi_secure_recovery::test_interrupted_reserved_commit_no_ghost_volume`, `ubi_secure_recovery::test_reserved_generation_replay_rejected`, `ubi_secure_tamper::test_reserved_peb_tamper_smoke` |
+
+### Release checklist → ZTEST coverage
+
+#### Critical format constraints
+
+| Checklist bullet                                                         | ZTEST(s)                                                                                                                                                            |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Reserved-generation fit against geometry                                 | `ubi_secure_api::test_reserved_generation_fit_guard_rejects_small_eb`, `ubi_secure_defensive::test_init_erase_block_too_small`                                      |
+| Single-tag CCM payload limit / require chunked or reject SECURE          | `ubi_secure_chunked::test_geometry_reject_tiny_erase_block`, `ubi_secure_chunked::test_geometry_leb_size`, `ubi_secure_chunked::test_chunked_write_overflow_rejected` |
+| Zero-length LEB encoding fixed                                           | `ubi_secure_chunked::test_zero_length_map`                                                                                                                          |
+| Single-tag tail-padding behaviour fixed                                  | `ubi_secure_chunked::test_partial_last_chunk`, `ubi_secure_chunked::test_overwrite_chunked`                                                                         |
+| Reject cross-mode attach; mixed-mode migration out of scope              | `ubi_secure_attach::test_plain_then_secure_mismatch`, `ubi_secure_attach::test_secure_then_plain_mismatch`, `ubi_secure_coexistence::test_partition_guard_blocks_double_attach` |
+
+#### Important implementation notes
+
+| Checklist bullet                                                         | ZTEST(s)                                                                                                                                                            |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Operational retirement levels (§13.8)                                    | `ubi_secure_runtime_policy::test_reserved_metadata_budget_exhausts_blocks_until_rotation`, `ubi_secure_runtime_policy::test_leb_budget_exhausts_blocks_until_rotation`, `ubi_secure_runtime_policy::test_leb_budget_rotate_soon_emitted_below_now` |
+| Authenticated parent `key_version` in every child AAD binding            | `ubi_secure_defensive::test_derive_domain_key_rejects_non_allowlisted_kv`, `ubi_secure_defensive::test_derive_leb_key_rejects_non_allowlisted_kv`                   |
+| Zeroize plaintext scratch and software-derived child-key buffers         | review-only (audited in `ubi_secure_crypto.c`; relies on `psa_destroy_key` + scratch slab `memset`)                                                                 |
+| `volume_id` as durable cryptographic identity                            | `ubi_secure_vol_id_watermark::test_volume_id_not_reused_after_remove_and_reinit`, `ubi_secure_vol_id_watermark::test_volume_id_not_reused_after_remove_same_boot`   |
+| Authenticated `write_active_key_version` monotonic                       | `ubi_secure_attach::test_requested_write_kv_downgrade_rejected`, `ubi_secure_api::test_get_write_active_kv_after_format_and_rotation`                               |
+| `device_revision` widening preserves on-flash numeric ordering           | review-only (locked by `BUILD_ASSERT` on serialized layout in `ubi_secure_ser.c`)                                                                                   |
+
+#### Validation expected before upstream
+
+| Checklist bullet                                                         | ZTEST(s)                                                                                                                                                            |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Power-cut testing: `DATA → VID`, zero-length, hidden-anchor, reserved-gen | `ubi_secure_recovery::test_interrupted_data_write_preserves_old_mapping`, `ubi_secure_recovery::test_interrupted_vid_commit_preserves_old_mapping`, `ubi_secure_recovery::test_interrupted_anchor_write_preserves_continuity`, `ubi_secure_recovery::test_interrupted_reserved_commit_no_ghost_volume`, `ubi_secure_recovery::test_reserved_generation_replay_rejected` |
+| PSA-only failure paths (RNG fail, missing key material)                  | `ubi_secure_crypto_faults::test_rng_fail_on_leb_write`, `ubi_secure_crypto_faults::test_rng_fail_on_erase`, `ubi_secure_crypto_faults::test_get_key_id_fail_on_leb_write`, `ubi_secure_crypto_faults::test_hkdf_fail_on_leb_write`, `ubi_secure_attach::test_freshness_reject` |
+| Zero-length, mixed-key, chunked, alignment, hidden-anchor recovery       | `ubi_secure_chunked::test_zero_length_map`, `ubi_secure_chunked::test_multi_chunk_with_reboot`, `ubi_secure_chunked::test_partial_read_cross_chunk`, `ubi_secure_recovery::test_interrupted_anchor_create_during_volume_create` |
+| `unmap/shrink → erase → reboot` with last-witness PEB                    | `ubi_secure_map::test_unmap_erase_reboot`, `ubi_secure_volumes::test_shrink_erase_reboot`, `ubi_secure_erase::test_reclaim_preserves_continuity_witness`            |
+| `volume_remove` including remove-all → reboot → zero-volume state        | `ubi_secure_coverage::test_volume_remove_basic`, `ubi_secure_coverage::test_volume_remove_persists`, `ubi_secure_volumes::test_vid_counter_floor_remove_create_reboot` |
+| `vid_next_counter_floor` reconstruction; monotonic write-active-key      | `ubi_secure_volumes::test_vid_counter_floor_remove_create_reboot`, `ubi_secure_attach::test_requested_write_kv_downgrade_rejected`                                  |
+| Refcount-driven `KEY_RETIRABLE` during reclaim and rotation              | `ubi_secure_runtime_policy::test_forced_rekey_with_stale_objects`, `ubi_secure_runtime_policy::test_reserved_refcount_no_spurious_key_retirable`                    |

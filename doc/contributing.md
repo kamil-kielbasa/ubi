@@ -130,9 +130,9 @@ scripts/                     CI, coverage, formatting, forensic scan, and test r
 Any change that affects the following **must** include a documentation update:
 
 - Public API (`lib/include/ubi.h`) — update Doxygen comments and `doc/api.rst` if needed
-- On-flash layout or header structures — update `doc/plain_architecture.md` (or `doc/secure_architecture.md` for SECURE mode)
+- On-flash layout or header structures — update `doc/plain_architecture.md` (or `doc/onflash_format_spec.md` for SECURE mode)
 - Kconfig options — update `doc/configuration.md`
-- Recovery semantics or failure modes — update `doc/plain_architecture.md` (or `doc/secure_architecture.md` for SECURE mode)
+- Recovery semantics or failure modes — update `doc/plain_architecture.md` (or `doc/onflash_format_spec.md` for SECURE mode)
 - Flash/RAM footprint — update `doc/plain_architecture.md` (single source of truth for resource profile)
 - Test matrix — update `doc/test_strategy.md`
 
