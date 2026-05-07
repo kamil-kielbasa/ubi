@@ -46,7 +46,7 @@ enum ubi_secure_test_hook_stage {
 	UBI_SECURE_HOOK_COUNT, /*!< Number of hook stages. */
 };
 
-/* Public API ----------------------------------------------------------------------------------- */
+/* Module interface function declarations ------------------------------------------------------- */
 
 /**
  * \brief Reset all secure test hooks to their default (disabled) state.

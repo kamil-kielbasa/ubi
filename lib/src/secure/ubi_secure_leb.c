@@ -35,11 +35,45 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Static function definitions ------------------------------------------------------------------ */
+/* Static function declarations ----------------------------------------------------------------- */
 
 /**
  * \brief Mark a PEB that failed a write as bad.
  */
+static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node);
+
+/**
+ * \brief Recover the previous VID secure metadata for an existing LEB mapping.
+ *
+ * If the LEB is already mapped, reads the full EC→VID auth chain from the old PEB
+ * and returns the authenticated leb_write_counter and leb_total_auth_bytes.
+ * For an unmapped LEB both are 0 (first write).
+ */
+static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_volume *vol,
+				    size_t lnum, uint64_t *old_write_counter,
+				    uint64_t *old_total_auth_bytes);
+
+/**
+ * \brief Allocate a free PEB, write optional data payload, then write VID header.
+ *
+ * Write order: LEB data first, VID second (commit point).
+ * counter_base = old leb_write_counter. LEB data uses counter_base.
+ * VID gets leb_write_counter = counter_base + aead_invocations (1 for single-tag).
+ * VID gets leb_total_auth_bytes = old + leb_aad_bytes_this_write + payload_bytes.
+ */
+static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
+				   const void *buf, size_t len, uint64_t old_write_counter,
+				   uint64_t old_total_auth_bytes,
+				   struct ubi_rbt_item **out_new_node);
+
+/**
+ * \brief Swap old EBA entry for the newly written PEB.
+ */
+static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
+				    struct ubi_rbt_item *new_node);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
 static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -55,13 +89,6 @@ static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node)
 	ubi_move_to_bad_blocks(ubi, failed_pnum, failed_ec, bad_item);
 }
 
-/**
- * \brief Recover the previous VID secure metadata for an existing LEB mapping.
- *
- * If the LEB is already mapped, reads the full EC→VID auth chain from the old PEB
- * and returns the authenticated leb_write_counter and leb_total_auth_bytes.
- * For an unmapped LEB both are 0 (first write).
- */
 static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_volume *vol,
 				    size_t lnum, uint64_t *old_write_counter,
 				    uint64_t *old_total_auth_bytes)
@@ -120,14 +147,6 @@ static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_vol
 	return 0;
 }
 
-/**
- * \brief Allocate a free PEB, write optional data payload, then write VID header.
- *
- * Write order: LEB data first, VID second (commit point).
- * counter_base = old leb_write_counter. LEB data uses counter_base.
- * VID gets leb_write_counter = counter_base + aead_invocations (1 for single-tag).
- * VID gets leb_total_auth_bytes = old + leb_aad_bytes_this_write + payload_bytes.
- */
 static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				   const void *buf, size_t len, uint64_t old_write_counter,
 				   uint64_t old_total_auth_bytes,
@@ -278,9 +297,6 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	return 0;
 }
 
-/**
- * \brief Swap old EBA entry for the newly written PEB.
- */
 static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
 				    struct ubi_rbt_item *new_node)
 {

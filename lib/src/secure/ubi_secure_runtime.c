@@ -37,12 +37,6 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry);
-static void torture_bad_blocks(struct ubi_device *ubi);
-static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_pnum);
-
-/* Static function definitions ------------------------------------------------------------------ */
-
 /**
  * \brief Erase a single dirty PEB and move it to the free pool.
  *
@@ -55,6 +49,38 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
  * \retval 0    Success — PEB erased and promoted to free pool.
  * \retval -EIO I/O or crypto failure — PEB marked bad.
  */
+static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry);
+
+/**
+ * \brief Attempt to recover bad PEBs by performing erase-only torture.
+ *
+ * Up to CONFIG_UBI_BAD_PEB_TORTURE_CYCLES bad PEBs are tested per call.
+ * Each PEB is erased up to CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE times;
+ * the first successful erase recovers the PEB to the free pool with ec = ec_avg.
+ * If all attempts fail, the PEB remains in the bad list.
+ */
+static void torture_bad_blocks(struct ubi_device *ubi);
+
+/**
+ * \brief If the dirty PEB is the last writable witness, rewrite the anchor.
+ *
+ * Before erasing a dirty PEB, check whether its VID carries a
+ * leb_write_counter higher than the volume's hidden anchor.  If so — and no
+ * mapped PEB for the same volume still carries that counter — the anchor
+ * must be rewritten to inherit the counter state before the dirty PEB is
+ * destroyed.
+ *
+ * \param[in] ubi        UBI device (caller holds mutex).
+ * \param[in] dirty_pnum Physical erase block number of the dirty PEB.
+ *
+ * \retval 0       No rewrite needed, or anchor rewritten successfully.
+ * \retval -EIO    I/O or crypto failure during rewrite.
+ * \retval -ENOSPC No free PEB for anchor rewrite.
+ */
+static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_pnum);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
 static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -162,22 +188,6 @@ mark_bad: {
 }
 }
 
-/**
- * \brief If the dirty PEB is the last writable witness, rewrite the anchor.
- *
- * Before erasing a dirty PEB, check whether its VID carries a
- * leb_write_counter higher than the volume's hidden anchor.  If so — and no
- * mapped PEB for the same volume still carries that counter — the anchor
- * must be rewritten to inherit the counter state before the dirty PEB is
- * destroyed.
- *
- * \param[in] ubi        UBI device (caller holds mutex).
- * \param[in] dirty_pnum Physical erase block number of the dirty PEB.
- *
- * \retval 0       No rewrite needed, or anchor rewritten successfully.
- * \retval -EIO    I/O or crypto failure during rewrite.
- * \retval -ENOSPC No free PEB for anchor rewrite.
- */
 static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_pnum)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -410,14 +420,6 @@ rewrite_bad: {
 }
 }
 
-/**
- * \brief Attempt to recover bad PEBs by performing erase-only torture.
- *
- * Up to CONFIG_UBI_BAD_PEB_TORTURE_CYCLES bad PEBs are tested per call.
- * Each PEB is erased up to CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE times;
- * the first successful erase recovers the PEB to the free pool with ec = ec_avg.
- * If all attempts fail, the PEB remains in the bad list.
- */
 static void torture_bad_blocks(struct ubi_device *ubi)
 {
 	const struct flash_area *fa = NULL;

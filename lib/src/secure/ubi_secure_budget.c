@@ -27,9 +27,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-LOG_MODULE_DECLARE(ubi);
-
 /* Module defines ------------------------------------------------------------------------------- */
+
+LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /**
  * \brief Per-record authenticated-byte size (AAD + plaintext) for the

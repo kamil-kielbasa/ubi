@@ -34,128 +34,7 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Module interface function definitions -------------------------------------------------------- */
-
-/**
- * \brief Allocate a free PEB and write a hidden anchor (zero-length LEB).
- *
- * The anchor is a data PEB with INTERNAL_ANCHOR_LNUM, zero-length secure LEB
- * record, and initial VID secure metadata counters.
- * Write order: LEB data first (zero-length), VID second (commit point).
- *
- * \param[in]     ubi     UBI device (caller holds mutex, at least 1 free PEB).
- * \param[in,out] vol     Volume to bind the anchor to.
- *
- * \retval 0       Success — vol->anchor_pnum is set.
- * \retval -EIO    I/O or crypto failure.
- * \retval -ENOSPC No free PEBs.
- */
-int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
-{
-	__ASSERT_NO_MSG(ubi != NULL);
-	__ASSERT_NO_MSG(vol != NULL);
-
-	if (ubi->free_peb_count == 0) {
-		LOG_ERR("No free PEB for anchor allocation");
-		return -ENOSPC;
-	}
-
-	/* 1. Take a free PEB. */
-	struct rbnode *min_node = rb_get_min(&ubi->free_pebs);
-	struct ubi_rbt_item *item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
-
-	rb_remove(&ubi->free_pebs, &item->node);
-	ubi->free_peb_count--;
-
-	const size_t pnum = item->value.pnum;
-
-	/* 2. Read authentic EC context from the PEB. */
-	struct ubi_ec_hdr ec_hdr = { 0 };
-	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
-
-	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
-
-	if (ret != 0) {
-		LOG_ERR("EC read failure on anchor PEB %zu", pnum);
-		goto mark_bad;
-	}
-
-	/* 3. Build VID header with INTERNAL_ANCHOR_LNUM and zero-length data. */
-	struct ubi_vid_hdr vid_hdr = { 0 };
-
-	vid_hdr.magic = UBI_VID_HDR_MAGIC;
-	vid_hdr.version = UBI_VID_HDR_VERSION;
-	vid_hdr.lnum = UBI_SECURE_INTERNAL_ANCHOR_LNUM;
-	vid_hdr.vol_id = vol->vol_id;
-	vid_hdr.sqnum = ubi->global_sqnum++;
-	vid_hdr.data_size = 0;
-	vid_hdr.hdr_crc =
-		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
-
-	/*
-	 * Initial counter state for this anchor:
-	 *   leb_write_counter = 1 (one AEAD invocation for the zero-length LEB record).
-	 *   leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE (AAD only, zero payload).
-	 */
-	const struct ubi_vid_secure_meta vid_meta = {
-		.leb_write_counter = 1,
-		.leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE,
-	};
-
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
-
-	/* 4. Write zero-length LEB data (prefix32 + tag16, no payload). */
-	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
-					write_kv, NULL, 0, write_kv, 0);
-	if (ret != 0) {
-		LOG_ERR("Anchor LEB write failure on PEB %zu", pnum);
-		goto mark_bad;
-	}
-
-	/* 5. Write VID header — commit point.
-	 *    Use global VID counter for this key version. */
-	const uint64_t vid_counter = ubi->next_vid_counter;
-
-	if (vid_counter > UBI_SECURE_COUNTER_MAX) {
-		LOG_ERR("VID counter overflow");
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = write_kv,
-				      .usage_pct = UBI_SECURE_PERCENT_BASE },
-		};
-		ubi_secure_emit_event(ubi, &event);
-		ret = -EOVERFLOW;
-		goto mark_bad;
-	}
-
-	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
-				       &vid_meta, write_kv, vid_counter);
-	if (ret != 0) {
-		LOG_ERR("Anchor VID write failure on PEB %zu", pnum);
-		goto mark_bad;
-	}
-
-	ubi->next_vid_counter = vid_counter + 1;
-
-	/* 6. Success — track in volume. The item is not inserted into any tree;
-	 *    anchor PEBs are tracked via vol->anchor_pnum, not via EBA or free/dirty. */
-	vol->anchor_pnum = pnum;
-	ubi_mem_leaf_free(item);
-	/* clang-format off */
-	return 0;
-
-mark_bad: {
-	/* clang-format on */
-	const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
-	struct ubi_list_item *bad = ubi_leaf_as_list(item);
-
-	ubi_move_to_bad_blocks(ubi, pnum, ec_avg, bad);
-	return ret;
-}
-}
-
-/* Static function definitions ------------------------------------------------------------------ */
+/* Static function declarations ----------------------------------------------------------------- */
 
 /**
  * \brief Pre-commit budget check for the reserved-PEB area (DEVICE_HEADER + VOLUME_HEADER).
@@ -166,6 +45,30 @@ mark_bad: {
  * either crossing ROTATE_NOW_PCT triggers KEY_ROTATE_NOW + sticky
  * read_only_crypto and rejects the commit with -ENOSPC.
  */
+static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count);
+
+/**
+ * \brief Post-commit budget check (SOON emit) for the reserved-PEB area.
+ *
+ * Caller must have already bumped ubi->next_dev_hdr_counter so that it
+ * reflects the post-commit value.
+ */
+static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count);
+
+/**
+ * \brief Read device header via secure reserved scan, bump revision.
+ */
+static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
+				 struct ubi_dev_secure_meta *meta, struct ubi_vol_hdr *vol_hdrs,
+				 size_t *vol_count, int vol_count_delta);
+
+/**
+ * \brief Reclaim a PEB to the dirty pool by reading its secure EC header.
+ */
+static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
 static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -187,12 +90,6 @@ static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count)
 	return ret;
 }
 
-/**
- * \brief Post-commit budget check (SOON emit) for the reserved-PEB area.
- *
- * Caller must have already bumped ubi->next_dev_hdr_counter so that it
- * reflects the post-commit value.
- */
 static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -207,9 +104,6 @@ static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count
 	}
 }
 
-/**
- * \brief Read device header via secure reserved scan, bump revision.
- */
 static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr,
 				 struct ubi_dev_secure_meta *meta, struct ubi_vol_hdr *vol_hdrs,
 				 size_t *vol_count, int vol_count_delta)
@@ -269,9 +163,6 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	return 0;
 }
 
-/**
- * \brief Reclaim a PEB to the dirty pool by reading its secure EC header.
- */
 static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *item)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -808,4 +699,111 @@ int ubi_secure_volume_get_info(struct ubi_device *ubi, int vol_id,
 exit:
 	k_mutex_unlock(&ubi->mutex);
 	return ret;
+}
+
+int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
+{
+	if (!ubi || !vol) {
+		LOG_ERR("Invalid argument: ubi=%p vol=%p", (const void *)ubi, (const void *)vol);
+		return -EINVAL;
+	}
+
+	if (ubi->free_peb_count == 0) {
+		LOG_ERR("No free PEB for anchor allocation");
+		return -ENOSPC;
+	}
+
+	/* 1. Take a free PEB. */
+	struct rbnode *min_node = rb_get_min(&ubi->free_pebs);
+	struct ubi_rbt_item *item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
+
+	rb_remove(&ubi->free_pebs, &item->node);
+	ubi->free_peb_count--;
+
+	const size_t pnum = item->value.pnum;
+
+	/* 2. Read authentic EC context from the PEB. */
+	struct ubi_ec_hdr ec_hdr = { 0 };
+	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
+
+	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
+
+	if (ret != 0) {
+		LOG_ERR("EC read failure on anchor PEB %zu", pnum);
+		goto mark_bad;
+	}
+
+	/* 3. Build VID header with INTERNAL_ANCHOR_LNUM and zero-length data. */
+	struct ubi_vid_hdr vid_hdr = { 0 };
+
+	vid_hdr.magic = UBI_VID_HDR_MAGIC;
+	vid_hdr.version = UBI_VID_HDR_VERSION;
+	vid_hdr.lnum = UBI_SECURE_INTERNAL_ANCHOR_LNUM;
+	vid_hdr.vol_id = vol->vol_id;
+	vid_hdr.sqnum = ubi->global_sqnum++;
+	vid_hdr.data_size = 0;
+	vid_hdr.hdr_crc =
+		crc32_ieee((const uint8_t *)&vid_hdr, sizeof(vid_hdr) - sizeof(vid_hdr.hdr_crc));
+
+	/*
+	 * Initial counter state for this anchor:
+	 *   leb_write_counter = 1 (one AEAD invocation for the zero-length LEB record).
+	 *   leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE (AAD only, zero payload).
+	 */
+	const struct ubi_vid_secure_meta vid_meta = {
+		.leb_write_counter = 1,
+		.leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE,
+	};
+
+	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+
+	/* 4. Write zero-length LEB data (prefix32 + tag16, no payload). */
+	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+					write_kv, NULL, 0, write_kv, 0);
+	if (ret != 0) {
+		LOG_ERR("Anchor LEB write failure on PEB %zu", pnum);
+		goto mark_bad;
+	}
+
+	/* 5. Write VID header — commit point.
+	 *    Use global VID counter for this key version. */
+	const uint64_t vid_counter = ubi->next_vid_counter;
+
+	if (vid_counter > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("VID counter overflow");
+		const struct ubi_crypto_event event = {
+			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.rotation = { .key_version = write_kv,
+				      .usage_pct = UBI_SECURE_PERCENT_BASE },
+		};
+		ubi_secure_emit_event(ubi, &event);
+		ret = -EOVERFLOW;
+		goto mark_bad;
+	}
+
+	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+				       &vid_meta, write_kv, vid_counter);
+	if (ret != 0) {
+		LOG_ERR("Anchor VID write failure on PEB %zu", pnum);
+		goto mark_bad;
+	}
+
+	ubi->next_vid_counter = vid_counter + 1;
+
+	/* 6. Success — track in volume. The item is not inserted into any tree;
+	 *    anchor PEBs are tracked via vol->anchor_pnum, not via EBA or free/dirty. */
+	vol->anchor_pnum = pnum;
+	ubi_mem_leaf_free(item);
+	/* clang-format off */
+	return 0;
+
+mark_bad: {
+	/* clang-format on */
+	const size_t ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
+	struct ubi_list_item *bad = ubi_leaf_as_list(item);
+
+	ubi_move_to_bad_blocks(ubi, pnum, ec_avg, bad);
+	return ret;
+}
 }

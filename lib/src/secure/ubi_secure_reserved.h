@@ -65,7 +65,7 @@ struct ubi_secure_res_peb_scan {
 	uint32_t revision[UBI_DEV_HDR_NR_OF_RES_PEBS];
 };
 
-/* Function declarations ------------------------------------------------------------------------ */
+/* Module interface function declarations ------------------------------------------------------- */
 
 /**
  * \brief Scan and authenticate all reserved PEBs.

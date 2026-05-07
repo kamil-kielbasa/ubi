@@ -37,7 +37,7 @@
 #include <psa/crypto.h>
 
 /* Zephyr headers: */
-#include <zephyr/sys/printk.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
@@ -55,6 +55,8 @@
 
 /** Sample key policy: only key version 1 is in use. */
 #define SAMPLE_WRITE_KEY_VERSION 1
+
+LOG_MODULE_REGISTER(ubi_secure_sample, CONFIG_UBI_LOG_LEVEL);
 
 /* Module types and type definitions ------------------------------------------------------------ */
 
@@ -192,7 +194,7 @@ static int sample_psa_init_and_import_key(void)
 	psa_status_t status = psa_crypto_init();
 
 	if (status != PSA_SUCCESS) {
-		printk("psa_crypto_init failed: %d\n", (int)status);
+		LOG_ERR("psa_crypto_init failed: %d", (int)status);
 		return -EIO;
 	}
 
@@ -206,7 +208,7 @@ static int sample_psa_init_and_import_key(void)
 	status = psa_import_key(&attr, sample_root_key_material, sizeof(sample_root_key_material),
 				&sample_root_key_id);
 	if (status != PSA_SUCCESS) {
-		printk("psa_import_key failed: %d\n", (int)status);
+		LOG_ERR("psa_import_key failed: %d", (int)status);
 		return -EIO;
 	}
 
@@ -227,9 +229,9 @@ sample_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_
 {
 	ARG_UNUSED(user_data);
 
-	printk("[ubi-secure] check_freshness: dev_rev=%llu sqnum=%llu -> ACCEPT\n",
-	       (unsigned long long)freshness->device_revision,
-	       (unsigned long long)freshness->global_sqnum);
+	LOG_INF("[ubi-secure] check_freshness: dev_rev=%llu sqnum=%llu -> ACCEPT",
+		(unsigned long long)freshness->device_revision,
+		(unsigned long long)freshness->global_sqnum);
 	return UBI_CRYPTO_ROLLBACK_ACCEPT;
 }
 
@@ -244,7 +246,7 @@ static enum ubi_crypto_event_verdict sample_event_cb(const struct ubi_crypto_eve
 						     void *user_data)
 {
 	ARG_UNUSED(user_data);
-	printk("[ubi-secure] event: %s\n", event_type_str(event->type));
+	LOG_INF("[ubi-secure] event: %s", event_type_str(event->type));
 	return UBI_CRYPTO_EVENT_CONTINUE;
 }
 
@@ -299,11 +301,11 @@ int main(void)
 	int ret = -1;
 	int dret;
 
-	printk("Hello world zephyr-ubi secure sample!\n");
+	LOG_INF("Hello world zephyr-ubi secure sample!");
 
 	ret = sample_psa_init_and_import_key();
 	if (ret != 0) {
-		printk("PSA init / key import failure\n");
+		LOG_ERR("PSA init / key import failure: %d", ret);
 		return ret;
 	}
 
@@ -312,7 +314,7 @@ int main(void)
 
 	ret = flash_get_page_info_by_offs(flash_dev, 0, &page_info);
 	if (ret != 0) {
-		printk("Get page info failure\n");
+		LOG_ERR("Get page info failure: %d", ret);
 		goto destroy_key;
 	}
 
@@ -325,7 +327,7 @@ int main(void)
 #if defined(CONFIG_FLASH_SIMULATOR)
 	ret = sample_simulator_blank_partition(flash.partition_id);
 	if (ret != 0) {
-		printk("Sample-only flash erase failure: %d\n", ret);
+		LOG_ERR("Sample-only flash erase failure: %d", ret);
 		goto destroy_key;
 	}
 #endif
@@ -347,7 +349,7 @@ int main(void)
 
 	ret = ubi_device_init(&flash, &crypto_cfg, &ubi);
 	if (ret != 0) {
-		printk("UBI secure initialization failure: %d\n", ret);
+		LOG_ERR("UBI secure initialization failure: %d", ret);
 		goto destroy_key;
 	}
 
@@ -360,7 +362,7 @@ int main(void)
 
 	ret = ubi_volume_create(ubi, &vol_cfg, &vol_id);
 	if (ret != 0) {
-		printk("Volume create failure: %d\n", ret);
+		LOG_ERR("Volume create failure: %d", ret);
 		goto deinit;
 	}
 
@@ -368,7 +370,7 @@ int main(void)
 
 	ret = ubi_leb_write(ubi, vol_id, 0, wdata, sizeof(wdata));
 	if (ret != 0) {
-		printk("LEB write failure: %d\n", ret);
+		LOG_ERR("LEB write failure: %d", ret);
 		goto deinit;
 	}
 
@@ -376,27 +378,27 @@ int main(void)
 
 	ret = ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(wdata));
 	if (ret != 0) {
-		printk("LEB read failure: %d\n", ret);
+		LOG_ERR("LEB read failure: %d", ret);
 		goto deinit;
 	}
 
-	printk("Read back: %s\n", rdata);
+	LOG_INF("Read back: %s", rdata);
 
 	struct ubi_device_info dev_info = { 0 };
 
 	ret = ubi_device_get_info(ubi, &dev_info);
 	if (ret != 0) {
-		printk("Device get info failure: %d\n", ret);
+		LOG_ERR("Device get info failure: %d", ret);
 		goto deinit;
 	}
 
-	printk("Volumes: %zu, Free PEBs: %zu, Read-only-degraded: %s\n", dev_info.volume_count,
-	       dev_info.free_peb_count, dev_info.read_only_degraded ? "yes" : "no");
+	LOG_INF("Volumes: %zu, Free PEBs: %zu, Read-only-degraded: %s", dev_info.volume_count,
+		dev_info.free_peb_count, dev_info.read_only_degraded ? "yes" : "no");
 
 deinit:
 	dret = ubi_device_deinit(ubi);
 	if (dret != 0) {
-		printk("UBI deinitialization failure: %d\n", dret);
+		LOG_ERR("UBI deinitialization failure: %d", dret);
 		if (ret == 0) {
 			ret = dret;
 		}

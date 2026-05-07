@@ -87,6 +87,8 @@
  */
 static inline void ubi_secure_zeroize(void *buf, size_t len)
 {
+	__ASSERT_NO_MSG(buf != NULL);
+
 	mbedtls_platform_zeroize(buf, len);
 }
 

@@ -30,36 +30,6 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Flash write fault injection ------------------------------------------------------------------ */
-
-#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-
-static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-				     size_t len)
-{
-	__ASSERT_NO_MSG(fa != NULL);
-	__ASSERT_NO_MSG(data != NULL);
-
-	if (ubi_test_flash_write_check_fail()) {
-		LOG_WRN("Flash write fault injected at offset 0x%lx", (unsigned long)offset);
-		return -EIO;
-	}
-	return flash_area_write(fa, offset, data, len);
-}
-
-#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
-
-static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-				     size_t len)
-{
-	__ASSERT_NO_MSG(fa != NULL);
-	__ASSERT_NO_MSG(data != NULL);
-
-	return flash_area_write(fa, offset, data, len);
-}
-
-#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
-
 /** Plaintext payload for secure device header: dev_hdr(32) + dev_secure_meta(16) = 48. */
 #define DEV_HDR_PLAINTEXT_SIZE (UBI_DEV_HDR_SIZE + UBI_SECURE_DEV_META_SIZE)
 
@@ -74,16 +44,79 @@ static inline int secure_flash_write(const struct flash_area *fa, off_t offset, 
 
 /* Static function declarations ----------------------------------------------------------------- */
 
+/**
+ * \brief Write data to a flash area with optional fault injection.
+ *
+ * \param[in] fa     Open flash area handle.
+ * \param offset     Byte offset within the flash area.
+ * \param[in] data   Source buffer.
+ * \param len        Number of bytes to write.
+ *
+ * \return 0 on success, or negative errno on failure.
+ */
+static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+			      size_t len);
+
+/**
+ * \brief Authenticate one reserved-PEB device-header record.
+ *
+ * Deserializes the wrapper prefix, verifies the AEAD tag using the parent key,
+ * and on success writes the plaintext device header and secure metadata into
+ * the caller-provided output structs.
+ *
+ * \param[in] raw          Full record buffer (prefix + ciphertext + tag).
+ * \param peb_idx          Physical eraseblock index (used as part of nonce).
+ * \param flash_offset     Byte offset of the record on flash (nonce input).
+ * \param child_key_id     Identifier of the AEAD child key to use.
+ * \param[out] dev_hdr     Decoded device header on success.
+ * \param[out] dev_meta    Decoded device secure metadata on success.
+ * \param[out] prefix      Decoded wrapper prefix on success.
+ *
+ * \return 0 on success, or negative errno (-EBADMSG on auth failure, -EIO on
+ *         crypto/I/O error).
+ */
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
 				struct ubi_dev_secure_meta *dev_meta,
 				struct ubi_crypto_prefix32 *prefix);
 
+/**
+ * \brief Encrypt and serialize one reserved-PEB device-header record.
+ *
+ * Builds the wrapper prefix, then AEAD-encrypts the concatenated
+ * (device header || device secure metadata) plaintext into out_buf.
+ *
+ * \param[in] dev_hdr      Device header to encrypt.
+ * \param[in] dev_meta     Device secure metadata to encrypt alongside.
+ * \param child_key_id     Identifier of the AEAD child key to use.
+ * \param key_version      Key version stamped into the prefix.
+ * \param counter          Per-domain AEAD counter (nonce input).
+ * \param peb_idx          Physical eraseblock index (nonce input).
+ * \param flash_offset     Byte offset of the record on flash (nonce input).
+ * \param[out] out_buf     Serialized record buffer (prefix + ciphertext + tag).
+ *
+ * \return 0 on success, or negative errno on failure.
+ */
 static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
 			   const struct ubi_dev_secure_meta *dev_meta, uint32_t child_key_id,
 			   uint8_t key_version, uint64_t counter, size_t peb_idx,
 			   uint64_t flash_offset, uint8_t *out_buf);
 
+/**
+ * \brief Encrypt and serialize one reserved-PEB volume-header record.
+ *
+ * \param[in] vol_hdr      Volume header to encrypt.
+ * \param child_key_id     Identifier of the AEAD child key to use.
+ * \param key_version      Key version stamped into the prefix.
+ * \param counter          Per-domain AEAD counter (nonce input).
+ * \param peb_idx          Physical eraseblock index (nonce input).
+ * \param flash_offset     Byte offset of the record on flash (nonce input).
+ * \param device_revision  Device revision bound into the AAD for freshness.
+ * \param parent_kv        Parent key version bound into the AAD.
+ * \param[out] out_buf     Serialized record buffer (prefix + ciphertext + tag).
+ *
+ * \return 0 on success, or negative errno on failure.
+ */
 static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key_id,
 			   uint8_t key_version, uint64_t counter, size_t peb_idx,
 			   uint64_t flash_offset, uint64_t device_revision, uint8_t parent_kv,
@@ -690,3 +723,33 @@ cleanup:
 	ubi_secure_destroy_key(vol_key_id);
 	return ret;
 }
+
+/* Flash write fault injection ------------------------------------------------------------------ */
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+
+static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+			      size_t len)
+{
+	__ASSERT_NO_MSG(fa != NULL);
+	__ASSERT_NO_MSG(data != NULL);
+
+	if (ubi_test_flash_write_check_fail()) {
+		LOG_WRN("Flash write fault injected at offset 0x%lx", (unsigned long)offset);
+		return -EIO;
+	}
+	return flash_area_write(fa, offset, data, len);
+}
+
+#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
+
+static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+			      size_t len)
+{
+	__ASSERT_NO_MSG(fa != NULL);
+	__ASSERT_NO_MSG(data != NULL);
+
+	return flash_area_write(fa, offset, data, len);
+}
+
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */

@@ -21,7 +21,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Function declarations ------------------------------------------------------------------------ */
+/* Module interface function declarations ------------------------------------------------------- */
 
 /**
  * \brief Serialize a prefix32 struct into a 32-byte big-endian buffer.

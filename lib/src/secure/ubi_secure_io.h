@@ -29,7 +29,7 @@
 
 struct ubi_flash_desc;
 
-/* Function declarations ------------------------------------------------------------------------ */
+/* Module interface function declarations ------------------------------------------------------- */
 
 /**
  * \brief Read and authenticate a secure EC header from a data PEB.

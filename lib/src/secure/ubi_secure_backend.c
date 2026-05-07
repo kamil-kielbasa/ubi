@@ -12,7 +12,13 @@
 #include "ubi_secure_ops.h"
 #include "ubi_backend.h"
 
-/* Backend ops vtable --------------------------------------------------------------------------- */
+/* Module defines ------------------------------------------------------------------------------- */
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+/* Static function definitions ------------------------------------------------------------------ */
+
+/* Module interface function definitions -------------------------------------------------------- */
 
 const struct ubi_backend_ops *ubi_secure_backend(void)
 {

@@ -28,7 +28,7 @@
 /** Maximum label buffer size for ubi_secure_build_label (longest domain: "VOLUME-IDENTIFIER"). */
 #define UBI_SECURE_MAX_LABEL_SIZE (24)
 
-/* Function declarations ------------------------------------------------------------------------ */
+/* Module interface function declarations ------------------------------------------------------- */
 
 /**
  * \brief Derive a 16-byte child key via HKDF-SHA-256 from a PSA root key.

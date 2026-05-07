@@ -32,35 +32,25 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Flash write fault injection ------------------------------------------------------------------ */
+/* Static function declarations ----------------------------------------------------------------- */
 
-#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-
-static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-				     size_t len)
-{
-	__ASSERT_NO_MSG(fa != NULL);
-	__ASSERT_NO_MSG(data != NULL);
-
-	if (ubi_test_flash_write_check_fail()) {
-		LOG_WRN("Flash write fault injected at offset 0x%lx", (unsigned long)offset);
-		return -EIO;
-	}
-	return flash_area_write(fa, offset, data, len);
-}
-
-#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
-
-static inline int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-				     size_t len)
-{
-	__ASSERT_NO_MSG(fa != NULL);
-	__ASSERT_NO_MSG(data != NULL);
-
-	return flash_area_write(fa, offset, data, len);
-}
-
-#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */
+/**
+ * \brief Write data to a flash area with optional fault injection.
+ *
+ * Wraps flash_area_write() so that test-only fault injection can short-circuit
+ * the call before the underlying flash driver is touched.  In production
+ * builds the function reduces to a plain flash_area_write() forward.
+ *
+ * \param[in] fa     Open flash area handle.
+ * \param offset     Byte offset within the flash area.
+ * \param[in] data   Source buffer.
+ * \param len        Number of bytes to write.
+ *
+ * \return 0 on success, or negative errno on failure (e.g. -EIO when an
+ *         injected fault fires).
+ */
+static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+			      size_t len);
 
 /* Module interface function definitions -------------------------------------------------------- */
 
@@ -1186,3 +1176,33 @@ int ubi_secure_leb_prefix_is_erased(const struct ubi_flash_desc *flash, size_t p
 	*is_erased = ubi_buf_is_erased(buf, sizeof(buf), erased_val);
 	return 0;
 }
+
+/* Flash write fault injection ------------------------------------------------------------------ */
+
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
+
+static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+			      size_t len)
+{
+	__ASSERT_NO_MSG(fa != NULL);
+	__ASSERT_NO_MSG(data != NULL);
+
+	if (ubi_test_flash_write_check_fail()) {
+		LOG_WRN("Flash write fault injected at offset 0x%lx", (unsigned long)offset);
+		return -EIO;
+	}
+	return flash_area_write(fa, offset, data, len);
+}
+
+#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
+
+static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
+			      size_t len)
+{
+	__ASSERT_NO_MSG(fa != NULL);
+	__ASSERT_NO_MSG(data != NULL);
+
+	return flash_area_write(fa, offset, data, len);
+}
+
+#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */

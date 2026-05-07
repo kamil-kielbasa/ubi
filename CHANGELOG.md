@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.64.0] - 2026-05-07
+
+### Changed
+
+- The secure backend now treats misuse of internal vtable entry
+  points the same way as the public dispatcher: passing `NULL`
+  arguments to `ubi_secure_anchor_create()` or
+  `ubi_secure_device_init()` returns `-EINVAL` with a diagnostic
+  log instead of tripping an assertion. Production builds without
+  asserts no longer experience undefined behaviour on a `NULL`
+  misuse — the call fails cleanly.
+- The secure onboarding sample now emits its output through the
+  Zephyr logging subsystem (`LOG_INF` / `LOG_ERR`) instead of
+  `printk`. Sample messages can therefore be filtered, redirected
+  and silenced via the same log-level controls as the library
+  itself, and every failure path includes the underlying return
+  code.
+
 ## [0.63.0] - 2026-05-07
 
 ### Changed

@@ -56,6 +56,95 @@ enum scan_result {
 /**
  * \brief Validate crypto config: all callbacks must be non-NULL.
  */
+static int validate_crypto_cfg(const struct ubi_crypto_config *cfg);
+
+/**
+ * \brief Check if the requested write key version is in the allowlist.
+ */
+static bool key_version_is_allowed(const struct ubi_crypto_policy *policy, uint8_t kv);
+
+/**
+ * \brief Detect mode from reserved PEBs: blank, secure, or plain.
+ *
+ * \retval 0     All PEBs classified.
+ * \retval -EIO  Flash error.
+ */
+static int detect_reserved_mode(const struct ubi_flash_desc *flash, bool *any_blank,
+				bool *any_secure, bool *any_plain);
+
+/**
+ * \brief Format data PEBs: erase all and write secure EC headers.
+ */
+static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs);
+
+/**
+ * \brief Collect volumes from authenticated volume headers into RAM.
+ */
+static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_vol_hdr *vol_hdrs,
+				size_t vol_count);
+
+/**
+ * \brief Compute average erase counter by reading all secure EC headers.
+ */
+static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs);
+
+/**
+ * \brief Validate the secure EC header; mark PEB as bad if the read fails.
+ */
+static int scan_validate_ec(struct ubi_device *dev, size_t pnum, size_t ec_avg,
+			    struct ubi_ec_hdr *ec_hdr, struct ubi_secure_ec_auth_ctx *ec_ctx);
+
+/**
+ * \brief Classify PEB by VID region: free, dirty (uncommitted), or continue to VID read.
+ */
+static int scan_classify_vid_region(struct ubi_device *dev, size_t pnum,
+				    const struct ubi_ec_hdr *ec_hdr);
+
+/**
+ * \brief Classify an orphan PEB (volume deleted) by moving it to the dirty pool.
+ *
+ * Hidden anchor PEBs (INTERNAL_ANCHOR_LNUM) for deleted volumes are also
+ * classified as orphans and sent to the dirty pool.
+ */
+static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
+				const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr);
+
+/**
+ * \brief Map a LEB that appears for the first time into the volume EBA table.
+ *
+ * Hidden anchor PEBs (lnum == INTERNAL_ANCHOR_LNUM) are bound to the
+ * volume via vol->anchor_pnum instead of the EBA table.
+ */
+static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
+			  const struct ubi_vid_hdr *vid_hdr, struct ubi_volume *vol);
+
+/**
+ * \brief Resolve a duplicate LEB mapping by comparing sequence numbers.
+ */
+static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
+			    const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr,
+			    struct ubi_volume *vol, struct ubi_rbt_item *existing);
+
+/**
+ * \brief Scan all data PEBs — classify into free, dirty, bad, or EBA entries.
+ */
+static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg);
+
+/**
+ * \brief Format a blank device in secure mode.
+ */
+static int secure_format(const struct ubi_flash_desc *flash,
+			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev);
+
+/**
+ * \brief Attach to an existing secure device.
+ */
+static int secure_attach(const struct ubi_flash_desc *flash,
+			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev,
+			 uint64_t *out_device_revision, bool *out_rotation_happened);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
 static int validate_crypto_cfg(const struct ubi_crypto_config *cfg)
 {
 	__ASSERT_NO_MSG(cfg != NULL);
@@ -86,9 +175,6 @@ static int validate_crypto_cfg(const struct ubi_crypto_config *cfg)
 	return 0;
 }
 
-/**
- * \brief Check if the requested write key version is in the allowlist.
- */
 static bool key_version_is_allowed(const struct ubi_crypto_policy *policy, uint8_t kv)
 {
 	__ASSERT_NO_MSG(policy != NULL);
@@ -101,12 +187,6 @@ static bool key_version_is_allowed(const struct ubi_crypto_policy *policy, uint8
 	return false;
 }
 
-/**
- * \brief Detect mode from reserved PEBs: blank, secure, or plain.
- *
- * \retval 0     All PEBs classified.
- * \retval -EIO  Flash error.
- */
 static int detect_reserved_mode(const struct ubi_flash_desc *flash, bool *any_blank,
 				bool *any_secure, bool *any_plain)
 {
@@ -143,9 +223,6 @@ static int detect_reserved_mode(const struct ubi_flash_desc *flash, bool *any_bl
 	return 0;
 }
 
-/**
- * \brief Format data PEBs: erase all and write secure EC headers.
- */
 static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
 	__ASSERT_NO_MSG(ubi_dev != NULL);
@@ -194,9 +271,6 @@ static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 	return 0;
 }
 
-/**
- * \brief Collect volumes from authenticated volume headers into RAM.
- */
 static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_vol_hdr *vol_hdrs,
 				size_t vol_count)
 {
@@ -245,9 +319,6 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_vol
 	return 0;
 }
 
-/**
- * \brief Compute average erase counter by reading all secure EC headers.
- */
 static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
 	__ASSERT_NO_MSG(ubi_dev != NULL);
@@ -271,11 +342,6 @@ static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_peb
 	ubi_dev->ec_count = ec_count;
 }
 
-/* Scan helpers --------------------------------------------------------------------------------- */
-
-/**
- * \brief Validate the secure EC header; mark PEB as bad if the read fails.
- */
 static int scan_validate_ec(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 			    struct ubi_ec_hdr *ec_hdr, struct ubi_secure_ec_auth_ctx *ec_ctx)
 {
@@ -301,9 +367,6 @@ static int scan_validate_ec(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 	return SCAN_NEXT_STEP;
 }
 
-/**
- * \brief Classify PEB by VID region: free, dirty (uncommitted), or continue to VID read.
- */
 static int scan_classify_vid_region(struct ubi_device *dev, size_t pnum,
 				    const struct ubi_ec_hdr *ec_hdr)
 {
@@ -369,12 +432,6 @@ classify_bad: {
 }
 }
 
-/**
- * \brief Classify an orphan PEB (volume deleted) by moving it to the dirty pool.
- *
- * Hidden anchor PEBs (INTERNAL_ANCHOR_LNUM) for deleted volumes are also
- * classified as orphans and sent to the dirty pool.
- */
 static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
 				const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr)
 {
@@ -404,12 +461,6 @@ static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
 	return SCAN_PEB_HANDLED;
 }
 
-/**
- * \brief Map a LEB that appears for the first time into the volume EBA table.
- *
- * Hidden anchor PEBs (lnum == INTERNAL_ANCHOR_LNUM) are bound to the
- * volume via vol->anchor_pnum instead of the EBA table.
- */
 static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_ec_hdr *ec_hdr,
 			  const struct ubi_vid_hdr *vid_hdr, struct ubi_volume *vol)
 {
@@ -512,9 +563,6 @@ replace_anchor: {
 	return SCAN_PEB_HANDLED;
 }
 
-/**
- * \brief Resolve a duplicate LEB mapping by comparing sequence numbers.
- */
 static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 			    const struct ubi_ec_hdr *ec_hdr, const struct ubi_vid_hdr *vid_hdr,
 			    struct ubi_volume *vol, struct ubi_rbt_item *existing)
@@ -603,9 +651,6 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 	return SCAN_PEB_HANDLED;
 }
 
-/**
- * \brief Scan all data PEBs — classify into free, dirty, bad, or EBA entries.
- */
 static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t ec_avg)
 {
 	__ASSERT_NO_MSG(ubi_dev != NULL);
@@ -709,9 +754,6 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 	return 0;
 }
 
-/**
- * \brief Format a blank device in secure mode.
- */
 static int secure_format(const struct ubi_flash_desc *flash,
 			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev)
 {
@@ -790,9 +832,6 @@ static int secure_format(const struct ubi_flash_desc *flash,
 	return 0;
 }
 
-/**
- * \brief Attach to an existing secure device.
- */
 static int secure_attach(const struct ubi_flash_desc *flash,
 			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev,
 			 uint64_t *out_device_revision, bool *out_rotation_happened)
@@ -936,14 +975,16 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 	return 0;
 }
 
-/* Public function ------------------------------------------------------------------------------ */
+/* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 			   const struct ubi_crypto_config *crypto_cfg, struct ubi_device **ubi)
 {
-	__ASSERT_NO_MSG(flash != NULL);
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
-	__ASSERT_NO_MSG(ubi != NULL);
+	if (!flash || !crypto_cfg || !ubi) {
+		LOG_ERR("Invalid argument: flash=%p crypto_cfg=%p ubi=%p", (const void *)flash,
+			(const void *)crypto_cfg, (const void *)ubi);
+		return -EINVAL;
+	}
 
 	int ret = validate_crypto_cfg(crypto_cfg);
 
