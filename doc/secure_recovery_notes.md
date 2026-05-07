@@ -96,3 +96,22 @@ a dual-bank layout.  On reboot:
 - If one bank fails authentication, the device enters degraded mode
   (`read_only_degraded = true`) — user data reads continue, but reserved
   metadata mutations are blocked until the corrupted bank is recovered.
+
+## Scenario → ZTEST coverage
+
+The table below maps every scenario described above to the regression
+test(s) that exercise it.  All tests live under
+`tests/src/secure/` and are part of the secure ZTEST suite
+(`west build … tests/ -- -DOVERLAY_CONFIG=…/secure.conf`).
+
+| Scenario                                   | ZTEST(s)                                                                                                                                                              |
+|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `unmap → reboot` (before erase)            | `ubi_secure_map::test_unmap_reboot_before_erase`                                                                                                                      |
+| `unmap → erase → reboot`                   | `ubi_secure_map::test_unmap_erase_reboot`                                                                                                                             |
+| `shrink → reboot` (before erase)           | `ubi_secure_volumes::test_shrink_with_reboot`                                                                                                                         |
+| `shrink → erase → reboot`                  | `ubi_secure_volumes::test_shrink_erase_reboot`                                                                                                                        |
+| `remove all volumes → reboot → create`     | `ubi_secure_volumes::test_vid_counter_floor_remove_create_reboot`                                                                                                     |
+| Anchor migration during erase              | `ubi_secure_erase::test_anchor_participates_in_wear_leveling`, `ubi_secure_erase::test_reclaim_preserves_continuity_witness`                                          |
+| Stale anchor after reboot                  | `ubi_secure_erase::test_stale_anchor_rejected_after_reboot`, `ubi_secure_recovery::test_init_recreates_missing_anchor`                                                |
+| Emergency reserve refill                   | `ubi_secure_erase::test_fill_unmap_erase_cycle`                                                                                                                       |
+| Dual-bank reserved metadata recovery       | `ubi_secure_recovery::test_interrupted_reserved_commit_no_ghost_volume`, `ubi_secure_recovery::test_reserved_generation_replay_rejected`, `ubi_secure_tamper::test_reserved_peb_tamper_smoke` |

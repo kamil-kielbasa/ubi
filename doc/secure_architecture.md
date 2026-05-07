@@ -2898,3 +2898,46 @@ Remaining follow-up items that still sit outside the on-flash format itself are:
 - verify `volume_remove`, including removing all remaining volumes and rebooting into the zero-volume state,
 - verify device-header `vid_next_counter_floor` reconstruction and monotonic write-active-key transitions,
 - verify refcount-driven `KEY_RETIRABLE` transitions during ordinary reclaim and rotation.
+
+---
+
+## Appendix D. Release checklist → ZTEST coverage
+
+The table below maps every bullet from Appendix C onto the regression
+test(s) that exercise the corresponding behaviour.  All tests live under
+`tests/src/secure/` (secure ZTEST suite).  Items marked **review-only**
+are design / code-review constraints with no direct runtime test
+(intentional; documented here for traceability).
+
+### D.1 → C.1 Critical format constraints
+
+| Checklist bullet                                                         | ZTEST(s)                                                                                                                                                            |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Reserved-generation fit against geometry                                 | `ubi_secure_api::test_reserved_generation_fit_guard_rejects_small_eb`, `ubi_secure_defensive::test_init_erase_block_too_small`                                      |
+| Single-tag CCM payload limit / require chunked or reject SECURE          | `ubi_secure_chunked::test_geometry_reject_tiny_erase_block`, `ubi_secure_chunked::test_geometry_leb_size`, `ubi_secure_chunked::test_chunked_write_overflow_rejected` |
+| Zero-length LEB encoding fixed                                           | `ubi_secure_chunked::test_zero_length_map`                                                                                                                          |
+| Single-tag tail-padding behaviour fixed                                  | `ubi_secure_chunked::test_partial_last_chunk`, `ubi_secure_chunked::test_overwrite_chunked`                                                                         |
+| Reject cross-mode attach; mixed-mode migration out of scope              | `ubi_secure_attach::test_plain_then_secure_mismatch`, `ubi_secure_attach::test_secure_then_plain_mismatch`, `ubi_secure_coexistence::test_partition_guard_blocks_double_attach` |
+
+### D.2 → C.2 Important implementation notes
+
+| Checklist bullet                                                         | ZTEST(s)                                                                                                                                                            |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Operational retirement levels (§13.8)                                    | `ubi_secure_runtime_policy::test_reserved_metadata_budget_exhausts_blocks_until_rotation`, `ubi_secure_runtime_policy::test_leb_budget_exhausts_blocks_until_rotation`, `ubi_secure_runtime_policy::test_leb_budget_rotate_soon_emitted_below_now` |
+| Authenticated parent `key_version` in every child AAD binding            | `ubi_secure_defensive::test_derive_domain_key_rejects_non_allowlisted_kv`, `ubi_secure_defensive::test_derive_leb_key_rejects_non_allowlisted_kv`                   |
+| Zeroize plaintext scratch and software-derived child-key buffers         | review-only (audited in `ubi_secure_crypto.c`; relies on `psa_destroy_key` + scratch slab `memset`)                                                                 |
+| `volume_id` as durable cryptographic identity                            | `ubi_secure_vol_id_watermark::test_volume_id_not_reused_after_remove_and_reinit`, `ubi_secure_vol_id_watermark::test_volume_id_not_reused_after_remove_same_boot`   |
+| Authenticated `write_active_key_version` monotonic                       | `ubi_secure_attach::test_requested_write_kv_downgrade_rejected`, `ubi_secure_api::test_get_write_active_kv_after_format_and_rotation`                               |
+| `device_revision` widening preserves on-flash numeric ordering           | review-only (locked by `BUILD_ASSERT` on serialized layout in `ubi_secure_ser.c`)                                                                                   |
+
+### D.3 → C.3 Validation expected before upstream
+
+| Checklist bullet                                                         | ZTEST(s)                                                                                                                                                            |
+|--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Power-cut testing: `DATA → VID`, zero-length, hidden-anchor, reserved-gen | `ubi_secure_recovery::test_interrupted_data_write_preserves_old_mapping`, `ubi_secure_recovery::test_interrupted_vid_commit_preserves_old_mapping`, `ubi_secure_recovery::test_interrupted_anchor_write_preserves_continuity`, `ubi_secure_recovery::test_interrupted_reserved_commit_no_ghost_volume`, `ubi_secure_recovery::test_reserved_generation_replay_rejected` |
+| PSA-only failure paths (RNG fail, missing key material)                  | `ubi_secure_crypto_faults::test_rng_fail_on_leb_write`, `ubi_secure_crypto_faults::test_rng_fail_on_erase`, `ubi_secure_crypto_faults::test_get_key_id_fail_on_leb_write`, `ubi_secure_crypto_faults::test_hkdf_fail_on_leb_write`, `ubi_secure_attach::test_freshness_reject` |
+| Zero-length, mixed-key, chunked, alignment, hidden-anchor recovery       | `ubi_secure_chunked::test_zero_length_map`, `ubi_secure_chunked::test_multi_chunk_with_reboot`, `ubi_secure_chunked::test_partial_read_cross_chunk`, `ubi_secure_recovery::test_interrupted_anchor_create_during_volume_create` |
+| `unmap/shrink → erase → reboot` with last-witness PEB                    | `ubi_secure_map::test_unmap_erase_reboot`, `ubi_secure_volumes::test_shrink_erase_reboot`, `ubi_secure_erase::test_reclaim_preserves_continuity_witness`            |
+| `volume_remove` including remove-all → reboot → zero-volume state        | `ubi_secure_coverage::test_volume_remove_basic`, `ubi_secure_coverage::test_volume_remove_persists`, `ubi_secure_volumes::test_vid_counter_floor_remove_create_reboot` |
+| `vid_next_counter_floor` reconstruction; monotonic write-active-key      | `ubi_secure_volumes::test_vid_counter_floor_remove_create_reboot`, `ubi_secure_attach::test_requested_write_kv_downgrade_rejected`                                  |
+| Refcount-driven `KEY_RETIRABLE` during reclaim and rotation              | `ubi_secure_runtime_policy::test_forced_rekey_with_stale_objects`, `ubi_secure_runtime_policy::test_reserved_refcount_no_spurious_key_retirable`                    |

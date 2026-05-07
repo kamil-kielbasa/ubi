@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.62.0] - 2026-05-07
+
+### Added
+
+- Cross-reference tables in the secure documentation so users can
+  jump from a documented behaviour straight to the regression test
+  that locks it. `secure_recovery_notes.md` now ends with a
+  "Scenario → ZTEST coverage" table covering all nine power-cut /
+  anchor-migration / dual-bank scenarios. `secure_volume_lifecycle.md`
+  ends with a "Lifecycle step → code & ZTEST coverage" table mapping
+  each of the seven volume lifecycle steps (create / grow / shrink /
+  remove / unmap / erase & reclaim / reboot recovery) onto the
+  implementing function in `lib/src/secure/` and the secure ZTESTs
+  that exercise it. `secure_architecture.md` gains an Appendix D
+  ("Release checklist → ZTEST coverage") that mirrors Appendix C
+  bullet-by-bullet, pointing each release-checklist item at the
+  concrete tests under `tests/src/secure/`. Two review-only bullets
+  (scratch zeroization, `device_revision` ordering) are tagged as
+  such with a short rationale.
+
 ## [0.61.0] - 2026-05-07
 
 ### Added

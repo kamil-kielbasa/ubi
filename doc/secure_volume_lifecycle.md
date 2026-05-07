@@ -104,3 +104,19 @@ On `ubi_device_init()`:
 3. `next_vid_counter` is reconstructed as `max(floor, max_seen_counter + 1)`.
 4. Stale anchor duplicates (from migration) are resolved: only the one with
    the highest `vid_sqnum` survives; the other becomes dirty.
+
+## Lifecycle step → code & ZTEST coverage
+
+The table below maps every lifecycle step to its primary implementation
+function and the secure regression tests that exercise it
+(`tests/src/secure/`).
+
+| Lifecycle step       | Implementation                                                       | ZTEST(s)                                                                                                                                        |
+|----------------------|----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| Create               | `ubi_secure_volume_create()` (`lib/src/secure/ubi_secure_volume.c`)  | `ubi_secure_volumes::test_create_one_with_reboot`, `ubi_secure_volumes::test_create_many_with_reboot`                                           |
+| Resize (grow)        | `ubi_secure_volume_resize()` (grow branch)                           | `ubi_secure_volumes::test_resize_upper_with_reboot`, `ubi_secure_coverage::test_volume_resize_grow`, `ubi_secure_coverage::test_volume_resize_persists` |
+| Shrink               | `ubi_secure_volume_resize()` (shrink branch)                         | `ubi_secure_volumes::test_shrink_with_reboot`, `ubi_secure_volumes::test_shrink_erase_reboot`, `ubi_secure_coverage::test_volume_resize_shrink` |
+| Remove               | `ubi_secure_volume_remove()`                                         | `ubi_secure_coverage::test_volume_remove_basic`, `ubi_secure_coverage::test_volume_remove_persists`, `ubi_secure_coverage::test_volume_remove_with_mapped_lebs`, `ubi_secure_volumes::test_create_remove_with_reboot` |
+| Unmap                | `ubi_secure_leb_unmap()` (`lib/src/secure/ubi_secure_leb.c`)         | `ubi_secure_coverage::test_leb_unmap`, `ubi_secure_map::test_unmap_reboot_before_erase`, `ubi_secure_map::test_unmap_erase_reboot`              |
+| Erase and Reclaim    | `ubi_secure_device_erase_peb()` + anchor witness (§11.6)            | `ubi_secure_erase::test_anchor_participates_in_wear_leveling`, `ubi_secure_erase::test_reclaim_preserves_continuity_witness`, `ubi_secure_erase::test_fill_unmap_erase_cycle` |
+| Reboot Recovery      | `ubi_secure_device_init()` scan path (`lib/src/secure/ubi_core_init.c`) | `ubi_secure_map::test_all_lebs_lifecycle_with_reboot`, `ubi_secure_recovery::test_interrupted_data_write_survives_reboot`, `ubi_secure_recovery::test_init_recreates_missing_anchor` |
