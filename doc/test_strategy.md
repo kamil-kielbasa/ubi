@@ -1,8 +1,126 @@
 # Test Strategy
 
-**What this page covers:** Test categories, environments, coverage targets, test patterns, and known gaps.
+**What this page covers:** How to build and run the test suite, code
+coverage, the forensic scan, test categories, environments, coverage
+targets, test patterns, and known gaps.
 
-**Prerequisites:** [Getting Started](getting_started.md) for build and run instructions.
+**Prerequisites:** [Quick Start](quick_start.md) for the basic Zephyr +
+UBI build.
+
+## Building and running tests
+
+### Prerequisites
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| [west](https://docs.zephyrproject.org/latest/develop/west/index.html) | Zephyr meta-tool (build, flash, manage manifests) | `pip install west` |
+| [Zephyr SDK](https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html) | Cross-compilation toolchain | See Zephyr docs |
+| [STM32CubeProgrammer CLI](https://www.st.com/en/development-tools/stm32cubeprog.html) | Flash erase and programming (hardware only) | ST website |
+| [picocom](https://github.com/npat-efault/picocom) | Serial terminal for UART output (hardware only) | `sudo apt install picocom` |
+
+### Initialise the workspace
+
+```sh
+west init -l .
+west update --narrow -o=--depth=1
+```
+
+### Build for `native_sim` (simulator)
+
+Build and run the **test** suite:
+
+```sh
+west build -p --build-dir build/native_sim/tests -b native_sim ./tests/
+./build/native_sim/tests/zephyr/zephyr.exe
+```
+
+Build and run the **sample** application:
+
+```sh
+west build -p --build-dir build/native_sim/sample -b native_sim ./sample/
+./build/native_sim/sample/zephyr/zephyr.exe
+```
+
+### Build for STM32U5 (`b_u585i_iot02a`)
+
+```sh
+west build -p --build-dir build/stm32u5/tests -b b_u585i_iot02a ./tests/
+
+STM32_Programmer_CLI -c port=SWD -e all
+STM32_Programmer_CLI -c port=SWD -d ./build/stm32u5/tests/zephyr/zephyr.hex
+
+picocom -b 115200 /dev/ttyACM0
+```
+
+### Build for nRF5340 DK (`nrf5340dk/nrf5340/cpuapp`)
+
+```sh
+west build -p --build-dir build/nrf5340dk/tests -b nrf5340dk/nrf5340/cpuapp ./tests/
+
+west flash --build-dir build/nrf5340dk/tests
+
+picocom -b 115200 /dev/ttyACM0
+```
+
+### Running the test modes
+
+Tests run on `native_sim` in three modes:
+
+```sh
+# Plain tests (default)
+bash scripts/run_tests.sh native_sim plain
+
+# Secure tests
+bash scripts/run_tests.sh native_sim secure
+
+# Chunked secure tests
+bash scripts/run_tests.sh native_sim chunked
+```
+
+### Code coverage
+
+Generate separate HTML coverage reports for plain and secure:
+
+```sh
+# Plain coverage
+bash scripts/coverage.sh plain
+
+# Secure coverage
+bash scripts/coverage.sh secure
+```
+
+Reports are written to `build/coverage-plain/html/` and
+`build/coverage-secure/html/`.
+
+### Forensic scan
+
+After running secure tests, scan the flash image for forbidden plaintext:
+
+```sh
+python3 scripts/scan_flash.py flash.bin
+```
+
+### Test description check
+
+Verify every `ZTEST()` has `\brief`, `\details`, `\expected`:
+
+```sh
+python3 scripts/check_test_descriptions.py tests/src/
+```
+
+### Code formatting
+
+Apply the project's `.clang-format` rules:
+
+```sh
+./scripts/format.sh
+```
+
+Dry-run check (mirrors the CI format-check job):
+
+```sh
+./scripts/format.sh --check
+```
 
 ## Executive Summary
 

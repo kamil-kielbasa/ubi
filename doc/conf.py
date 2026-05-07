@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.67.0'
+version = '0.68.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -38,7 +38,10 @@ redirects = {
     # PR 2: Overview + Introduction merged into "What is UBI?" + "Concepts".
     'overview': 'what_is_ubi.html',
     'introduction': 'what_is_ubi.html',
-    # PR 3 / PR 4 will add entries here as old pages are merged away.
+    # PR 3: Getting Started split into Quick Start (essence) and Test Strategy
+    # (build/test/coverage tooling).
+    'getting_started': 'quick_start.html',
+    # PR 4 will add entries here as old pages are merged away.
 }
 
 source_suffix = ['.rst', '.md']

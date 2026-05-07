@@ -91,27 +91,9 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 +-----------------------------------------------------+
 ```
 
-**Source files:**
-
-| File | Role |
-|------|------|
-| `lib/include/ubi.h` | Public API — all structures and function declarations |
-| `lib/src/ubi_core_init.c` | Device initialization — format, scan, mount |
-| `lib/src/ubi_core_runtime.c` | Device runtime — get_info, erase_peb, deinit, test API |
-| `lib/src/ubi_volume.c` | Volume management — create, resize, remove, get_info |
-| `lib/src/ubi_leb.c` | LEB operations — read, write (copy-on-write), map, unmap (idempotent), is_mapped, get_size |
-| `lib/src/ubi_cache.c` | Red-black tree comparator and search helpers |
-| `lib/src/ubi_internal.h` | Shared internal types (`ubi_device`, `ubi_volume`) and helpers |
-| `lib/src/ubi_cache.h` | RBT and linked-list item types |
-| `lib/src/ubi_io.h` | On-flash header structures and constants |
-| `lib/src/ubi_io_metadata.c` | Metadata I/O — device and volume header read/write |
-| `lib/src/ubi_io_data.c` | Data I/O — EC/VID header and LEB data read/write, flash write/erase fault injection |
-| `lib/src/ubi_flash_res_peb.h` | Reserved PEB state types and API declarations |
-| `lib/src/ubi_flash_res_peb.c` | Reserved PEB scanning, recovery, overwrite, and commit |
-| `lib/src/ubi_partition_guard.h` | Single-handle-per-partition registry API |
-| `lib/src/ubi_partition_guard.c` | Static bitfield registry preventing double-init of the same partition |
-| `lib/src/ubi_mem.h` | Memory abstraction layer API — device, volume, leaf, scratch allocators |
-| `lib/src/ubi_mem.c` | Static (k_mem_slab) and heap (k_malloc) backend implementations |
+The per-file implementation map (which `.c` file holds which responsibility)
+lives in {doc}`developer_notes` — it is reference material for contributors,
+not for users of the library.
 
 ---
 
@@ -422,50 +404,6 @@ stateDiagram-v2
     Allocated --> Bad : I/O error
     Dirty --> Bad : I/O error
     Bad --> Free : Torture recovery (rare)
-```
-
-**Detailed ASCII reference:**
-
-```
-                          +-------+
-           ubi_device_    |       |   ubi_device_init()
-           erase_peb() -->| FREE  |<-- (fresh flash: all PEBs start here)
-           (ec += 1)      |       |    
-                          +---+---+
-                              |
-                              | leb_write() or leb_map()
-                              | (rb_get_min selects lowest EC)
-                              v
-                        +-----------+
-                        |           |
-                        | ALLOCATED |   In a volume's eba_tbl
-                        | (in use)  |   VID header links to vol_id + leb_num
-                        |           |
-                        +-----+-----+
-                              |
-                              | leb_write() (overwrite) or leb_unmap()
-                              | Old PEB moved to dirty_pebs
-                              v
-                          +-------+
-                          |       |
-                          | DIRTY |   Stale data, awaiting erasure
-                          |       |
-                          +---+---+
-                              |
-                              | ubi_device_erase_peb()
-                              | (erase flash, increment EC, write new EC hdr)
-                              v
-                          +-------+
-                          | FREE  |   Back in free_pebs, ready for reuse
-                          +-------+
-
-  At ANY point, if a flash I/O operation fails:
-
-                          +-------+
-              I/O error   |       |
-           ------------>  |  BAD  |   Moved to bad_pebs linked list
-                          |       |   Excluded from all future operations
-                          +-------+
 ```
 
 ---

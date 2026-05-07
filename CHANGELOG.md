@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.68.0] - 2026-05-07
+
+### Changed
+
+- The Plain Architecture documentation has been slimmed of
+  duplicate renderings and tooling material. The PEB lifecycle
+  state machine is now rendered only as Mermaid — the duplicate
+  ASCII version of the same diagram has been removed — and the
+  per-file source-code map (which `.c` file holds which
+  responsibility) has moved to a new orphan *Developer Notes*
+  page intended for contributors rather than library users.
+  The legacy *Getting Started* page has been split into a
+  hands-on *Quick Start* under §1.2 of the new sidebar (build
+  on `native_sim`, run the sample, write your first volume in
+  about five minutes) and a build/test/coverage section folded
+  into *Test Strategy* under §5.3, so that prerequisites,
+  cross-compilation recipes, coverage instructions, the
+  forensic scan, and the formatting check now live alongside
+  the test categories they describe. Internal cross-references
+  in *Contributing*, *Configuration*, and the *Plain UBI
+  Workflow* stub have been repointed, and the README
+  documentation table now links to *Quick Start* instead of
+  *Getting Started*; `sphinx-reredirects` keeps the old URL
+  alive by forwarding it to *Quick Start*. This is the third
+  pass (PR 3 of 5) of the v1.0.0 documentation restructure.
+
 ## [0.67.0] - 2026-05-07
 
 ### Changed

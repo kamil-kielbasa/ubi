@@ -104,10 +104,10 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 | [Concepts at a Glance](https://kamil-kielbasa.github.io/ubi/concepts.html) | Five key concepts (PEB/LEB/EC/VID/EBA) and how UBI works in 6 steps |
 | [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery, resource usage |
 | [Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html) | Authenticated encryption of all on-flash structures — key hierarchy, nonce/AAD, counter continuity, anchors, freshness exports |
-| [Getting Started](https://kamil-kielbasa.github.io/ubi/getting_started.html) | Build instructions, test suite, coverage, code formatting |
+| [Quick Start](https://kamil-kielbasa.github.io/ubi/quick_start.html) | Build, run the sample, and write your first volume in about 5 minutes |
 | [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) | Kconfig options, DeviceTree overlays, sizing guidelines |
 | [API Reference](https://kamil-kielbasa.github.io/ubi/api.html) | Auto-generated from Doxygen — all public types and functions |
-| [Test Strategy](https://kamil-kielbasa.github.io/ubi/test_strategy.html) | Test categories, environments, coverage targets, known limitations |
+| [Test Strategy](https://kamil-kielbasa.github.io/ubi/test_strategy.html) | Build / test / coverage / forensic scan, test categories, environments, gaps |
 | [Contributing](https://kamil-kielbasa.github.io/ubi/contributing.html) | Repository layout, local dev loop, PR checklist |
 
 ## Project Quality

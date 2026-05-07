@@ -5,7 +5,7 @@ Thank you for your interest in contributing to UBI on Zephyr.
 ## Getting Started
 
 1. Fork the repository and clone your fork.
-2. Set up the development environment following [Getting Started](getting_started.md).
+2. Set up the development environment following [Quick Start](quick_start.md) and the build/test/coverage instructions in [Test Strategy](test_strategy.md).
 3. Create a feature branch from `main`.
 
 ## Development Prerequisites

@@ -7,7 +7,7 @@ Until then, the canonical material lives in:
 
 - {doc}`api` — function-level API reference
 - {doc}`plain_architecture` — internal model and lifecycle
-- {doc}`getting_started` — Quick Start snippet
+- {doc}`quick_start` — the 30-line snippet
 ```
 
 This page will become the developer-oriented walkthrough: init → create
