@@ -31,13 +31,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -48,8 +52,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -69,8 +72,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -92,22 +93,21 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Write until partition full, unmap, erase all dirty PEBs.
  *
- * \details Create a 1-LEB static volume, write data, unmap, erase dirty
+ * \details Scenario: Create a 1-LEB static volume, write data, unmap, erase dirty
  *          PEBs, deinit and re-init across multiple cycles until the
  *          partition is exercised. Verifies dirty_peb_count transitions.
  *          Parity with plain ubi_erase.one_volume_one_leb_operations_with_reboot.
  *
- * \expected dirty_peb_count drops to 0 after erase; data written before
+ * \expect dirty_peb_count drops to 0 after erase; data written before
  *           unmap is no longer accessible; heap fully reclaimed after deinit.
  */
 ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
@@ -206,7 +206,7 @@ ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
 /**
  * \brief Verify the hidden anchor PEB participates in normal erase cycling.
  *
- * \details Create a 1-LEB volume, overwrite twice (pushing leb_write_counter
+ * \details Scenario: Create a 1-LEB volume, overwrite twice (pushing leb_write_counter
  *          above the initial anchor counter), unmap, then erase all dirty PEBs.
  *          The second dirty PEB is the last writable witness; the erase loop
  *          rewrites the anchor (old anchor PEB → dirty → erased → free pool).
@@ -214,7 +214,7 @@ ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
  *          is permanently trapped.  The first cycle requires 3 erases (2 user
  *          + 1 old anchor), proving anchor migration.
  *
- * \expected Anchor PEB migrates at least once; free_peb_count restores
+ * \expect Anchor PEB migrates at least once; free_peb_count restores
  *           every cycle; heap fully reclaimed after deinit.
  */
 ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
@@ -297,14 +297,14 @@ ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
 /**
  * \brief Verify stale anchors are rejected as dirty on reboot after migration.
  *
- * \details Create a 1-LEB volume, overwrite twice to push the VID counter
+ * \details Scenario: Create a 1-LEB volume, overwrite twice to push the VID counter
  *          above the initial anchor, unmap, erase all dirty (triggering
  *          anchor migration).  After reboot the old anchor PEB should not
  *          be recognized — the new anchor with the higher witness counter
  *          is the only valid one.  Verify that after a full erase cycle the
  *          free PEB count is fully restored, proving no stale anchor lingers.
  *
- * \expected After migration + reboot: only the newest anchor is live;
+ * \expect After migration + reboot: only the newest anchor is live;
  *           stale anchor PEB recovered as dirty; full free count restored
  *           after erasing all dirty PEBs.
  */
@@ -390,13 +390,13 @@ ZTEST(ubi_secure_erase, test_stale_anchor_rejected_after_reboot)
 /**
  * \brief Verify reclaim preserves anchor continuity witness across full cycle.
  *
- * \details Run a full reclaim cycle (write → unmap → erase → rewrite) over
+ * \details Scenario: Run a full reclaim cycle (write → unmap → erase → rewrite) over
  *          multiple iterations.  After each full cycle, verify the anchor
  *          remains valid by creating a fresh reboot and checking that the
  *          volume and its reserved PEB count are intact. This tests §11.6:
  *          reclaim with hidden-anchor preservation.
  *
- * \expected Across N full reclaim cycles + reboot: volume always recognized,
+ * \expect Across N full reclaim cycles + reboot: volume always recognized,
  *           reserved_peb_count correct, no orphaned PEBs.
  */
 ZTEST(ubi_secure_erase, test_reclaim_preserves_continuity_witness)
@@ -470,7 +470,5 @@ ZTEST(ubi_secure_erase, test_reclaim_preserves_continuity_witness)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_erase, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

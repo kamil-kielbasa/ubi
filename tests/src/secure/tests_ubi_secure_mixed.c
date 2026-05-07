@@ -31,13 +31,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -48,8 +52,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -69,8 +72,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -92,23 +93,22 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief End-to-end scenario: create two volumes, write, remove one, resize
  *        the other, map LEBs, reboot, and verify everything.
  *
- * \details Init secure device, create static vol_1 (2 LEBs) and dynamic
+ * \details Scenario: Init secure device, create static vol_1 (2 LEBs) and dynamic
  *          vol_2 (2 LEBs), write data to both, remove vol_1, resize vol_2
  *          to 4 LEBs, map LEB 2, deinit, re-init and verify full state.
  *          Parity with plain ubi_mixed.scenario_1 (simplified).
  *
- * \expected After reboot: vol_1 gone (-ENOENT), vol_2 has 4 LEBs,
+ * \expect After reboot: vol_1 gone (-ENOENT), vol_2 has 4 LEBs,
  *           original data readable in LEB 0, LEB 2 mapped with size 0;
  *           heap fully reclaimed after each deinit.
  */
@@ -212,7 +212,5 @@ ZTEST(ubi_secure_mixed, test_scenario_1)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	memory_check(&before_init, &after_init, &after_deinit);
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_mixed, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

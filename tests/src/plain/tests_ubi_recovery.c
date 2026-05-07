@@ -873,8 +873,6 @@ ZTEST(ubi_recovery, duplicate_leb_higher_sqnum_replaces_existing)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* N-PEB recovery test helpers ------------------------------------------------------------------ */
-
 /**
  * \brief Corrupt a reserved PEB by erasing it and writing garbage.
  */
@@ -908,12 +906,10 @@ static void verify_reserved_peb_valid(const struct flash_area *fa, size_t peb_id
 	zassert_equal(calc_crc, stored_crc, "PEB %zu: CRC mismatch", peb_idx);
 }
 
-/* Category A: Init-time device header recovery ------------------------------------------------- */
-
 /**
  * \brief Verify init recovers from a corrupt device header on PEB 0.
  *
- * \details Corrupt PEB 0's device header, leave PEB 1 intact. Init should
+ * \details Scenario: Corrupt PEB 0's device header, leave PEB 1 intact. Init should
  *          recover PEB 0 from PEB 1 and succeed.
  *
  * \expect Init succeeds. Volume data intact. Both PEBs restored.
@@ -961,7 +957,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb0)
 /**
  * \brief Verify init recovers from a corrupt device header on PEB 1.
  *
- * \details Symmetric to peb0 test — corrupt PEB 1, recovery from PEB 0.
+ * \details Scenario: Symmetric to peb0 test — corrupt PEB 1, recovery from PEB 0.
  *
  * \expect Init succeeds. Both PEBs restored.
  */
@@ -1002,7 +998,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_dev_hdr_peb1)
 /**
  * \brief Verify init fails when all device headers are corrupt.
  *
- * \details Corrupt device headers on both PEB 0 and PEB 1. No valid data
+ * \details Scenario: Corrupt device headers on both PEB 0 and PEB 1. No valid data
  *          exists to recover from.
  *
  * \expect Init returns error. ubi pointer is NULL.
@@ -1027,12 +1023,10 @@ ZTEST(ubi_recovery, init_fails_all_dev_hdrs_corrupt)
 	zassert_is_null(ubi, "UBI pointer should be NULL");
 }
 
-/* Category B: Init-time volume header recovery ------------------------------------------------- */
-
 /**
  * \brief Verify init recovers when volume header on PEB 0 is corrupt.
  *
- * \details Device headers are valid on both PEBs. Corrupt the vol header
+ * \details Scenario: Device headers are valid on both PEBs. Corrupt the vol header
  *          on PEB 0 only. Init recovers from PEB 1's valid copy.
  *
  * \expect Init succeeds. Volume data intact.
@@ -1098,7 +1092,7 @@ ZTEST(ubi_recovery, init_recovers_corrupt_vol_hdr_peb0)
 /**
  * \brief Verify init fails when vol headers on both PEBs are corrupt.
  *
- * \details Device headers are valid on both PEBs. Corrupt vol headers
+ * \details Scenario: Device headers are valid on both PEBs. Corrupt vol headers
  *          on both PEB 0 and PEB 1. No vol header can be read.
  *
  * \expect Init returns error. ubi pointer is NULL.
@@ -1144,12 +1138,10 @@ ZTEST(ubi_recovery, init_fails_both_vol_hdrs_corrupt)
 	zassert_is_null(ubi, "UBI pointer should be NULL");
 }
 
-/* Category C: Runtime recovery ----------------------------------------------------------------- */
-
 /**
  * \brief Verify that volume_create succeeds after corrupting PEB 1 at runtime.
  *
- * \details Init normally, then corrupt PEB 1's device header. The next
+ * \details Scenario: Init normally, then corrupt PEB 1's device header. The next
  *          volume_create triggers validate_reserved_pebs which recovers
  *          PEB 1 before the commit.
  *
@@ -1187,7 +1179,7 @@ ZTEST(ubi_recovery, vol_create_recovers_degraded_bank)
 /**
  * \brief Verify that leb_write succeeds after corrupting PEB 0 at runtime.
  *
- * \details Init, create vol, corrupt PEB 0, then leb_write. The write path
+ * \details Scenario: Init, create vol, corrupt PEB 0, then leb_write. The write path
  *          does not go through validate_reserved_pebs (it writes data PEBs),
  *          so this verifies that reading vol headers (for the write) still
  *          works with one corrupt reserved PEB.
@@ -1227,7 +1219,7 @@ ZTEST(ubi_recovery, vol_write_after_corrupt_peb0)
 /**
  * \brief Verify that volume_delete succeeds after corrupting PEB 0 at runtime.
  *
- * \details Init, create vol, corrupt PEB 0, then volume_delete. The delete
+ * \details Scenario: Init, create vol, corrupt PEB 0, then volume_delete. The delete
  *          path calls validate_reserved_pebs which recovers PEB 0.
  *
  * \expect Delete succeeds. Both PEBs restored.
@@ -1263,12 +1255,10 @@ ZTEST(ubi_recovery, vol_delete_recovers_degraded_bank)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Category D: Write atomicity & verification --------------------------------------------------- */
-
 /**
  * \brief Verify that commit writes identical content to all active reserved PEBs.
  *
- * \details Init, create a volume. Read raw device headers from PEB 0 and PEB 1
+ * \details Scenario: Init, create a volume. Read raw device headers from PEB 0 and PEB 1
  *          and verify they have identical CRC and revision.
  *
  * \expect All active PEBs have identical device headers.
@@ -1306,7 +1296,7 @@ ZTEST(ubi_recovery, commit_writes_all_reserved_pebs)
 /**
  * \brief Verify that format writes valid device headers to all reserved PEBs.
  *
- * \details Fresh device init (format). Read raw headers from all reserved PEBs.
+ * \details Scenario: Fresh device init (format). Read raw headers from all reserved PEBs.
  *
  * \expect All reserved PEBs have valid device headers.
  */
@@ -1326,12 +1316,10 @@ ZTEST(ubi_recovery, format_writes_all_reserved_pebs)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Category E: Data PEB indexing ---------------------------------------------------------------- */
-
 /**
  * \brief Verify total_peb_count excludes reserved PEBs.
  *
- * \details Init a device. Query device info.
+ * \details Scenario: Init a device. Query device info.
  *
  * \expect total_peb_count = (flash_size / erase_block_size) - NR_OF_RES_PEBS.
  */
@@ -1364,12 +1352,10 @@ ZTEST(ubi_recovery, total_peb_count_excludes_reserved)
  *   2. A function-pointer-based mock layer injected between UBI and flash_area_*.
  */
 
-/* Category F: Additional reserved PEB recovery edge cases -------------------------------------- */
-
 /**
  * \brief Verify vol_resize triggers recovery of a corrupted reserved PEB.
  *
- * \details Init device, create dynamic volume, corrupt PEB 0. Then resize
+ * \details Scenario: Init device, create dynamic volume, corrupt PEB 0. Then resize
  *          the volume, which calls dev_hdr_read_and_bump → ubi_flash_res_peb_validate
  *          and should recover the corrupt PEB.
  *
@@ -1415,7 +1401,7 @@ ZTEST(ubi_recovery, vol_resize_recovers_degraded_bank)
  * \brief Verify that device in degraded mode (both reserved PEB copies corrupt,
  *        then one recovered) returns -EROFS from dev_hdr_read and blocks mutations.
  *
- * \details Init, create volume, deinit. Corrupt the vol header on one PEB and the
+ * \details Scenario: Init, create volume, deinit. Corrupt the vol header on one PEB and the
  *          dev header on the other so that validate sees only 1 active PEB. If
  *          recovery via the remaining active PEB fails (e.g., because the content
  *          to recover from is itself partial), the device ends up in degraded mode.
@@ -1461,7 +1447,7 @@ ZTEST(ubi_recovery, degraded_mode_blocks_mutations)
 /**
  * \brief Verify multiple volumes survive init-time corrupt PEB recovery.
  *
- * \details Create 3 volumes with data, deinit. Corrupt PEB 1's vol headers.
+ * \details Scenario: Create 3 volumes with data, deinit. Corrupt PEB 1's vol headers.
  *          Re-init → recovery from PEB 0. All 3 volumes and their data should
  *          be intact.
  *
@@ -1541,7 +1527,7 @@ ZTEST(ubi_recovery, multi_volume_recovery_from_corrupt_bank)
  * \brief Verify that a corrupt EC header on a data PEB with valid VID is classified as bad
  *        even when the VID is semantically valid.
  *
- * \details The EC header is the first check in init_scan_pebs. If it fails, the PEB
+ * \details Scenario: The EC header is the first check in init_scan_pebs. If it fails, the PEB
  *          goes straight to bad blocks regardless of VID state. Write valid VID data
  *          after a corrupt EC to verify the EC check is definitive.
  *
@@ -1600,7 +1586,7 @@ ZTEST(ubi_recovery, corrupt_ec_with_valid_vid_still_bad)
 /**
  * \brief Verify that multiple corrupt data PEBs are all classified correctly during init.
  *
- * \details Corrupt EC headers on 3 data PEBs. Re-init and verify bad_peb_count == 3.
+ * \details Scenario: Corrupt EC headers on 3 data PEBs. Re-init and verify bad_peb_count == 3.
  *
  * \expect bad_peb_count == 3. Remaining PEBs are free.
  */
@@ -1641,7 +1627,7 @@ ZTEST(ubi_recovery, multiple_corrupt_pebs_all_classified)
 /**
  * \brief Verify that reserved PEB scan correctly identifies spare (erased) PEBs.
  *
- * \details On a fresh partition (all 0xFF), the first init should format the device.
+ * \details Scenario: On a fresh partition (all 0xFF), the first init should format the device.
  *          Before format, all reserved PEBs are in SPARE state. After format,
  *          they become ACTIVE. This test verifies the transition.
  *
@@ -1673,7 +1659,7 @@ ZTEST(ubi_recovery, fresh_partition_formats_spare_pebs)
 /**
  * \brief Verify that a PEB with valid EC, erased VID, and erased data is classified as free.
  *
- * \details Init probes the data area when VID is erased. If the data area
+ * \details Scenario: Init probes the data area when VID is erased. If the data area
  *          prefix is also erased, the PEB is genuinely free.
  *
  * \expect  PEB is in the free pool. free_peb_count includes this PEB.
@@ -1721,7 +1707,7 @@ ZTEST(ubi_recovery, valid_ec_erased_vid_and_erased_data_is_free)
 /**
  * \brief Verify that a PEB with valid EC, erased VID, but non-erased data is dirty.
  *
- * \details An interrupted commit can leave data written but VID erased.
+ * \details Scenario: An interrupted commit can leave data written but VID erased.
  *          Init must not classify this as free (which would cause data
  *          corruption when reused). Instead, the PEB must be classified
  *          as dirty (uncommitted).
@@ -1778,7 +1764,7 @@ ZTEST(ubi_recovery, valid_ec_erased_vid_and_present_data_is_dirty)
 /**
  * \brief Verify that an interrupted commit followed by re-init does not lose data.
  *
- * \details Write data to a LEB, then attempt an overwrite with VID fault
+ * \details Scenario: Write data to a LEB, then attempt an overwrite with VID fault
  *          injection. The data payload is written but the VID commit fails,
  *          so the old mapping stays active. After deinit + re-init, the old
  *          data must still be readable and the uncommitted PEB must be in

@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_io_faults.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Flash I/O fault injection tests for coverage of write error paths.
  *
  * These tests use the flash write fault injection hook to verify that UBI
@@ -16,6 +18,8 @@
  * \copyright Copyright (c) 2026
  */
 
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include "ubi_test_fixture.h"
 #include "ubi_test_memory.h"
@@ -27,6 +31,8 @@
 
 #include <string.h>
 
+/* Module defines ------------------------------------------------------------------------------- */
+
 /* Header constants must match ubi_io.h */
 #define EC_HDR_MAGIC (0x55424923U)
 #define EC_HDR_SIZE (16U)
@@ -34,24 +40,51 @@
 #define VID_HDR_SIZE (32U)
 #define NR_OF_RES_PEBS (2U)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/** \brief Raw on-flash erase-counter header layout used by the raw write helpers. */
 struct raw_ec_hdr_io {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding[3];
-	uint32_t ec;
-	uint32_t hdr_crc;
+	uint32_t magic; /*!< EC header magic. */
+	uint8_t version; /*!< Header version. */
+	uint8_t padding[3]; /*!< Padding to 4-byte boundary. */
+	uint32_t ec; /*!< Erase counter value. */
+	uint32_t hdr_crc; /*!< Header CRC32. */
 };
 
+/** \brief Raw on-flash volume-id header layout used by the raw write helpers. */
 struct raw_vid_hdr_io {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding[3];
-	uint32_t lnum;
-	uint32_t vol_id;
-	uint64_t sqnum;
-	uint32_t data_size;
-	uint32_t hdr_crc;
+	uint32_t magic; /*!< VID header magic. */
+	uint8_t version; /*!< Header version. */
+	uint8_t padding[3]; /*!< Padding to 4-byte boundary. */
+	uint32_t lnum; /*!< Logical erase block number. */
+	uint32_t vol_id; /*!< Volume identifier. */
+	uint64_t sqnum; /*!< Sequence number. */
+	uint32_t data_size; /*!< Data length in this LEB. */
+	uint32_t hdr_crc; /*!< Header CRC32. */
 };
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
+
+/** Module-level device pointer for teardown safety. */
+static struct ubi_device *g_ubi = NULL;
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
+static void ztest_testcase_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+
+static void io_raw_write_ec(const struct flash_area *fa, size_t pnum, size_t ebs, uint32_t ec);
+static void io_raw_write_vid(const struct flash_area *fa, size_t pnum, size_t ebs, uint32_t lnum,
+			     uint32_t vol_id, uint64_t sqnum, uint32_t data_size);
+
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void io_raw_write_ec(const struct flash_area *fa, size_t pnum, size_t ebs, uint32_t ec)
 {
@@ -72,11 +105,6 @@ static void io_raw_write_vid(const struct flash_area *fa, size_t pnum, size_t eb
 	hdr.hdr_crc = crc32_ieee((const uint8_t *)&hdr, sizeof(hdr) - sizeof(hdr.hdr_crc));
 	(void)flash_area_write(fa, (pnum * ebs) + EC_HDR_SIZE, &hdr, sizeof(hdr));
 }
-
-static struct ubi_flash_desc flash = { 0 };
-
-/* Module-level device pointer for teardown safety. */
-static struct ubi_device *g_ubi = NULL;
 
 static void *ztest_suite_setup(void)
 {
@@ -107,13 +135,15 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
+/* Module interface function definitions -------------------------------------------------------- */
+
 ZTEST_SUITE(ubi_io_faults, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
 /**
  * \brief Verify that data write failure during leb_write marks PEB as bad.
  *
- * \details Setup: Initialize device, create volume. Inject write fault so
+ * \details Scenario: Setup: Initialize device, create volume. Inject write fault so
  *          the data write in leb_prepare_new_mapping() fails (first flash
  *          write). The free PEB should be marked bad.
  *
@@ -160,7 +190,7 @@ ZTEST(ubi_io_faults, vid_hdr_write_failure_marks_peb_bad)
 /**
  * \brief Verify that VID commit failure preserves old mapping (COW semantics).
  *
- * \details Setup: Write data to LEB 0 successfully. Then inject write fault
+ * \details Scenario: Setup: Write data to LEB 0 successfully. Then inject write fault
  *          after the 1st successful write (data write succeeds, VID commit fails).
  *          VID is the commit point, so the old LEB 0 data should remain
  *          intact (copy-on-write semantics).
@@ -214,7 +244,7 @@ ZTEST(ubi_io_faults, data_write_failure_preserves_old_mapping)
 /**
  * \brief Verify that leb_map with VID write failure marks PEB bad.
  *
- * \details leb_map internally calls leb_prepare_new_mapping with buf=NULL, len=0.
+ * \details Scenario: leb_map internally calls leb_prepare_new_mapping with buf=NULL, len=0.
  *          If VID header write fails, the PEB should be marked bad.
  *
  * \expect leb_map returns error. bad_peb_count increases.
@@ -254,7 +284,7 @@ ZTEST(ubi_io_faults, leb_map_vid_write_failure)
 /**
  * \brief Verify recovery after write fault — bad PEB can be tortured back to free pool.
  *
- * \details Write to LEB with injected VID write fault → PEB goes bad.
+ * \details Scenario: Write to LEB with injected VID write fault → PEB goes bad.
  *          Call erase_peb() which triggers torture. Since the underlying
  *          flash is fine (fault was injected), torture should recover the PEB.
  *
@@ -310,7 +340,7 @@ ZTEST(ubi_io_faults, write_fault_peb_recoverable_by_torture)
 /**
  * \brief Verify that multiple consecutive write failures degrade gracefully.
  *
- * \details Inject persistent write fault. Attempt multiple writes.
+ * \details Scenario: Inject persistent write fault. Attempt multiple writes.
  *          Each should fail and mark a PEB bad. Once all free PEBs are
  *          exhausted, write returns -ENOSPC.
  *
@@ -359,7 +389,7 @@ ZTEST(ubi_io_faults, multiple_write_failures_exhaust_free_pebs)
 /**
  * \brief Verify EC header write failure after successful erase in erase_peb().
  *
- * \details Create volume, write data, unmap to produce a dirty PEB.
+ * \details Scenario: Create volume, write data, unmap to produce a dirty PEB.
  *          Then inject write fault so the EC header re-write in erase_peb() fails
  *          after the actual flash erase succeeded. This should mark the PEB bad.
  *
@@ -411,7 +441,7 @@ ZTEST(ubi_io_faults, ec_write_failure_during_erase_peb)
 /**
  * \brief Verify EC header write failure during torture recovery.
  *
- * \details Create a bad PEB through VID write fault. Then inject another
+ * \details Scenario: Create a bad PEB through VID write fault. Then inject another
  *          write fault so that torture's EC header write also fails. The PEB
  *          should remain in the bad list.
  *
@@ -459,7 +489,7 @@ ZTEST(ubi_io_faults, ec_write_failure_during_torture)
 /**
  * \brief Verify that write fault during volume create is handled safely.
  *
- * \details Volume create writes volume headers to reserved PEBs via
+ * \details Scenario: Volume create writes volume headers to reserved PEBs via
  *          ubi_vol_hdr_append → ubi_flash_res_peb_commit → ubi_flash_res_peb_overwrite.
  *          These writes go through flash_area_write directly (not flash_write_with_retry)
  *          since reserved PEBs have their own multi-PEB fallback. This test instead
@@ -508,6 +538,10 @@ ZTEST(ubi_io_faults, alloc_fail_during_volume_create)
  *        cleans up the volume struct and leaves no persistent state.
  *
  * \expect Create returns -ENOMEM. Volume struct freed. No volume on re-init.
+ *
+ * \details Scenario: Initialize device. Inject an allocation fault at position 1 (leaf
+ *          alloc, after the volume struct alloc succeeds). Call ubi_volume_create for a
+ *          dynamic volume. Reset the fault. Verify via check_invariants and get_info.
  */
 ZTEST(ubi_io_faults, leaf_alloc_fail_during_volume_create)
 {
@@ -539,7 +573,7 @@ ZTEST(ubi_io_faults, leaf_alloc_fail_during_volume_create)
 /**
  * \brief Verify device deinit is safe after write faults leave bad PEBs.
  *
- * \details Multiple write faults create bad PEBs. Verify deinit properly
+ * \details Scenario: Multiple write faults create bad PEBs. Verify deinit properly
  *          cleans up all tracked PEBs without leaks.
  *
  * \expect deinit succeeds. Memory stats show no leak (heap backend).
@@ -584,7 +618,7 @@ ZTEST(ubi_io_faults, deinit_safe_after_write_faults)
 /**
  * \brief Verify that invariants hold after write fault and recovery.
  *
- * \details Write fault creates bad PEB. Torture recovers it. Check invariants
+ * \details Scenario: Write fault creates bad PEB. Torture recovers it. Check invariants
  *          at each stage to ensure internal consistency.
  *
  * \expect check_invariants passes after fault, after torture, and after recovery.
@@ -635,6 +669,12 @@ ZTEST(ubi_io_faults, invariants_hold_after_write_fault_and_recovery)
  *
  * During volume_create, allocations: (1) volume, (2) leaf, (3) scratch in append.
  * Failing at #3 exercises the error path inside ubi_vol_hdr_append.
+ *
+ * \details Scenario: Initialize device. Inject an allocation fault at position 2 (scratch
+ *          alloc inside ubi_vol_hdr_append). Call ubi_volume_create. Reset fault and
+ *          call check_invariants. Deinit.
+ *
+ * \expect create returns a non-zero error; check_invariants returns 0; device remains consistent.
  */
 ZTEST(ubi_io_faults, vol_create_scratch_alloc_fails_in_append)
 {
@@ -672,6 +712,12 @@ ZTEST(ubi_io_faults, vol_create_scratch_alloc_fails_in_append)
  *
  * During volume_remove, no allocations happen before vol_hdr_remove's scratch alloc.
  * Failing at position 0 exercises the error path.
+ *
+ * \details Scenario: Initialize device, create a volume. Inject an allocation fault at
+ *          position 0 (scratch alloc inside ubi_vol_hdr_remove). Call ubi_volume_remove.
+ *          Reset fault and call check_invariants. Deinit.
+ *
+ * \expect remove returns a non-zero error; check_invariants returns 0; device remains consistent.
  */
 ZTEST(ubi_io_faults, vol_remove_scratch_alloc_fails_in_remove)
 {
@@ -709,6 +755,12 @@ ZTEST(ubi_io_faults, vol_remove_scratch_alloc_fails_in_remove)
  * \brief Scratch alloc failure inside ubi_vol_hdr_update during volume_resize.
  *
  * During volume_resize, no allocations happen before vol_hdr_update's scratch alloc.
+ *
+ * \details Scenario: Initialize device, create a dynamic volume with leb_count=1. Inject
+ *          an allocation fault at position 0 (scratch alloc inside ubi_vol_hdr_update).
+ *          Call ubi_volume_resize to leb_count=2. Reset fault and call check_invariants.
+ *
+ * \expect resize returns a non-zero error; check_invariants returns 0; device remains consistent.
  */
 ZTEST(ubi_io_faults, vol_resize_scratch_alloc_fails_in_update)
 {
@@ -750,6 +802,12 @@ ZTEST(ubi_io_faults, vol_resize_scratch_alloc_fails_in_update)
  *
  * By failing allocations during init after the initial format succeeds,
  * the scan phase's leaf_alloc calls fail, preventing PEB classification.
+ *
+ * \details Scenario: Format the partition with no volumes (init+deinit). Sweep failure
+ *          positions 0..20 on reinit. For each position: inject the fault, call
+ *          ubi_device_init, reset the fault. If init succeeded, deinit before next iteration.
+ *
+ * \expect Sweep completes; every failure position is handled gracefully; no crashes.
  */
 ZTEST(ubi_io_faults, init_alloc_failure_sweep_no_volumes)
 {
@@ -787,6 +845,12 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_no_volumes)
  * When a volume exists, init_collect_volumes allocates a volume struct.
  * Failing this alloc covers the volume/leaf alloc paths
  * in the collect phase.
+ *
+ * \details Scenario: Set up a partition with one dynamic volume (2 LEBs), data in both
+ *          LEBs and several erase cycles, then deinit. Sweep failure positions 0..25 on
+ *          reinit; init/deinit per iteration.
+ *
+ * \expect Sweep completes; every alloc-failure position during init_collect_volumes is handled.
  */
 ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_volume)
 {
@@ -842,6 +906,12 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_volume)
  *
  * Creates orphan PEBs (volume deleted but mapped PEBs remain on flash)
  * to exercise classify_orphan_peb alloc failure paths during init scan.
+ *
+ * \details Scenario: Create a dynamic volume (3 LEBs), write to LEBs 0 and 1, remove the
+ *          volume so its mapped PEBs become orphans, deinit without erasing dirty PEBs.
+ *          Sweep failure positions 0..25 on reinit.
+ *
+ * \expect Sweep completes; orphan classification succeeds despite alloc faults.
  */
 ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_orphans)
 {
@@ -894,6 +964,12 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_orphans)
  *
  * Injects a duplicate LEB mapping on flash, then sweeps init alloc failures.
  * This exercises resolve_duplicate_leb alloc failure (L395-396).
+ *
+ * \details Scenario: Format, create volume (2 LEBs), write LEB 0, erase dirty PEBs,
+ *          deinit. Inject a duplicate LEB 0 with a higher sqnum on a free PEB via raw
+ *          flash writes. Sweep failure positions 0..25 on reinit.
+ *
+ * \expect Sweep completes; duplicate resolution succeeds despite alloc faults.
  */
 ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_duplicates)
 {
@@ -973,6 +1049,11 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_duplicates)
  *
  * Writes a VID header with bad CRC on a data PEB, then sweeps init.
  * This exercises the validate_vid_header CRC-fail-path alloc failure (L302-303).
+ *
+ * \details Scenario: Format the partition, deinit. Corrupt the VID CRC on the first data
+ *          PEB by writing a bad CRC value. Sweep failure positions 0..25 on reinit.
+ *
+ * \expect Sweep completes; CRC validation failure is handled without leaks.
  */
 ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_vid_crc)
 {
@@ -1025,6 +1106,11 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_vid_crc)
  *
  * Corrupts the EC header of the first data PEB, then sweeps init alloc
  * failures to exercise the validate_ec_header alloc failure path (L238-239).
+ *
+ * \details Scenario: Format, deinit. Corrupt the EC header CRC on the first data PEB
+ *          (erase the PEB and write a bad CRC). Sweep failure positions 0..25 on reinit.
+ *
+ * \expect Sweep completes; the EC corruption path is exercised safely.
  */
 ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_ec)
 {
@@ -1073,6 +1159,11 @@ ZTEST(ubi_io_faults, init_alloc_failure_sweep_with_bad_ec)
 
 /**
  * \brief Diag alloc fault during ubi_device_get_peb_ec.
+ *
+ * \details Scenario: Initialize device. Inject an allocation failure at position 0.
+ *          Call ubi_device_get_peb_ec. Reset fault. Deinit.
+ *
+ * \expect ubi_device_get_peb_ec returns a non-zero error; the peb_ec output pointer remains NULL.
  */
 ZTEST(ubi_io_faults, get_peb_ec_diag_alloc_fault)
 {
@@ -1103,6 +1194,12 @@ ZTEST(ubi_io_faults, get_peb_ec_diag_alloc_fault)
  *
  * Creates one volume, then sweeps alloc failures during creation of a second.
  * This exercises different alloc failure points within vol_hdr_append.
+ *
+ * \details Scenario: Initialize, create the first dynamic volume. Sweep failure positions
+ *          0..5 on the creation of a second volume. Per iteration: inject fault, attempt
+ *          create, reset fault; if create succeeded remove for the next iteration.
+ *
+ * \expect Sweep completes; every failure position is handled; check_invariants returns 0.
  */
 ZTEST(ubi_io_faults, vol_create_second_volume_alloc_sweep)
 {
@@ -1154,6 +1251,12 @@ ZTEST(ubi_io_faults, vol_create_second_volume_alloc_sweep)
  *
  * Creates two volumes, then sweeps alloc failures during removal of one.
  * This exercises alloc failure paths in vol_hdr_remove.
+ *
+ * \details Scenario: Initialize, create two dynamic volumes. Sweep failure positions
+ *          0..3 on removal of the first volume. Per iteration: inject fault, attempt
+ *          remove, reset fault; if remove succeeded recreate for the next iteration.
+ *
+ * \expect Sweep completes; every failure position is handled; check_invariants returns 0.
  */
 ZTEST(ubi_io_faults, vol_remove_alloc_sweep)
 {
@@ -1203,6 +1306,13 @@ ZTEST(ubi_io_faults, vol_remove_alloc_sweep)
  * \brief Flash erase failure during ubi_device_erase_peb moves PEB to bad list.
  *
  * Uses ubi_test_fault_set_flash_erase_fail_after to simulate erase failure.
+ *
+ * \details Scenario: Initialize, create a dynamic volume (2 LEBs), write to both LEBs,
+ *          remove the volume to create dirty PEBs. Inject a flash erase failure at
+ *          position 0. Call ubi_device_erase_peb. Reset fault and check invariants.
+ *
+ * \expect erase_peb returns a non-zero error; the dirty PEB is moved to the bad list;
+ *         check_invariants returns 0.
  */
 ZTEST(ubi_io_faults, erase_peb_flash_erase_failure_moves_to_bad)
 {
@@ -1246,7 +1356,7 @@ ZTEST(ubi_io_faults, erase_peb_flash_erase_failure_moves_to_bad)
 /**
  * \brief Verify overwrite preserves old mapping when VID commit fails.
  *
- * \details VID is the commit point. If VID write fails after data has been
+ * \details Scenario: VID is the commit point. If VID write fails after data has been
  *          written, the old mapping must remain active and readable.
  *
  *          Write order per leb_write with data:
@@ -1316,7 +1426,7 @@ ZTEST(ubi_io_faults, overwrite_preserves_old_mapping_when_commit_vid_fails)
 /**
  * \brief Verify first write to a LEB does not create mapping when VID commit fails.
  *
- * \details A freshly created volume has all LEBs unmapped. The first
+ * \details Scenario: A freshly created volume has all LEBs unmapped. The first
  *          ubi_leb_write() to a LEB creates a new PEB mapping. If the VID
  *          write (commit point) fails after the data payload succeeds, the
  *          LEB must remain unmapped.

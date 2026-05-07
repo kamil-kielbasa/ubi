@@ -34,6 +34,9 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)

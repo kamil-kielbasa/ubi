@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_stress_longrun.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Randomized churn and concurrency smoke tests.
  *
  * These tests exercise the UBI stack under sustained mixed workloads
@@ -11,6 +13,8 @@
  * \copyright Copyright (c) 2026
  */
 
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include "ubi_test_fixture.h"
 
@@ -20,7 +24,25 @@
 
 #include <string.h>
 
+/* Module defines ------------------------------------------------------------------------------- */
+
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
+static void ztest_testcase_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -44,6 +66,8 @@ static void ztest_testcase_teardown(void *ctx)
 	(void)ctx;
 }
 
+/* Module interface function definitions -------------------------------------------------------- */
+
 ZTEST_SUITE(ubi_stress_longrun, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
@@ -53,6 +77,12 @@ ZTEST_SUITE(ubi_stress_longrun, NULL, ztest_suite_setup, ztest_testcase_before,
  * Runs 50 iterations of: create a volume, write to random LEBs, read back,
  * erase dirty PEBs, remove the volume. Checks invariants after each cycle
  * if the test API is available.
+ *
+ * \details Scenario: Run 50 reboot cycles. Each cycle: init device, create dynamic
+ *          volume "churn" with 3 LEBs, write a 32-byte pattern to LEBs 0-2, read back,
+ *          erase dirty PEBs, check invariants, remove the volume, deinit.
+ *
+ * \expect All 50 cycles complete; reads match writes; invariants pass; no memory leaks.
  */
 ZTEST(ubi_stress_longrun, randomized_churn_with_reboots)
 {
@@ -96,6 +126,12 @@ ZTEST(ubi_stress_longrun, randomized_churn_with_reboots)
 
 /**
  * \brief Persistence check: write data, deinit+reinit, verify data survives.
+ *
+ * \details Scenario: Initialize device, create static volume "persist" (2 LEBs), write
+ *          6 bytes {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE} to LEB 0, deinit. Reinit, read LEB 0,
+ *          check device_info, deinit.
+ *
+ * \expect Reinit returns 0; volume_count == 1; the read data matches what was written.
  */
 ZTEST(ubi_stress_longrun, persistence_across_reinit)
 {
@@ -129,6 +165,13 @@ ZTEST(ubi_stress_longrun, persistence_across_reinit)
 
 /**
  * \brief Mixed operations: create multiple volumes, write, resize, remove.
+ *
+ * \details Scenario: Initialize, create dynamic "vol_a" (2 LEBs) and static "vol_b"
+ *          (1 LEB), write {0xAA, 0xBB} to vol_a LEB 0 and {0xCC, 0xDD} to vol_b LEB 0,
+ *          resize vol_a to 3 LEBs, read vol_a LEB 0, remove vol_b, check device_info
+ *          and invariants, deinit.
+ *
+ * \expect All operations return 0; read data matches written data; invariants pass.
  */
 ZTEST(ubi_stress_longrun, mixed_multi_volume_operations)
 {
@@ -180,7 +223,7 @@ ZTEST(ubi_stress_longrun, mixed_multi_volume_operations)
 /**
  * \brief Verify EC counter equality after 500 write-erase cycles.
  *
- * \details Perform 500 write-unmap-erase cycles on a single-LEB volume.
+ * \details Scenario: Perform 500 write-unmap-erase cycles on a single-LEB volume.
  *          After all cycles complete, retrieve per-PEB erase counters and
  *          verify that the maximum deviation between any two counters is
  *          at most 2 (greedy wear-leveling guarantee). Also verify ec_avg

@@ -34,31 +34,32 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Event tracking ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static size_t auth_failure_count;
 
 static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
 						       void *user_data)
 {
-	ARG_UNUSED(user_data);
+	(void)user_data;
 	if (event->type == UBI_CRYPTO_EVENT_AUTH_FAILURE) {
 		auth_failure_count++;
 	}
 	return UBI_CRYPTO_EVENT_CONTINUE;
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -80,7 +81,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	auth_failure_count = 0;
 	g_ubi = NULL;
 	ubi_test_partition_force_release_all();
@@ -89,7 +90,7 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_suite_after(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	if (g_ubi) {
 		ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
@@ -131,18 +132,17 @@ static void corrupt_byte(size_t offset)
 	k_free(buf);
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Tamper with LEB data area after a secure write.
  *
- * \details Write data through secure backend, verify readback, deinit, then
+ * \details Scenario: Write data through secure backend, verify readback, deinit, then
  *          corrupt a byte in every data PEB (skip reserved PEBs 0 and 1).
  *          Re-init and observe whether the system detects the corruption.
  *          NOTE: smoke test — full tamper coverage is in the
  *          ubi_secure_forensic suite.
  *
- * \expected Re-attach either fails (corruption detected during scan) or
+ * \expect Re-attach either fails (corruption detected during scan) or
  *           succeeds with AUTH_FAILURE events fired; system must not crash;
  *           device info remains queryable if attach succeeds.
  */
@@ -206,11 +206,11 @@ ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
 /**
  * \brief Tamper with reserved PEB area and verify re-attach handling.
  *
- * \details Format a secure device, deinit, corrupt a byte in the first
+ * \details Scenario: Format a secure device, deinit, corrupt a byte in the first
  *          reserved PEB body, re-init. The system must fall back to the
  *          other bank.
  *
- * \expected Attach succeeds via healthy bank, total_peb_count > 0, and
+ * \expect Attach succeeds via healthy bank, total_peb_count > 0, and
  *           device info is queryable. AUTH_FAILURE events are verified
  *           by the forensic scan suite.
  */
@@ -238,8 +238,6 @@ ZTEST(ubi_secure_tamper, test_reserved_peb_tamper_smoke)
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_tamper, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
 	    NULL);

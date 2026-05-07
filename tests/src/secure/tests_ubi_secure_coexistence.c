@@ -41,6 +41,9 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PART_PLAIN ubi_partition
 #define UBI_PART_SECURE ubi_partition_2
 
@@ -52,15 +55,15 @@
 #define UBI_PART_SECURE_OFFSET FIXED_PARTITION_OFFSET(UBI_PART_SECURE)
 #define UBI_PART_SECURE_SIZE FIXED_PARTITION_SIZE(UBI_PART_SECURE)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash_plain;
 static struct ubi_flash_desc flash_secure;
 static struct ubi_device *g_plain;
 static struct ubi_device *g_secure;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	const struct device *dev_plain = UBI_PART_PLAIN_DEVICE;
@@ -88,7 +91,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	g_plain = NULL;
 	g_secure = NULL;
 	ubi_test_partition_force_release_all();
@@ -99,7 +102,7 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_suite_after(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	if (g_plain) {
 		(void)ubi_device_deinit(g_plain);
 		g_plain = NULL;
@@ -110,12 +113,11 @@ static void ztest_suite_after(void *ctx)
 	}
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief A plain and a secure UBI device live side by side on two partitions.
  *
- * \details Steps:
+ * \details Scenario: Steps:
  *  1. Init plain backend on \c ubi_partition (crypto_cfg = NULL).
  *  2. Init secure backend on \c ubi_partition_2 (crypto_cfg != NULL).
  *  3. Create one volume on each device, with distinct names.
@@ -123,7 +125,7 @@ static void ztest_suite_after(void *ctx)
  *  5. Read both LEBs back and check payload integrity (no cross-talk).
  *  6. Deinit both, reattach in reverse order, verify payloads survive.
  *
- * \expected
+ * \expect
  *  - All `ubi_device_init`, `ubi_volume_create`, `ubi_leb_write`,
  *    `ubi_leb_read`, `ubi_device_deinit` calls succeed on both devices.
  *  - Payloads written via the plain device read back unchanged from the
@@ -201,9 +203,12 @@ ZTEST(ubi_secure_coexistence, test_plain_and_secure_devices_coexist)
 /**
  * \brief Re-attaching the same partition twice must fail with -EBUSY.
  *
- * \details Sanity check that the partition guard still rejects a second
+ * \details Scenario: Sanity check that the partition guard still rejects a second
  *          attach to a partition that already has a live UBI device,
  *          even when another partition is in use by the other backend.
+ *
+ * \expect Second attach to the plain partition returns -EBUSY and the duplicate handle is NULL.
+ *         Second attach to the secure partition returns -EBUSY and the duplicate handle is NULL.
  */
 ZTEST(ubi_secure_coexistence, test_partition_guard_blocks_double_attach)
 {
@@ -226,8 +231,6 @@ ZTEST(ubi_secure_coexistence, test_partition_guard_blocks_double_attach)
 	zassert_ok(ubi_device_deinit(g_secure));
 	g_secure = NULL;
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_coexistence, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
 	    NULL);

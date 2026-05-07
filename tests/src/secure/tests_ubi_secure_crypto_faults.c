@@ -32,18 +32,23 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
+/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
@@ -66,7 +71,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	ubi_secure_test_hook_reset();
@@ -76,7 +81,7 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_fault_reset();
 	ubi_secure_test_hook_reset();
 	if (g_ubi) {
@@ -84,8 +89,6 @@ static void ztest_testcase_teardown(void *ctx)
 		g_ubi = NULL;
 	}
 }
-
-/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -118,7 +121,7 @@ static struct ubi_device *sec_init_with_vol(const char *name, int *vol_id)
 /**
  * \brief AEAD encrypt failure during leb_write returns error.
  *
- * \details Init device, create volume, arm AEAD_ENCRYPT_FAIL, attempt write.
+ * \details Scenario: Init device, create volume, arm AEAD_ENCRYPT_FAIL, attempt write.
  *
  * \expect leb_write returns a non-zero error code.
  */
@@ -138,7 +141,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_leb_write)
 /**
  * \brief AEAD encrypt failure preserves old data when overwriting.
  *
- * \details Write original data, arm encrypt fault, overwrite fails, read
+ * \details Scenario: Write original data, arm encrypt fault, overwrite fails, read
  *          back original.
  *
  * \expect Read-back matches original data after failed overwrite.
@@ -168,7 +171,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_preserves_old_data)
 /**
  * \brief AEAD encrypt failure during leb_write via volume create returns error.
  *
- * \details Create volume, arm AEAD_ENCRYPT_FAIL, attempt write on new volume.
+ * \details Scenario: Create volume, arm AEAD_ENCRYPT_FAIL, attempt write on new volume.
  *          The hook fires on the EC-header encrypt of the free PEB's data path.
  *
  * \expect leb_write returns a non-zero error code.
@@ -192,7 +195,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_leb_write_after_create
 /**
  * \brief AEAD decrypt failure during leb_read returns error.
  *
- * \details Write data, arm AEAD_DECRYPT_FAIL, attempt read.
+ * \details Scenario: Write data, arm AEAD_DECRYPT_FAIL, attempt read.
  *
  * \expect leb_read returns a non-zero error code.
  */
@@ -216,7 +219,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_decrypt_fail_on_leb_read)
 /**
  * \brief AEAD decrypt failure during re-attach (device_init) returns error.
  *
- * \details Init, create vol, write LEB, deinit. Re-init with AEAD_DECRYPT_FAIL
+ * \details Scenario: Init, create vol, write LEB, deinit. Re-init with AEAD_DECRYPT_FAIL
  *          armed — attach should still succeed (scan tolerates individual PEB
  *          auth failures), but volume data is inaccessible.
  *
@@ -251,7 +254,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_decrypt_fail_on_reattach_read)
 /**
  * \brief RNG failure during leb_write returns error.
  *
- * \details Arm RNG_FAIL, attempt leb_write. Salt generation fails before
+ * \details Scenario: Arm RNG_FAIL, attempt leb_write. Salt generation fails before
  *          any flash mutation.
  *
  * \expect leb_write returns a non-zero error code.
@@ -272,7 +275,7 @@ ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_leb_write)
 /**
  * \brief RNG failure during leb_write via volume create returns error.
  *
- * \details Create volume, arm RNG_FAIL, attempt write. Salt generation
+ * \details Scenario: Create volume, arm RNG_FAIL, attempt write. Salt generation
  *          for the EC encrypt fails before any flash mutation.
  *
  * \expect leb_write returns a non-zero error code.
@@ -295,7 +298,7 @@ ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_leb_write_after_create)
 /**
  * \brief HKDF failure during leb_write returns error.
  *
- * \details Arm HKDF_FAIL, attempt leb_write. Key derivation fails before
+ * \details Scenario: Arm HKDF_FAIL, attempt leb_write. Key derivation fails before
  *          any AEAD operation.
  *
  * \expect leb_write returns a non-zero error code.
@@ -316,7 +319,7 @@ ZTEST(ubi_secure_crypto_faults, test_hkdf_fail_on_leb_write)
 /**
  * \brief HKDF failure during leb_read returns error.
  *
- * \details Write data, arm HKDF_FAIL, attempt read.
+ * \details Scenario: Write data, arm HKDF_FAIL, attempt read.
  *
  * \expect leb_read returns a non-zero error code.
  */
@@ -342,7 +345,7 @@ ZTEST(ubi_secure_crypto_faults, test_hkdf_fail_on_leb_read)
 /**
  * \brief get_key_id failure during leb_write returns error.
  *
- * \details Arm GET_KEY_ID_FAIL, attempt leb_write. Key ID retrieval fails
+ * \details Scenario: Arm GET_KEY_ID_FAIL, attempt leb_write. Key ID retrieval fails
  *          before key derivation.
  *
  * \expect leb_write returns a non-zero error code.
@@ -363,7 +366,7 @@ ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_write)
 /**
  * \brief get_key_id failure during leb_read returns error.
  *
- * \details Write data, arm GET_KEY_ID_FAIL, attempt read.
+ * \details Scenario: Write data, arm GET_KEY_ID_FAIL, attempt read.
  *
  * \expect leb_read returns a non-zero error code.
  */
@@ -387,7 +390,7 @@ ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_read)
 /**
  * \brief get_key_id failure during leb_write via volume create returns error.
  *
- * \details Create volume, arm GET_KEY_ID_FAIL, attempt write. Key ID
+ * \details Scenario: Create volume, arm GET_KEY_ID_FAIL, attempt write. Key ID
  *          retrieval for the EC read on the free PEB fails.
  *
  * \expect leb_write returns a non-zero error code.
@@ -410,7 +413,7 @@ ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_write_after_create)
 /**
  * \brief Freshness reject during device_init returns EACCES.
  *
- * \details Init and deinit a device (format flash). Arm FRESHNESS_REJECT,
+ * \details Scenario: Init and deinit a device (format flash). Arm FRESHNESS_REJECT,
  *          attempt re-init.
  *
  * \expect device_init returns -EACCES.
@@ -440,7 +443,7 @@ ZTEST(ubi_secure_crypto_faults, test_freshness_reject_on_init)
 /**
  * \brief Freshness sync failure emits FRESHNESS_SYNC_FAILURE event.
  *
- * \details Init device, create vol (triggers sync), arm
+ * \details Scenario: Init device, create vol (triggers sync), arm
  *          FRESHNESS_SYNC_FAIL, write LEB (triggers sync again —
  *          this time the hook fires, emitting the event). The device
  *          should still complete the write (event only, not fatal by default).
@@ -463,7 +466,7 @@ ZTEST(ubi_secure_crypto_faults, test_freshness_sync_fail_on_write)
 /**
  * \brief Freshness sync failure on volume create emits event.
  *
- * \details Arm FRESHNESS_SYNC_FAIL, create a volume. The sync callback
+ * \details Scenario: Arm FRESHNESS_SYNC_FAIL, create a volume. The sync callback
  *          fires after the create commit — hook causes the event emission.
  *
  * \expect volume_create succeeds (sync failure is non-fatal by default).
@@ -490,7 +493,7 @@ ZTEST(ubi_secure_crypto_faults, test_freshness_sync_fail_on_volume_create)
 /**
  * \brief Device remains functional after crypto fault clears.
  *
- * \details Inject AEAD_ENCRYPT_FAIL on first write (fails). One-shot hook
+ * \details Scenario: Inject AEAD_ENCRYPT_FAIL on first write (fails). One-shot hook
  *          auto-disarms. Second write succeeds.
  *
  * \expect First write fails, second write succeeds, data reads back correctly.
@@ -521,7 +524,7 @@ ZTEST(ubi_secure_crypto_faults, test_device_recovers_after_crypto_fault)
 /**
  * \brief AEAD encrypt failure on dirty PEB erase returns error.
  *
- * \details Write + overwrite to create dirty PEBs. Drain all dirty PEBs
+ * \details Scenario: Write + overwrite to create dirty PEBs. Drain all dirty PEBs
  *          first (so anchor counter catches up), then overwrite again to
  *          create a non-witness dirty PEB. Arm AEAD_ENCRYPT_FAIL, call
  *          erase_peb. The EC header rewrite uses AEAD encrypt — injected
@@ -557,7 +560,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_erase)
 /**
  * \brief RNG failure during erase-rewrite returns error.
  *
- * \details Create and drain dirty PEBs so anchor counter catches up.
+ * \details Scenario: Create and drain dirty PEBs so anchor counter catches up.
  *          Overwrite again for a non-witness dirty PEB. Arm RNG_FAIL,
  *          call erase_peb. Salt generation for the new EC header fails.
  *

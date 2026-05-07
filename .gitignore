@@ -60,3 +60,5 @@ _build/
 
 # Flash simulator image (native_sim)
 flash.bin
+
+.cache/

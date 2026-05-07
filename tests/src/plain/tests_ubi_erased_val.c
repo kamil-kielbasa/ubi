@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_erased_val.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Tests for erased-value abstraction helpers (Task C).
  *
  * \copyright Copyright (c) 2026
@@ -24,11 +26,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi = NULL;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);
@@ -37,7 +45,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_testcase_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	ubi_test_erase_partition();
@@ -46,7 +54,7 @@ static void ztest_testcase_before(void *ctx)
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_fault_reset();
 	if (g_ubi) {
 		ubi_device_deinit(g_ubi);
@@ -54,10 +62,14 @@ static void ztest_testcase_teardown(void *ctx)
 	}
 }
 
-/* Test definitions ----------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief ubi_test_buf_is_erased detects a buffer filled with 0xFF.
+ *
+ * \details Scenario: Allocate a 64-byte buffer, fill with 0xFF, call
+ *          ubi_test_buf_is_erased with erased_val=0xFF.
+ *
+ * \expect Returns true; the buffer is classified as erased.
  */
 ZTEST(ubi_erased_val, test_erased_buffer_check_0xff)
 {
@@ -70,6 +82,11 @@ ZTEST(ubi_erased_val, test_erased_buffer_check_0xff)
 
 /**
  * \brief ubi_test_buf_is_erased detects a buffer filled with 0x00.
+ *
+ * \details Scenario: Allocate a 64-byte buffer, fill with 0x00, call
+ *          ubi_test_buf_is_erased with erased_val=0x00.
+ *
+ * \expect Returns true; the buffer is classified as erased.
  */
 ZTEST(ubi_erased_val, test_erased_buffer_check_0x00)
 {
@@ -82,6 +99,11 @@ ZTEST(ubi_erased_val, test_erased_buffer_check_0x00)
 
 /**
  * \brief Mixed content is not classified as erased.
+ *
+ * \details Scenario: Allocate a 64-byte buffer, fill with 0xFF, set buf[32]=0x42, call
+ *          ubi_test_buf_is_erased with erased_val=0xFF.
+ *
+ * \expect Returns false; mixed-content buffer not classified as erased.
  */
 ZTEST(ubi_erased_val, test_erased_buffer_mixed_content_not_erased)
 {
@@ -95,6 +117,10 @@ ZTEST(ubi_erased_val, test_erased_buffer_mixed_content_not_erased)
 
 /**
  * \brief Zero-length buffer is trivially erased.
+ *
+ * \details Scenario: Call ubi_test_buf_is_erased on a 0-byte range with erased_val=0xFF.
+ *
+ * \expect Returns true; zero-length range is trivially considered erased.
  */
 ZTEST(ubi_erased_val, test_erased_buffer_zero_length)
 {
@@ -106,6 +132,11 @@ ZTEST(ubi_erased_val, test_erased_buffer_zero_length)
 
 /**
  * \brief ubi_test_get_erased_val returns the flash simulator's erased value (0xFF).
+ *
+ * \details Scenario: Call ubi_test_get_erased_val with the flash descriptor and an output
+ *          parameter.
+ *
+ * \expect Returns 0; erased_val == 0xFF (flash simulator default).
  */
 ZTEST(ubi_erased_val, test_get_erased_val_returns_flash_value)
 {
@@ -121,6 +152,11 @@ ZTEST(ubi_erased_val, test_get_erased_val_returns_flash_value)
  *
  * This test verifies that after the erased-value abstraction change,
  * a freshly formatted device still has the expected number of free PEBs.
+ *
+ * \details Scenario: Initialize a fresh device on blank flash. Call ubi_device_get_info
+ *          and inspect PEB classification fields.
+ *
+ * \expect free_peb_count == total_peb_count; dirty_peb_count == 0; bad_peb_count == 0.
  */
 ZTEST(ubi_erased_val, test_init_classifies_erased_pebs_as_free)
 {

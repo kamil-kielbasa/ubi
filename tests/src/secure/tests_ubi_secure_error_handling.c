@@ -35,18 +35,21 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
@@ -69,7 +72,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
@@ -78,14 +81,12 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	if (g_ubi) {
 		(void)ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
 	}
 }
-
-/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -98,14 +99,13 @@ static struct ubi_device *sec_init(void)
 	return ubi;
 }
 
-/* Device init/deinit error paths --------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Verify that ubi_device_init() rejects a NULL flash descriptor.
  *
- * \details Call ubi_device_init() with flash=NULL and a valid crypto config.
+ * \details Scenario: Call ubi_device_init() with flash=NULL and a valid crypto config.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_init_null_mtd)
 {
@@ -119,9 +119,9 @@ ZTEST(ubi_secure_error_handling, test_init_null_mtd)
 /**
  * \brief Verify that ubi_device_init() rejects a NULL output pointer.
  *
- * \details Call ubi_device_init() with ubi=NULL and a valid crypto config.
+ * \details Scenario: Call ubi_device_init() with ubi=NULL and a valid crypto config.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_init_null_ubi)
 {
@@ -134,9 +134,9 @@ ZTEST(ubi_secure_error_handling, test_init_null_ubi)
 /**
  * \brief Verify that ubi_device_deinit() rejects a NULL device pointer.
  *
- * \details Call ubi_device_deinit() with NULL.
+ * \details Scenario: Call ubi_device_deinit() with NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_deinit_null)
 {
@@ -146,9 +146,9 @@ ZTEST(ubi_secure_error_handling, test_deinit_null)
 /**
  * \brief Verify that ubi_device_get_info() rejects a NULL device pointer.
  *
- * \details Call ubi_device_get_info() with ubi=NULL.
+ * \details Scenario: Call ubi_device_get_info() with ubi=NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_get_info_null_device)
 {
@@ -160,10 +160,10 @@ ZTEST(ubi_secure_error_handling, test_get_info_null_device)
 /**
  * \brief Verify that ubi_device_get_info() rejects a NULL info buffer.
  *
- * \details Initialize a secure device, then call ubi_device_get_info()
+ * \details Scenario: Initialize a secure device, then call ubi_device_get_info()
  *          with info=NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_get_info_null_info)
 {
@@ -178,24 +178,22 @@ ZTEST(ubi_secure_error_handling, test_get_info_null_info)
 /**
  * \brief Verify that ubi_device_erase_peb() rejects a NULL device pointer.
  *
- * \details Call ubi_device_erase_peb() with NULL.
+ * \details Scenario: Call ubi_device_erase_peb() with NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_erase_peb_null)
 {
 	zassert_equal(-EINVAL, ubi_device_erase_peb(NULL));
 }
 
-/* Volume error paths --------------------------------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_volume_create() rejects NULL parameters.
  *
- * \details Call ubi_volume_create() with each of the three parameters
+ * \details Scenario: Call ubi_volume_create() with each of the three parameters
  *          (ubi, vol_cfg, vol_id) set to NULL individually.
  *
- * \expected Each call returns -EINVAL.
+ * \expect Each call returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_null_params)
 {
@@ -219,10 +217,10 @@ ZTEST(ubi_secure_error_handling, test_volume_create_null_params)
 /**
  * \brief Verify that creating the same volume twice is idempotent.
  *
- * \details Create a static volume named "idem". Call ubi_volume_create()
+ * \details Scenario: Create a static volume named "idem". Call ubi_volume_create()
  *          again with the same configuration.
  *
- * \expected Both calls succeed. The returned vol_id is identical.
+ * \expect Both calls succeed. The returned vol_id is identical.
  *           ubi_device_get_info() reports volume_count=1.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_idempotent)
@@ -253,10 +251,10 @@ ZTEST(ubi_secure_error_handling, test_volume_create_idempotent)
 /**
  * \brief Verify that creating a volume larger than available PEBs fails.
  *
- * \details Query total_peb_count, then attempt to create a volume
+ * \details Scenario: Query total_peb_count, then attempt to create a volume
  *          with leb_count = total_peb_count + 1.
  *
- * \expected ubi_volume_create() returns -ENOSPC.
+ * \expect ubi_volume_create() returns -ENOSPC.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_no_space)
 {
@@ -282,10 +280,10 @@ ZTEST(ubi_secure_error_handling, test_volume_create_no_space)
 /**
  * \brief Verify that removing a non-existent volume fails.
  *
- * \details Initialize a secure device with no volumes. Attempt to remove
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to remove
  *          vol_id=999.
  *
- * \expected ubi_volume_remove() returns -ENOENT.
+ * \expect ubi_volume_remove() returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_remove_nonexistent)
 {
@@ -300,10 +298,10 @@ ZTEST(ubi_secure_error_handling, test_volume_remove_nonexistent)
 /**
  * \brief Verify that querying info for a non-existent volume fails.
  *
- * \details Initialize a secure device with no volumes. Call
+ * \details Scenario: Initialize a secure device with no volumes. Call
  *          ubi_volume_get_info() for vol_id=999.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_get_info_nonexistent)
 {
@@ -321,10 +319,10 @@ ZTEST(ubi_secure_error_handling, test_volume_get_info_nonexistent)
 /**
  * \brief Verify that resizing a static volume is rejected.
  *
- * \details Create a static volume with 2 LEBs. Attempt to resize
+ * \details Scenario: Create a static volume with 2 LEBs. Attempt to resize
  *          it to 4 LEBs.
  *
- * \expected ubi_volume_resize() returns -ECANCELED.
+ * \expect ubi_volume_resize() returns -ECANCELED.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_static)
 {
@@ -351,10 +349,10 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_static)
 /**
  * \brief Verify that resizing a volume to its current size is rejected.
  *
- * \details Create a dynamic volume with 2 LEBs. Attempt to resize
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Attempt to resize
  *          it to the same count.
  *
- * \expected ubi_volume_resize() returns -ECANCELED.
+ * \expect ubi_volume_resize() returns -ECANCELED.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_same_size)
 {
@@ -378,10 +376,10 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_same_size)
 /**
  * \brief Verify that resizing a non-existent volume fails.
  *
- * \details Initialize a secure device with no volumes. Attempt to resize
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to resize
  *          vol_id=999.
  *
- * \expected ubi_volume_resize() returns -ENOENT.
+ * \expect ubi_volume_resize() returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_nonexistent)
 {
@@ -399,15 +397,13 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_nonexistent)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* LEB I/O error paths -------------------------------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_write() rejects a NULL data buffer.
  *
- * \details Create a volume in secure mode. Call ubi_leb_write() with
+ * \details Scenario: Create a volume in secure mode. Call ubi_leb_write() with
  *          buf=NULL and len=10.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_write_null_buffer)
 {
@@ -431,10 +427,10 @@ ZTEST(ubi_secure_error_handling, test_leb_write_null_buffer)
 /**
  * \brief Verify that ubi_leb_write() rejects a zero-length write.
  *
- * \details Create a volume in secure mode. Call ubi_leb_write() with a
+ * \details Scenario: Create a volume in secure mode. Call ubi_leb_write() with a
  *          valid buffer but len=0.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_write_zero_length)
 {
@@ -460,10 +456,10 @@ ZTEST(ubi_secure_error_handling, test_leb_write_zero_length)
 /**
  * \brief Verify that reading from an unmapped LEB fails.
  *
- * \details Create a volume with 2 LEBs but do not write to any.
+ * \details Scenario: Create a volume with 2 LEBs but do not write to any.
  *          Attempt to read from LEB 0.
  *
- * \expected ubi_leb_read() returns -ENOENT.
+ * \expect ubi_leb_read() returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_unmapped)
 {
@@ -489,10 +485,10 @@ ZTEST(ubi_secure_error_handling, test_leb_read_unmapped)
 /**
  * \brief Verify that ubi_leb_read() rejects a NULL output buffer.
  *
- * \details Create a volume in secure mode. Call ubi_leb_read() with
+ * \details Scenario: Create a volume in secure mode. Call ubi_leb_read() with
  *          buf=NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_null_buffer)
 {
@@ -516,10 +512,10 @@ ZTEST(ubi_secure_error_handling, test_leb_read_null_buffer)
 /**
  * \brief Verify that unmapping an already-unmapped LEB is idempotent.
  *
- * \details Create a volume with 2 LEBs. Without mapping or writing
+ * \details Scenario: Create a volume with 2 LEBs. Without mapping or writing
  *          to LEB 0, call ubi_leb_unmap() on it.
  *
- * \expected Returns 0 (idempotent no-op).
+ * \expect Returns 0 (idempotent no-op).
  */
 ZTEST(ubi_secure_error_handling, test_leb_unmap_unmapped)
 {
@@ -543,10 +539,10 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_unmapped)
 /**
  * \brief Verify that ubi_leb_is_mapped() rejects a NULL output pointer.
  *
- * \details Initialize a secure device. Call ubi_leb_is_mapped() with
+ * \details Scenario: Initialize a secure device. Call ubi_leb_is_mapped() with
  *          is_mapped=NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_is_mapped_null)
 {
@@ -561,10 +557,10 @@ ZTEST(ubi_secure_error_handling, test_leb_is_mapped_null)
 /**
  * \brief Verify that ubi_leb_get_size() rejects a NULL output pointer.
  *
- * \details Initialize a secure device. Call ubi_leb_get_size() with
+ * \details Scenario: Initialize a secure device. Call ubi_leb_get_size() with
  *          size=NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_get_size_null)
 {
@@ -576,16 +572,14 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_null)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Functional edge cases ------------------------------------------------------------------------ */
-
 /**
  * \brief Verify that overwriting an existing LEB moves the old PEB to dirty.
  *
- * \details Create a static volume with 2 LEBs. Write 4 bytes to LEB 0,
+ * \details Scenario: Create a static volume with 2 LEBs. Write 4 bytes to LEB 0,
  *          then overwrite it with 5 different bytes. Query the stored
  *          size and read back the data.
  *
- * \expected The second write succeeds. ubi_leb_get_size() returns 5.
+ * \expect The second write succeeds. ubi_leb_get_size() returns 5.
  *           Read-back matches the second write. dirty_peb_count equals 1.
  */
 ZTEST(ubi_secure_error_handling, test_leb_write_overwrite)
@@ -630,10 +624,10 @@ ZTEST(ubi_secure_error_handling, test_leb_write_overwrite)
  * \brief Verify that ubi_leb_read() with a non-zero offset reads the correct
  *        tail portion of the stored data.
  *
- * \details Write an 8-byte pattern to LEB 0. Read 4 bytes starting at
+ * \details Scenario: Write an 8-byte pattern to LEB 0. Read 4 bytes starting at
  *          offset 4.
  *
- * \expected ubi_leb_read() succeeds. The returned bytes match bytes 4..7
+ * \expect ubi_leb_read() succeeds. The returned bytes match bytes 4..7
  *           of the original pattern.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_with_offset)
@@ -665,11 +659,11 @@ ZTEST(ubi_secure_error_handling, test_leb_read_with_offset)
 /**
  * \brief Verify that shrinking a volume with mapped LEBs trims the excess.
  *
- * \details Create a dynamic volume with 4 LEBs and write data to all four.
+ * \details Scenario: Create a dynamic volume with 4 LEBs and write data to all four.
  *          Resize the volume down to 2 LEBs. Verify LEBs 0 and 1 are still
  *          accessible.
  *
- * \expected ubi_volume_resize() succeeds. LEBs 0..1 are readable with correct
+ * \expect ubi_volume_resize() succeeds. LEBs 0..1 are readable with correct
  *           data. dirty_peb_count >= 2.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_with_mapped_lebs)
@@ -711,15 +705,13 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_with_mapped_lebs)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Additional error handling and edge case tests ------------------------------------------------ */
-
 /**
  * \brief Verify that writing to an out-of-range LEB number is rejected.
  *
- * \details Create a static volume with 2 LEBs (valid lnum: 0..1).
+ * \details Scenario: Create a static volume with 2 LEBs (valid lnum: 0..1).
  *          Attempt to write to LEB 3.
  *
- * \expected ubi_leb_write() returns -EACCES.
+ * \expect ubi_leb_write() returns -EACCES.
  */
 ZTEST(ubi_secure_error_handling, test_leb_write_out_of_range_lnum)
 {
@@ -745,10 +737,10 @@ ZTEST(ubi_secure_error_handling, test_leb_write_out_of_range_lnum)
 /**
  * \brief Verify that reading from an out-of-range LEB number is rejected.
  *
- * \details Create a static volume with 2 LEBs (valid lnum: 0..1).
+ * \details Scenario: Create a static volume with 2 LEBs (valid lnum: 0..1).
  *          Attempt to read from LEB 5.
  *
- * \expected ubi_leb_read() returns -EACCES.
+ * \expect ubi_leb_read() returns -EACCES.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_out_of_range_lnum)
 {
@@ -774,11 +766,11 @@ ZTEST(ubi_secure_error_handling, test_leb_read_out_of_range_lnum)
 /**
  * \brief Verify that a removed volume can be recreated with a clean state.
  *
- * \details Create a static volume, write data to LEB 0, then remove it.
+ * \details Scenario: Create a static volume, write data to LEB 0, then remove it.
  *          Recreate a new volume with the same name and config. Check the
  *          mapping state of LEB 0 in the new volume.
  *
- * \expected The new volume is created successfully. LEB 0 is not mapped.
+ * \expect The new volume is created successfully. LEB 0 is not mapped.
  */
 ZTEST(ubi_secure_error_handling, test_volume_remove_and_recreate)
 {
@@ -814,10 +806,10 @@ ZTEST(ubi_secure_error_handling, test_volume_remove_and_recreate)
 /**
  * \brief Verify that writing data to a previously mapped (empty) LEB succeeds.
  *
- * \details Create a dynamic volume with 2 LEBs. Map LEB 0. Verify it is
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Map LEB 0. Verify it is
  *          mapped. Then write 4 bytes to the already-mapped LEB 0. Read back.
  *
- * \expected ubi_leb_map() succeeds. The subsequent write overwrites the empty
+ * \expect ubi_leb_map() succeeds. The subsequent write overwrites the empty
  *           mapping. Read-back returns the written data.
  */
 ZTEST(ubi_secure_error_handling, test_leb_map_then_write)
@@ -856,10 +848,10 @@ ZTEST(ubi_secure_error_handling, test_leb_map_then_write)
 /**
  * \brief Verify that ubi_volume_resize() rejects a NULL configuration pointer.
  *
- * \details Create a dynamic volume. Call ubi_volume_resize() with
+ * \details Scenario: Create a dynamic volume. Call ubi_volume_resize() with
  *          vol_cfg=NULL.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_null_config)
 {
@@ -883,10 +875,10 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_null_config)
 /**
  * \brief Verify that ubi_volume_resize() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Attempt to resize
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to resize
  *          vol_id=0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_no_volumes)
 {
@@ -907,10 +899,10 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_no_volumes)
 /**
  * \brief Verify that ubi_leb_write() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Attempt to write
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to write
  *          1 byte to vol_id=0, LEB 0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_write_no_volumes)
 {
@@ -927,10 +919,10 @@ ZTEST(ubi_secure_error_handling, test_leb_write_no_volumes)
 /**
  * \brief Verify that ubi_leb_read() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Attempt to read
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to read
  *          from vol_id=0, LEB 0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_no_volumes)
 {
@@ -947,10 +939,10 @@ ZTEST(ubi_secure_error_handling, test_leb_read_no_volumes)
 /**
  * \brief Verify that ubi_leb_unmap() rejects an out-of-range LEB number.
  *
- * \details Create a static volume with 2 LEBs (valid lnum: 0..1).
+ * \details Scenario: Create a static volume with 2 LEBs (valid lnum: 0..1).
  *          Attempt to unmap LEB 5.
  *
- * \expected Returns -EACCES.
+ * \expect Returns -EACCES.
  */
 ZTEST(ubi_secure_error_handling, test_leb_unmap_out_of_range)
 {
@@ -971,15 +963,13 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_out_of_range)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* No-volumes error paths for remaining API functions ------------------------------------------- */
-
 /**
  * \brief Verify that ubi_volume_get_info() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Call
+ * \details Scenario: Initialize a secure device with no volumes. Call
  *          ubi_volume_get_info() for vol_id=0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_get_info_no_volumes)
 {
@@ -997,10 +987,10 @@ ZTEST(ubi_secure_error_handling, test_volume_get_info_no_volumes)
 /**
  * \brief Verify that ubi_volume_remove() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Attempt to remove
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to remove
  *          vol_id=0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_remove_no_volumes)
 {
@@ -1015,10 +1005,10 @@ ZTEST(ubi_secure_error_handling, test_volume_remove_no_volumes)
 /**
  * \brief Verify that ubi_leb_unmap() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Attempt to unmap
+ * \details Scenario: Initialize a secure device with no volumes. Attempt to unmap
  *          LEB 0 on vol_id=0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_unmap_no_volumes)
 {
@@ -1033,10 +1023,10 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_no_volumes)
 /**
  * \brief Verify that ubi_leb_is_mapped() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Call
+ * \details Scenario: Initialize a secure device with no volumes. Call
  *          ubi_leb_is_mapped() for vol_id=0, LEB 0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_is_mapped_no_volumes)
 {
@@ -1053,10 +1043,10 @@ ZTEST(ubi_secure_error_handling, test_leb_is_mapped_no_volumes)
 /**
  * \brief Verify that ubi_leb_get_size() fails when no volumes exist.
  *
- * \details Initialize a secure device with no volumes. Call
+ * \details Scenario: Initialize a secure device with no volumes. Call
  *          ubi_leb_get_size() for vol_id=0, LEB 0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_get_size_no_volumes)
 {
@@ -1070,15 +1060,13 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_no_volumes)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Volume-not-found error paths for LEB operations ---------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_write() fails when the volume does not exist.
  *
- * \details Create one volume, then call ubi_leb_write() with a
+ * \details Scenario: Create one volume, then call ubi_leb_write() with a
  *          non-existent vol_id=999.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_write_vol_not_found)
 {
@@ -1104,10 +1092,10 @@ ZTEST(ubi_secure_error_handling, test_leb_write_vol_not_found)
 /**
  * \brief Verify that ubi_leb_read() fails when the volume does not exist.
  *
- * \details Create one volume, then call ubi_leb_read() with a
+ * \details Scenario: Create one volume, then call ubi_leb_read() with a
  *          non-existent vol_id=999.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_vol_not_found)
 {
@@ -1133,10 +1121,10 @@ ZTEST(ubi_secure_error_handling, test_leb_read_vol_not_found)
 /**
  * \brief Verify that ubi_leb_unmap() fails when the volume does not exist.
  *
- * \details Create one volume, then call ubi_leb_unmap() with a
+ * \details Scenario: Create one volume, then call ubi_leb_unmap() with a
  *          non-existent vol_id=999.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_unmap_vol_not_found)
 {
@@ -1160,10 +1148,10 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_vol_not_found)
 /**
  * \brief Verify that ubi_leb_is_mapped() fails when the volume does not exist.
  *
- * \details Create one volume, then call ubi_leb_is_mapped() with a
+ * \details Scenario: Create one volume, then call ubi_leb_is_mapped() with a
  *          non-existent vol_id=999.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_is_mapped_vol_not_found)
 {
@@ -1189,10 +1177,10 @@ ZTEST(ubi_secure_error_handling, test_leb_is_mapped_vol_not_found)
 /**
  * \brief Verify that ubi_leb_get_size() fails when the volume does not exist.
  *
- * \details Create one volume, then call ubi_leb_get_size() with a
+ * \details Scenario: Create one volume, then call ubi_leb_get_size() with a
  *          non-existent vol_id=999.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_get_size_vol_not_found)
 {
@@ -1215,14 +1203,12 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_vol_not_found)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* LEB limit exceeded for remaining functions --------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_read() rejects an out-of-range LEB number.
  *
- * \details Create a dynamic volume with 2 LEBs. Attempt to read LEB 5.
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Attempt to read LEB 5.
  *
- * \expected Returns -EACCES.
+ * \expect Returns -EACCES.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_out_of_range)
 {
@@ -1248,10 +1234,10 @@ ZTEST(ubi_secure_error_handling, test_leb_read_out_of_range)
 /**
  * \brief Verify that ubi_leb_is_mapped() rejects an out-of-range LEB number.
  *
- * \details Create a dynamic volume with 2 LEBs. Attempt to check
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Attempt to check
  *          mapping of LEB 5.
  *
- * \expected Returns -EACCES.
+ * \expect Returns -EACCES.
  */
 ZTEST(ubi_secure_error_handling, test_leb_is_mapped_out_of_range)
 {
@@ -1277,9 +1263,9 @@ ZTEST(ubi_secure_error_handling, test_leb_is_mapped_out_of_range)
 /**
  * \brief Verify that ubi_leb_get_size() rejects an out-of-range LEB number.
  *
- * \details Create a dynamic volume with 2 LEBs. Attempt to get size of LEB 5.
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Attempt to get size of LEB 5.
  *
- * \expected Returns -EACCES.
+ * \expect Returns -EACCES.
  */
 ZTEST(ubi_secure_error_handling, test_leb_get_size_out_of_range)
 {
@@ -1302,14 +1288,12 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_out_of_range)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Contract tests: invalid type, zero leb_count ------------------------------------------------- */
-
 /**
  * \brief Verify that creating a volume with an invalid type is rejected.
  *
- * \details Call ubi_volume_create() with vol_type set to an invalid value.
+ * \details Scenario: Call ubi_volume_create() with vol_type set to an invalid value.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_invalid_type)
 {
@@ -1331,9 +1315,9 @@ ZTEST(ubi_secure_error_handling, test_volume_create_invalid_type)
 /**
  * \brief Verify that creating a volume with leb_count == 0 is rejected.
  *
- * \details Call ubi_volume_create() with leb_count set to 0.
+ * \details Scenario: Call ubi_volume_create() with leb_count set to 0.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_zero_lebs)
 {
@@ -1355,9 +1339,9 @@ ZTEST(ubi_secure_error_handling, test_volume_create_zero_lebs)
 /**
  * \brief Verify that resizing a volume to leb_count == 0 is rejected.
  *
- * \details Call ubi_volume_resize() with the new leb_count set to 0.
+ * \details Scenario: Call ubi_volume_resize() with the new leb_count set to 0.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_zero_lebs_rejected)
 {
@@ -1384,14 +1368,12 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_zero_lebs_rejected)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Idempotent unmap, no-op map, static write ---------------------------------------------------- */
-
 /**
  * \brief Verify that unmapping an unmapped LEB twice is safe (idempotent).
  *
- * \details Create a volume but do not write any data. Unmap LEB 0 twice.
+ * \details Scenario: Create a volume but do not write any data. Unmap LEB 0 twice.
  *
- * \expected Both calls return 0.
+ * \expect Both calls return 0.
  */
 ZTEST(ubi_secure_error_handling, test_leb_unmap_unmapped_is_idempotent)
 {
@@ -1416,9 +1398,9 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_unmapped_is_idempotent)
 /**
  * \brief Verify that mapping an already-mapped LEB is a no-op.
  *
- * \details Map a LEB, then call ubi_leb_map() again on the same LEB.
+ * \details Scenario: Map a LEB, then call ubi_leb_map() again on the same LEB.
  *
- * \expected Second map returns 0 without consuming an extra PEB.
+ * \expect Second map returns 0 without consuming an extra PEB.
  */
 ZTEST(ubi_secure_error_handling, test_leb_map_already_mapped_is_noop)
 {
@@ -1454,9 +1436,9 @@ ZTEST(ubi_secure_error_handling, test_leb_map_already_mapped_is_noop)
 /**
  * \brief Verify that writing to a static volume is allowed.
  *
- * \details Create a static volume. Write data to LEB 0 and read it back.
+ * \details Scenario: Create a static volume. Write data to LEB 0 and read it back.
  *
- * \expected Write and read-back succeed.
+ * \expect Write and read-back succeed.
  */
 ZTEST(ubi_secure_error_handling, test_static_volume_write_allowed)
 {
@@ -1484,15 +1466,13 @@ ZTEST(ubi_secure_error_handling, test_static_volume_write_allowed)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Unmapped LEB paths --------------------------------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_get_size() fails when the LEB is not mapped.
  *
- * \details Create a dynamic volume with 2 LEBs. Without writing, attempt
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Without writing, attempt
  *          to get size of LEB 0.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_get_size_unmapped)
 {
@@ -1515,16 +1495,14 @@ ZTEST(ubi_secure_error_handling, test_leb_get_size_unmapped)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Volume create duplicate name ----------------------------------------------------------------- */
-
 /**
  * \brief Verify that creating a volume with a duplicate name returns the
  *        existing volume's ID.
  *
- * \details Create a volume "dup", then call ubi_volume_create again with
+ * \details Scenario: Create a volume "dup", then call ubi_volume_create again with
  *          the same name "dup".
  *
- * \expected Second call returns 0 with the same vol_id.
+ * \expect Second call returns 0 with the same vol_id.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_duplicate_name)
 {
@@ -1552,10 +1530,10 @@ ZTEST(ubi_secure_error_handling, test_volume_create_duplicate_name)
  * \brief Verify that creating a volume with the same name but different
  *        configuration returns -EEXIST.
  *
- * \details Create a dynamic volume "dup2", then call ubi_volume_create with
+ * \details Scenario: Create a dynamic volume "dup2", then call ubi_volume_create with
  *          the same name but a different leb_count or type.
  *
- * \expected Returns -EEXIST.
+ * \expect Returns -EEXIST.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_duplicate_name_different_config)
 {
@@ -1592,14 +1570,12 @@ ZTEST(ubi_secure_error_handling, test_volume_create_duplicate_name_different_con
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Volume create with invalid name -------------------------------------------------------------- */
-
 /**
  * \brief Verify that creating a volume with an empty name returns -EINVAL.
  *
- * \details Call ubi_volume_create() with an empty name.
+ * \details Scenario: Call ubi_volume_create() with an empty name.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_empty_name)
 {
@@ -1622,9 +1598,9 @@ ZTEST(ubi_secure_error_handling, test_volume_create_empty_name)
  * \brief Verify that creating a volume with a name filling the entire buffer
  *        (no NUL terminator) returns -EINVAL.
  *
- * \details Fill cfg.name with non-NUL characters.
+ * \details Scenario: Fill cfg.name with non-NUL characters.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_name_no_nul)
 {
@@ -1648,9 +1624,9 @@ ZTEST(ubi_secure_error_handling, test_volume_create_name_no_nul)
 /**
  * \brief Verify that a volume with the maximum valid name length can be created.
  *
- * \details Call ubi_volume_create() with a name occupying MAX_LEN-1 chars + NUL.
+ * \details Scenario: Call ubi_volume_create() with a name occupying MAX_LEN-1 chars + NUL.
  *
- * \expected Create succeeds.
+ * \expect Create succeeds.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_name_max_valid)
 {
@@ -1676,9 +1652,9 @@ ZTEST(ubi_secure_error_handling, test_volume_create_name_max_valid)
  * \brief Verify that ubi_volume_resize() fails when expanding beyond
  *        available PEBs.
  *
- * \details Create a volume, then resize it to exceed total PEB count.
+ * \details Scenario: Create a volume, then resize it to exceed total PEB count.
  *
- * \expected Returns -ENOSPC.
+ * \expect Returns -ENOSPC.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_expand_enospc)
 {
@@ -1713,10 +1689,10 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_expand_enospc)
  * \brief Verify that volume_resize shrink preserves data on retained LEBs
  *        and the volume's leb_count is updated.
  *
- * \details Create a dynamic volume with 4 LEBs, write to all, shrink to 2.
+ * \details Scenario: Create a dynamic volume with 4 LEBs, write to all, shrink to 2.
  *          Verify LEBs 0-1 are readable and leb_count == 2.
  *
- * \expected Resize succeeds. Data intact. volume_get_info reports 2.
+ * \expect Resize succeeds. Data intact. volume_get_info reports 2.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_trim)
 {
@@ -1765,14 +1741,12 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_trim)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Additional coverage paths -------------------------------------------------------------------- */
-
 /**
  * \brief Verify volume_create with identical config returns existing vol_id.
  *
- * \details Create a volume. Call create again with the same config.
+ * \details Scenario: Create a volume. Call create again with the same config.
  *
- * \expected Both succeed. vol_id identical. volume_count == 1.
+ * \expect Both succeed. vol_id identical. volume_count == 1.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_idempotent_returns_same_id)
 {
@@ -1803,9 +1777,9 @@ ZTEST(ubi_secure_error_handling, test_volume_create_idempotent_returns_same_id)
 /**
  * \brief Verify volume_create with same name but different config returns -EEXIST.
  *
- * \details Create static vol "clash", then try dynamic vol "clash".
+ * \details Scenario: Create static vol "clash", then try dynamic vol "clash".
  *
- * \expected Returns -EEXIST.
+ * \expect Returns -EEXIST.
  */
 ZTEST(ubi_secure_error_handling, test_volume_create_name_clash_different_config)
 {
@@ -1836,10 +1810,10 @@ ZTEST(ubi_secure_error_handling, test_volume_create_name_clash_different_config)
 /**
  * \brief Verify volume_resize grow works and data is still readable.
  *
- * \details Create dynamic volume (2 LEBs), write to LEB 0. Resize to 4.
+ * \details Scenario: Create dynamic volume (2 LEBs), write to LEB 0. Resize to 4.
  *          Verify old data intact. New LEBs usable.
  *
- * \expected Resize succeeds. Old data intact. New LEBs available.
+ * \expect Resize succeeds. Old data intact. New LEBs available.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_grow_preserves_data)
 {
@@ -1887,10 +1861,10 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_grow_preserves_data)
 /**
  * \brief Verify volume_resize grow with insufficient PEBs returns -ENOSPC.
  *
- * \details Create 2 volumes consuming most PEBs. Try to grow one beyond
+ * \details Scenario: Create 2 volumes consuming most PEBs. Try to grow one beyond
  *          available capacity.
  *
- * \expected Resize returns -ENOSPC. Original volume unchanged.
+ * \expect Resize returns -ENOSPC. Original volume unchanged.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_grow_enospc)
 {
@@ -1939,9 +1913,9 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_grow_enospc)
 /**
  * \brief Verify reading last byte at exact data boundary.
  *
- * \details Write 8 bytes. Read last 1 byte at offset 7.
+ * \details Scenario: Write 8 bytes. Read last 1 byte at offset 7.
  *
- * \expected Read returns the correct last byte.
+ * \expect Read returns the correct last byte.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_last_byte_at_boundary)
 {
@@ -1972,9 +1946,9 @@ ZTEST(ubi_secure_error_handling, test_leb_read_last_byte_at_boundary)
 /**
  * \brief Verify that reading beyond data_size returns -EINVAL.
  *
- * \details Write 4 bytes. Attempt to read 8 bytes.
+ * \details Scenario: Write 4 bytes. Attempt to read 8 bytes.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_beyond_data_size)
 {
@@ -2005,9 +1979,9 @@ ZTEST(ubi_secure_error_handling, test_leb_read_beyond_data_size)
 /**
  * \brief Verify volume remove followed by re-create with different config.
  *
- * \details Create, remove, then create again with different type/leb_count.
+ * \details Scenario: Create, remove, then create again with different type/leb_count.
  *
- * \expected Re-create succeeds. New volume is empty.
+ * \expect Re-create succeeds. New volume is empty.
  */
 ZTEST(ubi_secure_error_handling, test_volume_remove_and_recreate_different_config)
 {
@@ -2055,9 +2029,9 @@ ZTEST(ubi_secure_error_handling, test_volume_remove_and_recreate_different_confi
 /**
  * \brief Verify leb_unmap on already-unmapped LEB is idempotent (write+unmap).
  *
- * \details Write data to LEB 0, unmap it, then unmap again.
+ * \details Scenario: Write data to LEB 0, unmap it, then unmap again.
  *
- * \expected Both unmap calls return 0.
+ * \expect Both unmap calls return 0.
  */
 ZTEST(ubi_secure_error_handling, test_leb_unmap_already_unmapped_idempotent)
 {
@@ -2085,10 +2059,10 @@ ZTEST(ubi_secure_error_handling, test_leb_unmap_already_unmapped_idempotent)
 /**
  * \brief Verify volume_get_info with detailed field checks.
  *
- * \details Create a volume, write to 2 LEBs, then query via
+ * \details Scenario: Create a volume, write to 2 LEBs, then query via
  *          ubi_volume_get_info().
  *
- * \expected Config matches. alloc_lebs reflects mapped LEBs.
+ * \expect Config matches. alloc_lebs reflects mapped LEBs.
  */
 ZTEST(ubi_secure_error_handling, test_volume_get_info_detailed)
 {
@@ -2125,9 +2099,9 @@ ZTEST(ubi_secure_error_handling, test_volume_get_info_detailed)
 /**
  * \brief LEB read beyond written data_size returns -EINVAL (detailed).
  *
- * \details Write N bytes to a LEB. Read with offset+len exceeding stored size.
+ * \details Scenario: Write N bytes to a LEB. Read with offset+len exceeding stored size.
  *
- * \expected Returns -EINVAL.
+ * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_error_handling, test_leb_read_beyond_data_size_returns_einval)
 {
@@ -2166,9 +2140,9 @@ ZTEST(ubi_secure_error_handling, test_leb_read_beyond_data_size_returns_einval)
 /**
  * \brief LEB map on non-existent volume returns -ENOENT.
  *
- * \details Call ubi_leb_map with a non-existent vol_id.
+ * \details Scenario: Call ubi_leb_map with a non-existent vol_id.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_leb_map_vol_not_found)
 {
@@ -2185,9 +2159,9 @@ ZTEST(ubi_secure_error_handling, test_leb_map_vol_not_found)
 /**
  * \brief LEB map with lnum exceeding volume capacity returns error.
  *
- * \details Call ubi_leb_map with lnum >= leb_count.
+ * \details Scenario: Call ubi_leb_map with lnum >= leb_count.
  *
- * \expected Returns non-zero error.
+ * \expect Returns non-zero error.
  */
 ZTEST(ubi_secure_error_handling, test_leb_map_lnum_out_of_range)
 {
@@ -2216,9 +2190,9 @@ ZTEST(ubi_secure_error_handling, test_leb_map_lnum_out_of_range)
 /**
  * \brief Volume remove with nonexistent vol_id returns -ENOENT.
  *
- * \details Create a volume so vol_count > 0. Try to remove vol_id=99.
+ * \details Scenario: Create a volume so vol_count > 0. Try to remove vol_id=99.
  *
- * \expected Returns -ENOENT.
+ * \expect Returns -ENOENT.
  */
 ZTEST(ubi_secure_error_handling, test_volume_remove_wrong_vol_id)
 {
@@ -2244,10 +2218,10 @@ ZTEST(ubi_secure_error_handling, test_volume_remove_wrong_vol_id)
 /**
  * \brief Verify volume_resize shrink preserves data on retained LEBs.
  *
- * \details Create dynamic volume (4 LEBs), write to 0-1. Shrink to 2.
+ * \details Scenario: Create dynamic volume (4 LEBs), write to 0-1. Shrink to 2.
  *          Verify retained LEBs readable. Trimmed LEBs return -EACCES.
  *
- * \expected Resize succeeds. Old data preserved. Trimmed LEBs inaccessible.
+ * \expect Resize succeeds. Old data preserved. Trimmed LEBs inaccessible.
  */
 ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_preserves_data)
 {
@@ -2296,8 +2270,6 @@ ZTEST(ubi_secure_error_handling, test_volume_resize_shrink_preserves_data)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_error_handling, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);

@@ -30,13 +30,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -47,8 +51,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -68,8 +71,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -91,22 +92,21 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Create a single volume and verify persistence across reboot.
  *
- * \details Init secure device, create one static volume with 2 LEBs,
+ * \details Scenario: Init secure device, create one static volume with 2 LEBs,
  *          verify info, deinit, re-init and verify the volume persists
  *          with identical config. Memory leak check on both cycles.
  *          Parity with plain ubi_volumes.create_one_with_reboot.
  *
- * \expected Volume survives reboot with same type, leb_count, and zero
+ * \expect Volume survives reboot with same type, leb_count, and zero
  *           allocated LEBs; heap fully reclaimed after each deinit.
  */
 ZTEST(ubi_secure_volumes, test_create_one_with_reboot)
@@ -172,11 +172,11 @@ ZTEST(ubi_secure_volumes, test_create_one_with_reboot)
 /**
  * \brief Create, remove, and verify removal persists across reboot.
  *
- * \details Create a volume, deinit, re-init, verify presence, remove it,
+ * \details Scenario: Create a volume, deinit, re-init, verify presence, remove it,
  *          deinit, re-init and confirm the volume is gone.
  *          Parity with plain ubi_volumes.create_one_with_remove_with_reboot.
  *
- * \expected After removal + reboot: volume_count == 0, reserved_peb_count == 0,
+ * \expect After removal + reboot: volume_count == 0, reserved_peb_count == 0,
  *           volume_get_info returns -ENOENT.
  */
 ZTEST(ubi_secure_volumes, test_create_remove_with_reboot)
@@ -232,11 +232,11 @@ ZTEST(ubi_secure_volumes, test_create_remove_with_reboot)
 /**
  * \brief Resize a volume upward and verify persistence.
  *
- * \details Create a dynamic volume with 2 LEBs, deinit, re-init, resize
+ * \details Scenario: Create a dynamic volume with 2 LEBs, deinit, re-init, resize
  *          to 4 LEBs, deinit, re-init and verify the new leb_count persists.
  *          Parity with plain ubi_volumes.create_one_with_resize_upper_with_reboot.
  *
- * \expected After resize + reboot: leb_count == 4, reserved_peb_count == 4,
+ * \expect After resize + reboot: leb_count == 4, reserved_peb_count == 4,
  *           volume_count == 1.
  */
 ZTEST(ubi_secure_volumes, test_resize_upper_with_reboot)
@@ -292,12 +292,12 @@ ZTEST(ubi_secure_volumes, test_resize_upper_with_reboot)
 /**
  * \brief Create multiple volumes and verify persistence.
  *
- * \details Create two volumes (2 LEBs + 4 LEBs) in a single session,
+ * \details Scenario: Create two volumes (2 LEBs + 4 LEBs) in a single session,
  *          deinit, re-init and verify both volumes survive with correct
  *          leb_counts and volume IDs.
  *          Parity with plain ubi_volumes.create_many_with_reboot.
  *
- * \expected After reboot: volume_count == 2, both volumes report original
+ * \expect After reboot: volume_count == 2, both volumes report original
  *           leb_count values.
  */
 ZTEST(ubi_secure_volumes, test_create_many_with_reboot)
@@ -358,14 +358,14 @@ ZTEST(ubi_secure_volumes, test_create_many_with_reboot)
 /**
  * \brief Shrink a volume and verify persistence across reboot (no erase).
  *
- * \details Create a 4-LEB dynamic volume, write data to LEBs 2 and 3,
+ * \details Scenario: Create a 4-LEB dynamic volume, write data to LEBs 2 and 3,
  *          shrink to 2 LEBs, deinit, re-init and verify the shrunken
  *          leb_count persists and tail LEBs are recovered as dirty.
  *          Tests §11.7: resize commits smaller leb_count in reserved
  *          metadata, so tail PEBs whose lnum is out of range become dirty
  *          after reboot even without prior erase.
  *
- * \expected After shrink + reboot: leb_count == 2, reserved_peb_count == 3,
+ * \expect After shrink + reboot: leb_count == 2, reserved_peb_count == 3,
  *           tail LEB PEBs recovered as dirty, volume_count == 1.
  */
 ZTEST(ubi_secure_volumes, test_shrink_with_reboot)
@@ -433,12 +433,12 @@ ZTEST(ubi_secure_volumes, test_shrink_with_reboot)
 /**
  * \brief Shrink, erase dirty PEBs, then verify persistence across reboot.
  *
- * \details Same setup as test_shrink_with_reboot but after shrinking all
+ * \details Scenario: Same setup as test_shrink_with_reboot but after shrinking all
  *          dirty PEBs are erased before deinit.  This exercises the path
  *          where the erased PEB may have been the last writable witness
  *          for the old LEB range — the hidden anchor preserves continuity.
  *
- * \expected After shrink + erase + reboot: leb_count == 2, dirty_peb_count
+ * \expect After shrink + erase + reboot: leb_count == 2, dirty_peb_count
  *           == 0, all freed PEBs returned to free pool.
  */
 ZTEST(ubi_secure_volumes, test_shrink_erase_reboot)
@@ -503,14 +503,14 @@ ZTEST(ubi_secure_volumes, test_shrink_erase_reboot)
 /**
  * \brief Verify vid_next_counter_floor persists across remove-all + reboot.
  *
- * \details Create a volume, write data to advance the VID counter, then
+ * \details Scenario: Create a volume, write data to advance the VID counter, then
  *          remove the volume (zero-volume state).  Deinit, re-init, create
  *          a new volume and write again.  The new write's VID counter must
  *          be above the previously committed floor — not reset to 0.
  *          Tests §9.8.5: vid_next_counter_floor is saved in the secure
  *          device header during every reserved metadata rewrite.
  *
- * \expected After remove + reboot + create: new writes do not reuse
+ * \expect After remove + reboot + create: new writes do not reuse
  *           VID counter values from the previous volume's lifetime.
  *           Verified indirectly: the device successfully stores and
  *           retrieves data, proving the floor was not corrupted.
@@ -595,17 +595,15 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Suite registration --------------------------------------------------------------------------- */
-
 /**
  * \brief Verify VID counter floor survives remove→create→reboot sequence.
  *
- * \details Create volume, write several LEBs, remove volume, create new
+ * \details Scenario: Create volume, write several LEBs, remove volume, create new
  *          volume, write, reboot, re-read. The sequence must not cause
  *          counter value reuse. Additionally verifies that multiple
  *          create→remove→create cycles do not reset the floor.
  *
- * \expected New volume writes succeed after remove→create→reboot,
+ * \expect New volume writes succeed after remove→create→reboot,
  *           data integrity is preserved, and no counter was reused.
  */
 ZTEST(ubi_secure_volumes, test_vid_counter_floor_remove_create_reboot)

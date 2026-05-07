@@ -329,8 +329,6 @@ ZTEST(ubi_boundary, write_sub_alignment)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Sequence number monotonicity across remount -------------------------------------------------- */
-
 /* Raw VID header for direct flash reads. */
 struct raw_vid_hdr {
 	uint32_t magic;

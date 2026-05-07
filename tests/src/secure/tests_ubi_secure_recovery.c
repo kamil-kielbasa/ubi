@@ -39,13 +39,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 /* Module-level device pointer for teardown safety. */
@@ -59,8 +63,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -80,8 +83,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -103,7 +104,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	g_ubi = NULL;
 	ubi_test_fault_reset();
 	ubi_test_partition_force_release_all();
@@ -120,18 +121,17 @@ static void ztest_testcase_after(void *ctx)
 	}
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Interrupted LEB data write preserves old mapping (COW).
  *
- * \details Write data to LEB 0, then attempt an overwrite with flash write
+ * \details Scenario: Write data to LEB 0, then attempt an overwrite with flash write
  *          fault injected after 1 successful write (LEB prefix written,
  *          ciphertext write fails). The VID header is never committed, so
  *          the old mapping must survive. After fault reset, verify that the
  *          original data is still readable.
  *
- * \expected Second write returns error. Old data still readable.
+ * \expect Second write returns error. Old data still readable.
  *           Heap fully reclaimed after deinit.
  */
 ZTEST(ubi_secure_recovery, test_interrupted_data_write_preserves_old_mapping)
@@ -190,12 +190,12 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_preserves_old_mapping)
 /**
  * \brief Interrupted VID commit preserves old mapping.
  *
- * \details Write data to LEB 0, then attempt an overwrite with flash write
+ * \details Scenario: Write data to LEB 0, then attempt an overwrite with flash write
  *          fault injected after 2 successful writes (LEB prefix + ciphertext
  *          both written, VID commit write fails). Since VID is the commit
  *          point, the old mapping must survive.
  *
- * \expected Second write returns error. Old data still readable.
+ * \expect Second write returns error. Old data still readable.
  */
 ZTEST(ubi_secure_recovery, test_interrupted_vid_commit_preserves_old_mapping)
 {
@@ -247,10 +247,10 @@ ZTEST(ubi_secure_recovery, test_interrupted_vid_commit_preserves_old_mapping)
 /**
  * \brief Interrupted data write on first LEB write leaves LEB unmapped.
  *
- * \details Attempt a first write to a LEB (no prior mapping). Inject flash
+ * \details Scenario: Attempt a first write to a LEB (no prior mapping). Inject flash
  *          fault to fail the VID commit. The LEB must remain unmapped.
  *
- * \expected Write returns error. LEB is not mapped after fault.
+ * \expect Write returns error. LEB is not mapped after fault.
  */
 ZTEST(ubi_secure_recovery, test_interrupted_first_write_leaves_unmapped)
 {
@@ -300,12 +300,12 @@ ZTEST(ubi_secure_recovery, test_interrupted_first_write_leaves_unmapped)
 /**
  * \brief Interrupted data write + reboot: old mapping survives scan.
  *
- * \details Write to LEB 0, inject fault during overwrite, then reboot
+ * \details Scenario: Write to LEB 0, inject fault during overwrite, then reboot
  *          (deinit + re-init). Verify the partition scan correctly
  *          classifies the half-written PEB as dirty/free and preserves
  *          the committed old mapping.
  *
- * \expected After reboot: old data readable, volume intact.
+ * \expect After reboot: old data readable, volume intact.
  */
 ZTEST(ubi_secure_recovery, test_interrupted_data_write_survives_reboot)
 {
@@ -372,13 +372,13 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_survives_reboot)
 /**
  * \brief Interrupted anchor rewrite preserves continuity after reboot.
  *
- * \details Trigger anchor migration via the erase-witness path (overwrite
+ * \details Scenario: Trigger anchor migration via the erase-witness path (overwrite
  *          LEB twice to push leb_write_counter above anchor, then erase
  *          dirty PEBs), but inject a flash write fault during the anchor
  *          rewrite. After reset + reboot, the old anchor must still be
  *          valid, and the volume must be recognized.
  *
- * \expected After interrupted anchor write + reboot: volume recognized,
+ * \expect After interrupted anchor write + reboot: volume recognized,
  *           data writable. Heap fully reclaimed after deinit.
  */
 ZTEST(ubi_secure_recovery, test_interrupted_anchor_write_preserves_continuity)
@@ -484,13 +484,13 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_write_preserves_continuity)
 /**
  * \brief Replay of stale reserved generation ignored by init scan.
  *
- * \details Create a volume (bumps device_revision to N), then create a second
+ * \details Scenario: Create a volume (bumps device_revision to N), then create a second
  *          volume (bumps revision to N+1). After the second volume_create,
  *          overwrite one reserved PEB bank with a saved snapshot of the old
  *          (revision N) content. On reattach, the scan should use the other
  *          (valid) reserved PEB bank with revision N+1.
  *
- * \expected Volume count is 2 after reboot. Stale bank is ignored.
+ * \expect Volume count is 2 after reboot. Stale bank is ignored.
  */
 ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
 {
@@ -584,11 +584,11 @@ ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
 /**
  * \brief Interrupted reserved PEB commit during volume create.
  *
- * \details Inject flash write fault during volume_create so that the reserved
+ * \details Scenario: Inject flash write fault during volume_create so that the reserved
  *          PEB write fails. After the failed volume_create + reboot, the
  *          old device state must be intact (no partial volume should appear).
  *
- * \expected volume_create returns error. After reboot: device initializes
+ * \expect volume_create returns error. After reboot: device initializes
  *           successfully and is functional (can create and use new volumes).
  */
 ZTEST(ubi_secure_recovery, test_interrupted_reserved_commit_no_ghost_volume)
@@ -688,12 +688,12 @@ ZTEST(ubi_secure_recovery, test_interrupted_reserved_commit_no_ghost_volume)
 /**
  * \brief Interrupted anchor creation during volume create.
  *
- * \details Allow reserved PEB commit to succeed but inject a fault during
+ * \details Scenario: Allow reserved PEB commit to succeed but inject a fault during
  *          the anchor PEB creation. After reboot, the reserved metadata
  *          carries the volume record but the anchor PEB is incomplete.
  *          The init scan should handle this gracefully.
  *
- * \expected After reboot: device initializes successfully. No crash.
+ * \expect After reboot: device initializes successfully. No crash.
  */
 ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
 {
@@ -777,14 +777,14 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
 /**
  * \brief Init-time anchor re-creation for volume whose anchor PEB was lost.
  *
- * \details Create a volume with one LEB and write data. After deinit, erase
+ * \details Scenario: Create a volume with one LEB and write data. After deinit, erase
  *          the anchor PEB (PEB 2 — first data PEB allocated by anchor_create
  *          on a freshly formatted partition). On re-init the volume is still
  *          known from the reserved PEB metadata, but the anchor PEB is gone.
  *          The init code must detect anchor_pnum == SIZE_MAX and re-create
  *          the anchor from a free PEB.
  *
- * \expected Device initializes successfully. Volume is recognized and data is
+ * \expect Device initializes successfully. Volume is recognized and data is
  *           still readable. New writes succeed (proving anchor was re-created).
  *           Heap fully reclaimed after deinit.
  */
@@ -873,8 +873,6 @@ ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
 	ztest_test_skip();
 #endif
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_recovery, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,
 	    NULL);

@@ -29,18 +29,21 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
@@ -63,7 +66,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
@@ -72,15 +75,13 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_fault_reset();
 	if (g_ubi) {
 		(void)ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
 	}
 }
-
-/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -93,13 +94,12 @@ static struct ubi_device *sec_init(void)
 	return ubi;
 }
 
-/* Test definitions ----------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Verify that volume create with alloc failure does NOT leave a
  *        persistent volume with secure backend.
  *
- * \details Create a volume. If ENOMEM, reinit and verify no volume persists.
+ * \details Scenario: Create a volume. If ENOMEM, reinit and verify no volume persists.
  *
  * \expect If create returns ENOMEM, no volume exists on re-init.
  */
@@ -135,7 +135,7 @@ ZTEST(ubi_secure_fault_injection, test_create_alloc_fail_no_persistent_volume)
 /**
  * \brief Verify that overwrite preserves old data on write failure.
  *
- * \details Write data, read it back.
+ * \details Scenario: Write data, read it back.
  *
  * \expect Read-back matches original data.
  */
@@ -161,8 +161,6 @@ ZTEST(ubi_secure_fault_injection, test_overwrite_preserves_old_data_on_failure)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_fault_injection, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);

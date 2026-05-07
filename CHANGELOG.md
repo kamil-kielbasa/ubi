@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.65.0] - 2026-05-07
+
+### Changed
+
+- The in-tree test suites are now organised to match the project
+  coding style. Lifecycle hooks, helpers and ZTEST cases are grouped
+  under canonical section banners with documented setup, teardown
+  and per-case scenarios. This change is internal: behaviour of the
+  library, public API and on-flash format are unaffected. Downstream
+  users who run the bundled tests will see clearer log headings and
+  consistent file structure across every suite.
+
 ## [0.64.0] - 2026-05-07
 
 ### Changed

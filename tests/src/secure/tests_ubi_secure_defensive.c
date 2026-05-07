@@ -39,17 +39,22 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
+/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
@@ -72,7 +77,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	ubi_secure_test_hook_reset();
@@ -84,7 +89,7 @@ static void ztest_suite_before(void *ctx)
 /**
  * \brief prefix32_serialize rejects NULL prefix.
  *
- * \details Calls with NULL source pointer.
+ * \details Scenario: Calls with NULL source pointer.
  *
  * \expect Returns without crash.
  */
@@ -99,7 +104,7 @@ ZTEST(ubi_secure_defensive, test_ser_prefix32_serialize_null)
 /**
  * \brief prefix32_deserialize rejects NULL arguments.
  *
- * \details Calls with NULL source and destination.
+ * \details Scenario: Calls with NULL source and destination.
  *
  * \expect Returns without crash.
  */
@@ -117,7 +122,7 @@ ZTEST(ubi_secure_defensive, test_ser_prefix32_deserialize_null)
 /**
  * \brief AAD builder functions reject NULL prefix.
  *
- * \details Exercise dev_hdr, vol_hdr, ec_hdr, data_vid, leb AAD builders.
+ * \details Scenario: Exercise dev_hdr, vol_hdr, ec_hdr, data_vid, leb AAD builders.
  *
  * \expect All return without crash.
  */
@@ -147,7 +152,7 @@ ZTEST(ubi_secure_defensive, test_ser_aad_builders_null)
 /**
  * \brief dev_meta serialize/deserialize reject NULL arguments.
  *
- * \details Calls with NULL meta and NULL buf.
+ * \details Scenario: Calls with NULL meta and NULL buf.
  *
  * \expect Returns without crash.
  */
@@ -168,7 +173,7 @@ ZTEST(ubi_secure_defensive, test_ser_dev_meta_null)
 /**
  * \brief vid_meta serialize/deserialize reject NULL arguments.
  *
- * \details Calls with NULL meta and NULL buf.
+ * \details Scenario: Calls with NULL meta and NULL buf.
  *
  * \expect Returns without crash.
  */
@@ -189,7 +194,7 @@ ZTEST(ubi_secure_defensive, test_ser_vid_meta_null)
 /**
  * \brief encode_counter48 rejects NULL buffer and overflow value.
  *
- * \details Calls with NULL buf and value > COUNTER_MAX.
+ * \details Scenario: Calls with NULL buf and value > COUNTER_MAX.
  *
  * \expect Returns without crash.
  */
@@ -206,7 +211,7 @@ ZTEST(ubi_secure_defensive, test_ser_counter48_null)
 /**
  * \brief build_label rejects NULL label pointer.
  *
- * \details Calls with NULL label and NULL label_len.
+ * \details Scenario: Calls with NULL label and NULL label_len.
  *
  * \expect Returns -EINVAL.
  */
@@ -227,7 +232,7 @@ ZTEST(ubi_secure_defensive, test_crypto_build_label_null)
 /**
  * \brief build_label rejects unknown domain.
  *
- * \details Passes an invalid domain enum value.
+ * \details Scenario: Passes an invalid domain enum value.
  *
  * \expect Returns -EINVAL.
  */
@@ -242,7 +247,7 @@ ZTEST(ubi_secure_defensive, test_crypto_build_label_bad_domain)
 /**
  * \brief build_label rejects too-small buffer.
  *
- * \details Passes a label_cap of 1 byte.
+ * \details Scenario: Passes a label_cap of 1 byte.
  *
  * \expect Returns -ENOSPC.
  */
@@ -259,7 +264,7 @@ ZTEST(ubi_secure_defensive, test_crypto_build_label_small_buf)
 /**
  * \brief derive_child_key rejects NULL arguments.
  *
- * \details Calls with NULL label and NULL child_key_id.
+ * \details Scenario: Calls with NULL label and NULL child_key_id.
  *
  * \expect Returns -EINVAL.
  */
@@ -277,7 +282,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_child_key_null)
 /**
  * \brief aead_encrypt rejects NULL nonce.
  *
- * \details Calls with NULL nonce pointer.
+ * \details Scenario: Calls with NULL nonce pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -293,7 +298,7 @@ ZTEST(ubi_secure_defensive, test_crypto_aead_encrypt_null)
 /**
  * \brief aead_decrypt rejects NULL nonce.
  *
- * \details Calls with NULL nonce pointer.
+ * \details Scenario: Calls with NULL nonce pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -309,7 +314,7 @@ ZTEST(ubi_secure_defensive, test_crypto_aead_decrypt_null)
 /**
  * \brief generate_salt rejects NULL buffer.
  *
- * \details Calls with NULL salt pointer.
+ * \details Scenario: Calls with NULL salt pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -321,7 +326,7 @@ ZTEST(ubi_secure_defensive, test_crypto_generate_salt_null)
 /**
  * \brief build_nonce rejects NULL arguments.
  *
- * \details Calls with NULL counter and NULL nonce.
+ * \details Scenario: Calls with NULL counter and NULL nonce.
  *
  * \expect Returns without crash.
  */
@@ -339,7 +344,7 @@ ZTEST(ubi_secure_defensive, test_crypto_build_nonce_null)
 /**
  * \brief derive_domain_key rejects NULL crypto_cfg.
  *
- * \details Calls with NULL config pointer.
+ * \details Scenario: Calls with NULL config pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -354,7 +359,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_domain_key_null)
 /**
  * \brief derive_leb_key rejects NULL crypto_cfg.
  *
- * \details Calls with NULL config pointer.
+ * \details Scenario: Calls with NULL config pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -370,7 +375,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_leb_key_null)
 /**
  * \brief ec_hdr_read rejects NULL arguments.
  *
- * \details Calls with NULL flash, NULL crypto_cfg, NULL ec_hdr, NULL ec_ctx.
+ * \details Scenario: Calls with NULL flash, NULL crypto_cfg, NULL ec_hdr, NULL ec_ctx.
  *
  * \expect Returns -EINVAL.
  */
@@ -391,7 +396,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_null)
 /**
  * \brief vid_hdr_read rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL vid_hdr.
+ * \details Scenario: Calls with NULL flash and NULL vid_hdr.
  *
  * \expect Returns -EINVAL.
  */
@@ -414,7 +419,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_null)
 /**
  * \brief vid_hdr_write rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL vid_hdr.
+ * \details Scenario: Calls with NULL flash and NULL vid_hdr.
  *
  * \expect Returns -EINVAL.
  */
@@ -435,7 +440,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_null)
 /**
  * \brief leb_data_read rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL buf with nonzero len.
+ * \details Scenario: Calls with NULL flash and NULL buf with nonzero len.
  *
  * \expect Returns -EINVAL.
  */
@@ -456,7 +461,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_null)
 /**
  * \brief leb_data_write rejects NULL arguments.
  *
- * \details Calls with NULL flash.
+ * \details Scenario: Calls with NULL flash.
  *
  * \expect Returns -EINVAL.
  */
@@ -477,7 +482,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_null)
 /**
  * \brief ec_hdr_write rejects NULL arguments.
  *
- * \details Calls with NULL flash.
+ * \details Scenario: Calls with NULL flash.
  *
  * \expect Returns -EINVAL.
  */
@@ -497,7 +502,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_null)
 /**
  * \brief ec_hdr_read returns -EBADMSG for corrupted EC magic.
  *
- * \details Write garbage to PEB 3 EC region, call ec_hdr_read.
+ * \details Scenario: Write garbage to PEB 3 EC region, call ec_hdr_read.
  *
  * \expect Returns -EBADMSG.
  */
@@ -530,7 +535,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_magic)
 /**
  * \brief vid_hdr_read returns error for corrupted VID data.
  *
- * \details Write valid EC, write garbage in VID region, call vid_hdr_read.
+ * \details Scenario: Write valid EC, write garbage in VID region, call vid_hdr_read.
  *
  * \expect Returns -EBADMSG (bad magic).
  */
@@ -581,7 +586,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_magic)
 /**
  * \brief leb_data_read returns -EINVAL for zero data_size with nonzero len.
  *
- * \details Forge a vid_ctx with data_size=0, request len=1.
+ * \details Scenario: Forge a vid_ctx with data_size=0, request len=1.
  *
  * \expect Returns -EINVAL.
  */
@@ -600,7 +605,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_datasize)
 /**
  * \brief leb_data_read returns -EINVAL for out-of-bounds offset.
  *
- * \details Forge a vid_ctx with data_size=2, request offset=1 len=4.
+ * \details Scenario: Forge a vid_ctx with data_size=2, request offset=1 len=4.
  *
  * \expect Returns -EINVAL.
  */
@@ -621,7 +626,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_out_of_bounds)
 /**
  * \brief Device init rejects write_block_size of zero.
  *
- * \details Passes flash with write_block_size=0.
+ * \details Scenario: Passes flash with write_block_size=0.
  *
  * \expect Returns -EINVAL.
  */
@@ -642,7 +647,7 @@ ZTEST(ubi_secure_defensive, test_init_zero_write_block)
 /**
  * \brief Device init rejects erase_block_size of zero.
  *
- * \details Passes flash with erase_block_size=0.
+ * \details Scenario: Passes flash with erase_block_size=0.
  *
  * \expect Returns -EINVAL.
  */
@@ -663,7 +668,7 @@ ZTEST(ubi_secure_defensive, test_init_zero_erase_block)
 /**
  * \brief Device init rejects oversized write_block_size.
  *
- * \details Passes flash with write_block_size > max alignment.
+ * \details Scenario: Passes flash with write_block_size > max alignment.
  *
  * \expect Returns -EINVAL.
  */
@@ -691,7 +696,7 @@ ZTEST(ubi_secure_defensive, test_init_oversized_write_block)
 /**
  * \brief Device init rejects erase block too small for headers.
  *
- * \details Passes flash with very small erase_block_size.
+ * \details Scenario: Passes flash with very small erase_block_size.
  *
  * \expect Returns -EINVAL.
  */
@@ -718,7 +723,7 @@ ZTEST(ubi_secure_defensive, test_init_erase_block_too_small)
 /**
  * \brief Device init rejects write key version not in allowlist.
  *
- * \details Passes crypto config with mismatched write key version.
+ * \details Scenario: Passes crypto config with mismatched write key version.
  *
  * \expect Returns -EINVAL.
  */
@@ -741,7 +746,7 @@ ZTEST(ubi_secure_defensive, test_init_bad_write_key_version)
 /**
  * \brief Scan classifies PEB with corrupt EC header as bad block.
  *
- * \details Format device, deinit. Corrupt a data PEB EC header.
+ * \details Scenario: Format device, deinit. Corrupt a data PEB EC header.
  *          Re-init. The scan should mark the PEB as bad.
  *
  * \expect Re-init succeeds; bad_peb_count > 0.
@@ -792,7 +797,7 @@ ZTEST(ubi_secure_defensive, test_scan_corrupt_ec_marks_bad)
 /**
  * \brief Scan classifies PEB with erased VID but written LEB prefix as dirty.
  *
- * \details Format device. Write LEB data prefix to a free PEB (VID remains
+ * \details Scenario: Format device. Write LEB data prefix to a free PEB (VID remains
  *          erased). Re-init. The scan should classify it as dirty
  *          (uncommitted write).
  *
@@ -848,7 +853,7 @@ ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
 /**
  * \brief Scan handles orphan PEBs from deleted volumes.
  *
- * \details Create volume, write data, remove volume, re-init. The scan
+ * \details Scenario: Create volume, write data, remove volume, re-init. The scan
  *          should classify PEBs from the deleted volume as orphans and
  *          move them to dirty pool.
  *
@@ -898,7 +903,7 @@ ZTEST(ubi_secure_defensive, test_scan_orphan_classification)
 /**
  * \brief leb_data_read with NULL buf and len=0 returns 0 for zero data_size.
  *
- * \details Forge vid_ctx with data_size=0, call with NULL buf and len=0.
+ * \details Scenario: Forge vid_ctx with data_size=0, call with NULL buf and len=0.
  *
  * \expect Returns 0.
  */
@@ -918,7 +923,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_len_zero_data)
 /**
  * \brief vid_region_is_erased rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL is_erased.
+ * \details Scenario: Calls with NULL flash and NULL is_erased.
  *
  * \expect Returns -EINVAL.
  */
@@ -933,7 +938,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_region_is_erased_null)
 /**
  * \brief leb_prefix_is_erased rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL is_erased.
+ * \details Scenario: Calls with NULL flash and NULL is_erased.
  *
  * \expect Returns -EINVAL.
  */
@@ -950,7 +955,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_prefix_is_erased_null)
 /**
  * \brief ec_hdr_read returns error for correct magic but wrong domain.
  *
- * \details Writes a prefix with valid SECURE_PREFIX_MAGIC but domain LEB.
+ * \details Scenario: Writes a prefix with valid SECURE_PREFIX_MAGIC but domain LEB.
  *
  * \expect Returns -EBADMSG.
  */
@@ -990,7 +995,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_domain)
 /**
  * \brief ec_hdr_read returns error when key derivation fails.
  *
- * \details Writes valid EC header prefix, arms GET_KEY_ID_FAIL hook.
+ * \details Scenario: Writes valid EC header prefix, arms GET_KEY_ID_FAIL hook.
  *
  * \expect Returns error from key derivation.
  */
@@ -1033,7 +1038,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_key_deriv_fail)
 /**
  * \brief ec_hdr_write returns error when key derivation fails.
  *
- * \details Arms GET_KEY_ID_FAIL hook, attempts ec_hdr_write.
+ * \details Scenario: Arms GET_KEY_ID_FAIL hook, attempts ec_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1058,7 +1063,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_key_deriv_fail)
 /**
  * \brief ec_hdr_write returns error when salt generation fails.
  *
- * \details Arms RNG_FAIL hook, attempts ec_hdr_write.
+ * \details Scenario: Arms RNG_FAIL hook, attempts ec_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1083,7 +1088,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_salt_fail)
 /**
  * \brief ec_hdr_write returns error when AEAD encrypt fails.
  *
- * \details Arms AEAD_ENCRYPT_FAIL hook, attempts ec_hdr_write.
+ * \details Scenario: Arms AEAD_ENCRYPT_FAIL hook, attempts ec_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1108,7 +1113,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_aead_fail)
 /**
  * \brief ec_hdr_write returns error when flash write fails.
  *
- * \details Arms flash write fault, attempts ec_hdr_write.
+ * \details Scenario: Arms flash write fault, attempts ec_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1133,7 +1138,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_flash_fail)
 /**
  * \brief vid_hdr_write returns error when key derivation fails.
  *
- * \details Arms GET_KEY_ID_FAIL hook, attempts vid_hdr_write.
+ * \details Scenario: Arms GET_KEY_ID_FAIL hook, attempts vid_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1155,7 +1160,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_key_deriv_fail)
 /**
  * \brief vid_hdr_write returns error when salt generation fails.
  *
- * \details Arms RNG_FAIL hook, attempts vid_hdr_write.
+ * \details Scenario: Arms RNG_FAIL hook, attempts vid_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1178,7 +1183,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_salt_fail)
 /**
  * \brief vid_hdr_write returns error when AEAD encrypt fails.
  *
- * \details Arms AEAD_ENCRYPT_FAIL hook, attempts vid_hdr_write.
+ * \details Scenario: Arms AEAD_ENCRYPT_FAIL hook, attempts vid_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1201,7 +1206,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_aead_fail)
 /**
  * \brief vid_hdr_write returns error when flash write fails.
  *
- * \details Arms flash write fault, attempts vid_hdr_write.
+ * \details Scenario: Arms flash write fault, attempts vid_hdr_write.
  *
  * \expect Returns error.
  */
@@ -1224,7 +1229,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_flash_fail)
 /**
  * \brief leb_data_write returns error when key derivation fails.
  *
- * \details Arms GET_KEY_ID_FAIL hook, attempts leb_data_write.
+ * \details Scenario: Arms GET_KEY_ID_FAIL hook, attempts leb_data_write.
  *
  * \expect Returns error.
  */
@@ -1247,7 +1252,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_key_deriv_fail)
 /**
  * \brief leb_data_write returns error when salt generation fails.
  *
- * \details Arms RNG_FAIL hook, attempts leb_data_write.
+ * \details Scenario: Arms RNG_FAIL hook, attempts leb_data_write.
  *
  * \expect Returns error.
  */
@@ -1271,7 +1276,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_salt_fail)
 /**
  * \brief leb_data_write returns error when AEAD encrypt fails.
  *
- * \details Arms AEAD_ENCRYPT_FAIL hook, attempts leb_data_write.
+ * \details Scenario: Arms AEAD_ENCRYPT_FAIL hook, attempts leb_data_write.
  *
  * \expect Returns error.
  */
@@ -1295,7 +1300,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_aead_fail)
 /**
  * \brief leb_data_write returns error when flash write fails.
  *
- * \details Arms flash write fault, attempts leb_data_write.
+ * \details Scenario: Arms flash write fault, attempts leb_data_write.
  *
  * \expect Returns error.
  */
@@ -1319,7 +1324,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_flash_fail)
 /**
  * \brief leb_data_read returns error when key derivation fails.
  *
- * \details Writes valid LEB prefix, arms GET_KEY_ID_FAIL, reads.
+ * \details Scenario: Writes valid LEB prefix, arms GET_KEY_ID_FAIL, reads.
  *
  * \expect Returns error.
  */
@@ -1363,7 +1368,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_key_deriv_fail)
 /**
  * \brief leb_data_read returns -EBADMSG for bad LEB prefix.
  *
- * \details Writes prefix with wrong domain (ERASE_COUNTER instead of LEB).
+ * \details Scenario: Writes prefix with wrong domain (ERASE_COUNTER instead of LEB).
  *
  * \expect Returns -EBADMSG.
  */
@@ -1405,7 +1410,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_bad_prefix)
 /**
  * \brief vid_hdr_read returns error for correct magic but wrong domain.
  *
- * \details Writes EC then VID prefix with wrong domain (LEB instead of VID).
+ * \details Scenario: Writes EC then VID prefix with wrong domain (LEB instead of VID).
  *
  * \expect Returns -EBADMSG.
  */
@@ -1463,7 +1468,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_domain)
  * \brief Device init rejects reserved-PEB records with an unsupported
  *        wrapper_version.
  *
- * \details Writes a synthetic device-header prefix into reserved PEB 0
+ * \details Scenario: Writes a synthetic device-header prefix into reserved PEB 0
  *          with valid magic + DEVICE_HEADER domain but a bogus
  *          wrapper_version.  Subsequent ubi_device_init() must fail to
  *          authenticate any reserved-PEB copy and return an error.
@@ -1511,7 +1516,7 @@ ZTEST(ubi_secure_defensive, test_init_dev_hdr_bad_wrapper_version)
  * \brief Device init rejects reserved-PEB volume-header records with an
  *        unsupported wrapper_version.
  *
- * \details Builds a fully valid reserved-PEB layout via ubi_device_init
+ * \details Scenario: Builds a fully valid reserved-PEB layout via ubi_device_init
  *          + ubi_volume_create (so dev_hdr authenticates), then patches
  *          the wrapper_version byte in the vol_hdr prefix on every
  *          reserved-PEB copy.  The on-flash bit transition is 1->0 only
@@ -1583,7 +1588,7 @@ ZTEST(ubi_secure_defensive, test_init_vol_hdr_bad_wrapper_version)
 /**
  * \brief ec_hdr_read rejects records with an unsupported wrapper_version.
  *
- * \details Writes a prefix with valid magic + ERASE_COUNTER domain but a
+ * \details Scenario: Writes a prefix with valid magic + ERASE_COUNTER domain but a
  *          bogus wrapper_version (current + 1).  The read path must reject
  *          before any key derivation.
  *
@@ -1624,7 +1629,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_wrapper_version)
 /**
  * \brief vid_hdr_read rejects records with an unsupported wrapper_version.
  *
- * \details Writes a valid EC then a VID prefix with a bogus wrapper_version.
+ * \details Scenario: Writes a valid EC then a VID prefix with a bogus wrapper_version.
  *
  * \expect Returns -EBADMSG.
  */
@@ -1679,7 +1684,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_wrapper_version)
 /**
  * \brief leb_data_read rejects records with an unsupported wrapper_version.
  *
- * \details Writes a LEB prefix with valid magic + LEB domain but a bogus
+ * \details Scenario: Writes a LEB prefix with valid magic + LEB domain but a bogus
  *          wrapper_version.  The read path must reject before any key
  *          derivation.
  *
@@ -1725,7 +1730,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_bad_wrapper_version)
 /**
  * \brief leb_data_write rejects payloads exceeding the single-tag CCM limit.
  *
- * \details Single-tag AES-128-CCM with q = 2 encodes the payload length
+ * \details Scenario: Single-tag AES-128-CCM with q = 2 encodes the payload length
  *          in a 2-byte field, so it cannot authenticate payloads of
  *          65536 bytes or more.  The write path must reject
  *          `len > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD` before any
@@ -1756,7 +1761,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_payload_exceeds_ccm_limit)
  * \brief leb_data_read rejects records advertising data_size beyond the
  *        single-tag CCM limit.
  *
- * \details Build a vid_hdr with data_size > 65535 and call the read API.
+ * \details Scenario: Build a vid_hdr with data_size > 65535 and call the read API.
  *          The guard must fire before any flash IO or key derivation,
  *          since CCM with q = 2 cannot decode a payload that does not
  *          fit in its 2-byte length field.
@@ -1780,7 +1785,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_data_size_exceeds_ccm_limit)
 /**
  * \brief vid_hdr_read returns error when key derivation fails.
  *
- * \details Writes EC then valid VID prefix, arms GET_KEY_ID_FAIL.
+ * \details Scenario: Writes EC then valid VID prefix, arms GET_KEY_ID_FAIL.
  *
  * \expect Returns error.
  */
@@ -1839,7 +1844,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_key_deriv_fail)
 /**
  * \brief leb_data_write with NULL buf and len=0 succeeds (zero-length record).
  *
- * \details Writes a zero-length LEB record.
+ * \details Scenario: Writes a zero-length LEB record.
  *
  * \expect Returns 0.
  */
@@ -1863,7 +1868,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_zero_len)
 /**
  * \brief res_peb_detect_mode rejects NULL arguments.
  *
- * \details Calls with NULL is_secure and NULL is_blank.
+ * \details Scenario: Calls with NULL is_secure and NULL is_blank.
  *
  * \expect Returns -EINVAL.
  */
@@ -1880,7 +1885,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_null)
 /**
  * \brief res_peb_scan rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL scan.
+ * \details Scenario: Calls with NULL flash and NULL scan.
  *
  * \expect Returns -EINVAL.
  */
@@ -1899,7 +1904,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_null)
 /**
  * \brief res_peb_read_vol_hdrs rejects NULL arguments.
  *
- * \details Calls with NULL flash.
+ * \details Scenario: Calls with NULL flash.
  *
  * \expect Returns -EINVAL.
  */
@@ -1919,7 +1924,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_read_vol_hdrs_null)
 /**
  * \brief res_peb_commit rejects NULL arguments.
  *
- * \details Calls with NULL flash and NULL vol_hdrs with nonzero count.
+ * \details Scenario: Calls with NULL flash and NULL vol_hdrs with nonzero count.
  *
  * \expect Returns -EINVAL.
  */
@@ -1941,7 +1946,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_null)
 /**
  * \brief res_peb_commit fails when key derivation fails.
  *
- * \details Arms GET_KEY_ID_FAIL hook, attempts commit.
+ * \details Scenario: Arms GET_KEY_ID_FAIL hook, attempts commit.
  *
  * \expect Returns error.
  */
@@ -1969,7 +1974,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_key_deriv_fail)
 /**
  * \brief res_peb_commit fails when RNG (salt gen) fails.
  *
- * \details Arms RNG_FAIL hook, attempts commit.
+ * \details Scenario: Arms RNG_FAIL hook, attempts commit.
  *
  * \expect Returns error.
  */
@@ -1997,7 +2002,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_salt_fail)
 /**
  * \brief res_peb_commit fails when AEAD encrypt fails.
  *
- * \details Arms AEAD_ENCRYPT_FAIL hook, attempts commit.
+ * \details Scenario: Arms AEAD_ENCRYPT_FAIL hook, attempts commit.
  *
  * \expect Returns error.
  */
@@ -2025,7 +2030,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_commit_aead_fail)
 /**
  * \brief res_peb_scan with corrupt reserved PEB classifies it as corrupt.
  *
- * \details Format device, deinit. Corrupt reserved PEB 0.
+ * \details Scenario: Format device, deinit. Corrupt reserved PEB 0.
  *          Call res_peb_scan directly.
  *
  * \expect Scan succeeds; some PEBs authenticated, corrupt_count > 0.
@@ -2064,7 +2069,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_corrupt_peb)
 /**
  * \brief res_peb_scan with blank reserved PEB counts it as spare.
  *
- * \details Format device, deinit. Erase reserved PEB 0.
+ * \details Scenario: Format device, deinit. Erase reserved PEB 0.
  *          Call res_peb_scan directly.
  *
  * \expect Scan succeeds; spare_count > 0.
@@ -2097,7 +2102,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_blank_peb)
 /**
  * \brief res_peb_scan with key derivation failure still completes.
  *
- * \details Format device, deinit. Arm GET_KEY_ID_FAIL, scan.
+ * \details Scenario: Format device, deinit. Arm GET_KEY_ID_FAIL, scan.
  *
  * \expect Scan returns 0; corrupt_count == all PEBs.
  */
@@ -2124,7 +2129,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_scan_key_deriv_fail)
 /**
  * \brief detect_mode returns correct state for blank PEB.
  *
- * \details Erase PEB 0, call detect_mode.
+ * \details Scenario: Erase PEB 0, call detect_mode.
  *
  * \expect is_blank is true.
  */
@@ -2147,7 +2152,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_blank)
 /**
  * \brief detect_mode returns correct state for written but non-secure PEB.
  *
- * \details Write garbage to PEB 0 (not matching secure prefix magic).
+ * \details Scenario: Write garbage to PEB 0 (not matching secure prefix magic).
  *
  * \expect is_secure is false, is_blank is false.
  */
@@ -2173,7 +2178,7 @@ ZTEST(ubi_secure_defensive, test_res_peb_detect_mode_plain)
 /**
  * \brief Init with plain headers on reserved PEBs returns -EPROTO (mode mismatch).
  *
- * \details Write non-secure data to reserved PEBs. Init should refuse.
+ * \details Scenario: Write non-secure data to reserved PEBs. Init should refuse.
  *
  * \expect Returns -EPROTO.
  */
@@ -2207,7 +2212,7 @@ ZTEST(ubi_secure_defensive, test_init_plain_media_mismatch)
 /**
  * \brief Device init rejects erase_block_size that does not divide partition size.
  *
- * \details Passes flash with erase_block_size = 3000 (131072 % 3000 != 0).
+ * \details Scenario: Passes flash with erase_block_size = 3000 (131072 % 3000 != 0).
  *
  * \expect Returns -EINVAL.
  */
@@ -2228,7 +2233,7 @@ ZTEST(ubi_secure_defensive, test_init_partition_not_multiple)
 /**
  * \brief Device init rejects write_block_size exceeding alignment limit.
  *
- * \details Passes flash with write_block_size = 32 (> WRITE_BLOCK_SIZE_ALIGNMENT = 16),
+ * \details Scenario: Passes flash with write_block_size = 32 (> WRITE_BLOCK_SIZE_ALIGNMENT = 16),
  *          while erase_block_size = 8192 so that erase % write == 0.
  *
  * \expect Returns -EINVAL.
@@ -2250,7 +2255,7 @@ ZTEST(ubi_secure_defensive, test_init_write_exceeds_alignment)
 /**
  * \brief Device init rejects partition with too few PEBs.
  *
- * \details Passes flash with erase_block_size = 65536 so nr_of_pebs = 2 <= RES_PEB_COUNT.
+ * \details Scenario: Passes flash with erase_block_size = 65536 so nr_of_pebs = 2 <= RES_PEB_COUNT.
  *
  * \expect Returns -EINVAL.
  */
@@ -2271,7 +2276,7 @@ ZTEST(ubi_secure_defensive, test_init_too_few_pebs)
 /**
  * \brief Device init rejects erase_block_size not multiple of write_block_size.
  *
- * \details Passes flash with erase_block_size = 131072 and write_block_size = 3
+ * \details Scenario: Passes flash with erase_block_size = 131072 and write_block_size = 3
  *          so that erase % write != 0.
  *
  * \expect Returns -EINVAL.
@@ -2296,7 +2301,7 @@ ZTEST(ubi_secure_defensive, test_init_erase_not_multiple_of_write)
 /**
  * \brief ubi_volume_create rejects NULL arguments.
  *
- * \details Calls with NULL ubi, NULL vol_cfg, and NULL vol_id.
+ * \details Scenario: Calls with NULL ubi, NULL vol_cfg, and NULL vol_id.
  *
  * \expect Returns -EINVAL for each call.
  */
@@ -2315,7 +2320,7 @@ ZTEST(ubi_secure_defensive, test_vol_create_null)
 /**
  * \brief ubi_volume_remove rejects NULL ubi.
  *
- * \details Calls with NULL device pointer.
+ * \details Scenario: Calls with NULL device pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -2327,7 +2332,7 @@ ZTEST(ubi_secure_defensive, test_vol_remove_null)
 /**
  * \brief ubi_volume_resize rejects NULL arguments.
  *
- * \details Calls with NULL ubi.
+ * \details Scenario: Calls with NULL ubi.
  *
  * \expect Returns -EINVAL.
  */
@@ -2345,7 +2350,7 @@ ZTEST(ubi_secure_defensive, test_vol_resize_null)
 /**
  * \brief ubi_volume_get_info rejects NULL arguments.
  *
- * \details Calls with NULL ubi.
+ * \details Scenario: Calls with NULL ubi.
  *
  * \expect Returns -EINVAL.
  */
@@ -2360,7 +2365,7 @@ ZTEST(ubi_secure_defensive, test_vol_get_info_null)
 /**
  * \brief ubi_leb_write rejects NULL ubi.
  *
- * \details Calls with NULL device pointer.
+ * \details Scenario: Calls with NULL device pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -2374,7 +2379,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_null)
 /**
  * \brief ubi_leb_write rejects buf/len mismatch.
  *
- * \details Calls with buf=NULL and len>0.
+ * \details Scenario: Calls with buf=NULL and len>0.
  *
  * \expect Returns -EINVAL.
  */
@@ -2393,7 +2398,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_buf_len_mismatch)
 /**
  * \brief ubi_leb_read rejects NULL arguments.
  *
- * \details Calls with NULL ubi and NULL buf.
+ * \details Scenario: Calls with NULL ubi and NULL buf.
  *
  * \expect Returns -EINVAL.
  */
@@ -2405,7 +2410,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_null)
 /**
  * \brief ubi_leb_map rejects NULL ubi.
  *
- * \details Calls with NULL device pointer.
+ * \details Scenario: Calls with NULL device pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -2417,7 +2422,7 @@ ZTEST(ubi_secure_defensive, test_leb_map_null)
 /**
  * \brief ubi_leb_unmap rejects NULL ubi.
  *
- * \details Calls with NULL device pointer.
+ * \details Scenario: Calls with NULL device pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -2429,7 +2434,7 @@ ZTEST(ubi_secure_defensive, test_leb_unmap_null)
 /**
  * \brief ubi_leb_is_mapped rejects NULL arguments.
  *
- * \details Calls with NULL ubi.
+ * \details Scenario: Calls with NULL ubi.
  *
  * \expect Returns -EINVAL.
  */
@@ -2443,7 +2448,7 @@ ZTEST(ubi_secure_defensive, test_leb_is_mapped_null)
 /**
  * \brief ubi_leb_get_size rejects NULL arguments.
  *
- * \details Calls with NULL ubi.
+ * \details Scenario: Calls with NULL ubi.
  *
  * \expect Returns -EINVAL.
  */
@@ -2457,7 +2462,7 @@ ZTEST(ubi_secure_defensive, test_leb_get_size_null)
 /**
  * \brief ubi_device_get_info rejects NULL arguments.
  *
- * \details Calls with NULL ubi.
+ * \details Scenario: Calls with NULL ubi.
  *
  * \expect Returns -EINVAL.
  */
@@ -2471,7 +2476,7 @@ ZTEST(ubi_secure_defensive, test_device_get_info_null)
 /**
  * \brief ubi_device_erase_peb rejects NULL ubi.
  *
- * \details Calls with NULL device pointer.
+ * \details Scenario: Calls with NULL device pointer.
  *
  * \expect Returns -EINVAL.
  */
@@ -2483,7 +2488,7 @@ ZTEST(ubi_secure_defensive, test_device_erase_peb_null)
 /**
  * \brief ubi_leb_write with non-existent volume returns -ENOENT.
  *
- * \details Create device, write to volume 99 which does not exist.
+ * \details Scenario: Create device, write to volume 99 which does not exist.
  *
  * \expect Returns -ENOENT.
  */
@@ -2505,7 +2510,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_vol_not_found)
 /**
  * \brief ubi_leb_write beyond volume LEB count returns error.
  *
- * \details Create device and volume with 1 LEB, write to LEB 5.
+ * \details Scenario: Create device and volume with 1 LEB, write to LEB 5.
  *
  * \expect Returns -EACCES.
  */
@@ -2536,7 +2541,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_leb_exceeded)
 /**
  * \brief ubi_leb_write with buffer larger than LEB size returns -ENOSPC.
  *
- * \details Create device and volume, attempt to write more than leb_size bytes.
+ * \details Scenario: Create device and volume, attempt to write more than leb_size bytes.
  *
  * \expect Returns -ENOSPC.
  */
@@ -2576,7 +2581,7 @@ ZTEST(ubi_secure_defensive, test_leb_write_too_big)
 /**
  * \brief ubi_leb_read on non-existent volume returns -ENOENT.
  *
- * \details Create device, read from volume 99 which does not exist.
+ * \details Scenario: Create device, read from volume 99 which does not exist.
  *
  * \expect Returns -ENOENT.
  */
@@ -2598,7 +2603,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_vol_not_found)
 /**
  * \brief ubi_leb_read beyond volume LEB count returns error.
  *
- * \details Create device and volume with 1 LEB, read LEB 5.
+ * \details Scenario: Create device and volume with 1 LEB, read LEB 5.
  *
  * \expect Returns -EACCES.
  */
@@ -2629,7 +2634,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_leb_exceeded)
 /**
  * \brief ubi_leb_read on unmapped LEB returns -ENOENT.
  *
- * \details Create device and volume with 1 LEB, do not write, attempt read.
+ * \details Scenario: Create device and volume with 1 LEB, do not write, attempt read.
  *
  * \expect Returns -ENOENT.
  */
@@ -2660,7 +2665,7 @@ ZTEST(ubi_secure_defensive, test_leb_read_unmapped)
 /**
  * \brief ubi_volume_resize with same LEB count returns -ECANCELED.
  *
- * \details Create volume with 1 LEB, resize to 1 LEB.
+ * \details Scenario: Create volume with 1 LEB, resize to 1 LEB.
  *
  * \expect Returns -ECANCELED.
  */
@@ -2690,7 +2695,7 @@ ZTEST(ubi_secure_defensive, test_vol_resize_same_count)
 /**
  * \brief ubi_volume_remove on non-existent volume returns -ENOENT.
  *
- * \details Create device without volumes, remove vol 42.
+ * \details Scenario: Create device without volumes, remove vol 42.
  *
  * \expect Returns -ENOENT.
  */
@@ -2709,7 +2714,7 @@ ZTEST(ubi_secure_defensive, test_vol_remove_not_found)
 /**
  * \brief ubi_volume_get_info on non-existent volume returns -ENOENT.
  *
- * \details Create device without volumes, get info for vol 42.
+ * \details Scenario: Create device without volumes, get info for vol 42.
  *
  * \expect Returns -ENOENT.
  */
@@ -2732,7 +2737,7 @@ ZTEST(ubi_secure_defensive, test_vol_get_info_not_found)
 /**
  * \brief ubi_leb_get_size on unmapped LEB returns -ENOENT.
  *
- * \details Create device and volume, do not write, query LEB size.
+ * \details Scenario: Create device and volume, do not write, query LEB size.
  *
  * \expect Returns -ENOENT.
  */
@@ -2763,7 +2768,7 @@ ZTEST(ubi_secure_defensive, test_leb_get_size_unmapped)
 /**
  * \brief ubi_volume_resize with leb_count=0 returns -EINVAL.
  *
- * \details Attempt to resize a volume to zero LEBs.
+ * \details Scenario: Attempt to resize a volume to zero LEBs.
  *
  * \expect Returns -EINVAL.
  */
@@ -2790,9 +2795,9 @@ ZTEST(ubi_secure_defensive, test_vol_resize_zero_lebs)
 /**
  * \brief derive_domain_key rejects key version not in allowlist.
  *
- * \details Call ubi_secure_derive_domain_key with kv=99, allowlist=[1].
+ * \details Scenario: Call ubi_secure_derive_domain_key with kv=99, allowlist=[1].
  *
- * \expected Returns -UBI_SECURE_ENOKEY.
+ * \expect Returns -UBI_SECURE_ENOKEY.
  */
 ZTEST(ubi_secure_defensive, test_derive_domain_key_rejects_non_allowlisted_kv)
 {
@@ -2810,9 +2815,9 @@ ZTEST(ubi_secure_defensive, test_derive_domain_key_rejects_non_allowlisted_kv)
 /**
  * \brief derive_leb_key rejects key version not in allowlist.
  *
- * \details Call ubi_secure_derive_leb_key with kv=99, allowlist=[1].
+ * \details Scenario: Call ubi_secure_derive_leb_key with kv=99, allowlist=[1].
  *
- * \expected Returns -UBI_SECURE_ENOKEY.
+ * \expect Returns -UBI_SECURE_ENOKEY.
  */
 ZTEST(ubi_secure_defensive, test_derive_leb_key_rejects_non_allowlisted_kv)
 {
@@ -2828,9 +2833,9 @@ ZTEST(ubi_secure_defensive, test_derive_leb_key_rejects_non_allowlisted_kv)
 /**
  * \brief EC header write rejects counter above COUNTER_MAX.
  *
- * \details Call ubi_secure_ec_hdr_write with counter = COUNTER_MAX + 1.
+ * \details Scenario: Call ubi_secure_ec_hdr_write with counter = COUNTER_MAX + 1.
  *
- * \expected Returns -EOVERFLOW.
+ * \expect Returns -EOVERFLOW.
  */
 ZTEST(ubi_secure_defensive, test_ec_hdr_write_counter_overflow)
 {
@@ -2852,9 +2857,9 @@ ZTEST(ubi_secure_defensive, test_ec_hdr_write_counter_overflow)
 /**
  * \brief VID header write rejects counter above COUNTER_MAX.
  *
- * \details Call ubi_secure_vid_hdr_write with counter = COUNTER_MAX + 1.
+ * \details Scenario: Call ubi_secure_vid_hdr_write with counter = COUNTER_MAX + 1.
  *
- * \expected Returns -EOVERFLOW.
+ * \expect Returns -EOVERFLOW.
  */
 ZTEST(ubi_secure_defensive, test_vid_hdr_write_counter_overflow)
 {
@@ -2877,10 +2882,10 @@ ZTEST(ubi_secure_defensive, test_vid_hdr_write_counter_overflow)
 /**
  * \brief Reserved PEB commit rejects counter overflow.
  *
- * \details Call ubi_secure_res_peb_commit with counter near COUNTER_MAX
+ * \details Scenario: Call ubi_secure_res_peb_commit with counter near COUNTER_MAX
  *          and vol_count that would push total past the limit.
  *
- * \expected Returns -EOVERFLOW.
+ * \expect Returns -EOVERFLOW.
  */
 ZTEST(ubi_secure_defensive, test_res_peb_commit_counter_overflow)
 {

@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_init_errors.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Tests for UBI device initialization error paths and edge cases.
  *
  * These tests exercise error paths in ubi_device_init() that are not covered
@@ -12,6 +14,8 @@
  * \copyright Copyright (c) 2026
  */
 
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include "ubi_test_fixture.h"
 #include "ubi_test_memory.h"
@@ -22,6 +26,8 @@
 #include <zephyr/sys/crc.h>
 
 #include <string.h>
+
+/* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
@@ -38,24 +44,32 @@
 #define VOL_HDR_SIZE (48U)
 #define NR_OF_RES_PEBS (2U)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/** \brief Raw on-flash erase-counter header layout used by raw write helpers. */
 struct raw_ec_hdr {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding[3];
-	uint32_t ec;
-	uint32_t hdr_crc;
+	uint32_t magic; /*!< EC header magic. */
+	uint8_t version; /*!< Header version. */
+	uint8_t padding[3]; /*!< Padding to 4-byte boundary. */
+	uint32_t ec; /*!< Erase counter value. */
+	uint32_t hdr_crc; /*!< Header CRC32. */
 };
 
+/** \brief Raw on-flash volume-id header layout used by raw write helpers. */
 struct raw_vid_hdr {
-	uint32_t magic;
-	uint8_t version;
-	uint8_t padding[3];
-	uint32_t lnum;
-	uint32_t vol_id;
-	uint64_t sqnum;
-	uint32_t data_size;
-	uint32_t hdr_crc;
+	uint32_t magic; /*!< VID header magic. */
+	uint8_t version; /*!< Header version. */
+	uint8_t padding[3]; /*!< Padding to 4-byte boundary. */
+	uint32_t lnum; /*!< Logical erase block number. */
+	uint32_t vol_id; /*!< Volume identifier. */
+	uint64_t sqnum; /*!< Sequence number. */
+	uint32_t data_size; /*!< Data length in this LEB. */
+	uint32_t hdr_crc; /*!< Header CRC32. */
 };
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
 
 static struct ubi_flash_desc flash = { 0 };
 
@@ -63,6 +77,21 @@ static struct ubi_flash_desc flash = { 0 };
  * Tests that call ubi_device_init() store the handle here so teardown
  * can deinit if the test fails mid-way (prevents partition guard leak). */
 static struct ubi_device *g_ubi = NULL;
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
+static void ztest_testcase_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+
+static void raw_write_ec_hdr(const struct flash_area *fa, size_t pnum, size_t erase_block_size,
+			     uint32_t ec);
+static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t erase_block_size,
+			      uint32_t lnum, uint32_t vol_id, uint64_t sqnum, uint32_t data_size);
+
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -128,15 +157,15 @@ static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t e
 	zassert_ok(flash_area_write(fa, offset, &hdr, sizeof(hdr)));
 }
 
+/* Module interface function definitions -------------------------------------------------------- */
+
 ZTEST_SUITE(ubi_init_errors, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
-
-/* Geometry validation tests -------------------------------------------------------------------- */
 
 /**
  * \brief Verify that init with NULL flash returns -EINVAL.
  *
- * \details Call ubi_device_init() with flash set to NULL.
+ * \details Scenario: Call ubi_device_init() with flash set to NULL.
  *
  * \expect Returns -EINVAL.
  */
@@ -150,7 +179,7 @@ ZTEST(ubi_init_errors, init_null_mtd)
 /**
  * \brief Verify that init with NULL ubi pointer returns -EINVAL.
  *
- * \details Call ubi_device_init() with ubi output pointer set to NULL.
+ * \details Scenario: Call ubi_device_init() with ubi output pointer set to NULL.
  *
  * \expect Returns -EINVAL.
  */
@@ -162,7 +191,7 @@ ZTEST(ubi_init_errors, init_null_ubi)
 /**
  * \brief Verify that double init on same partition returns -EBUSY.
  *
- * \details Initialize device once. Without deinit, try to init again.
+ * \details Scenario: Initialize device once. Without deinit, try to init again.
  *          The partition guard should prevent double-init.
  *
  * \expect Second init returns -EBUSY. First handle still valid.
@@ -185,7 +214,7 @@ ZTEST(ubi_init_errors, double_init_returns_ebusy)
 /**
  * \brief Verify that init after deinit succeeds (partition reuse).
  *
- * \details Initialize a UBI device, create a volume, write data, deinit. Re-init on the same partition.
+ * \details Scenario: Initialize a UBI device, create a volume, write data, deinit. Re-init on the same partition.
  *
  * \expect Second init succeeds. Data from first session is preserved.
  */
@@ -220,12 +249,10 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 	g_ubi = NULL;
 }
 
-/* Memory allocation failures during init ------------------------------------------------------- */
-
 /**
  * \brief Verify that device allocation failure during init is handled safely.
  *
- * \details Inject alloc fault so device struct allocation fails during ubi_device_init().
+ * \details Scenario: Inject alloc fault so device struct allocation fails during ubi_device_init().
  *
  * \expect Init returns -ENOMEM. ubi pointer is NULL.
  */
@@ -251,7 +278,7 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
 /**
  * \brief Verify that volume allocation failure during init_collect_volumes is safe.
  *
- * \details Init + create volume, deinit. On re-init, fault inject the volume
+ * \details Scenario: Init + create volume, deinit. On re-init, fault inject the volume
  *          allocation inside init_collect_volumes. Init should fail but leave
  *          no persistent damage.
  *
@@ -297,7 +324,7 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 /**
  * \brief Verify that leaf allocation failure during init_collect_volumes cleans up.
  *
- * \details Same as above but fail on the 3rd allocation (leaf item for volume tree entry).
+ * \details Scenario: Same as above but fail on the 3rd allocation (leaf item for volume tree entry).
  *
  * \expect Init fails. Volume struct is freed. Clean re-init possible.
  */
@@ -337,7 +364,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 /**
  * \brief Verify that leaf allocation failure during init_scan_pebs is handled.
  *
- * \details After collecting volumes, init scans all PEBs and allocates leaf items
+ * \details Scenario: After collecting volumes, init scans all PEBs and allocates leaf items
  *          for free/dirty/EBA entries. Fail one of those allocations.
  *
  * \expect Init fails safely. Clean re-init possible.
@@ -375,13 +402,11 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 	g_ubi = NULL;
 }
 
-/* Init-time PEB classification edge cases ------------------------------------------------------ */
-
 /**
  * \brief Verify that PEBs with a semantic VID header pointing to valid volume
  *        but out-of-bounds LEB number are classified as dirty.
  *
- * \details Create a volume with leb_count=1. Write data to LEB 0.
+ * \details Scenario: Create a volume with leb_count=1. Write data to LEB 0.
  *          Deinit. Then inject a VID header with lnum=5 (exceeds leb_count)
  *          for the same vol_id on a free PEB.
  *
@@ -457,7 +482,7 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 /**
  * \brief Verify that VID header read failure (unreadable flash) classifies PEB as bad.
  *
- * \details Write a valid EC header on a data PEB but corrupt the VID area
+ * \details Scenario: Write a valid EC header on a data PEB but corrupt the VID area
  *          with partial garbage (not all 0xFF, but not a valid VID). The first
  *          VID read succeeds (no CRC check), detects non-empty content, but
  *          the second read (with CRC check) fails → bad PEB.
@@ -515,7 +540,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 /**
  * \brief Verify that EC read failure during erase_peb moves PEB from dirty to bad.
  *
- * \details Create volume, write data, unmap. Then corrupt the EC header on the
+ * \details Scenario: Create volume, write data, unmap. Then corrupt the EC header on the
  *          dirty PEB by writing garbage. Call erase_peb → EC read fails → PEB
  *          moved to bad blocks.
  *
@@ -612,7 +637,7 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
  * \brief Verify that semantically invalid volume header during init_collect_volumes
  *        causes init to fail.
  *
- * \details Init and create a volume. Deinit. Then corrupt the vol header on both
+ * \details Scenario: Init and create a volume. Deinit. Then corrupt the vol header on both
  *          reserved PEBs: change the vol_type to an invalid value (0xFF) while
  *          keeping magic and CRC valid (recompute CRC after change).
  *
@@ -679,7 +704,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 /**
  * \brief Verify that duplicate LEB with higher sqnum wins during init scan.
  *
- * \details Create volume, write LEB 0 twice (creating high sqnum). Erase dirty.
+ * \details Scenario: Create volume, write LEB 0 twice (creating high sqnum). Erase dirty.
  *          Deinit. Inject duplicate VID for same LEB with very high sqnum on a
  *          free PEB, along with new data. Re-init → new data wins.
  *
@@ -770,7 +795,7 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 /**
  * \brief Verify that the global sequence number is strictly monotonic after init.
  *
- * \details Init, create vol, write to LEB 0, deinit. Re-init (sqnum restored from
+ * \details Scenario: Init, create vol, write to LEB 0, deinit. Re-init (sqnum restored from
  *          flash), write to LEB 1. The sqnum of LEB 1 should be > sqnum of LEB 0.
  *
  * \expect Global sqnum continues incrementing across reboots.
@@ -817,12 +842,10 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 #endif
 }
 
-/* Geometry validation tests -------------------------------------------------------------------- */
-
 /**
  * \brief Init with erase_block_size=0 returns -EINVAL.
  *
- * \details Call ubi_device_init() with erase_block_size set to 0.
+ * \details Scenario: Call ubi_device_init() with erase_block_size set to 0.
  *
  * \expect Returns -EINVAL.
  */
@@ -839,7 +862,7 @@ ZTEST(ubi_init_errors, geometry_erase_block_size_zero)
 /**
  * \brief Init with write_block_size=0 returns -EINVAL.
  *
- * \details Call ubi_device_init() with write_block_size set to 0.
+ * \details Scenario: Call ubi_device_init() with write_block_size set to 0.
  *
  * \expect Returns -EINVAL.
  */
@@ -856,7 +879,7 @@ ZTEST(ubi_init_errors, geometry_write_block_size_zero)
 /**
  * \brief Init with erase_block_size not a multiple of write_block_size returns -EINVAL.
  *
- * \details Call ubi_device_init() with erase_block_size not a multiple of write_block_size.
+ * \details Scenario: Call ubi_device_init() with erase_block_size not a multiple of write_block_size.
  *
  * \expect Returns -EINVAL.
  */
@@ -873,7 +896,7 @@ ZTEST(ubi_init_errors, geometry_ebs_not_multiple_of_wbs)
 /**
  * \brief Init with write_block_size exceeding WRITE_BLOCK_SIZE_ALIGNMENT (16) returns -EINVAL.
  *
- * \details Call ubi_device_init() with write_block_size larger than erase_block_size.
+ * \details Scenario: Call ubi_device_init() with write_block_size larger than erase_block_size.
  *
  * \expect Returns -EINVAL.
  */
@@ -890,7 +913,7 @@ ZTEST(ubi_init_errors, geometry_wbs_exceeds_alignment)
 /**
  * \brief Init with erase_block_size too small for headers returns -EINVAL.
  *
- * \details Call ubi_device_init() with erase_block_size too small to hold all UBI headers.
+ * \details Scenario: Call ubi_device_init() with erase_block_size too small to hold all UBI headers.
  *
  * \expect Returns -EINVAL.
  */
@@ -908,7 +931,7 @@ ZTEST(ubi_init_errors, geometry_ebs_too_small_for_headers)
 /**
  * \brief Corrupt reserved PEB CRC during scan exercises CORRUPT classification.
  *
- * \details Corrupt the CRC of a reserved PEB on flash. Call ubi_device_init().
+ * \details Scenario: Corrupt the CRC of a reserved PEB on flash. Call ubi_device_init().
  *
  * \expect Init succeeds in degraded mode. read_only_degraded is true.
  */
@@ -948,7 +971,7 @@ ZTEST(ubi_init_errors, reserved_peb_crc_corruption_detected)
 /**
  * \brief Corrupt device header semantics: vol_count exceeds max.
  *
- * \details Inject an invalid vol_count in the dev_hdr that exceeds CONFIG_UBI_MAX_NR_OF_VOLUMES. Call ubi_device_init().
+ * \details Scenario: Inject an invalid vol_count in the dev_hdr that exceeds CONFIG_UBI_MAX_NR_OF_VOLUMES. Call ubi_device_init().
  *
  * \expect Init fails with error.
  */
@@ -988,7 +1011,7 @@ ZTEST(ubi_init_errors, reserved_peb_vol_count_exceeds_max)
 /**
  * \brief One reserved PEB corrupt, one active — init recovers.
  *
- * \details Corrupt one reserved PEB (dev_hdr + vol_hdr). Init recovers from the healthy copy.
+ * \details Scenario: Corrupt one reserved PEB (dev_hdr + vol_hdr). Init recovers from the healthy copy.
  *
  * \expect Init succeeds. Device may enter degraded mode depending on implementation.
  */
@@ -1026,7 +1049,7 @@ ZTEST(ubi_init_errors, one_reserved_peb_corrupt_recovers)
 /**
  * \brief Scratch alloc failure during reserved PEB validation/recovery.
  *
- * \details Inject alloc fault on the scratch buffer during reserved PEB validation in init.
+ * \details Scenario: Inject alloc fault on the scratch buffer during reserved PEB validation in init.
  *
  * \expect Init returns -ENOMEM. Clean re-init possible with faults disabled.
  */
@@ -1063,7 +1086,7 @@ ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
 /**
  * \brief Fully erased partition triggers fresh format.
  *
- * \details Erase the entire partition. Call ubi_device_init() — it should detect the blank partition and format it.
+ * \details Scenario: Erase the entire partition. Call ubi_device_init() — it should detect the blank partition and format it.
  *
  * \expect Init succeeds. No volumes exist. free_peb_count > 0.
  */
@@ -1085,7 +1108,7 @@ ZTEST(ubi_init_errors, erased_partition_triggers_format)
 /**
  * \brief EC write failure during format path.
  *
- * \details Erase partition. Inject flash write failure during format (EC header write). Call ubi_device_init().
+ * \details Scenario: Erase partition. Inject flash write failure during format (EC header write). Call ubi_device_init().
  *
  * \expect Init fails with -EIO. Clean re-init possible with faults disabled.
  */
@@ -1109,7 +1132,7 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
 /**
  * \brief Leaf alloc failure while classifying a bad PEB during scan.
  *
- * \details Inject alloc fault during init PEB scan when allocating a leaf item for bad PEB classification.
+ * \details Scenario: Inject alloc fault during init PEB scan when allocating a leaf item for bad PEB classification.
  *
  * \expect Init returns -ENOMEM. Clean re-init possible.
  */
@@ -1157,7 +1180,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
  * limit. If the on-flash header has been corrupted (e.g. by another board) to
  * carry a larger vol_count, init should fail with -ENOMEM.
  *
- * \details Inject a device header with vol_count exceeding CONFIG_UBI_MAX_NR_OF_VOLUMES on the reserved PEB.
+ * \details Scenario: Inject a device header with vol_count exceeding CONFIG_UBI_MAX_NR_OF_VOLUMES on the reserved PEB.
  *
  * \expect Init fails because the volume metadata is inconsistent.
  */
@@ -1230,7 +1253,7 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
  * Write a VID header on a data PEB with lnum >= vol_cfg.leb_count.
  * On init scan, map_leb_first_occurrence should classify the PEB as dirty.
  *
- * \details Inject a VID header with lnum exceeding the volume's leb_count. Call ubi_device_init().
+ * \details Scenario: Inject a VID header with lnum exceeding the volume's leb_count. Call ubi_device_init().
  *
  * \expect The out-of-bounds LEB is classified as dirty. Init succeeds.
  */
@@ -1303,7 +1326,7 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
  * On scan, when a duplicate LEB is found and the existing PEB's EC header
  * cannot be read, the existing PEB is moved to bad list and the new PEB wins.
  *
- * \details Create a volume, write to LEB 0. Deinit. Inject a duplicate VID header for the same LEB on another PEB. Corrupt the EC header of the existing mapped PEB. Re-init.
+ * \details Scenario: Create a volume, write to LEB 0. Deinit. Inject a duplicate VID header for the same LEB on another PEB. Corrupt the EC header of the existing mapped PEB. Re-init.
  *
  * \expect Init succeeds. The PEB with corrupt EC is handled (classified as bad or dirty).
  */
@@ -1414,7 +1437,7 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
  * The new PEB should be discarded to the dirty pool and the existing
  * mapping should be preserved.
  *
- * \details Create a volume, write to LEB 0. Deinit. Inject a duplicate VID header with a lower sqnum on a free PEB. Re-init.
+ * \details Scenario: Create a volume, write to LEB 0. Deinit. Inject a duplicate VID header with a lower sqnum on a free PEB. Re-init.
  *
  * \expect Init succeeds. The lower-sqnum PEB is discarded to dirty.
  */
@@ -1501,7 +1524,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 /**
  * \brief VID header with corrupt CRC during scan classifies PEB as bad.
  *
- * \details Write data to a LEB. Deinit. Corrupt the VID header CRC on the mapped PEB. Re-init.
+ * \details Scenario: Write data to a LEB. Deinit. Corrupt the VID header CRC on the mapped PEB. Re-init.
  *
  * \expect The PEB with corrupt VID CRC is classified as bad. Init succeeds.
  */
@@ -1563,7 +1586,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
  * We can't actually change the partition size, but we can test with a
  * modified flash where erase_block_size doesn't divide partition size.
  *
- * \details Configure flash descriptor so the partition size is not a multiple of erase_block_size.
+ * \details Scenario: Configure flash descriptor so the partition size is not a multiple of erase_block_size.
  *
  * \expect ubi_device_init() returns -EINVAL.
  */
@@ -1586,7 +1609,7 @@ ZTEST(ubi_init_errors, geometry_partition_not_multiple_of_ebs)
 /**
  * \brief Init with partition too small for reserved + data PEBs.
  *
- * \details Configure flash descriptor so the partition holds fewer PEBs than required for reserved PEBs + 1 data PEB.
+ * \details Scenario: Configure flash descriptor so the partition holds fewer PEBs than required for reserved PEBs + 1 data PEB.
  *
  * \expect ubi_device_init() returns -EINVAL.
  */
@@ -1611,8 +1634,6 @@ ZTEST(ubi_init_errors, geometry_partition_too_small)
 	zassert_not_equal(ret, 0, "Init should fail with partition too small");
 }
 
-/* CRYPTO-disabled dispatch test ---------------------------------------------------------------- */
-
 #ifndef CONFIG_UBI_CRYPTO
 
 #include <ubi_crypto.h>
@@ -1620,7 +1641,7 @@ ZTEST(ubi_init_errors, geometry_partition_too_small)
 /**
  * \brief Verify -ENOTSUP when crypto_cfg != NULL and CONFIG_UBI_CRYPTO=n.
  *
- * \details Build the public dispatcher contract from `lib/src/ubi.c`: when the
+ * \details Scenario: Build the public dispatcher contract from `lib/src/ubi.c`: when the
  *          caller passes a non-NULL crypto_cfg but the secure backend is not
  *          compiled in, ubi_device_init() must reject with -ENOTSUP without
  *          dereferencing any callbacks. Audit §10.1 (former #6).

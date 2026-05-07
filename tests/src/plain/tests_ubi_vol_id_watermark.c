@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_vol_id_watermark.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Tests for the persistent vol_id high-watermark (Task E).
  *
  * Verifies that:
@@ -85,7 +87,7 @@ ZTEST_SUITE(ubi_vol_id_watermark, NULL, ztest_suite_setup, ztest_testcase_before
 /**
  * \brief vol_id is not reused after remove within the same boot.
  *
- * \details Create vol A (id=0), remove it, create vol B.
+ * \details Scenario: Create vol A (id=0), remove it, create vol B.
  *
  * \expect Vol B gets id=1, not 0.
  */
@@ -121,7 +123,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
 /**
  * \brief vol_id is not reused after remove + reinit (simulated reboot).
  *
- * \details Create vol A (id=0), remove it, deinit, reinit from flash, create
+ * \details Scenario: Create vol A (id=0), remove it, deinit, reinit from flash, create
  *          vol B.
  *
  * \expect Vol B gets id=1 because the watermark is persisted in the device
@@ -166,7 +168,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 /**
  * \brief Volume slot re-indexing after remove does not change vol_ids.
  *
- * \details Create 3 volumes (ids 0, 1, 2). Remove vol 1 (middle).
+ * \details Scenario: Create 3 volumes (ids 0, 1, 2). Remove vol 1 (middle).
  *
  * \expect Remaining volumes keep their original vol_ids (0 and 2). After
  *         reinit, a new volume gets id=3 (not 1).
@@ -244,7 +246,7 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
 /**
  * \brief vol_id overflow fails closed without wrapping.
  *
- * \details Set vol_id_watermark to UINT32_MAX on flash.
+ * \details Scenario: Set vol_id_watermark to UINT32_MAX on flash.
  *
  * \expect volume_create returns -ENOSPC. Device state is unchanged.
  */

@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_mutation_gate.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Tests for the central mutation gate.
  *
  * Verifies that:
@@ -89,7 +91,7 @@ ZTEST_SUITE(ubi_mutation_gate, NULL, ztest_suite_setup, ztest_testcase_before,
 /**
  * \brief Verify that the test write shutdown flag blocks all public mutators.
  *
- * \details Enable write shutdown via the test API. Then call every public
+ * \details Scenario: Enable write shutdown via the test API. Then call every public
  *          mutator and verify that each returns -EROFS. Read-only operations
  *          (get_info, leb_read, leb_is_mapped, leb_get_size) must still work.
  *
@@ -203,7 +205,7 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 /**
  * \brief Verify that degraded mode blocks volume create, resize, and remove.
  *
- * \details Corrupt reserved PEBs to attempt degraded mode entry. If the flash
+ * \details Scenario: Corrupt reserved PEBs to attempt degraded mode entry. If the flash
  *          simulator successfully recovers (writes/erases never fail), the test
  *          is skipped. When degraded mode is achieved, all three
  *          reserved-metadata mutators must return -EROFS.
@@ -300,7 +302,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
  * \brief Verify that corrupting a reserved PEB at runtime triggers transparent
  *        recovery during the next volume operation.
  *
- * \details After init (both reserved PEBs healthy), corrupt one reserved PEB
+ * \details Scenario: After init (both reserved PEBs healthy), corrupt one reserved PEB
  *          CRC directly on flash. The next volume_create triggers
  *          dev_hdr_read_and_bump → ubi_flash_res_peb_validate → scan + recovery.
  *          On the simulator, recovery always succeeds, so the device stays
@@ -364,7 +366,7 @@ ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
  * \brief Verify that runtime reserved PEB degradation sets read_only_degraded
  *        and blocks subsequent mutations.
  *
- * \details After init (both reserved PEBs healthy), corrupt one reserved PEB
+ * \details Scenario: After init (both reserved PEBs healthy), corrupt one reserved PEB
  *          and inject a flash erase fault so recovery cannot restore it. The
  *          next volume operation triggers validate → recovery fails → -EROFS.
  *          dev_hdr_read_and_bump sets the read_only_degraded flag. Subsequent
@@ -466,7 +468,7 @@ ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
  * \brief Verify that erase_peb recovers the reserved PEB bank and clears
  *        the read_only_degraded flag.
  *
- * \details Enter runtime degraded mode (corrupt PEB + erase fault). Clear the
+ * \details Scenario: Enter runtime degraded mode (corrupt PEB + erase fault). Clear the
  *          erase fault so flash operations succeed again. Call erase_peb which
  *          attempts reserved PEB recovery as part of its maintenance cycle.
  *          After recovery, the degraded flag must be cleared and volume

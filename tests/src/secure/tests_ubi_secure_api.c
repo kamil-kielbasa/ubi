@@ -28,17 +28,20 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	const struct device *flash_dev = UBI_PARTITION_DEVICE;
@@ -60,20 +63,19 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Secure init succeeds on blank flash (format-on-first-use).
  *
- * \details Initialize the secure backend on a fully erased partition.
+ * \details Scenario: Initialize the secure backend on a fully erased partition.
  *          The backend must detect blank media and format it in secure mode.
  *
- * \expected ubi_device_init returns 0, device handle is non-NULL.
+ * \expect ubi_device_init returns 0, device handle is non-NULL.
  */
 ZTEST(ubi_secure_api, test_secure_format_on_blank)
 {
@@ -88,11 +90,11 @@ ZTEST(ubi_secure_api, test_secure_format_on_blank)
 /**
  * \brief Plain init still works when secure types are included.
  *
- * \details Initialize the plain backend (crypto_cfg == NULL) while
+ * \details Scenario: Initialize the plain backend (crypto_cfg == NULL) while
  *          CONFIG_UBI_CRYPTO=y is enabled in the build. Validates that
  *          including ubi_crypto.h does not break the plain code path.
  *
- * \expected ubi_device_init returns 0, device info shows > 0 PEBs.
+ * \expect ubi_device_init returns 0, device info shows > 0 PEBs.
  */
 ZTEST(ubi_secure_api, test_plain_init_unaffected_by_secure_types)
 {
@@ -111,10 +113,10 @@ ZTEST(ubi_secure_api, test_plain_init_unaffected_by_secure_types)
 /**
  * \brief Crypto type sizes and layout are sane.
  *
- * \details Verify struct sizes, enum ranges, and verdict values for all
+ * \details Scenario: Verify struct sizes, enum ranges, and verdict values for all
  *          public crypto types defined in ubi_crypto.h.
  *
- * \expected freshness is 16 bytes, event types span 0..9, verdict enums
+ * \expect freshness is 16 bytes, event types span 0..9, verdict enums
  *           match their documented values.
  */
 ZTEST(ubi_secure_api, test_crypto_type_sizes)
@@ -140,9 +142,9 @@ ZTEST(ubi_secure_api, test_crypto_type_sizes)
 /**
  * \brief get_write_active_key_version rejects NULL arguments.
  *
- * \details Both the device handle and the output pointer are required.
+ * \details Scenario: Both the device handle and the output pointer are required.
  *
- * \expected -EINVAL when either argument is NULL.
+ * \expect -EINVAL when either argument is NULL.
  */
 ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
 {
@@ -160,7 +162,11 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
 /**
  * \brief get_write_active_key_version returns -ENOTSUP on plain-mode device.
  *
- * \expected -ENOTSUP when device was initialized with crypto_cfg=NULL.
+ * \expect -ENOTSUP when device was initialized with crypto_cfg=NULL.
+ *
+ * \details Scenario: Initialize device with crypto_cfg=NULL (plain mode). Call
+ *          ubi_secure_get_write_active_key_version with the device handle and an output
+ *          buffer. Deinit.
  */
 ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
 {
@@ -175,11 +181,11 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
 /**
  * \brief get_write_active_key_version returns the formatted key version.
  *
- * \details After format-on-blank with requested kv=1, the getter must
+ * \details Scenario: After format-on-blank with requested kv=1, the getter must
  *          return 1. After reattach with rotation to kv=2 in the
  *          allowlist, the getter must return 2.
  *
- * \expected kv == 1 after format; kv == 2 after rotation reattach.
+ * \expect kv == 1 after format; kv == 2 after rotation reattach.
  */
 ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
 {
@@ -210,13 +216,13 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
 /**
  * \brief Reserved-generation fit guard rejects too-small erase blocks.
  *
- * \details One secure reserved generation must fit inside one reserved PEB:
+ * \details Scenario: One secure reserved generation must fit inside one reserved PEB:
  *          erase_block_size >= UBI_SECURE_DEV_HDR_SIZE +
  *                              CONFIG_UBI_MAX_NR_OF_VOLUMES * UBI_SECURE_VOL_HDR_SIZE
  *          (i.e. 96 + 96 * N).  Init must reject any geometry that violates
  *          this bound.
  *
- * \expected ubi_device_init returns -EINVAL when erase_block_size is below
+ * \expect ubi_device_init returns -EINVAL when erase_block_size is below
  *           the fit threshold but above all earlier sanity bounds.
  */
 ZTEST(ubi_secure_api, test_reserved_generation_fit_guard_rejects_small_eb)
@@ -248,7 +254,5 @@ ZTEST(ubi_secure_api, test_reserved_generation_fit_guard_rejects_small_eb)
 		      small_eb, fit_threshold, ret);
 	zassert_is_null(ubi);
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_api, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

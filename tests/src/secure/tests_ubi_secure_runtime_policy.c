@@ -35,13 +35,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
@@ -81,15 +85,14 @@ struct runtime_policy_test_state {
 
 static struct runtime_policy_test_state ts;
 
-/* Event callbacks ------------------------------------------------------------------------------ */
-
+/* Static function definitions ------------------------------------------------------------------ */
 /**
  * \brief Comprehensive event tracker — returns CONTINUE.
  */
 static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
 						       void *user_data)
 {
-	ARG_UNUSED(user_data);
+	(void)user_data;
 	ts.event_count++;
 	ts.last_event_type = event->type;
 
@@ -145,8 +148,8 @@ static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto
  */
 static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
 {
-	ARG_UNUSED(freshness);
-	ARG_UNUSED(user_data);
+	(void)freshness;
+	(void)user_data;
 	ts.sync_call_count++;
 
 	if (ts.sync_fail_after > 0 && ts.sync_call_count > ts.sync_fail_after) {
@@ -173,12 +176,10 @@ static int selective_get_key_id(uint8_t key_version, uint32_t *key_id_out)
 static enum ubi_crypto_rollback_verdict
 rejecting_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
 {
-	ARG_UNUSED(freshness);
-	ARG_UNUSED(user_data);
+	(void)freshness;
+	(void)user_data;
 	return UBI_CRYPTO_ROLLBACK_REJECT;
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -200,7 +201,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	memset(&ts, 0, sizeof(ts));
 	g_ubi = NULL;
 	ubi_test_partition_force_release_all();
@@ -209,23 +210,22 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_suite_after(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	if (g_ubi) {
 		ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
 	}
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Event callback returning ENTER_READ_ONLY blocks subsequent writes.
  *
- * \details Init device with sync callback that fails after N calls. The
+ * \details Scenario: Init device with sync callback that fails after N calls. The
  *          failure emits FRESHNESS_SYNC_FAILURE; the escalating callback
  *          enters read-only. Subsequent writes must be rejected.
  *
- * \expected Second ubi_leb_write returns -EROFS.
+ * \expect Second ubi_leb_write returns -EROFS.
  */
 ZTEST(ubi_secure_runtime_policy, test_event_enter_read_only_blocks_writes)
 {
@@ -264,10 +264,10 @@ ZTEST(ubi_secure_runtime_policy, test_event_enter_read_only_blocks_writes)
 /**
  * \brief Reads still work after crypto-initiated read-only.
  *
- * \details Write data, enter read-only via event callback, then read the
+ * \details Scenario: Write data, enter read-only via event callback, then read the
  *          data back. The read should succeed even though writes are blocked.
  *
- * \expected ubi_leb_read returns 0 with correct data.
+ * \expect ubi_leb_read returns 0 with correct data.
  */
 ZTEST(ubi_secure_runtime_policy, test_reads_work_in_crypto_ro)
 {
@@ -303,10 +303,10 @@ ZTEST(ubi_secure_runtime_policy, test_reads_work_in_crypto_ro)
 /**
  * \brief sync_freshness is called after a commit-visible mutation.
  *
- * \details Use a counting sync callback. Write data to a LEB and verify
+ * \details Scenario: Use a counting sync callback. Write data to a LEB and verify
  *          the sync callback was invoked.
  *
- * \expected sync_call_count increases after write and volume_create.
+ * \expect sync_call_count increases after write and volume_create.
  */
 ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_write)
 {
@@ -340,10 +340,10 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_write)
 /**
  * \brief Freshness sync failure emits FRESHNESS_SYNC_FAILURE event.
  *
- * \details Configure sync callback to return -EIO. Write data and verify
+ * \details Scenario: Configure sync callback to return -EIO. Write data and verify
  *          that a FRESHNESS_SYNC_FAILURE event was emitted.
  *
- * \expected freshness_sync_failure_count > 0 after write.
+ * \expect freshness_sync_failure_count > 0 after write.
  */
 ZTEST(ubi_secure_runtime_policy, test_freshness_sync_failure_emits_event)
 {
@@ -376,10 +376,10 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_failure_emits_event)
 /**
  * \brief Erase PEB triggers freshness sync.
  *
- * \details Write data, create a dirty PEB by overwriting, then erase.
+ * \details Scenario: Write data, create a dirty PEB by overwriting, then erase.
  *          Verify sync was called during the erase.
  *
- * \expected sync_call_count increases after erase_peb.
+ * \expect sync_call_count increases after erase_peb.
  */
 ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_erase)
 {
@@ -415,10 +415,10 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_erase)
 /**
  * \brief Erase_peb blocked when device is in crypto read-only.
  *
- * \details Enter crypto read-only via event callback, then attempt
+ * \details Scenario: Enter crypto read-only via event callback, then attempt
  *          erase_peb. The erase must be rejected.
  *
- * \expected ubi_erase_peb returns -EROFS.
+ * \expect ubi_erase_peb returns -EROFS.
  */
 ZTEST(ubi_secure_runtime_policy, test_erase_blocked_in_crypto_ro)
 {
@@ -453,9 +453,9 @@ ZTEST(ubi_secure_runtime_policy, test_erase_blocked_in_crypto_ro)
 /**
  * \brief Volume create blocked when device is in crypto read-only.
  *
- * \details Enter crypto read-only, then attempt to create a new volume.
+ * \details Scenario: Enter crypto read-only, then attempt to create a new volume.
  *
- * \expected ubi_volume_create returns -EROFS.
+ * \expect ubi_volume_create returns -EROFS.
  */
 ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
 {
@@ -494,19 +494,17 @@ ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
 	zassert_equal(ret, -EROFS, "Expected -EROFS, got %d", ret);
 }
 
-/* Key lifecycle tests ------------------------------------------------------------------------- */
-
 /**
  * \brief KEY_RETIRABLE fires after all data-PEB objects for a retired key
  *        version have been erased.
  *
- * \details Format with kv=1. Write data. Re-init with write_kv=2 and
+ * \details Scenario: Format with kv=1. Write data. Re-init with write_kv=2 and
  *          allowlist=[1,2] — attach eagerly upgrades reserved PEBs to kv=2.
  *          Overwrite mapped LEBs with kv=2 and erase dirty PEBs until
  *          every data-PEB object under kv=1 has been recycled.
  *          Verify KEY_RETIRABLE(kv=1).
  *
- * \expected key_retirable_count >= 1 and key_retirable_kv == 1.
+ * \expect key_retirable_count >= 1 and key_retirable_kv == 1.
  */
 ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
 {
@@ -595,7 +593,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
 /**
  * \brief Read-path allowlist rejects objects with non-allowlisted key version.
  *
- * \details Three-phase test:
+ * \details Scenario: Three-phase test:
  *          1. Write data with kv=1 and create the volume.
  *          2. Re-init with kv=2, allowlist=[1,2]. Attach eagerly upgrades
  *             reserved PEBs to kv=2.
@@ -603,7 +601,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
  *             Data-PEB init scan succeeds (no allowlist check in scan).
  *             Runtime ubi_leb_read → EC kv=1 not in [2] → reject.
  *
- * \expected ubi_leb_read returns error and allowlist_reject_count >= 1.
+ * \expect ubi_leb_read returns error and allowlist_reject_count >= 1.
  */
 ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 {
@@ -670,11 +668,11 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
 /**
  * \brief Write fails with KEY_VERSION_UNAVAILABLE when get_key_id fails.
  *
- * \details Init with kv=1. Write data. Deinit. Re-init with write_kv=2
+ * \details Scenario: Init with kv=1. Write data. Deinit. Re-init with write_kv=2
  *          but get_key_id fails for kv=2. Attempt write. Expect failure
  *          and KEY_VERSION_UNAVAILABLE event.
  *
- * \expected Write returns error and key_unavailable_count >= 1.
+ * \expect Write returns error and key_unavailable_count >= 1.
  */
 ZTEST(ubi_secure_runtime_policy, test_missing_key_on_write)
 {
@@ -728,11 +726,11 @@ ZTEST(ubi_secure_runtime_policy, test_missing_key_on_write)
 /**
  * \brief ROLLBACK_POLICY_MISMATCH event on freshness rejection at init.
  *
- * \details Write data, deinit. Re-init with check_freshness returning
+ * \details Scenario: Write data, deinit. Re-init with check_freshness returning
  *          REJECT. Verify init fails and ROLLBACK_POLICY_MISMATCH event
  *          is emitted.
  *
- * \expected ubi_device_init returns -EACCES, rollback_mismatch_count == 1.
+ * \expect ubi_device_init returns -EACCES, rollback_mismatch_count == 1.
  */
 ZTEST(ubi_secure_runtime_policy, test_rollback_policy_mismatch_event)
 {
@@ -774,11 +772,11 @@ ZTEST(ubi_secure_runtime_policy, test_rollback_policy_mismatch_event)
 /**
  * \brief Sticky read-only is cleared after deinit + reinit.
  *
- * \details Enter crypto read-only via event callback escalation on sync
+ * \details Scenario: Enter crypto read-only via event callback escalation on sync
  *          failure. Verify writes are blocked. Deinit, reinit. Verify writes
  *          succeed.
  *
- * \expected Writes fail in read-only, succeed after reinit.
+ * \expect Writes fail in read-only, succeed after reinit.
  */
 ZTEST(ubi_secure_runtime_policy, test_sticky_ro_cleared_on_reinit)
 {
@@ -839,11 +837,11 @@ ZTEST(ubi_secure_runtime_policy, test_sticky_ro_cleared_on_reinit)
  * \brief Mixed-key recovery: data written under kv=1 remains readable
  *        after switching to kv=2 for writes.
  *
- * \details Init with kv=1, write LEBs, deinit. Re-init with kv=2 write,
+ * \details Scenario: Init with kv=1, write LEBs, deinit. Re-init with kv=2 write,
  *          allowlist=[1,2]. Old data is read successfully. New writes use
  *          kv=2 and are also readable.
  *
- * \expected All reads succeed across key versions.
+ * \expect All reads succeed across key versions.
  */
 ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
 {
@@ -903,7 +901,7 @@ ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
  * \brief End-to-end refcount test: full lifecycle with key rotation and
  *        KEY_RETIRABLE event after many erases.
  *
- * \details Exercises all major operations under key rotation:
+ * \details Scenario: Exercises all major operations under key rotation:
  *          1. Init kv=1, volume create, LEB write/read, LEB unmap,
  *             volume resize (expand + shrink), LEB write again.
  *          2. Deinit, re-init with kv=2 (allowlist=[1,2]).
@@ -914,7 +912,7 @@ ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
  *          6. Verify KEY_RETIRABLE(kv=1) fires after the last kv=1
  *             EC header is erased.
  *
- * \expected key_retirable_count >= 1, key_retirable_kv == 1.
+ * \expect key_retirable_count >= 1, key_retirable_kv == 1.
  */
 ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 {
@@ -1066,8 +1064,6 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 	zassert_mem_equal(rdata2, data_final, sizeof(data_final));
 }
 
-/* Metadata-domain budget tests --------------------------------------------------------------- */
-
 /*
  * The metadata-domain budget tests rely on ubi_secure_test_set_metadata_counters()
  * to advance the global next_*_counter values close to ROTATE_NOW_PCT in a
@@ -1092,7 +1088,7 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
 /**
  * \brief Reserved-area (DEVICE_HEADER + VOLUME_HEADER) write-budget exhaustion.
  *
- * \details Pre-stages the shared reserved-PEB AEAD counter just below the
+ * \details Scenario: Pre-stages the shared reserved-PEB AEAD counter just below the
  *          hard threshold via the test hook, then issues volume_resize
  *          calls.  Each commit advances the counter by 1 + vol_count, so
  *          a handful of resizes crosses ROTATE_NOW_PCT.  The pre-commit
@@ -1101,6 +1097,9 @@ ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
  *          mutation class returns -EROFS, reads still succeed.
  *          Reattach with a new requested_write_key_version installs a
  *          fresh budget under new HKDF child keys and unblocks volume ops.
+ *
+ * \expect The last resize returns -ENOSPC; rotate_now_count == 1; subsequent writes/erases
+ *         return -EROFS; reads still succeed. Reinit with kv=2 allows the resize to succeed.
  */
 ZTEST(ubi_secure_runtime_policy, test_reserved_metadata_budget_exhausts_blocks_until_rotation)
 {
@@ -1181,7 +1180,7 @@ ZTEST(ubi_secure_runtime_policy, test_reserved_metadata_budget_exhausts_blocks_u
 /**
  * \brief ERASE_COUNTER write-budget exhaustion.
  *
- * \details Pre-stages BUDGET_HEADROOM + 1 dirty PEBs by writing distinct
+ * \details Scenario: Pre-stages BUDGET_HEADROOM + 1 dirty PEBs by writing distinct
  *          LEBs and shrinking the volume (only the VID and reserved
  *          counters move during pre-staging).  The test hook then drives
  *          the EC counter close to the hard threshold while VID and
@@ -1190,6 +1189,10 @@ ZTEST(ubi_secure_runtime_policy, test_reserved_metadata_budget_exhausts_blocks_u
  *          reserved-area budget.  A pure-erase loop runs until -ENOSPC.
  *          KEY_ROTATE_NOW is emitted exactly once, subsequent mutations
  *          are -EROFS, and reattach with a new kv unblocks erase.
+ *
+ * \expect Successful erases are limited to 4; the final erase returns -ENOSPC;
+ *         rotate_now_count == 1; subsequent mutations return -EROFS. Reinit with kv=2
+ *         allows erase to succeed.
  */
 ZTEST(ubi_secure_runtime_policy, test_ec_metadata_budget_exhausts_blocks_until_rotation)
 {
@@ -1275,13 +1278,17 @@ ZTEST(ubi_secure_runtime_policy, test_ec_metadata_budget_exhausts_blocks_until_r
 /**
  * \brief VOLUME_IDENTIFIER write-budget exhaustion.
  *
- * \details Pre-stages the VID counter close to the hard threshold (and
+ * \details Scenario: Pre-stages the VID counter close to the hard threshold (and
  *          resets reserved + EC to zero so they cannot trip first), then
  *          writes to distinct LEBs.  Each write advances the global VID
  *          counter by one and the per-{kv, vol_id} LEB counter by one
  *          (well below the LEB-domain budget).  After BUDGET_HEADROOM
  *          successful writes the VID pre-check rejects the call with
  *          -ENOSPC and KEY_ROTATE_NOW is emitted.
+ *
+ * \expect Successful writes are limited to 4; the final write returns -ENOSPC;
+ *         rotate_now_count == 1; subsequent mutations return -EROFS. Reinit with kv=2
+ *         allows write to succeed.
  */
 ZTEST(ubi_secure_runtime_policy, test_vid_metadata_budget_exhausts_blocks_until_rotation)
 {
@@ -1352,11 +1359,14 @@ ZTEST(ubi_secure_runtime_policy, test_vid_metadata_budget_exhausts_blocks_until_
 /**
  * \brief Metadata-domain KEY_ROTATE_SOON fires before NOW.
  *
- * \details Pre-stages the VID counter just below ROTATE_SOON_PCT, then
+ * \details Scenario: Pre-stages the VID counter just below ROTATE_SOON_PCT, then
  *          performs leb_write calls until SOON is observed.  The pre-check
  *          must pass (usage < NOW_PCT), the post-write check must emit
  *          KEY_ROTATE_SOON and the device must keep accepting operations
  *          (no KEY_ROTATE_NOW, no sticky RO).
+ *
+ * \expect rotate_soon_count >= 1 before reaching the hard threshold; rotate_now_count == 0;
+ *         operations keep succeeding.
  */
 ZTEST(ubi_secure_runtime_policy, test_metadata_rotate_soon_emitted_below_now)
 {
@@ -1407,11 +1417,14 @@ ZTEST(ubi_secure_runtime_policy, test_metadata_rotate_soon_emitted_below_now)
 /**
  * \brief Metadata budget bases reset on key-version rotation.
  *
- * \details Exhausts the VID budget under kv=1 (proxy for any metadata
+ * \details Scenario: Exhausts the VID budget under kv=1 (proxy for any metadata
  *          domain — all four use the same Kconfig limits), reattaches with
  *          kv=2 and confirms a VID-domain write that previously hit
  *          -ENOSPC now succeeds.  No new KEY_ROTATE_NOW must fire under
  *          the rotated kv.
+ *
+ * \expect VID exhaustion under kv=1 causes -ENOSPC. After reattach with kv=2 the same
+ *         write succeeds; rotate_now_count is unchanged (no new events under kv=2).
  */
 ZTEST(ubi_secure_runtime_policy, test_metadata_budget_resets_on_key_rotation_reattach)
 {
@@ -1478,8 +1491,6 @@ ZTEST(ubi_secure_runtime_policy, test_metadata_budget_resets_on_key_rotation_rea
 		      ts.rotate_now_count, now_count_before_reattach);
 }
 
-/* LEB-domain budget tests --------------------------------------------------------------------- */
-
 /*
  * The LEB budget tracks per-{kv, vol_id, lnum} write counter and
  * authenticated bytes.  These tests overwrite the same lnum repeatedly
@@ -1499,11 +1510,14 @@ ZTEST(ubi_secure_runtime_policy, test_metadata_budget_resets_on_key_rotation_rea
 /**
  * \brief LEB-domain KEY_ROTATE_SOON fires before NOW.
  *
- * \details Repeatedly write+erase the same LEB; reset the metadata
+ * \details Scenario: Repeatedly write+erase the same LEB; reset the metadata
  *          counters every iteration so only the LEB per-{kv, vol_id, lnum}
  *          counter advances.  Stop the loop as soon as KEY_ROTATE_SOON
  *          is observed.  The post-write check must emit SOON before NOW;
  *          operations must keep succeeding.
+ *
+ * \expect rotate_soon_count >= 1 once write/erase cycles approach the SOON threshold;
+ *         rotate_now_count == 0; operations continue succeeding.
  */
 ZTEST(ubi_secure_runtime_policy, test_leb_budget_rotate_soon_emitted_below_now)
 {
@@ -1544,12 +1558,15 @@ ZTEST(ubi_secure_runtime_policy, test_leb_budget_rotate_soon_emitted_below_now)
 /**
  * \brief LEB-domain write-budget exhaustion.
  *
- * \details Repeatedly write+erase the same LEB while resetting the
+ * \details Scenario: Repeatedly write+erase the same LEB while resetting the
  *          metadata counters every iteration so only the LEB per-{kv,
  *          vol_id, lnum} counter advances.  After ROTATE_NOW_PCT writes
  *          the LEB pre-check rejects the next write with -ENOSPC,
  *          KEY_ROTATE_NOW is emitted and sticky read-only blocks all
  *          subsequent mutation classes.
+ *
+ * \expect After the LEB budget reaches 100 % the final write returns -ENOSPC;
+ *         rotate_now_count == 1; subsequent mutations return -EROFS.
  */
 ZTEST(ubi_secure_runtime_policy, test_leb_budget_exhausts_blocks_until_rotation)
 {
@@ -1591,8 +1608,6 @@ ZTEST(ubi_secure_runtime_policy, test_leb_budget_exhausts_blocks_until_rotation)
 		      "Erase must be blocked after LEB exhaustion");
 }
 
-/* VID-domain counter floor reset on key-version rotation -------------------------------------- */
-
 /*
  * When the write-active key version advances, the authenticated
  * `vid_next_counter_floor` is reinitialized to 0:
@@ -1607,6 +1622,12 @@ ZTEST(ubi_secure_runtime_policy, test_leb_budget_exhausts_blocks_until_rotation)
 
 /**
  * \brief vid_next_counter_floor is reset to 0 when write-active kv advances.
+ *
+ * \details Scenario: Initialize with default kv=1, set the in-RAM VID counter to 100,
+ *          create a volume so the high watermark is snapshotted into reserved metadata,
+ *          deinit. Reinit with kv=2 and allowlist=[1,2]. Inspect the metadata counters.
+ *
+ * \expect After rotation next_vid_counter == 0 (the counter is reset on kv advance).
  */
 ZTEST(ubi_secure_runtime_policy, test_vid_floor_resets_on_rotation)
 {
@@ -1662,6 +1683,12 @@ ZTEST(ubi_secure_runtime_policy, test_vid_floor_resets_on_rotation)
  *
  * Reattaching with the same kv must NOT reset the counter — the spec only
  * permits reset when the write-active key version advances.
+ *
+ * \details Scenario: Initialize with default kv=1, set the in-RAM VID counter to 50,
+ *          create a volume so the watermark is snapshotted, deinit. Reinit with the same
+ *          kv=1 and inspect the metadata counters.
+ *
+ * \expect After reattach next_vid_counter >= 50 (counter persists under the same kv).
  */
 ZTEST(ubi_secure_runtime_policy, test_vid_floor_persists_within_same_kv)
 {
@@ -1701,6 +1728,12 @@ ZTEST(ubi_secure_runtime_policy, test_vid_floor_persists_within_same_kv)
  *
  * Confirms that on-flash records under the new kv start at counter 0 — i.e.
  * the reset actually impacts subsequent writes (not just the in-RAM field).
+ *
+ * \details Scenario: Initialize with kv=1, set the in-RAM VID counter to 200, create
+ *          a volume, deinit. Reinit with kv=2 and allowlist=[1,2]. Write to LEB 0 and
+ *          retrieve the metadata counters. Deinit.
+ *
+ * \expect next_vid_counter == 1 (the first write under kv=2 consumes counter value 0).
  */
 ZTEST(ubi_secure_runtime_policy, test_vid_floor_reset_writes_use_low_counters)
 {
@@ -1744,8 +1777,6 @@ ZTEST(ubi_secure_runtime_policy, test_vid_floor_reset_writes_use_low_counters)
 		      (unsigned long long)vid_after_write);
 }
 
-/* Reserved-PEB refcount transitions ------------------------------------------------------------ */
-
 /*
  * Reserved-PEB key-version refcount accounts for one DEV header plus one
  * VOL header per volume on every reserved PEB.  Every reserved metadata
@@ -1760,7 +1791,7 @@ ZTEST(ubi_secure_runtime_policy, test_vid_floor_reset_writes_use_low_counters)
  * \brief volume_create / volume_remove must not emit KEY_RETIRABLE for the
  *        still-active write key version.
  *
- * \details Format with kv=1, then exercise the reserved metadata commit
+ * \details Scenario: Format with kv=1, then exercise the reserved metadata commit
  *          path through create + remove cycles without changing
  *          requested_write_key_version.  The reserved-PEB refcount under
  *          kv=1 must remain > 0 throughout (DEV header on every reserved
@@ -1769,6 +1800,9 @@ ZTEST(ubi_secure_runtime_policy, test_vid_floor_reset_writes_use_low_counters)
  *          the inc-first / dec-last ordering would surface here as a
  *          spurious KEY_RETIRABLE during the dec step of the create or
  *          remove transition.
+ *
+ * \expect create returns 0 and key_retirable_count == 0; remove returns 0 and
+ *         key_retirable_count == 0 (no spurious retirable event for the active kv).
  */
 ZTEST(ubi_secure_runtime_policy, test_reserved_refcount_no_spurious_key_retirable)
 {
@@ -1797,15 +1831,13 @@ ZTEST(ubi_secure_runtime_policy, test_reserved_refcount_no_spurious_key_retirabl
 		      ts.key_retirable_count);
 }
 
-/* Forced rekey with stale objects -------------------------------------------------------------- */
-
 /**
  * \brief Forced rekey leaves stale free / dirty / mapped kv=N-1 objects on
  *        flash while attach eagerly upgrades reserved metadata to kv=N,
  *        and KEY_RETIRABLE for kv=N-1 fires only after every stale object
  *        has been recycled.
  *
- * \details Sequence:
+ * \details Scenario: Sequence:
  *            1. Format with kv=1, create one volume, write LEB 0 and LEB 1.
  *            2. Overwrite LEB 0 — leaves a dirty data PEB authenticated
  *               under kv=1, while LEB 0/LEB 1 stay mapped under kv=1 and
@@ -1826,7 +1858,7 @@ ZTEST(ubi_secure_runtime_policy, test_reserved_refcount_no_spurious_key_retirabl
  *               PEB until the kv=1 refcount reaches zero.
  *               KEY_RETIRABLE(kv=1) must then fire exactly once.
  *
- * \expected
+ * \expect
  *  - Phase 3: dirty_peb_count > 0, both LEBs read back the kv=1 payload,
  *    no KEY_RETIRABLE event.
  *  - Phase 4: write to LEB 0 with kv=2 succeeds and reads back.

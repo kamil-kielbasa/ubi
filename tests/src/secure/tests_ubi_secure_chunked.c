@@ -35,13 +35,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -52,8 +56,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -103,8 +106,6 @@ static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_
 
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
 static void *ztest_suite_setup(void)
 {
 	const struct device *flash_dev = UBI_PARTITION_DEVICE;
@@ -125,20 +126,19 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Chunked geometry produces valid leb_size.
  *
- * \details Verify that leb_size is smaller than single-tag mode (more per-chunk
+ * \details Scenario: Verify that leb_size is smaller than single-tag mode (more per-chunk
  *          tag overhead) and that at least one chunk fits.
  *
- * \expected leb_size > 0 and leb_size < (erase_block_size - 208).
+ * \expect leb_size > 0 and leb_size < (erase_block_size - 208).
  */
 ZTEST(ubi_secure_chunked, test_geometry_leb_size)
 {
@@ -166,10 +166,10 @@ ZTEST(ubi_secure_chunked, test_geometry_leb_size)
 /**
  * \brief Single-chunk write and read.
  *
- * \details Write a payload smaller than chunk_size, read back and verify.
+ * \details Scenario: Write a payload smaller than chunk_size, read back and verify.
  *          This exercises the chunked path with exactly one chunk.
  *
- * \expected Data matches after read; leb_get_size returns correct size.
+ * \expect Data matches after read; leb_get_size returns correct size.
  */
 ZTEST(ubi_secure_chunked, test_single_chunk_write_read)
 {
@@ -209,10 +209,10 @@ ZTEST(ubi_secure_chunked, test_single_chunk_write_read)
 /**
  * \brief Multi-chunk write and read.
  *
- * \details Write 1024 bytes (4 chunks of 256), read back and verify the full
+ * \details Scenario: Write 1024 bytes (4 chunks of 256), read back and verify the full
  *          payload matches.
  *
- * \expected All 1024 bytes match after read.
+ * \expect All 1024 bytes match after read.
  */
 ZTEST(ubi_secure_chunked, test_multi_chunk_write_read)
 {
@@ -252,12 +252,12 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_write_read)
 /**
  * \brief Partial read spanning a chunk boundary.
  *
- * \details Write 1024 bytes (4 chunks), then read a 64-byte slice starting
+ * \details Scenario: Write 1024 bytes (4 chunks), then read a 64-byte slice starting
  *          at offset 240 — this spans the boundary between chunk 0 (bytes
  *          0–255) and chunk 1 (bytes 256–511). Only chunks 0 and 1 need
  *          authentication (§12.3).
  *
- * \expected The 64-byte slice at offset 240 matches the original data.
+ * \expect The 64-byte slice at offset 240 matches the original data.
  */
 ZTEST(ubi_secure_chunked, test_partial_read_cross_chunk)
 {
@@ -289,10 +289,10 @@ ZTEST(ubi_secure_chunked, test_partial_read_cross_chunk)
 /**
  * \brief Partial read within a single chunk.
  *
- * \details Write 1024 bytes, then read 32 bytes from the middle of chunk 2
+ * \details Scenario: Write 1024 bytes, then read 32 bytes from the middle of chunk 2
  *          (offset 560, inside bytes 512–767). Only chunk 2 needs auth.
  *
- * \expected The 32-byte slice matches.
+ * \expect The 32-byte slice matches.
  */
 ZTEST(ubi_secure_chunked, test_partial_read_within_chunk)
 {
@@ -324,10 +324,10 @@ ZTEST(ubi_secure_chunked, test_partial_read_within_chunk)
 /**
  * \brief Chunked write with non-aligned payload (last chunk partial).
  *
- * \details Write 271 bytes (chunk 0 = 256 bytes, chunk 1 = 15 bytes).
+ * \details Scenario: Write 271 bytes (chunk 0 = 256 bytes, chunk 1 = 15 bytes).
  *          Read back and verify the full payload.
  *
- * \expected All 271 bytes match.
+ * \expect All 271 bytes match.
  */
 ZTEST(ubi_secure_chunked, test_partial_last_chunk)
 {
@@ -363,10 +363,10 @@ ZTEST(ubi_secure_chunked, test_partial_last_chunk)
 /**
  * \brief Multi-chunk data persists across reboot.
  *
- * \details Write 1024 bytes, deinit, re-init and verify data is recovered
+ * \details Scenario: Write 1024 bytes, deinit, re-init and verify data is recovered
  *          from flash with chunked authentication.
  *
- * \expected Data matches after reboot; heap fully reclaimed.
+ * \expect Data matches after reboot; heap fully reclaimed.
  */
 ZTEST(ubi_secure_chunked, test_multi_chunk_with_reboot)
 {
@@ -422,10 +422,10 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_with_reboot)
 /**
  * \brief Overwrite a chunked LEB with different data.
  *
- * \details Write 512 bytes, then overwrite with 1024 bytes, verify the
+ * \details Scenario: Write 512 bytes, then overwrite with 1024 bytes, verify the
  *          new data is returned. Old PEB becomes dirty.
  *
- * \expected Overwritten data matches; old data is gone.
+ * \expect Overwritten data matches; old data is gone.
  */
 ZTEST(ubi_secure_chunked, test_overwrite_chunked)
 {
@@ -464,11 +464,11 @@ ZTEST(ubi_secure_chunked, test_overwrite_chunked)
 /**
  * \brief Tamper one chunk and verify authentication failure.
  *
- * \details Write 1024 bytes (4 chunks), then corrupt one byte in chunk 2's
+ * \details Scenario: Write 1024 bytes (4 chunks), then corrupt one byte in chunk 2's
  *          ciphertext on flash. A full read should fail with auth error.
  *          A partial read of only chunk 0 should succeed (§12.3).
  *
- * \expected Full read returns error; partial read of untampered chunk succeeds.
+ * \expect Full read returns error; partial read of untampered chunk succeeds.
  */
 ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
 {
@@ -572,11 +572,11 @@ ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
 /**
  * \brief Zero-length LEB map in chunked mode.
  *
- * \details Map a LEB (zero-length write), verify it is mapped and has
+ * \details Scenario: Map a LEB (zero-length write), verify it is mapped and has
  *          size 0. This exercises the single-tag zero-length fallback
  *          path in chunked mode (§7.8).
  *
- * \expected leb_is_mapped returns true; leb_get_size returns 0.
+ * \expect leb_is_mapped returns true; leb_get_size returns 0.
  */
 ZTEST(ubi_secure_chunked, test_zero_length_map)
 {
@@ -613,12 +613,12 @@ ZTEST(ubi_secure_chunked, test_zero_length_map)
 /**
  * \brief Reject initialization when erase_block_size is too small for chunks.
  *
- * \details Create a flash descriptor with a tiny erase_block_size that cannot
+ * \details Scenario: Create a flash descriptor with a tiny erase_block_size that cannot
  *          fit even one chunk. ubi_device_init() must fail — the flash
  *          driver rejects the invalid erase block size before the geometry
  *          check runs.
  *
- * \expected ubi_device_init returns a negative error code.
+ * \expect ubi_device_init returns a negative error code.
  */
 ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
 {
@@ -637,7 +637,6 @@ ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
 		     ret);
 }
 
-/* Counter overflow tests ----------------------------------------------------------------------- */
 /*
  * Exercises the chunked-write path's 48-bit AEAD counter overflow guard
  * in \ref leb_prepare_new_mapping. The guard runs *before* the LEB
@@ -661,7 +660,7 @@ ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
 /**
  * \brief Chunked write that would overflow the 48-bit AEAD counter is rejected.
  *
- * \details Sequence:
+ * \details Scenario: Sequence:
  *  1. Initial 4-chunk write to LEB 0 (counter advances to 4 on flash).
  *  2. Floor the recovered counter at `UBI_SECURE_COUNTER_MAX - 3`, so the
  *     next 4-chunk write projects to `COUNTER_MAX + 1` -- over the limit.
@@ -670,7 +669,7 @@ ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
  *     not consume a free PEB, and must leave the previous payload
  *     intact (the overflow check runs before any flash mutation).
  *
- * \expected Second write returns `-EOVERFLOW`; one `KEY_ROTATE_NOW`
+ * \expect Second write returns `-EOVERFLOW`; one `KEY_ROTATE_NOW`
  *           event with `usage_pct=100`; original payload still readable;
  *           free-PEB count unchanged.
  */
@@ -748,7 +747,5 @@ ZTEST(ubi_secure_chunked, test_chunked_write_overflow_rejected)
 }
 
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
-
-/* Suite declaration ---------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_chunked, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

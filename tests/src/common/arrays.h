@@ -19,12 +19,9 @@
 
 #include <stdint.h>
 
-/* Defines -------------------------------------------------------------------------------------- */
-
-/* Forward declarations ------------------------------------------------------------------------- */
-
-/* Types and type definitions ------------------------------------------------------------------- */
-
+/* Module defines ------------------------------------------------------------------------------- */
+/* Static function declarations ----------------------------------------------------------------- */
+/* Module types and type definitiones ----------------------------------------------------------- */
 /* Module interface variables and constants ----------------------------------------------------- */
 
 static const uint8_t array_1[] = {
@@ -1722,8 +1719,7 @@ static const uint8_t array_8000[] = {
 	0x85, 0x45, 0x30, 0x7F, 0xED,
 };
 
-/* Extern variables and constant declarations --------------------------------------------------- */
-
+/* Module interface variables and constants ----------------------------------------------------- */
 /* Module interface function declarations ------------------------------------------------------- */
 
 #endif /* ARRAYS_H */

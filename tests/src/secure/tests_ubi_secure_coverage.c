@@ -33,18 +33,23 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
+/* Static function definitions ------------------------------------------------------------------ */
 
+/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
@@ -67,7 +72,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
@@ -76,15 +81,13 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_fault_reset();
 	if (g_ubi) {
 		(void)ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
 	}
 }
-
-/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -103,7 +106,7 @@ static struct ubi_device *sec_init(void)
 /**
  * \brief Volume remove succeeds and volume is gone after re-attach.
  *
- * \details Create volume, remove it, re-attach. The remove exercises
+ * \details Scenario: Create volume, remove it, re-attach. The remove exercises
  *          reserved PEB commit with vol-header list rebuild and
  *          anchor PEB reclamation.
  *
@@ -144,7 +147,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_basic)
 /**
  * \brief Volume remove with mapped LEBs reclaims PEBs to dirty pool.
  *
- * \details Create volume, write to LEB 0 and LEB 1, remove volume.
+ * \details Scenario: Create volume, write to LEB 0 and LEB 1, remove volume.
  *          The EBA entries and anchor PEB are reclaimed.
  *
  * \expect Remove succeeds; dirty_peb_count increases.
@@ -185,7 +188,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_with_mapped_lebs)
 /**
  * \brief Create two volumes, remove the first, second remains accessible.
  *
- * \details Exercises the vol_hdrs list rebuild with a non-trivial filter.
+ * \details Scenario: Exercises the vol_hdrs list rebuild with a non-trivial filter.
  *
  * \expect Second volume data is intact after first volume removed.
  */
@@ -231,7 +234,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_one_of_two)
 /**
  * \brief Volume resize (shrink) succeeds and trims excess LEBs.
  *
- * \details Create 3-LEB volume, write to LEB 0,1,2, resize to 1 LEB.
+ * \details Scenario: Create 3-LEB volume, write to LEB 0,1,2, resize to 1 LEB.
  *          LEBs 1 and 2 are reclaimed. Read of LEB 0 still works.
  *
  * \expect Resize succeeds; LEB 0 readable; LEB 1 returns EACCES.
@@ -275,7 +278,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_shrink)
 /**
  * \brief Volume resize (grow) allows writing to new LEBs.
  *
- * \details Create 1-LEB volume, resize to 3 LEBs, write to LEB 2.
+ * \details Scenario: Create 1-LEB volume, resize to 3 LEBs, write to LEB 2.
  *
  * \expect Resize succeeds; write and read-back of LEB 2 succeed.
  */
@@ -313,7 +316,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_grow)
 /**
  * \brief Volume resize persists after re-attach.
  *
- * \details Create 3-LEB volume, resize to 1, deinit, re-init.
+ * \details Scenario: Create 3-LEB volume, resize to 1, deinit, re-init.
  *
  * \expect Volume has 1 LEB after re-attach.
  */
@@ -355,7 +358,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_persists)
 /**
  * \brief LEB overwrite recovers counter state and swaps mapping.
  *
- * \details Write LEB 0, overwrite with new data. The overwrite triggers
+ * \details Scenario: Write LEB 0, overwrite with new data. The overwrite triggers
  *          leb_recover_old_counters (reading old PEB's VID meta) and
  *          leb_commit_mapping_swap (old PEB → dirty pool).
  *
@@ -389,7 +392,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_counter_recovery)
 /**
  * \brief Multiple LEB overwrites accumulate counters correctly.
  *
- * \details Write LEB 0 three times. Each triggers counter recovery.
+ * \details Scenario: Write LEB 0 three times. Each triggers counter recovery.
  *
  * \expect Third write succeeds; read-back matches last data.
  */
@@ -428,7 +431,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_multiple)
 /**
  * \brief LEB overwrite data survives re-attach.
  *
- * \details Write LEB 0, overwrite, deinit, re-init.
+ * \details Scenario: Write LEB 0, overwrite, deinit, re-init.
  *
  * \expect Read-back matches second write after re-attach.
  */
@@ -467,7 +470,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_persists)
 /**
  * \brief LEB map creates a zero-length mapping.
  *
- * \details Create volume, map LEB 0 without data.
+ * \details Scenario: Create volume, map LEB 0 without data.
  *
  * \expect leb_map succeeds; is_mapped returns true.
  */
@@ -494,7 +497,7 @@ ZTEST(ubi_secure_coverage, test_leb_map)
 /**
  * \brief LEB unmap removes a mapping.
  *
- * \details Map LEB 0, unmap it.
+ * \details Scenario: Map LEB 0, unmap it.
  *
  * \expect After unmap, is_mapped returns false.
  */
@@ -527,7 +530,7 @@ ZTEST(ubi_secure_coverage, test_leb_unmap)
 /**
  * \brief Flash write failure during leb_write (VID write) marks PEB bad.
  *
- * \details Write data to LEB 0. Set flash write to fail after 1 write
+ * \details Scenario: Write data to LEB 0. Set flash write to fail after 1 write
  *          (LEB data succeeds, VID header write fails). The PEB is
  *          marked bad.
  *
@@ -558,7 +561,7 @@ ZTEST(ubi_secure_coverage, test_flash_write_fail_on_vid)
 /**
  * \brief Flash write failure during erase recycle marks PEB bad.
  *
- * \details Overwrite LEB 0 to create a dirty PEB. Set flash write to fail
+ * \details Scenario: Overwrite LEB 0 to create a dirty PEB. Set flash write to fail
  *          after 0 writes (first EC header write in erase path fails).
  *
  * \expect erase_peb returns non-zero.
@@ -602,7 +605,7 @@ ZTEST(ubi_secure_coverage, test_flash_write_fail_on_erase_ec)
 /**
  * \brief LEB get_size returns the correct data size.
  *
- * \details Write data to LEB 0, query size.
+ * \details Scenario: Write data to LEB 0, query size.
  *
  * \expect Returned size matches the written data length.
  */
@@ -634,7 +637,7 @@ ZTEST(ubi_secure_coverage, test_leb_get_size)
 /**
  * \brief Remove volume with data, re-attach, volume is gone.
  *
- * \details Create volume, write data, remove, re-attach.
+ * \details Scenario: Create volume, write data, remove, re-attach.
  *
  * \expect Volume not found after re-attach.
  */
@@ -678,7 +681,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_persists)
 /**
  * \brief Erase all dirty PEBs after multiple overwrites.
  *
- * \details Overwrite LEB 0 multiple times creating dirty PEBs. Call
+ * \details Scenario: Overwrite LEB 0 multiple times creating dirty PEBs. Call
  *          erase_peb repeatedly until dirty_peb_count reaches 0.
  *
  * \expect All dirty PEBs are erased; free_peb_count is restored.

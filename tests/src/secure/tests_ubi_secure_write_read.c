@@ -31,13 +31,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -48,8 +52,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -69,8 +72,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -92,22 +93,21 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Single LEB write persists across reboot.
  *
- * \details Create a 4-LEB static volume, write 128-byte array to LEB 2,
+ * \details Scenario: Create a 4-LEB static volume, write 128-byte array to LEB 2,
  *          read back and verify, deinit, re-init and verify the data
  *          persists with identical size and content.
  *          Parity with plain ubi_write_read.one_volume_one_leb_operation_with_reboot.
  *
- * \expected Data in LEB 2 matches original after reboot; leb_get_size
+ * \expect Data in LEB 2 matches original after reboot; leb_get_size
  *           returns 128; heap fully reclaimed after each deinit.
  */
 ZTEST(ubi_secure_write_read, test_one_leb_with_reboot)
@@ -171,12 +171,12 @@ ZTEST(ubi_secure_write_read, test_one_leb_with_reboot)
 /**
  * \brief Multiple LEBs with varying data sizes persist across reboot.
  *
- * \details Create a 4-LEB static volume, write different-length payloads
+ * \details Scenario: Create a 4-LEB static volume, write different-length payloads
  *          to all 4 LEBs, verify each, deinit, re-init and confirm every
  *          LEB retains its original data and size.
  *          Parity with plain ubi_write_read.one_volume_many_leb_operations_with_reboot.
  *
- * \expected Each LEB reports correct size and content after reboot.
+ * \expect Each LEB reports correct size and content after reboot.
  */
 ZTEST(ubi_secure_write_read, test_many_lebs_with_reboot)
 {
@@ -243,11 +243,11 @@ ZTEST(ubi_secure_write_read, test_many_lebs_with_reboot)
 /**
  * \brief LEB overwrite: write, overwrite with different data, verify.
  *
- * \details Write 4 bytes to LEB 0, read back, then overwrite with 6
+ * \details Scenario: Write 4 bytes to LEB 0, read back, then overwrite with 6
  *          different bytes and verify the new content and size replace
  *          the original.
  *
- * \expected After overwrite: leb_get_size returns 6, read returns the
+ * \expect After overwrite: leb_get_size returns 6, read returns the
  *           second payload; original data no longer present.
  */
 ZTEST(ubi_secure_write_read, test_overwrite)
@@ -290,7 +290,5 @@ ZTEST(ubi_secure_write_read, test_overwrite)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_write_read, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

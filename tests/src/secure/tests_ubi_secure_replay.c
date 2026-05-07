@@ -38,6 +38,9 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
@@ -56,25 +59,23 @@
 /* Big-endian 'UBIS' magic prefix bytes (sys_put_be32(0x55424953)). */
 static const uint8_t UBIS_MAGIC_BE[4] = { 'U', 'B', 'I', 'S' };
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 static size_t g_auth_failure_count;
 
-/* Event tracking ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
 						       void *user_data)
 {
-	ARG_UNUSED(user_data);
+	(void)user_data;
 	if (event->type == UBI_CRYPTO_EVENT_AUTH_FAILURE) {
 		g_auth_failure_count++;
 	}
 	return UBI_CRYPTO_EVENT_CONTINUE;
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -96,7 +97,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	g_auth_failure_count = 0;
 	g_ubi = NULL;
 	ubi_test_partition_force_release_all();
@@ -105,14 +106,12 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_suite_after(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	if (g_ubi) {
 		(void)ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
 	}
 }
-
-/* Helpers -------------------------------------------------------------------------------------- */
 
 /**
  * \brief Find data PEBs that hold an authentic VID record (i.e. mapped LEBs).
@@ -232,12 +231,11 @@ static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
 	g_ubi = NULL;
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Replay an authentic EC record from one PEB to another.
  *
- * \details EC AAD binds (prefix32, peb_index, offset).  Copying PEB A's
+ * \details Scenario: EC AAD binds (prefix32, peb_index, offset).  Copying PEB A's
  *          full EC region (offset 0..64) verbatim onto PEB B yields a
  *          flash image where PEB B carries a record whose AAD references
  *          PEB A.  On reattach, the EC verifier rebuilds the AAD from
@@ -256,7 +254,7 @@ static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
  *          path); the subsequent read of lnum 0 returns an error because
  *          its EBA mapping is gone, so no event is expected here either.
  *
- * \expected
+ * \expect
  *  - Reattach succeeds (init never aborts on per-PEB AUTH faults).
  *  - \c bad_peb_count >= 1.
  *  - lnum 1 still reads correctly with the original payload.
@@ -314,7 +312,7 @@ ZTEST(ubi_secure_replay, test_replay_ec_record_to_other_peb_rejected)
 /**
  * \brief Replay an authentic VID record from one PEB to another.
  *
- * \details VID AAD binds (prefix32, peb_index, offset, ec, parent_ec_kv).
+ * \details Scenario: VID AAD binds (prefix32, peb_index, offset, ec, parent_ec_kv).
  *          Copying PEB A's VID region (offset 64..160) verbatim onto PEB B
  *          (leaving B's own EC and LEB intact) creates an image where the
  *          VID carries an AAD that references PEB A.  On reattach, the VID
@@ -325,7 +323,7 @@ ZTEST(ubi_secure_replay, test_replay_ec_record_to_other_peb_rejected)
  *          Mapping invariant: lnum 0 == mapped[1], lnum 1 == mapped[0].
  *          We replay mapped[0]→mapped[1] so lnum 0 is the lost one.
  *
- * \expected
+ * \expect
  *  - Reattach succeeds.
  *  - \c bad_peb_count >= 1.
  *  - lnum 1 still reads correctly with the original payload.
@@ -376,7 +374,7 @@ ZTEST(ubi_secure_replay, test_replay_vid_record_to_other_peb_rejected)
 /**
  * \brief Replay an authentic LEB record from one PEB to another.
  *
- * \details LEB single-tag AAD binds (prefix32, peb_index, leb_offset, ec,
+ * \details Scenario: LEB single-tag AAD binds (prefix32, peb_index, leb_offset, ec,
  *          parent_ec_kv, vol_id, lnum, sqnum, data_size, parent_vid_kv).
  *          Copying PEB A's LEB region (offset 160..end-of-PEB) verbatim
  *          onto PEB B leaves PEB B's authentic EC and VID untouched, but
@@ -390,7 +388,7 @@ ZTEST(ubi_secure_replay, test_replay_vid_record_to_other_peb_rejected)
  *          We replay mapped[0]→mapped[1], so the failing read is lnum 0.
  *          lnum 1 is untouched and must still read correctly.
  *
- * \expected
+ * \expect
  *  - Reattach succeeds (EC and VID still authenticate at PEB B).
  *  - lnum 1 reads correctly with the original payload, no event.
  *  - lnum 0 read returns a non-zero error and raises exactly one
@@ -442,8 +440,6 @@ ZTEST(ubi_secure_replay, test_replay_leb_record_to_other_peb_rejected)
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_replay, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
 	    NULL);

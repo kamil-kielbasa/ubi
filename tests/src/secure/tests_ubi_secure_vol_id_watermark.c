@@ -28,18 +28,21 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
@@ -62,7 +65,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
@@ -71,15 +74,13 @@ static void ztest_suite_before(void *ctx)
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_fault_reset();
 	if (g_ubi) {
 		(void)ubi_device_deinit(g_ubi);
 		g_ubi = NULL;
 	}
 }
-
-/* Secure init helper --------------------------------------------------------------------------- */
 
 static struct ubi_device *sec_init(void)
 {
@@ -92,12 +93,11 @@ static struct ubi_device *sec_init(void)
 	return ubi;
 }
 
-/* Test definitions ----------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief vol_id is not reused after remove within the same boot.
  *
- * \details Create vol A (id=0), remove it, create vol B.
+ * \details Scenario: Create vol A (id=0), remove it, create vol B.
  *
  * \expect Vol B gets id > id_a.
  */
@@ -132,7 +132,7 @@ ZTEST(ubi_secure_vol_id_watermark, test_volume_id_not_reused_after_remove_same_b
 /**
  * \brief vol_id is not reused after remove + reinit (simulated reboot).
  *
- * \details Create vol A, remove, deinit, reinit, create vol B.
+ * \details Scenario: Create vol A, remove, deinit, reinit, create vol B.
  *
  * \expect Vol B gets id > id_a.
  */
@@ -171,7 +171,7 @@ ZTEST(ubi_secure_vol_id_watermark, test_volume_id_not_reused_after_remove_and_re
 /**
  * \brief Volume slot re-indexing after remove does not change vol_ids.
  *
- * \details Create 3 volumes, remove middle, verify others keep ids.
+ * \details Scenario: Create 3 volumes, remove middle, verify others keep ids.
  *
  * \expect After reinit, new volume gets id=3, not id=1.
  */
@@ -234,8 +234,6 @@ ZTEST(ubi_secure_vol_id_watermark, test_volume_slot_reindex_does_not_change_ids)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_vol_id_watermark, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);

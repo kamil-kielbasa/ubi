@@ -106,8 +106,6 @@ static void ztest_testcase_teardown(void *ctx)
 ZTEST_SUITE(ubi_error_handling, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
-/* Device init/deinit error paths --------------------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_device_init() rejects a NULL flash descriptor.
  *
@@ -187,8 +185,6 @@ ZTEST(ubi_error_handling, erase_peb_null)
 {
 	zassert_equal(-EINVAL, ubi_device_erase_peb(NULL));
 }
-
-/* Volume error paths --------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_volume_create() rejects NULL parameters.
@@ -394,8 +390,6 @@ ZTEST(ubi_error_handling, volume_resize_nonexistent)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* LEB I/O error paths -------------------------------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_write() rejects a NULL data buffer.
  *
@@ -563,8 +557,6 @@ ZTEST(ubi_error_handling, leb_get_size_null)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Functional edge cases ------------------------------------------------------------------------ */
-
 /**
  * \brief Verify that overwriting an existing LEB moves the old PEB to dirty.
  *
@@ -688,8 +680,6 @@ ZTEST(ubi_error_handling, volume_resize_shrink_with_mapped_lebs)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Additional error handling and edge case tests ------------------------------------------------ */
 
 /**
  * \brief Verify that writing to an out-of-range LEB number is rejected.
@@ -947,8 +937,6 @@ ZTEST(ubi_error_handling, leb_unmap_out_of_range)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* No-volumes error paths for remaining API functions ------------------------------------------- */
-
 /**
  * \brief Verify that ubi_volume_get_info() fails when no volumes exist.
  *
@@ -1042,8 +1030,6 @@ ZTEST(ubi_error_handling, leb_get_size_no_volumes)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Volume-not-found error paths for LEB operations ---------------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_write() fails when the volume does not exist.
@@ -1179,8 +1165,6 @@ ZTEST(ubi_error_handling, leb_get_size_vol_not_found)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* LEB limit exceeded for remaining functions --------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_read() rejects an out-of-range LEB number.
  *
@@ -1262,12 +1246,10 @@ ZTEST(ubi_error_handling, leb_get_size_out_of_range)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* P0.1 contract tests: invalid type and zero leb_count ----------------------------------------- */
-
 /**
  * \brief Verify that creating a volume with an invalid type is rejected.
  *
- * \details Call ubi_volume_create() with vol_type set to an invalid enumerator value.
+ * \details Scenario: Call ubi_volume_create() with vol_type set to an invalid enumerator value.
  *
  * \expect Returns -EINVAL.
  */
@@ -1290,7 +1272,7 @@ ZTEST(ubi_error_handling, volume_create_invalid_type)
 /**
  * \brief Verify that creating a volume with leb_count == 0 is rejected.
  *
- * \details Call ubi_volume_create() with leb_count set to 0.
+ * \details Scenario: Call ubi_volume_create() with leb_count set to 0.
  *
  * \expect Returns -EINVAL.
  */
@@ -1313,7 +1295,7 @@ ZTEST(ubi_error_handling, volume_create_zero_lebs)
 /**
  * \brief Verify that resizing a volume to leb_count == 0 is rejected.
  *
- * \details Call ubi_volume_resize() with the new leb_count set to 0.
+ * \details Scenario: Call ubi_volume_resize() with the new leb_count set to 0.
  *
  * \expect Returns -EINVAL.
  */
@@ -1340,12 +1322,10 @@ ZTEST(ubi_error_handling, volume_resize_zero_lebs_rejected)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* P1.1 contract tests: idempotent unmap, no-op map, static write ------------------------------- */
-
 /**
  * \brief Verify that unmapping an unmapped LEB twice is safe (idempotent).
  *
- * \details Create a volume but do not write any data. Unmap LEB 0.
+ * \details Scenario: Create a volume but do not write any data. Unmap LEB 0.
  *
  * \expect Both calls return 0.
  */
@@ -1371,7 +1351,7 @@ ZTEST(ubi_error_handling, leb_unmap_unmapped_is_idempotent)
 /**
  * \brief Verify that mapping an already-mapped LEB is a no-op.
  *
- * \details Map a LEB, then call ubi_leb_map() again on the same LEB.
+ * \details Scenario: Map a LEB, then call ubi_leb_map() again on the same LEB.
  *
  * \expect Second map call returns 0 without allocating a new PEB.
  */
@@ -1407,7 +1387,7 @@ ZTEST(ubi_error_handling, leb_map_already_mapped_is_noop)
 /**
  * \brief Verify that writing to a static volume is allowed.
  *
- * \details Create a static volume. Write data to LEB 0 and read it back.
+ * \details Scenario: Create a static volume. Write data to LEB 0 and read it back.
  *
  * \expect Write and read-back succeed.
  */
@@ -1433,8 +1413,6 @@ ZTEST(ubi_error_handling, static_volume_write_allowed)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Unmapped LEB paths --------------------------------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_leb_get_size() fails when the LEB is not mapped.
@@ -1462,8 +1440,6 @@ ZTEST(ubi_error_handling, leb_get_size_unmapped)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Volume create duplicate name ----------------------------------------------------------------- */
 
 /**
  * \brief Verify that creating a volume with a duplicate name returns the
@@ -1493,8 +1469,6 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Volume create duplicate name with different config ------------------------------------------- */
 
 /**
  * \brief Verify that creating a volume with the same name but different
@@ -1539,12 +1513,10 @@ ZTEST(ubi_error_handling, volume_create_duplicate_name_different_config)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Volume create with invalid name -------------------------------------------------------------- */
-
 /**
  * \brief Verify that creating a volume with an empty name returns -EINVAL.
  *
- * \details Call ubi_volume_create() with an empty name (first byte is NUL).
+ * \details Scenario: Call ubi_volume_create() with an empty name (first byte is NUL).
  *
  * \expect Returns -EINVAL.
  */
@@ -1568,7 +1540,7 @@ ZTEST(ubi_error_handling, volume_create_empty_name)
  * \brief Verify that creating a volume with a name exactly filling the
  *        buffer (no NUL terminator) returns -EINVAL.
  *
- * \details Call ubi_volume_create() with a name that fills the entire buffer without a NUL terminator.
+ * \details Scenario: Call ubi_volume_create() with a name that fills the entire buffer without a NUL terminator.
  *
  * \expect Returns -EINVAL.
  */
@@ -1594,7 +1566,7 @@ ZTEST(ubi_error_handling, volume_create_name_no_nul)
  * \brief Verify that a volume with the maximum valid name length (MAX_LEN - 1)
  *        can be created successfully.
  *
- * \details Call ubi_volume_create() with a name that uses exactly UBI_VOLUME_NAME_MAX_LEN-1 characters plus NUL.
+ * \details Scenario: Call ubi_volume_create() with a name that uses exactly UBI_VOLUME_NAME_MAX_LEN-1 characters plus NUL.
  *
  * \expect Create succeeds. Volume info returns the same name.
  */
@@ -1651,8 +1623,6 @@ ZTEST(ubi_error_handling, volume_resize_expand_enospc)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Volume resize shrink with mapped LEBs -------------------------------------------------------- */
 
 /**
  * \brief Verify that ubi_volume_resize() can shrink a volume that has mapped
@@ -1712,8 +1682,6 @@ ZTEST(ubi_error_handling, volume_resize_shrink_trim)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* LEB write when all PEBs exhausted ------------------------------------------------------------ */
-
 /**
  * \brief Verify that ubi_leb_write() returns -ENOSPC when all free PEBs
  *        are consumed.
@@ -1762,8 +1730,6 @@ ZTEST(ubi_error_handling, leb_write_all_pebs_exhausted)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* LEB map when all PEBs exhausted -------------------------------------------------------------- */
-
 /**
  * \brief Verify that ubi_leb_map() returns -ENOSPC when free PEBs
  *        are exhausted.
@@ -1806,12 +1772,10 @@ ZTEST(ubi_error_handling, leb_map_all_pebs_exhausted)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-/* Additional error paths for coverage ---------------------------------------------------------- */
-
 /**
  * \brief Verify that volume_create with identical config returns existing vol_id.
  *
- * \details Create a volume. Then call create again with the exact same config.
+ * \details Scenario: Create a volume. Then call create again with the exact same config.
  *          The idempotency check should return the same vol_id without error.
  *
  * \expect Both calls succeed. vol_id is identical. volume_count == 1.
@@ -1843,7 +1807,7 @@ ZTEST(ubi_error_handling, volume_create_idempotent_returns_same_id)
 /**
  * \brief Verify that volume_create with same name but different config returns -EEXIST.
  *
- * \details Create static volume "clash". Then try to create dynamic volume "clash"
+ * \details Scenario: Create static volume "clash". Then try to create dynamic volume "clash"
  *          with different leb_count. Should fail with -EEXIST.
  *
  * \expect Second create returns -EEXIST.
@@ -1875,7 +1839,7 @@ ZTEST(ubi_error_handling, volume_create_name_clash_different_config)
 /**
  * \brief Verify that volume_resize grow works and data is still readable.
  *
- * \details Create dynamic volume (2 LEBs), write to LEB 0. Resize to 4 LEBs.
+ * \details Scenario: Create dynamic volume (2 LEBs), write to LEB 0. Resize to 4 LEBs.
  *          Verify LEB 0 data intact and LEB 2-3 can be used.
  *
  * \expect Resize succeeds. Old data intact. New LEBs available.
@@ -1922,7 +1886,7 @@ ZTEST(ubi_error_handling, volume_resize_grow_preserves_data)
 /**
  * \brief Verify volume_resize grow with insufficient PEBs returns -ENOSPC.
  *
- * \details Create 2 volumes consuming most PEBs. Try to grow one beyond
+ * \details Scenario: Create 2 volumes consuming most PEBs. Try to grow one beyond
  *          available capacity.
  *
  * \expect Resize returns -ENOSPC. Original volume unchanged.
@@ -1971,7 +1935,7 @@ ZTEST(ubi_error_handling, volume_resize_grow_enospc)
 /**
  * \brief Verify that reading from LEB with offset exactly at data boundary succeeds.
  *
- * \details Write 8 bytes. Read last 1 byte at offset 7.
+ * \details Scenario: Write 8 bytes. Read last 1 byte at offset 7.
  *
  * \expect Read returns the correct last byte.
  */
@@ -2002,7 +1966,7 @@ ZTEST(ubi_error_handling, leb_read_last_byte_at_boundary)
 /**
  * \brief Verify that reading beyond data_size in VID header returns -EINVAL.
  *
- * \details Write 4 bytes. Attempt to read 8 bytes.
+ * \details Scenario: Write 4 bytes. Attempt to read 8 bytes.
  *
  * \expect Read returns -EINVAL (offset+len > data_size).
  */
@@ -2032,7 +1996,7 @@ ZTEST(ubi_error_handling, leb_read_beyond_data_size)
 /**
  * \brief Verify volume remove followed by re-create with different config.
  *
- * \details Create, remove, then create again with different type and leb_count.
+ * \details Scenario: Create, remove, then create again with different type and leb_count.
  *          The new volume should be clean (no leftover data).
  *
  * \expect Re-create succeeds. New volume is empty.
@@ -2082,7 +2046,7 @@ ZTEST(ubi_error_handling, volume_remove_and_recreate_different_config)
 /**
  * \brief Verify leb_unmap on already-unmapped LEB is idempotent.
  *
- * \details Write data to LEB 0, unmap it, then unmap again.
+ * \details Scenario: Write data to LEB 0, unmap it, then unmap again.
  *
  * \expect Both unmap calls return 0. Second call is a no-op.
  */
@@ -2111,7 +2075,7 @@ ZTEST(ubi_error_handling, leb_unmap_already_unmapped_idempotent)
 /**
  * \brief Verify volume_get_info with detailed field checks.
  *
- * \details Create a volume with known configuration, then query it via ubi_volume_get_info().
+ * \details Scenario: Create a volume with known configuration, then query it via ubi_volume_get_info().
  *
  * \expect Returned config matches the original. alloc_lebs reflects mapped LEBs.
  */
@@ -2148,7 +2112,7 @@ ZTEST(ubi_error_handling, volume_get_info_detailed)
 /**
  * \brief Volume create with alloc fault during leaf allocation fails cleanly.
  *
- * \details Inject alloc fault after the volume struct succeeds but leaf alloc fails.
+ * \details Scenario: Inject alloc fault after the volume struct succeeds but leaf alloc fails.
  *          No volume should exist after the failure.
  *
  * \expect Volume create returns -ENOMEM. No volume exists on re-init.
@@ -2182,7 +2146,7 @@ ZTEST(ubi_error_handling, volume_create_leaf_alloc_fault)
 /**
  * \brief Volume create with scratch alloc fault during vol header append fails cleanly.
  *
- * \details vol_hdr_append needs a scratch buffer. Fail its allocation.
+ * \details Scenario: vol_hdr_append needs a scratch buffer. Fail its allocation.
  *
  * \expect Volume create returns -ENOMEM. No volume persists.
  */
@@ -2217,7 +2181,7 @@ ZTEST(ubi_error_handling, volume_create_scratch_alloc_fault)
 /**
  * \brief Volume remove with scratch alloc fault during vol header remove fails.
  *
- * \details Create a volume. Inject alloc fault on the scratch buffer during volume_remove.
+ * \details Scenario: Create a volume. Inject alloc fault on the scratch buffer during volume_remove.
  *
  * \expect Remove returns error. Volume still exists on re-init.
  */
@@ -2254,7 +2218,7 @@ ZTEST(ubi_error_handling, volume_remove_scratch_alloc_fault)
 /**
  * \brief Volume resize with scratch alloc fault during vol header update.
  *
- * \details Create a volume. Inject alloc fault on the scratch buffer during volume_resize.
+ * \details Scenario: Create a volume. Inject alloc fault on the scratch buffer during volume_resize.
  *
  * \expect Resize returns error. Volume retains original leb_count.
  */
@@ -2297,7 +2261,7 @@ ZTEST(ubi_error_handling, volume_resize_scratch_alloc_fault)
 /**
  * \brief Erase PEB with EC read failure on dirty PEB — PEB moves to bad list.
  *
- * \details Create dirty PEB. Corrupt its EC header. Call erase_peb.
+ * \details Scenario: Create dirty PEB. Corrupt its EC header. Call erase_peb.
  *          EC read fails → PEB classified as bad.
  *
  * \expect erase_peb returns error. PEB moves from dirty to bad list.
@@ -2340,7 +2304,7 @@ ZTEST(ubi_error_handling, erase_peb_ec_read_failure_moves_to_bad)
 /**
  * \brief Write to LEB with flash write fault during second retry — retry exhausted.
  *
- * \details Write data to a LEB. Inject flash write failure so all retries are exhausted.
+ * \details Scenario: Write data to a LEB. Inject flash write failure so all retries are exhausted.
  *
  * \expect ubi_leb_write returns -EIO. bad_peb_count increases.
  */
@@ -2376,7 +2340,7 @@ ZTEST(ubi_error_handling, write_retry_exhausted)
 /**
  * \brief Get PEB EC with one corrupt PEB still returns partial data.
  *
- * \details Write data, corrupt an EC header on flash, then call ubi_device_get_peb_ec().
+ * \details Scenario: Write data, corrupt an EC header on flash, then call ubi_device_get_peb_ec().
  *
  * \expect get_peb_ec returns -EIO for the corrupted PEB.
  */
@@ -2416,7 +2380,7 @@ ZTEST(ubi_error_handling, get_peb_ec_with_corrupt_peb)
 /**
  * \brief erase_peb with corrupt EC header on dirty PEB moves it to bad list.
  *
- * \details Create dirty PEBs by writing and unmapping. Corrupt the EC header of a dirty PEB on flash. Call erase_peb.
+ * \details Scenario: Create dirty PEBs by writing and unmapping. Corrupt the EC header of a dirty PEB on flash. Call erase_peb.
  *
  * \expect The corrupted PEB is classified as bad. bad_peb_count increases.
  */
@@ -2486,7 +2450,7 @@ ZTEST(ubi_error_handling, erase_peb_ec_corrupt_moves_to_bad)
 /**
  * \brief erase_peb with flash write fault after erase succeeds.
  *
- * \details Create dirty PEBs. Inject flash write failure after the physical erase succeeds but before EC header is written back.
+ * \details Scenario: Create dirty PEBs. Inject flash write failure after the physical erase succeeds but before EC header is written back.
  *
  * \expect erase_peb returns error. The PEB moves to bad list.
  */
@@ -2530,7 +2494,7 @@ ZTEST(ubi_error_handling, erase_peb_ec_write_fail_after_erase)
  * entries to simulate a volume removal without proper PEB cleanup.
  * On reinit, the scan classifies orphan PEBs into the dirty pool.
  *
- * \details Create a volume, write data, remove the volume. Deinit and re-init. The orphan PEB with a VID referencing the removed volume should be classified as dirty.
+ * \details Scenario: Create a volume, write data, remove the volume. Deinit and re-init. The orphan PEB with a VID referencing the removed volume should be classified as dirty.
  *
  * \expect After re-init, dirty_peb_count includes the orphan PEB.
  */
@@ -2603,7 +2567,7 @@ ZTEST(ubi_error_handling, orphan_peb_classified_as_dirty_on_reinit)
 /**
  * \brief Volume create after corrupting reserved PEBs fails gracefully.
  *
- * \details Corrupt one reserved PEB (device header). Then call volume_create. The device should be in degraded mode.
+ * \details Scenario: Corrupt one reserved PEB (device header). Then call volume_create. The device should be in degraded mode.
  *
  * \expect volume_create returns -EROFS because the device is degraded.
  */
@@ -2636,7 +2600,7 @@ ZTEST(ubi_error_handling, volume_create_with_corrupt_reserved_peb)
 /**
  * \brief Volume remove after corrupting reserved PEBs fails gracefully.
  *
- * \details Corrupt one reserved PEB. Then call volume_remove.
+ * \details Scenario: Corrupt one reserved PEB. Then call volume_remove.
  *
  * \expect volume_remove returns -EROFS in degraded mode.
  */
@@ -2671,7 +2635,7 @@ ZTEST(ubi_error_handling, volume_remove_with_corrupt_reserved_peb)
 /**
  * \brief Volume resize after corrupting reserved PEBs fails gracefully.
  *
- * \details Corrupt one reserved PEB. Then call volume_resize.
+ * \details Scenario: Corrupt one reserved PEB. Then call volume_resize.
  *
  * \expect volume_resize returns -EROFS in degraded mode.
  */
@@ -2713,7 +2677,7 @@ ZTEST(ubi_error_handling, volume_resize_with_corrupt_reserved_peb)
  * mode on this platform. Instead, this test verifies the recovery path
  * works when one PEB is corrupt — the device should recover and work normally.
  *
- * \details Corrupt one reserved PEB. Init enters degraded mode. Call erase_peb to reclaim a dirty PEB, which triggers recovery of the missing reserved PEB bank.
+ * \details Scenario: Corrupt one reserved PEB. Init enters degraded mode. Call erase_peb to reclaim a dirty PEB, which triggers recovery of the missing reserved PEB bank.
  *
  * \expect After erase_peb, device exits degraded mode. read_only_degraded becomes false.
  */
@@ -2752,7 +2716,7 @@ ZTEST(ubi_error_handling, degraded_peb_recovery_succeeds)
 /**
  * \brief Volume remove with corrupt mapped PEB triggers reclaim_peb_to_dirty bad path.
  *
- * \details Create a volume, write data to a LEB. Corrupt the mapped PEB's EC header on flash. Remove the volume. UBI should reclaim the corrupt PEB to dirty/bad during unmap.
+ * \details Scenario: Create a volume, write data to a LEB. Corrupt the mapped PEB's EC header on flash. Remove the volume. UBI should reclaim the corrupt PEB to dirty/bad during unmap.
  *
  * \expect Volume remove succeeds. Corrupt PEB is classified as bad.
  */
@@ -2806,7 +2770,7 @@ ZTEST(ubi_error_handling, volume_remove_corrupt_mapped_peb_reclaim)
 /**
  * \brief Volume resize shrink with corrupt mapped PEB during reclaim.
  *
- * \details Create a volume with 4 LEBs, write to all. Corrupt a mapped PEB's EC header. Shrink to 2 LEBs, triggering unmap of the corrupt PEB.
+ * \details Scenario: Create a volume with 4 LEBs, write to all. Corrupt a mapped PEB's EC header. Shrink to 2 LEBs, triggering unmap of the corrupt PEB.
  *
  * \expect Resize succeeds. Corrupt PEB classified as bad.
  */
@@ -2866,7 +2830,7 @@ ZTEST(ubi_error_handling, volume_resize_shrink_corrupt_peb_reclaim)
 /**
  * \brief check_invariants detects bad_peb_count mismatch.
  *
- * \details Create a volume, write data. Inject flash write failure to create a bad PEB. Then call check_invariants.
+ * \details Scenario: Create a volume, write data. Inject flash write failure to create a bad PEB. Then call check_invariants.
  *
  * \expect check_invariants returns 0 (all PEB pools balance correctly).
  */
@@ -2922,7 +2886,7 @@ ZTEST(ubi_error_handling, check_invariants_after_bad_peb)
 /**
  * \brief LEB read beyond written data_size returns -EINVAL.
  *
- * \details Write N bytes to a LEB. Read with offset+len exceeding the stored data size.
+ * \details Scenario: Write N bytes to a LEB. Read with offset+len exceeding the stored data size.
  *
  * \expect Returns -EINVAL.
  */
@@ -2961,7 +2925,7 @@ ZTEST(ubi_error_handling, leb_read_beyond_data_size_returns_einval)
 /**
  * \brief LEB map on non-existent volume returns -ENOENT.
  *
- * \details Call ubi_leb_map with a non-existent vol_id.
+ * \details Scenario: Call ubi_leb_map with a non-existent vol_id.
  *
  * \expect Returns -ENOENT.
  */
@@ -2979,7 +2943,7 @@ ZTEST(ubi_error_handling, leb_map_vol_not_found)
 /**
  * \brief LEB map with lnum exceeding volume capacity returns error.
  *
- * \details Call ubi_leb_map with lnum >= leb_count.
+ * \details Scenario: Call ubi_leb_map with lnum >= leb_count.
  *
  * \expect Returns -EACCES.
  */
@@ -3007,7 +2971,7 @@ ZTEST(ubi_error_handling, leb_map_lnum_out_of_range)
 /**
  * \brief LEB unmap with corrupt EC header on mapped PEB.
  *
- * \details Write to a LEB, corrupt the EC header of the mapped PEB on flash, then unmap. UBI should classify the corrupt PEB as bad during reclaim.
+ * \details Scenario: Write to a LEB, corrupt the EC header of the mapped PEB on flash, then unmap. UBI should classify the corrupt PEB as bad during reclaim.
  *
  * \expect Unmap returns 0. Corrupt PEB moves to bad list.
  */
@@ -3056,7 +3020,7 @@ ZTEST(ubi_error_handling, leb_unmap_corrupt_ec_header)
 /**
  * \brief LEB VID header read failure during get_size.
  *
- * \details Write to a LEB, corrupt the VID header CRC on flash, then call ubi_leb_get_size().
+ * \details Scenario: Write to a LEB, corrupt the VID header CRC on flash, then call ubi_leb_get_size().
  *
  * \expect Returns -EIO because VID CRC check fails.
  */
@@ -3105,7 +3069,7 @@ ZTEST(ubi_error_handling, leb_get_size_corrupt_vid)
 /**
  * \brief LEB VID header read failure during ubi_leb_read.
  *
- * \details Write to a LEB, corrupt the VID header CRC on flash, then call ubi_leb_read().
+ * \details Scenario: Write to a LEB, corrupt the VID header CRC on flash, then call ubi_leb_read().
  *
  * \expect Returns error because VID CRC check fails.
  */
@@ -3158,7 +3122,7 @@ ZTEST(ubi_error_handling, leb_read_corrupt_vid_header)
  * Corrupting the 2nd vol_hdr triggers the vol_hdr_read failure path
  * during re-index.
  *
- * \details Create 2 volumes. Corrupt the vol_hdr of the 2nd volume on both reserved PEBs. Remove the 1st volume, triggering re-index that reads the corrupt vol_hdr.
+ * \details Scenario: Create 2 volumes. Corrupt the vol_hdr of the 2nd volume on both reserved PEBs. Remove the 1st volume, triggering re-index that reads the corrupt vol_hdr.
  *
  * \expect Remove completes. Re-index logs errors for corrupt vol headers.
  */
@@ -3224,7 +3188,7 @@ ZTEST(ubi_error_handling, volume_remove_reindex_corrupt_vol_hdr)
 /**
  * \brief Volume remove with nonexistent vol_id returns -ENOENT.
  *
- * \details Create a volume so vol_count > 0. Attempt to remove a vol_id that does not exist in the cache.
+ * \details Scenario: Create a volume so vol_count > 0. Attempt to remove a vol_id that does not exist in the cache.
  *
  * \expect Returns -ENOENT.
  */
@@ -3252,7 +3216,7 @@ ZTEST(ubi_error_handling, volume_remove_wrong_vol_id)
 /**
  * \brief Verify that volume_resize shrink preserves data on retained LEBs.
  *
- * \details Create a dynamic volume with 4 LEBs. Write data to LEB 0 and LEB 1.
+ * \details Scenario: Create a dynamic volume with 4 LEBs. Write data to LEB 0 and LEB 1.
  *          Shrink the volume to 2 LEBs. Verify data on LEB 0 and LEB 1 is
  *          intact. Verify that writing to LEB 2 or LEB 3 is rejected with
  *          -EACCES (out of range after shrink).

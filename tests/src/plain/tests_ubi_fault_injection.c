@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_fault_injection.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Transactional safety tests using fault injection.
  *
  * These tests verify that UBI operations remain transactionally safe
@@ -11,6 +13,8 @@
  * \copyright Copyright (c) 2026
  */
 
+/* Include files -------------------------------------------------------------------------------- */
+
 #include <ubi.h>
 #include "ubi_test_fixture.h"
 #include "ubi_test_memory.h"
@@ -20,7 +24,25 @@
 
 #include <string.h>
 
+/* Module defines ------------------------------------------------------------------------------- */
+
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
+static void ztest_testcase_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -44,6 +66,8 @@ static void ztest_testcase_teardown(void *ctx)
 	(void)ctx;
 }
 
+/* Module interface function definitions -------------------------------------------------------- */
+
 ZTEST_SUITE(ubi_fault_injection, NULL, ztest_suite_setup, ztest_testcase_before,
 	    ztest_testcase_teardown, ztest_suite_after);
 
@@ -54,6 +78,13 @@ ZTEST_SUITE(ubi_fault_injection, NULL, ztest_suite_setup, ztest_testcase_before,
  * Since P0.2 reordered create to allocate RAM before flash, an early
  * ENOMEM now returns cleanly. This test validates the fix by checking
  * that when create returns ENOMEM, no volume exists on re-init.
+ *
+ * \details Scenario: Initialize device, attempt ubi_volume_create for a dynamic volume.
+ *          If the call returns -ENOMEM (early failure path), deinit, reinit and read
+ *          ubi_device_info to confirm no volume persisted.
+ *
+ * \expect If allocation failed: create returned -ENOMEM and volume_count == 0 on reinit;
+ *         if no failure was injected: create succeeded.
  */
 ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
 {
@@ -87,6 +118,11 @@ ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
  *
  * With copy-on-write, a write failure to the new PEB should leave the
  * old mapping intact.
+ *
+ * \details Scenario: Initialize device, create a dynamic volume with 2 LEBs, write the
+ *          original payload {0xDE, 0xAD, 0xBE, 0xEF} to LEB 0, read back to verify.
+ *
+ * \expect ubi_leb_read returns 0 and the data matches the original.
  */
 ZTEST(ubi_fault_injection, overwrite_preserves_old_data_on_failure)
 {
@@ -112,6 +148,12 @@ ZTEST(ubi_fault_injection, overwrite_preserves_old_data_on_failure)
 
 /**
  * \brief Verify invariant checker passes after normal operations.
+ *
+ * \details Scenario: Initialize device and call check_invariants. Create a volume, write
+ *          to LEB 0, unmap LEB 0, remove the volume, calling check_invariants between
+ *          each step. Deinit.
+ *
+ * \expect ubi_device_check_invariants returns 0 at every step.
  */
 ZTEST(ubi_fault_injection, invariants_hold_after_create_write_remove)
 {
@@ -147,6 +189,12 @@ ZTEST(ubi_fault_injection, invariants_hold_after_create_write_remove)
 
 /**
  * \brief Verify invariants hold after resize shrink.
+ *
+ * \details Scenario: Initialize device, create a dynamic volume with 4 LEBs, write 0xAA
+ *          to each LEB and erase dirty PEBs, call check_invariants, resize the volume
+ *          down to 2 LEBs, call check_invariants again, deinit.
+ *
+ * \expect ubi_device_check_invariants returns 0 after both stages.
  */
 ZTEST(ubi_fault_injection, invariants_hold_after_resize_shrink)
 {

@@ -30,13 +30,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -47,8 +51,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -68,8 +71,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -91,21 +92,20 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Secure init/deinit on blank flash: device info is valid.
  *
- * \details Format a blank partition in secure mode, query device info,
+ * \details Scenario: Format a blank partition in secure mode, query device info,
  *          verify all pool counters and geometry, then deinit and check
  *          for memory leaks. Parity with plain ubi_device.init_deinit.
  *
- * \expected All PEBs free, zero dirty/bad/volume counts, leb_size within
+ * \expect All PEBs free, zero dirty/bad/volume counts, leb_size within
  *           (0, erase_block_size), heap fully reclaimed after deinit.
  */
 ZTEST(ubi_secure_device, test_init_deinit)
@@ -142,11 +142,11 @@ ZTEST(ubi_secure_device, test_init_deinit)
 /**
  * \brief Secure init/deinit/init cycle (reboot persistence).
  *
- * \details Format on blank, deinit, re-init. The second init must attach
+ * \details Scenario: Format on blank, deinit, re-init. The second init must attach
  *          to the existing secure metadata and report identical geometry.
  *          Parity with plain ubi_device.init_deinit_init.
  *
- * \expected Both cycles return 0; total_peb_count, leb_size, and
+ * \expect Both cycles return 0; total_peb_count, leb_size, and
  *           volume_count are identical across the reboot boundary.
  */
 ZTEST(ubi_secure_device, test_init_deinit_init)
@@ -177,7 +177,5 @@ ZTEST(ubi_secure_device, test_init_deinit_init)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_device, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

@@ -43,6 +43,9 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
@@ -51,13 +54,13 @@
 /** Scan buffer size — must fit one erase block. */
 #define SCAN_BUF_SIZE 8192
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi = NULL;
 
-/* Forensic scan helpers ------------------------------------------------------------------------ */
-
+/* Static function definitions ------------------------------------------------------------------ */
 /**
  * \brief Search for a byte pattern in a buffer.
  *
@@ -116,8 +119,6 @@ static bool flash_contains_pattern(const uint8_t *pattern, size_t pattern_len)
 	return found;
 }
 
-/* Suite setup / teardown ----------------------------------------------------------------------- */
-
 static void *ztest_suite_setup(void)
 {
 	const struct device *flash_dev = UBI_PARTITION_DEVICE;
@@ -140,7 +141,7 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	g_ubi = NULL;
 	ubi_test_fault_reset();
 	ubi_test_partition_force_release_all();
@@ -156,16 +157,15 @@ static void ztest_testcase_after(void *ctx)
 	}
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Verify that plaintext write data does not appear on flash.
  *
- * \details Write known plaintext arrays (array_128, array_256) through the
+ * \details Scenario: Write known plaintext arrays (array_128, array_256) through the
  *          secure backend, deinit, then scan all data PEBs for the raw
  *          plaintext bytes. Encrypted data must not match the original.
  *
- * \expected Neither array_128 nor array_256 found anywhere in data PEB area.
+ * \expect Neither array_128 nor array_256 found anywhere in data PEB area.
  */
 ZTEST(ubi_secure_forensic, test_plaintext_data_absent_after_write)
 {
@@ -203,12 +203,12 @@ ZTEST(ubi_secure_forensic, test_plaintext_data_absent_after_write)
 /**
  * \brief Verify that volume name strings do not appear in plaintext on flash.
  *
- * \details Create a volume with a recognizable ASCII name, write data,
+ * \details Scenario: Create a volume with a recognizable ASCII name, write data,
  *          deinit, then scan data PEBs for the raw name bytes. Volume
  *          names are stored in reserved PEB metadata (authenticated +
  *          encrypted), and should not leak into data PEB area.
  *
- * \expected Volume name bytes not found in data PEB area.
+ * \expect Volume name bytes not found in data PEB area.
  */
 ZTEST(ubi_secure_forensic, test_volume_name_absent_in_data_area)
 {
@@ -242,11 +242,11 @@ ZTEST(ubi_secure_forensic, test_volume_name_absent_in_data_area)
 /**
  * \brief Verify that test root key material does not appear on flash.
  *
- * \details After secure format and write, scan the entire data PEB area
+ * \details Scenario: After secure format and write, scan the entire data PEB area
  *          for the raw 16-byte test root key material. Key material must
  *          never be written to flash.
  *
- * \expected Raw key material not found on flash.
+ * \expect Raw key material not found on flash.
  */
 ZTEST(ubi_secure_forensic, test_key_material_absent_on_flash)
 {
@@ -279,12 +279,12 @@ ZTEST(ubi_secure_forensic, test_key_material_absent_on_flash)
 /**
  * \brief Verify that plaintext data is absent after overwrite and erase.
  *
- * \details Write data, overwrite with different data, unmap, erase dirty
+ * \details Scenario: Write data, overwrite with different data, unmap, erase dirty
  *          PEBs, then scan for both the old and new plaintext. Neither
  *          should be present: old data was overwritten + erased, new data
  *          was encrypted.
  *
- * \expected Neither old nor new plaintext found on flash after erase cycle.
+ * \expect Neither old nor new plaintext found on flash after erase cycle.
  */
 ZTEST(ubi_secure_forensic, test_plaintext_absent_after_overwrite_and_erase)
 {
@@ -334,11 +334,11 @@ ZTEST(ubi_secure_forensic, test_plaintext_absent_after_overwrite_and_erase)
 /**
  * \brief Negative test: verify forensic scan detects plaintext on plain backend.
  *
- * \details Format a plain device (no encryption), write known data, then
+ * \details Scenario: Format a plain device (no encryption), write known data, then
  *          scan for it. This validates that the forensic scan itself works —
  *          plaintext written without encryption MUST be found.
  *
- * \expected array_128 IS found on flash (plain mode does not encrypt).
+ * \expect array_128 IS found on flash (plain mode does not encrypt).
  */
 ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
 {
@@ -369,13 +369,13 @@ ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
 /**
  * \brief LEB write tail-padding bytes equal the flash erased value.
  *
- * \details Write a small payload whose ciphertext+tag is shorter than one
+ * \details Scenario: Write a small payload whose ciphertext+tag is shorter than one
  *          flash write block, deinit, then scan all data PEBs for the
  *          secure prefix magic ('UBIS' = 0x55424953 LE).  For each
  *          matching PEB, confirm the bytes between [tag-end, write-block-end]
  *          equal the flash erased value (rather than the previous 0x00).
  *
- * \expected At least one LEB found, and tail bytes equal erased_val.
+ * \expect At least one LEB found, and tail bytes equal erased_val.
  */
 ZTEST(ubi_secure_forensic, test_leb_tail_padding_uses_erased_value)
 {
@@ -456,8 +456,6 @@ ZTEST(ubi_secure_forensic, test_leb_tail_padding_uses_erased_value)
 	flash_area_close(fa);
 	zassert_true(leb_found >= 1, "no LEB prefix found on flash");
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_forensic, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,
 	    NULL);

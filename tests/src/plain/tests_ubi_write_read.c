@@ -659,7 +659,7 @@ ZTEST(ubi_write_read, one_volume_many_lebs_io_operations_not_aligned_with_reboot
 /**
  * \brief Verify that ubi_leb_read rejects reads beyond data_size.
  *
- * \details Write 4 bytes to a LEB, then attempt to read 8 bytes starting
+ * \details Scenario: Write 4 bytes to a LEB, then attempt to read 8 bytes starting
  *          from offset 0. The VID header stores data_size=4, so the read
  *          should fail because offset + len > data_size.
  *

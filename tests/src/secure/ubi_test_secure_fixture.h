@@ -67,7 +67,7 @@ static inline void ubi_test_destroy_root_key(void)
 
 static inline int mock_get_key_id(uint8_t key_version, uint32_t *key_id_out)
 {
-	ARG_UNUSED(key_version);
+	(void)key_version;
 	*key_id_out = (uint32_t)ubi_test_root_key_id;
 	return 0;
 }
@@ -75,23 +75,23 @@ static inline int mock_get_key_id(uint8_t key_version, uint32_t *key_id_out)
 static inline enum ubi_crypto_rollback_verdict
 mock_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
 {
-	ARG_UNUSED(freshness);
-	ARG_UNUSED(user_data);
+	(void)freshness;
+	(void)user_data;
 	return UBI_CRYPTO_ROLLBACK_ACCEPT;
 }
 
 static inline int mock_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
 {
-	ARG_UNUSED(freshness);
-	ARG_UNUSED(user_data);
+	(void)freshness;
+	(void)user_data;
 	return 0;
 }
 
 static inline enum ubi_crypto_event_verdict mock_event_cb(const struct ubi_crypto_event *event,
 							  void *user_data)
 {
-	ARG_UNUSED(event);
-	ARG_UNUSED(user_data);
+	(void)event;
+	(void)user_data;
 	return UBI_CRYPTO_EVENT_CONTINUE;
 }
 

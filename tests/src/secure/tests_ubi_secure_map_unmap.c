@@ -30,13 +30,17 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
-/* Static variables ----------------------------------------------------------------------------- */
+/* Static variables and constants --------------------------------------------------------------- */
 
+/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -47,8 +51,7 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
-/* Static helpers ------------------------------------------------------------------------------- */
-
+/* Static function definitions ------------------------------------------------------------------ */
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -68,8 +71,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
-
-/* Suite setup / teardown ----------------------------------------------------------------------- */
 
 static void *ztest_suite_setup(void)
 {
@@ -91,22 +92,21 @@ static void *ztest_suite_setup(void)
 
 static void ztest_suite_before(void *ctx)
 {
-	ARG_UNUSED(ctx);
+	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
-/* Tests ---------------------------------------------------------------------------------------- */
-
+/* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Map/unmap single LEB lifecycle with reboot.
  *
- * \details Create a 4-LEB static volume, verify all LEBs unmapped, map
+ * \details Scenario: Create a 4-LEB static volume, verify all LEBs unmapped, map
  *          LEB 0, deinit, re-init, unmap LEB 0, verify dirty count, deinit,
  *          re-init and confirm dirty PEBs cleaned by attach scan.
  *          Parity with plain ubi_map.one_volume_with_one_leb_operation_with_reboot.
  *
- * \expected After map: is_mapped true, size 0, free_peb_count decremented.
+ * \expect After map: is_mapped true, size 0, free_peb_count decremented.
  *           After unmap + reboot: dirty_peb_count == 0; heap fully reclaimed.
  */
 ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
@@ -192,11 +192,11 @@ ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
 /**
  * \brief Map/unmap all LEBs lifecycle with reboot.
  *
- * \details Create a 4-LEB static volume, map all 4 LEBs, deinit, re-init,
+ * \details Scenario: Create a 4-LEB static volume, map all 4 LEBs, deinit, re-init,
  *          unmap all, deinit, re-init and verify dirty PEBs reclaimed.
  *          Parity with plain ubi_map.one_volume_with_many_lebs_operations_with_reboot.
  *
- * \expected All LEBs mapped after first cycle; all unmapped after second;
+ * \expect All LEBs mapped after first cycle; all unmapped after second;
  *           dirty_peb_count == 0 after final reboot; heap balanced.
  */
 ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
@@ -259,14 +259,14 @@ ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
 /**
  * \brief Verify unmap before erase does not persist across reboot.
  *
- * \details Create a 2-LEB static volume, write data to LEB 0, then unmap
+ * \details Scenario: Create a 2-LEB static volume, write data to LEB 0, then unmap
  *          LEB 0 without erasing.  Deinit, re-init — the old authenticated
  *          VID still exists on flash, so the LEB is rediscovered and the
  *          data is accessible again.  Tests §11.7: unmap is an in-memory
  *          transition only; until physical erase, reboot reconstructs the
  *          old mapping.
  *
- * \expected After unmap + reboot (no erase): LEB 0 is mapped again with
+ * \expect After unmap + reboot (no erase): LEB 0 is mapped again with
  *           original data intact.
  */
 ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
@@ -329,11 +329,11 @@ ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
 /**
  * \brief Verify unmap + erase persists across reboot (LEB gone).
  *
- * \details Same setup as test_unmap_reboot_before_erase, but dirty PEBs
+ * \details Scenario: Same setup as test_unmap_reboot_before_erase, but dirty PEBs
  *          are erased before reboot.  After reinit the LEB should remain
  *          unmapped — the physical PEB is gone so no mapping is recovered.
  *
- * \expected After unmap + erase + reboot: LEB 0 is not mapped.
+ * \expect After unmap + erase + reboot: LEB 0 is not mapped.
  */
 ZTEST(ubi_secure_map, test_unmap_erase_reboot)
 {
@@ -384,7 +384,5 @@ ZTEST(ubi_secure_map, test_unmap_erase_reboot)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-/* Suite registration --------------------------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_map, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

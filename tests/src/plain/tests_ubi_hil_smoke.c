@@ -1,6 +1,8 @@
 /**
  * \file    tests_ubi_hil_smoke.c
  *
+ * \author Kamil Kielbasa
+ *
  * \brief   Hardware-in-the-loop smoke tests for STM32U585 (or any real flash).
  *
  * These tests exercise UBI on actual hardware flash. They should be run
@@ -8,6 +10,8 @@
  *
  * \copyright Copyright (c) 2026
  */
+
+/* Include files -------------------------------------------------------------------------------- */
 
 #include <ubi.h>
 #include "ubi_test_fixture.h"
@@ -17,7 +21,25 @@
 
 #include <string.h>
 
+/* Module defines ------------------------------------------------------------------------------- */
+
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_after(void *ctx);
+
+static void ztest_testcase_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+
+/* Static function definitions ------------------------------------------------------------------ */
 
 static void *ztest_suite_setup(void)
 {
@@ -41,11 +63,19 @@ static void ztest_testcase_teardown(void *ctx)
 	(void)ctx;
 }
 
+/* Module interface function definitions -------------------------------------------------------- */
+
 ZTEST_SUITE(ubi_hil_smoke, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
 	    ztest_suite_after);
 
 /**
  * \brief HIL smoke: init, create volume, write, read, remove on real flash.
+ *
+ * \details Scenario: Initialize the device on real flash, create dynamic volume "hil_v"
+ *          with 2 LEBs, write 4 bytes {0xCA, 0xFE, 0xBA, 0xBE} to LEB 0, read back, remove
+ *          the volume, check invariants where available, deinit.
+ *
+ * \expect All operations return 0; read data matches written data; invariants pass.
  */
 ZTEST(ubi_hil_smoke, hil_basic_lifecycle)
 {
@@ -77,6 +107,11 @@ ZTEST(ubi_hil_smoke, hil_basic_lifecycle)
 
 /**
  * \brief HIL persistence: write, deinit, reinit, verify data survives.
+ *
+ * \details Scenario: Initialize device, create static volume "hil_p" with 1 LEB, write
+ *          8 bytes {0x11, 0x22, ..., 0x88} to LEB 0, deinit. Reinit and read LEB 0.
+ *
+ * \expect Reinit returns 0; the read data matches the originally written data.
  */
 ZTEST(ubi_hil_smoke, hil_persistence)
 {
@@ -105,6 +140,12 @@ ZTEST(ubi_hil_smoke, hil_persistence)
 
 /**
  * \brief HIL stress: repeated write/erase cycles on real flash.
+ *
+ * \details Scenario: Initialize device, create dynamic volume "hil_s" with 2 LEBs,
+ *          perform 100 cycles of: write a 16-byte pattern to LEB(cycle%2), read back,
+ *          erase dirty PEB. Check invariants where available and deinit.
+ *
+ * \expect All 100 cycles succeed; read data matches the written pattern; invariants pass.
  */
 ZTEST(ubi_hil_smoke, hil_stress_cycles)
 {
