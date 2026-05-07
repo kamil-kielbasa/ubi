@@ -32,10 +32,10 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 BUILD_ASSERT(sizeof(struct ubi_rbt_item) == 16, "ubi_rbt_item must be 16 bytes");
 BUILD_ASSERT(sizeof(struct ubi_list_item) == 12, "ubi_list_item must be 12 bytes");
 BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes");
-#if defined(CONFIG_UBI_TEST_API_ENABLE)
-/* Test builds add `bool test_write_shutdown` at the tail of struct ubi_device,
- * which (after struct-tail padding) grows the struct by 4 bytes on every
- * supported architecture.  See ubi_internal.h. */
+#if defined(CONFIG_UBI_TEST_API_ENABLE) && (defined(CONFIG_X86) || defined(CONFIG_ARCH_POSIX))
+/* On x86 / native_sim the test-only `bool test_write_shutdown` extends the
+ * struct by 4 bytes after tail padding.  On ARM the same field fits inside
+ * the existing tail padding, so it does not change `sizeof`. */
 #define UBI_DEVICE_TEST_API_BYTES 4
 #else
 #define UBI_DEVICE_TEST_API_BYTES 0
@@ -46,8 +46,7 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 48, "ubi_volume must be 48 bytes (secu
 BUILD_ASSERT(sizeof(struct ubi_device) == 224 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 224 bytes (secure, x86) or 228 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 232 + UBI_DEVICE_TEST_API_BYTES,
-	     "ubi_device must be 232 bytes (secure, ARM) or 236 bytes with TEST_API");
+BUILD_ASSERT(sizeof(struct ubi_device) == 232, "ubi_device must be 232 bytes (secure, ARM)");
 #endif
 #else /* !CONFIG_UBI_CRYPTO */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
@@ -55,8 +54,7 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
 BUILD_ASSERT(sizeof(struct ubi_device) == 132 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 132 bytes (plain, x86) or 136 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 136 + UBI_DEVICE_TEST_API_BYTES,
-	     "ubi_device must be 136 bytes (plain, ARM) or 140 bytes with TEST_API");
+BUILD_ASSERT(sizeof(struct ubi_device) == 136, "ubi_device must be 136 bytes (plain, ARM)");
 #endif
 #endif /* CONFIG_UBI_CRYPTO */
 
