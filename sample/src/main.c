@@ -12,7 +12,7 @@
 #include <ubi.h>
 
 /* Zephyr headers: */
-#include <zephyr/sys/printk.h>
+#include <zephyr/logging/log.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
@@ -20,6 +20,8 @@
 
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
+
+LOG_MODULE_REGISTER(ubi_sample, CONFIG_UBI_LOG_LEVEL);
 
 /* Module types and type definitions ------------------------------------------------------------ */
 
@@ -37,7 +39,7 @@ int main(void)
 {
 	int ret = -1;
 
-	printk("Hello world zephyr-ubi sample!\n");
+	LOG_INF("Hello world zephyr-ubi sample!");
 
 	const struct device *flash_dev = UBI_PARTITION_DEVICE;
 	struct flash_pages_info page_info = { 0 };
@@ -45,7 +47,7 @@ int main(void)
 	ret = flash_get_page_info_by_offs(flash_dev, 0, &page_info);
 
 	if (ret != 0) {
-		printk("Get page info failure\n");
+		LOG_ERR("Get page info failure: %d", ret);
 		return ret;
 	}
 
@@ -61,7 +63,7 @@ int main(void)
 	ret = ubi_device_init(&flash, NULL, &ubi);
 
 	if (ret != 0) {
-		printk("UBI initialization failure\n");
+		LOG_ERR("UBI initialization failure: %d", ret);
 		return ret;
 	}
 
@@ -76,7 +78,7 @@ int main(void)
 	ret = ubi_volume_create(ubi, &vol_cfg, &vol_id);
 
 	if (ret != 0) {
-		printk("Volume create failure\n");
+		LOG_ERR("Volume create failure: %d", ret);
 		goto deinit;
 	}
 
@@ -86,7 +88,7 @@ int main(void)
 	ret = ubi_leb_write(ubi, vol_id, 0, wdata, sizeof(wdata));
 
 	if (ret != 0) {
-		printk("LEB write failure\n");
+		LOG_ERR("LEB write failure: %d", ret);
 		goto deinit;
 	}
 
@@ -96,11 +98,11 @@ int main(void)
 	ret = ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(wdata));
 
 	if (ret != 0) {
-		printk("LEB read failure\n");
+		LOG_ERR("LEB read failure: %d", ret);
 		goto deinit;
 	}
 
-	printk("Read back: %s\n", rdata);
+	LOG_INF("Read back: %s", rdata);
 
 	/* Query device info. */
 	struct ubi_device_info dev_info = { 0 };
@@ -108,17 +110,18 @@ int main(void)
 	ret = ubi_device_get_info(ubi, &dev_info);
 
 	if (ret != 0) {
-		printk("Device get info failure\n");
+		LOG_ERR("Device get info failure: %d", ret);
 		goto deinit;
 	}
 
-	printk("Volumes: %zu, Free PEBs: %zu\n", dev_info.volume_count, dev_info.free_peb_count);
+	LOG_INF("Volumes: %zu, Free PEBs: %zu", dev_info.volume_count, dev_info.free_peb_count);
 
 deinit:
 	ret = ubi_device_deinit(ubi);
 
-	if (ret != 0)
-		printk("UBI deinitialization failure\n");
+	if (ret != 0) {
+		LOG_ERR("UBI deinitialization failure: %d", ret);
+	}
 
 	return ret;
 }

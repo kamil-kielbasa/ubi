@@ -1,5 +1,5 @@
 /**
- * \file    ubi_io_metadata.c
+ * \file    ubi_plain_io_metadata.c
  * \author  Kamil Kielbasa
  * \brief   UBI metadata I/O: device and volume header operations.
  *
@@ -33,6 +33,8 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 int ubi_dev_is_mounted(const struct ubi_flash_desc *flash, bool *is_mounted)
 {
 	if (!flash || !is_mounted) {
+		LOG_ERR("NULL argument: flash=%p is_mounted=%p", (const void *)flash,
+			(const void *)is_mounted);
 		return -EINVAL;
 	}
 
@@ -51,6 +53,7 @@ int ubi_dev_is_mounted(const struct ubi_flash_desc *flash, bool *is_mounted)
 int ubi_dev_mount(const struct ubi_flash_desc *flash)
 {
 	if (!flash) {
+		LOG_ERR("flash is NULL");
 		return -EINVAL;
 	}
 
@@ -80,6 +83,7 @@ int ubi_dev_mount(const struct ubi_flash_desc *flash)
 int ubi_dev_hdr_read(const struct ubi_flash_desc *flash, struct ubi_dev_hdr *hdr)
 {
 	if (!flash || !hdr) {
+		LOG_ERR("NULL argument: flash=%p hdr=%p", (const void *)flash, (const void *)hdr);
 		return -EINVAL;
 	}
 
@@ -101,6 +105,8 @@ int ubi_vol_hdr_read(const struct ubi_flash_desc *flash, const size_t index,
 		     struct ubi_vol_hdr *hdr)
 {
 	if (!flash || index >= CONFIG_UBI_MAX_NR_OF_VOLUMES || !hdr) {
+		LOG_ERR("Invalid argument: flash=%p index=%zu hdr=%p", (const void *)flash, index,
+			(const void *)hdr);
 		return -EINVAL;
 	}
 
@@ -173,8 +179,11 @@ int ubi_vol_hdr_read(const struct ubi_flash_desc *flash, const size_t index,
 int ubi_vol_hdr_append(const struct ubi_flash_desc *flash, const struct ubi_dev_hdr *dev_hdr,
 		       const struct ubi_vol_hdr *vol_hdr)
 {
-	if (!flash || !dev_hdr || !vol_hdr)
+	if (!flash || !dev_hdr || !vol_hdr) {
+		LOG_ERR("NULL argument: flash=%p dev_hdr=%p vol_hdr=%p", (const void *)flash,
+			(const void *)dev_hdr, (const void *)vol_hdr);
 		return -EINVAL;
+	}
 
 	int ret = -EIO;
 
@@ -245,8 +254,11 @@ exit:
 int ubi_vol_hdr_remove(const struct ubi_flash_desc *flash, const struct ubi_dev_hdr *dev_hdr,
 		       const uint32_t vol_id)
 {
-	if (!flash || !dev_hdr)
+	if (!flash || !dev_hdr) {
+		LOG_ERR("NULL argument: flash=%p dev_hdr=%p", (const void *)flash,
+			(const void *)dev_hdr);
 		return -EINVAL;
+	}
 
 	int ret = -EIO;
 	uint8_t *content = NULL;
@@ -317,6 +329,8 @@ int ubi_vol_hdr_update(const struct ubi_flash_desc *flash, const struct ubi_dev_
 		       uint32_t vol_id, size_t new_leb_count)
 {
 	if (!flash || !dev_hdr) {
+		LOG_ERR("NULL argument: flash=%p dev_hdr=%p", (const void *)flash,
+			(const void *)dev_hdr);
 		return -EINVAL;
 	}
 

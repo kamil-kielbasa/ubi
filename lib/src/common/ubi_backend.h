@@ -76,7 +76,7 @@ struct ubi_backend_ops {
  */
 const struct ubi_backend_ops *ubi_plain_backend(void);
 
-#ifdef CONFIG_UBI_CRYPTO
+#if defined(CONFIG_UBI_CRYPTO)
 
 /**
  * \brief Get the secure backend operations.

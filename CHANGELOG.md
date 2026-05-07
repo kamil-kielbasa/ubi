@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.63.0] - 2026-05-07
+
+### Changed
+
+- Misuse of the public API now surfaces as an actionable diagnostic
+  instead of a silent `-EINVAL`. Calling `ubi_device_*`,
+  `ubi_volume_*` or `ubi_leb_*` with `NULL` arguments or out-of-range
+  identifiers logs which argument was invalid (including pointer
+  values for multi-argument checks), so integration bugs are caught
+  at the first failing call. Return codes are unchanged.
+- The plain sample now emits its output through the Zephyr logging
+  subsystem (`LOG_INF` / `LOG_ERR`) instead of `printk`. Sample
+  messages can therefore be filtered, redirected and silenced via
+  the same log-level controls as the library itself, and every
+  failure path includes the underlying return code.
+
 ## [0.62.0] - 2026-05-07
 
 ### Added

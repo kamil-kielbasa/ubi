@@ -11,10 +11,10 @@
 #ifndef UBI_PLAIN_OPS_H
 #define UBI_PLAIN_OPS_H
 
-/* Forward declarations ------------------------------------------------------------------------- */
+/* Include files -------------------------------------------------------------------------------- */
 
-struct ubi_device;
-struct ubi_volume_config;
+/* Public headers: */
+#include "ubi.h"
 
 /* Standard library headers: */
 #include <stdbool.h>

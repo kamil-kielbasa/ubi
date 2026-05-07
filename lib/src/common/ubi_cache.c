@@ -26,8 +26,9 @@ bool ubi_cache_cmp(struct rbnode *a, struct rbnode *b)
 	struct ubi_rbt_item *data_a = CONTAINER_OF(a, struct ubi_rbt_item, node);
 	struct ubi_rbt_item *data_b = CONTAINER_OF(b, struct ubi_rbt_item, node);
 
-	if (data_a->key > data_b->key)
+	if (data_a->key > data_b->key) {
 		return false;
+	}
 
 	return true;
 }

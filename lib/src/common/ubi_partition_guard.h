@@ -17,6 +17,8 @@
 /* Standard library headers: */
 #include <stdint.h>
 
+/* Module interface function declarations ------------------------------------------------------- */
+
 /**
  * \brief Mark a partition as active (in use by a UBI device handle).
  *

@@ -222,8 +222,9 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 
 	ret = leb_prepare_new_mapping(ubi, vol, lnum, buf, len, &new_node);
 
-	if (ret != 0)
+	if (ret != 0) {
 		return ret;
+	}
 
 	leb_commit_mapping_swap(ubi, vol, lnum, new_node);
 

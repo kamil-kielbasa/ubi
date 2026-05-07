@@ -1,7 +1,7 @@
 /**
  * \file    ubi_plain_flash_res_peb.h
- * \author  Kamil Kielbasa
  * \brief   UBI reserved PEB management: scanning, recovery, and commit.
+ * \author  Kamil Kielbasa
  *
  * \copyright Copyright (c) 2025
  */

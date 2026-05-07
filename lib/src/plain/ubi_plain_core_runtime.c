@@ -351,8 +351,10 @@ static size_t rbt_count_nodes(struct rbtree *tree)
 
 int ubi_device_check_invariants(struct ubi_device *ubi)
 {
-	if (!ubi)
+	if (!ubi) {
+		LOG_ERR("ubi is NULL");
 		return -EINVAL;
+	}
 
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
