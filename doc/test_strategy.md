@@ -49,7 +49,7 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 | `ubi_secure_coexistence` | `tests_ubi_secure_coexistence.c` | 2 | Plain UBI device on `ubi_partition` and secure UBI device on `ubi_partition_2` operate concurrently without cross-talk; partition guard still rejects double attach with `-EBUSY` (requires `ubi_partition_2` in DT, native_sim only) | native_sim |
 | `ubi_secure_runtime_policy` | `tests_ubi_secure_runtime_policy.c` | 25 | Sticky crypto read-only, event escalation, freshness sync cadence, sync failure events, reads in read-only, per-domain (LEB / DEV / VOL / EC / VID) budget SOON/NOW thresholds, budget reset on key-rotation reattach, KEY_RETIRABLE, allowlist reject, missing key, rollback mismatch, sticky read-only reinit, mixed-key rotation | native_sim |
 | `ubi_secure_recovery` | `tests_ubi_secure_recovery.c` | 9 | Interrupted data write COW preservation, interrupted VID commit, first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create, init-time anchor re-creation for orphaned volumes | native_sim |
-| `ubi_secure_chunked` | `tests_ubi_secure_chunked.c` | 11 | Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback (requires `CONFIG_UBI_CRYPTO_LEB_CHUNKED=y`) | native_sim |
+| `ubi_secure_chunked` | `tests_ubi_secure_chunked.c` | 12 | Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback, 48-bit AEAD counter overflow rejection (requires `CONFIG_UBI_CRYPTO_LEB_CHUNKED=y`) | native_sim |
 | `ubi_secure_forensic` | `tests_ubi_secure_forensic.c` | 6 | Portable forensic scan: plaintext data absence, volume name absence, key material absence, post-overwrite+erase absence, negative test validates scanner on plain backend, magic-prefix sweep | native_sim |
 | `ubi_secure_error_handling` | `tests_ubi_secure_error_handling.c` | 74 | Secure-side parity for plain `ubi_error_handling`: NULL/out-of-range params, no-space, contract tests, corrupt EC/VID auth headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
 | `ubi_secure_fault_injection` | `tests_ubi_secure_fault_injection.c` | 2 | Transactional safety on secure backend under malloc/flash faults during create/write (requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`) | native_sim |
@@ -58,19 +58,19 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 | `ubi_secure_coverage` | `tests_ubi_secure_coverage.c` | 16 | Branch-coverage-driven secure-path tests: dirty PEB accounting, LEB overwrite recovery and persistence, leb_get_size, map/unmap lifecycle, volume-remove variants, flash-write fault on EC/VID, erase-all-dirty | native_sim |
 | `ubi_secure_crypto_faults` | `tests_ubi_secure_crypto_faults.c` | 18 | Crypto primitive fault hooks (AEAD encrypt/decrypt fail, RNG fail, HKDF fail) inserted via `ubi_secure_test_hook_set` exercise error propagation on init/write/read paths (requires `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION=y`) | native_sim |
 | `ubi_secure_defensive` | `tests_ubi_secure_defensive.c` | 109 | Defensive header-shape validation: `bad_wrapper_version`, `exceeds_ccm_limit`, malformed prefix/AAD/tag fields across EC/VID/LEB records | native_sim |
-| **Total (secure)** | | **309** | | |
+| **Total (secure)** | | **310** | | |
 
 > Counts above are for the `secure` build (`CONFIG_UBI_CRYPTO=y`,
 > `CONFIG_UBI_CRYPTO_LEB_CHUNKED=n`).  The `chunked` build adds the
-> `ubi_secure_chunked` suite (11 ZTEST).  Plain tests from the section
+> `ubi_secure_chunked` suite (12 ZTEST).  Plain tests from the section
 > above are also linked into the secure build (so the secure
-> binary executes 251 + 309 = 560 ZTEST in total, 41 suites).
+> binary executes 251 + 310 = 561 ZTEST in total, 41 suites).
 
 ## What native_sim Proves vs. What Hardware Proves
 
 | Aspect | native_sim (simulator) | Hardware (b_u585i_iot02a, nrf5340dk) |
 |--------|----------------------|--------------------------------------|
-| Functional correctness | Full — all 560 tests run (558 pass, 2 skip, 41 suites) in the `secure` config; the `plain` and `chunked` configs run subsets | Build verification only (CI cross-compiles) |
+| Functional correctness | Full — all 561 tests run (559 pass, 2 skip, 41 suites) in the `secure` config; the `plain` and `chunked` configs run subsets | Build verification only (CI cross-compiles) |
 | Flash timing / latency | Not representative | Realistic |
 | Power-loss behavior | Not tested (simulator has no power-loss model) | Not currently tested (no HIL power-loss setup) |
 | Bad block behavior | Simulated via `CONFIG_FLASH_SIMULATOR` flags | Real flash errors (rare on NOR) |

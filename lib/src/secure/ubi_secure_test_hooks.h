@@ -118,5 +118,33 @@ void ubi_secure_test_set_metadata_counters(struct ubi_device *ubi, uint64_t dev_
 void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_t *dev_hdr,
 					   uint64_t *ec, uint64_t *vid);
 
+/**
+ * \brief Test-only override of the per-LEB write-counter floor.
+ *
+ * On its next mutation, every LEB read of the previous
+ * `vid_meta.leb_write_counter` is clamped up to at least \p floor.
+ * This lets tests drive the per-LEB AEAD counter close to the 48-bit
+ * limit (`UBI_SECURE_COUNTER_MAX`) using a single real write, instead
+ * of having to perform 2^48 chunk encryptions, which is the only way
+ * to exercise the chunked-write overflow guard at
+ * `leb_prepare_new_mapping()` end-to-end.
+ *
+ * Setting \p floor to 0 disables the override.
+ *
+ * \param[in] floor  Minimum value to substitute for the recovered
+ *                   per-LEB write counter on the next mutation.
+ */
+void ubi_secure_test_set_leb_write_counter_floor(uint64_t floor);
+
+/**
+ * \brief Read the current per-LEB write-counter floor override.
+ *
+ * Used by the secure backend to clamp recovered counters; tests should
+ * normally use \ref ubi_secure_test_set_leb_write_counter_floor instead.
+ *
+ * \return Current floor value (0 if the override is disabled).
+ */
+uint64_t ubi_secure_test_get_leb_write_counter_floor(void);
+
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 #endif /* UBI_SECURE_TEST_HOOKS_H */

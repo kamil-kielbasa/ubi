@@ -18,6 +18,9 @@
 #include "ubi_internal.h"
 #include "ubi_plain_io.h"
 #include "ubi_mem.h"
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#include "ubi_secure_test_hooks.h"
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -100,6 +103,20 @@ static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_vol
 
 	*old_write_counter = vid_meta.leb_write_counter;
 	*old_total_auth_bytes = vid_meta.leb_total_auth_bytes;
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	/* Test-only override: clamp the recovered counter up to a configured
+	 * floor so tests can drive the per-LEB AEAD counter close to
+	 * UBI_SECURE_COUNTER_MAX without having to perform 2^48 real chunk
+	 * writes (the only way to exercise the chunked-write overflow guard
+	 * end-to-end). Production builds compile this branch out entirely. */
+	const uint64_t floor = ubi_secure_test_get_leb_write_counter_floor();
+
+	if (floor != 0 && *old_write_counter < floor) {
+		*old_write_counter = floor;
+	}
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+
 	return 0;
 }
 

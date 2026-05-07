@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.59.0] - 2026-05-07
+
+### Added
+
+- Chunked-write 48-bit AEAD counter overflow regression test
+  (`ubi_secure_chunked.test_chunked_write_overflow_rejected`). A
+  multi-chunk write whose projected per-LEB write counter would
+  exceed `UBI_SECURE_COUNTER_MAX` is now proven to fail closed before
+  any flash mutation: the call returns `-EOVERFLOW`, exactly one
+  `KEY_ROTATE_NOW` event is emitted with `usage_pct=100`, no free
+  PEB is consumed, and the previously committed payload survives.
+  This closes the remaining safety-net gap identified by the audit
+  for the chunked write path.
+
+### Changed
+
+- New test-only API
+  `ubi_secure_test_set_leb_write_counter_floor()` /
+  `ubi_secure_test_get_leb_write_counter_floor()` (compiled in only
+  when `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION=y`). It clamps the
+  per-LEB write counter recovered from flash up to a configurable
+  floor so the chunked-write overflow guard can be exercised
+  end-to-end without performing 2^48 real chunk encryptions.
+
 ## [0.58.0] - 2026-05-06
 
 ### Fixed

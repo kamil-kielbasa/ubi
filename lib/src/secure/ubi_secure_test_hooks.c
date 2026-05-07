@@ -73,4 +73,16 @@ void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_
 	}
 }
 
+static uint64_t leb_write_counter_floor;
+
+void ubi_secure_test_set_leb_write_counter_floor(uint64_t floor)
+{
+	leb_write_counter_floor = floor;
+}
+
+uint64_t ubi_secure_test_get_leb_write_counter_floor(void)
+{
+	return leb_write_counter_floor;
+}
+
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */

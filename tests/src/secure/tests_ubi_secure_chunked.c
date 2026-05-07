@@ -16,6 +16,11 @@
 
 #include "ubi_test_secure_fixture.h"
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#include "ubi_secure_test_hooks.h"
+#include "ubi_secure_types.h"
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+
 #include <psa/crypto.h>
 
 #include <zephyr/ztest.h>
@@ -68,6 +73,35 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 	memset(ai, 0, sizeof(*ai));
 	memset(ad, 0, sizeof(*ad));
 }
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+
+/* Counter-overflow event accounting -- per-test stack-allocated state passed
+ * through `ubi_crypto_config.user_data`. No file-scope mutable state. */
+struct chunked_overflow_state {
+	uint32_t event_count;
+	uint32_t rotate_now_count;
+	uint8_t last_rotate_kv;
+	uint32_t last_rotate_vol_id;
+	uint8_t last_rotate_usage_pct;
+};
+
+static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_crypto_event *event,
+							       void *user_data)
+{
+	struct chunked_overflow_state *st = user_data;
+
+	st->event_count++;
+	if (event->type == UBI_CRYPTO_EVENT_KEY_ROTATE_NOW) {
+		st->rotate_now_count++;
+		st->last_rotate_kv = event->rotation.key_version;
+		st->last_rotate_vol_id = event->rotation.volume_id;
+		st->last_rotate_usage_pct = event->rotation.usage_pct;
+	}
+	return UBI_CRYPTO_EVENT_CONTINUE;
+}
+
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 /* Suite setup / teardown ----------------------------------------------------------------------- */
 
@@ -602,6 +636,118 @@ ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
 	zassert_true(ret < 0, "Init must fail when erase block is too small for chunks (ret=%d)",
 		     ret);
 }
+
+/* Counter overflow tests ----------------------------------------------------------------------- */
+/*
+ * Exercises the chunked-write path's 48-bit AEAD counter overflow guard
+ * in \ref leb_prepare_new_mapping. The guard runs *before* the LEB
+ * write budget check, so it can be reached deterministically even under
+ * the lowered `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET=100` used by the
+ * test build. The per-LEB `leb_write_counter` is driven close to
+ * UBI_SECURE_COUNTER_MAX via the test-only
+ * `ubi_secure_test_set_leb_write_counter_floor()` hook (compiled in
+ * only under CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION) instead of having
+ * to issue 2^48 real chunk writes.
+ *
+ * Note: a "boundary success" companion test (projected counter equal
+ * to UBI_SECURE_COUNTER_MAX) is intentionally omitted -- under the
+ * test budget any such write trips the budget guard first with
+ * `-ENOSPC`, so the overflow guard is the *last* defensive line and
+ * is the only one that can be observed in isolation here.
+ */
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+
+/**
+ * \brief Chunked write that would overflow the 48-bit AEAD counter is rejected.
+ *
+ * \details Sequence:
+ *  1. Initial 4-chunk write to LEB 0 (counter advances to 4 on flash).
+ *  2. Floor the recovered counter at `UBI_SECURE_COUNTER_MAX - 3`, so the
+ *     next 4-chunk write projects to `COUNTER_MAX + 1` -- over the limit.
+ *  3. Issue a second 4-chunk write -- must return `-EOVERFLOW`, must emit
+ *     exactly one `KEY_ROTATE_NOW` event with `usage_pct == 100`, must
+ *     not consume a free PEB, and must leave the previous payload
+ *     intact (the overflow check runs before any flash mutation).
+ *
+ * \expected Second write returns `-EOVERFLOW`; one `KEY_ROTATE_NOW`
+ *           event with `usage_pct=100`; original payload still readable;
+ *           free-PEB count unchanged.
+ */
+ZTEST(ubi_secure_chunked, test_chunked_write_overflow_rejected)
+{
+	struct chunked_overflow_state evt_state = { 0 };
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+
+	cfg.event_cb = chunked_overflow_event_cb;
+	cfg.user_data = &evt_state;
+
+	const struct ubi_volume_config vol_cfg = {
+		.name = { '/', 'c', 'k', 'O' },
+		.type = UBI_VOLUME_TYPE_STATIC,
+		.leb_count = 2,
+	};
+
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+
+	ubi_secure_test_set_leb_write_counter_floor(0);
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+
+	/* Reference payload -- must survive the rejected write. */
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_1024, ARRAY_SIZE(array_1024)));
+
+	/* Snapshot pre-state. */
+	struct ubi_device_info info_before = { 0 };
+
+	zassert_ok(ubi_device_get_info(ubi, &info_before));
+
+	/* Lift floor so projected = MAX-3 + 4 = MAX+1 -> overflow. */
+	const uint64_t aead_invocations =
+		(ARRAY_SIZE(array_1024) + CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE - 1) /
+		CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+
+	ubi_secure_test_set_leb_write_counter_floor(UBI_SECURE_COUNTER_MAX -
+						    (aead_invocations - 1));
+
+	const uint32_t rotate_now_before = evt_state.rotate_now_count;
+
+	const int ret = ubi_leb_write(ubi, vol_id, 0, array_1024, ARRAY_SIZE(array_1024));
+
+	zassert_equal(ret, -EOVERFLOW,
+		      "Chunked write that would overflow the 48-bit AEAD counter "
+		      "must return -EOVERFLOW (got %d)",
+		      ret);
+
+	/* Exactly one KEY_ROTATE_NOW event with usage_pct = 100. */
+	zassert_equal(evt_state.rotate_now_count, rotate_now_before + 1,
+		      "Overflow must emit exactly one KEY_ROTATE_NOW event");
+	zassert_equal(evt_state.last_rotate_usage_pct, 100,
+		      "Overflow KEY_ROTATE_NOW must report usage_pct=100");
+	zassert_equal((int)evt_state.last_rotate_vol_id, vol_id,
+		      "KEY_ROTATE_NOW must carry the volume id");
+
+	/* Free-PEB count unchanged -- overflow check runs before allocation. */
+	struct ubi_device_info info_after = { 0 };
+
+	zassert_ok(ubi_device_get_info(ubi, &info_after));
+	zassert_equal(info_after.free_peb_count, info_before.free_peb_count,
+		      "Rejected write must not consume a free PEB");
+
+	/* Original payload still readable. */
+	uint8_t rdata[ARRAY_SIZE(array_1024)] = { 0 };
+
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, ARRAY_SIZE(array_1024)));
+	zassert_mem_equal(rdata, array_1024, ARRAY_SIZE(array_1024),
+			  "Original payload must survive a rejected chunked write");
+
+	ubi_secure_test_set_leb_write_counter_floor(0);
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 /* Suite declaration ---------------------------------------------------------------------------- */
 
