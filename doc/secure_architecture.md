@@ -12,7 +12,7 @@ This URL stays reachable until the split lands.
 ```
 
 **What this page covers:** SECURE on-flash format for UBI — encrypted device and volume metadata, encrypted EC/VID/data records, key hierarchy, nonce/AAD rules, counter continuity, anchors, and application-facing freshness.  
-**Prerequisites:** Read the [Overview](overview.md) and the [Plain Architecture Guide](plain_architecture.md) first for the plain UBI mental model, `volume_id`, `sqnum`, reserved PEB mirroring, and the `DATA -> VID` crash model.  
+**Prerequisites:** Read [What is UBI?](what_is_ubi.md) and the [Plain Architecture Guide](plain_architecture.md) first for the plain UBI mental model, `volume_id`, `sqnum`, reserved PEB mirroring, and the `DATA -> VID` crash model.  
 **What you will learn:** What SECURE mode changes, what it gives the application, how rollback detection plugs into UBI, and how future-write counters survive reclaim and volume removal.
 
 ---

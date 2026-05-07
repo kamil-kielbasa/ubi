@@ -2,7 +2,7 @@
 
 **What this page covers:** All Kconfig options, DeviceTree partition setup, and sizing guidelines for UBI.
 
-**Prerequisites:** [Overview](overview.md) and [Getting Started](getting_started.md).
+**Prerequisites:** [What is UBI?](what_is_ubi.md) and [Getting Started](getting_started.md).
 
 UBI is configured via Zephyr's Kconfig system and DeviceTree overlays.
 

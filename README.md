@@ -100,9 +100,9 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 
 | Document | What you will find |
 |----------|--------------------|
-| [Overview](https://kamil-kielbasa.github.io/ubi/overview.html) | Mental model, key concepts (PEB/LEB/EC/VID), how it works in 6 steps |
-| [Introduction](https://kamil-kielbasa.github.io/ubi/introduction.html) | Why UBI on Zephyr, feature summary, resource usage profile |
-| [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery |
+| [What is UBI?](https://kamil-kielbasa.github.io/ubi/what_is_ubi.html) | What UBI is, why it exists on Zephyr, when to use it (and when not), feature summary |
+| [Concepts at a Glance](https://kamil-kielbasa.github.io/ubi/concepts.html) | Five key concepts (PEB/LEB/EC/VID/EBA) and how UBI works in 6 steps |
+| [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) | On-flash layout, in-RAM structures, init flow, wear-leveling, dual-bank, recovery, resource usage |
 | [Secure Architecture](https://kamil-kielbasa.github.io/ubi/secure_architecture.html) | Authenticated encryption of all on-flash structures — key hierarchy, nonce/AAD, counter continuity, anchors, freshness exports |
 | [Getting Started](https://kamil-kielbasa.github.io/ubi/getting_started.html) | Build instructions, test suite, coverage, code formatting |
 | [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) | Kconfig options, DeviceTree overlays, sizing guidelines |

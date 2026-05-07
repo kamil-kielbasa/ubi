@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.66.0'
+version = '0.67.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -35,7 +35,10 @@ extensions = [
 redirects = {
     # PR 1: positioning piece moved out of the published sidebar.
     'why_ubi_for_zephyr': 'https://github.com/kamil-kielbasa/ubi/blob/main/doc/positioning/why_ubi_for_zephyr.md',
-    # PR 2 / PR 4 will add entries here as old pages are merged away.
+    # PR 2: Overview + Introduction merged into "What is UBI?" + "Concepts".
+    'overview': 'what_is_ubi.html',
+    'introduction': 'what_is_ubi.html',
+    # PR 3 / PR 4 will add entries here as old pages are merged away.
 }
 
 source_suffix = ['.rst', '.md']

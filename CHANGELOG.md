@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.67.0] - 2026-05-07
+
+### Changed
+
+- The legacy `Overview` and `Introduction` documentation pages have
+  been merged into a single canonical *What is UBI?* page and a
+  companion *Concepts at a Glance* page. New readers now hit the
+  same elevator pitch and decision criteria once instead of three
+  times across overlapping pages. The runtime model (PEB, LEB, EC,
+  VID, EBA) and the six-step lifecycle now live on a dedicated
+  concepts page that the architecture and API references link
+  back to. The resource-usage profile previously kept on the
+  *Introduction* page has moved into the *Plain Architecture*
+  guide alongside the existing memory-usage section, so flash and
+  static-RAM figures sit next to the in-RAM data structures they
+  describe. The README documentation table, all internal Markdown
+  cross-references, and the `contributing` guide have been updated
+  to point at the new pages, and `sphinx-reredirects` keeps the
+  legacy URLs alive by forwarding them to *What is UBI?*. This is
+  the second pass (PR 2 of 5) of the v1.0.0 documentation
+  restructure.
+
 ## [0.66.0] - 2026-05-07
 
 ### Changed

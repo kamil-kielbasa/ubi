@@ -314,7 +314,7 @@ west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t ro
 west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t ram_report
 ```
 
-UBI-only library numbers (partition size vs. code size) are documented in [Introduction](introduction.md): the DeviceTree `ubi_partition` used in this repo is **128 KiB** (STM32U5) / **64 KiB** (nRF5340); the measured **library** ROM footprint is **~9.2 KB** plain / **~59.3 KB** secure (Cortex-M33, `-Os`).
+UBI-only library numbers (partition size vs. code size) are documented in [Plain Architecture](plain_architecture.md): the DeviceTree `ubi_partition` used in this repo is **128 KiB** (STM32U5) / **64 KiB** (nRF5340); the measured **library** ROM footprint is **~9.2 KB** plain / **~59.3 KB** secure (Cortex-M33, `-Os`).
 
 ## 8. Code Coverage
 
