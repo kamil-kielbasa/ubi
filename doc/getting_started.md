@@ -1,4 +1,15 @@
+---
+orphan: true
+---
+
 # Getting Started
+
+```{note}
+**Legacy page.** Content is being split into {doc}`quick_start` (hands-on
+onboarding) and {doc}`test_strategy` (build / test / coverage tooling) as
+part of the v1.0.0 documentation restructure (PR 3). This URL stays
+reachable until the split lands.
+```
 
 **What this page covers:** How to build, run, and evaluate UBI — from first build to running all 325 tests (251 plain + 74 secure).
 

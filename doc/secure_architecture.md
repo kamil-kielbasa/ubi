@@ -1,4 +1,15 @@
+---
+orphan: true
+---
+
 # UBI Secure Architecture Guide
+
+```{note}
+**Legacy page.** Content is being split into {doc}`secure_overview`
+(developer-targeted, ≤ 5 pages) and {doc}`onflash_format_spec` (normative
+specification) as part of the v1.0.0 documentation restructure (PR 4).
+This URL stays reachable until the split lands.
+```
 
 **What this page covers:** SECURE on-flash format for UBI — encrypted device and volume metadata, encrypted EC/VID/data records, key hierarchy, nonce/AAD rules, counter continuity, anchors, and application-facing freshness.  
 **Prerequisites:** Read the [Overview](overview.md) and the [Plain Architecture Guide](plain_architecture.md) first for the plain UBI mental model, `volume_id`, `sqnum`, reserved PEB mirroring, and the `DATA -> VID` crash model.  

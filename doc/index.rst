@@ -6,47 +6,86 @@ devices running `Zephyr RTOS <https://www.zephyrproject.org/>`_.
 It provides wear-leveling, bad block management, and multiple logical volumes
 on a single flash partition — similar to what LVM does for block devices.
 
-This is a from-scratch implementation targeting resource-constrained embedded
-systems. On `b_u585i_iot02a` (STM32U5 Cortex-M33), the **sample** application
-build reports about **8.5 KB of flash** for `lib..__ubi__lib.a` and **24 bytes**
-of static RAM in that library (partition guard). See :doc:`introduction` for
-methodology and test-build figures.
+.. note::
 
-Start Here
-----------
+   **Release status: v1.0.0 (in preparation).**
+   The library API and on-flash format are stabilising for v1.0.0. CI,
+   coverage, and metrics badges live on the
+   `repository README <https://github.com/kamil-kielbasa/ubi#readme>`_.
 
-New to UBI? Read these pages first:
+----
 
-1. **Overview** — key concepts (PEB, LEB, EC, VID) and how UBI works in 6 steps.
-2. **Introduction** — why UBI exists, what it provides, and resource usage.
-3. **Getting Started** — build, run tests, and evaluate on the simulator in minutes.
+Where to start
+--------------
+
+Pick the card that matches what you came here to do.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 0
+
+   * - **📖 New here?**
+
+       Understand what UBI is and whether it fits your project.
+
+       * :doc:`what_is_ubi`
+       * :doc:`concepts`
+     - **🔧 Want to integrate?**
+
+       Build, configure, and write your first volume.
+
+       * :doc:`quick_start`
+       * :doc:`configuration`
+       * :doc:`cookbook`
+
+   * - **🏗 How does it work?**
+
+       Read the design — plain UBI and Secure UBI explained.
+
+       * :doc:`plain_architecture`
+       * :doc:`secure_overview`
+     - **📚 Looking up details?**
+
+       Reference material for implementers and auditors.
+
+       * :doc:`api`
+       * :doc:`kconfig_reference`
+       * :doc:`onflash_format_spec`
+
+----
 
 .. toctree::
    :maxdepth: 2
-   :caption: Understanding UBI
+   :caption: Getting Started
 
-   why_ubi_for_zephyr
-   overview
-   introduction
-   plain_architecture
-   secure_architecture
-   secure_volume_lifecycle
-   secure_recovery_notes
-   secure_runtime_policy
+   what_is_ubi
+   quick_start
+   concepts
 
 .. toctree::
    :maxdepth: 2
-   :caption: Using UBI
+   :caption: User Guide
 
-   getting_started
+   plain_workflow
+   secure_workflow
    configuration
-   api
+   cookbook
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Quality and Testing
+   :maxdepth: 2
+   :caption: Architecture
 
-   test_strategy
+   plain_architecture
+   secure_overview
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   api
+   kconfig_reference
+   error_codes
+   onflash_format_spec
 
 .. toctree::
    :maxdepth: 1
@@ -54,4 +93,10 @@ New to UBI? Read these pages first:
 
    roadmap
    contributing
+   test_strategy
    changelog
+
+.. Legacy pages (overview, introduction, getting_started, secure_architecture,
+   secure_volume_lifecycle, secure_recovery_notes, secure_runtime_policy) are
+   marked ``orphan: true`` while their content is being merged into the new
+   sections (PRs 2–4). They keep their URLs but no longer appear in any toctree.

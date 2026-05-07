@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.66.0] - 2026-05-07
+
+### Changed
+
+- The Sphinx documentation sidebar has been reorganised into five
+  Diátaxis-aligned sections (Getting Started, User Guide,
+  Architecture, Reference, Project) with a four-card landing page
+  and a v1.0.0 status banner. This is the scaffolding pass of the
+  v1.0.0 documentation restructure (PR 1 of 5): no page content
+  has been rewritten. Ten stub pages have been added as targets
+  for content merges in subsequent PRs, and seven legacy pages
+  (Overview, Introduction, Getting Started, Secure Architecture
+  and the three secure operational notes) are now orphaned with
+  deprecation banners pointing to their new homes — their URLs
+  remain reachable while the content migration is in progress.
+  The positioning piece *Why UBI matters on Zephyr* has moved out
+  of the published sidebar into `doc/positioning/`, and its old
+  URL now redirects to the GitHub source via `sphinx-reredirects`,
+  which is added as a new documentation build dependency.
+
 ## [0.65.0] - 2026-05-07
 
 ### Changed

@@ -1,4 +1,14 @@
+---
+orphan: true
+---
+
 # Secure Runtime Policy
+
+```{note}
+**Legacy page.** Content is being merged into {doc}`onflash_format_spec` as
+part of the v1.0.0 documentation restructure (PR 4). This URL stays
+reachable until the merge lands.
+```
 
 This document describes the runtime policy enforcement implemented in the
 UBI secure backend: freshness synchronisation, event callbacks, key-version

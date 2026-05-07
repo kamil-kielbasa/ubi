@@ -1,4 +1,14 @@
+---
+orphan: true
+---
+
 # Secure Volume Lifecycle
+
+```{note}
+**Legacy page.** Content is being merged into {doc}`onflash_format_spec` as
+part of the v1.0.0 documentation restructure (PR 4). This URL stays
+reachable until the merge lands.
+```
 
 **What this page covers:** End-to-end lifecycle of secure volumes, including
 hidden anchor behavior during create, resize, shrink, remove, and reboot.

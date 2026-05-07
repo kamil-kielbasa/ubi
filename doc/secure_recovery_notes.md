@@ -1,4 +1,14 @@
+---
+orphan: true
+---
+
 # Secure Recovery Notes
+
+```{note}
+**Legacy page.** Content is being merged into {doc}`onflash_format_spec` as
+part of the v1.0.0 documentation restructure (PR 4). This URL stays
+reachable until the merge lands.
+```
 
 **What this page covers:** Recovery behavior specific to secure mode after
 crashes, reboots, and corner-case erase sequences.

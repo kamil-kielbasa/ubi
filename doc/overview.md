@@ -1,4 +1,14 @@
+---
+orphan: true
+---
+
 # Overview
+
+```{note}
+**Legacy page.** Content is being merged into {doc}`what_is_ubi` and
+{doc}`concepts` as part of the v1.0.0 documentation restructure (PR 2).
+This URL stays reachable until the merge lands.
+```
 
 **What this page covers:** The core mental model behind UBI — what it is, the key abstractions, and how a read/write cycle works at a high level.
 
