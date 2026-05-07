@@ -297,6 +297,7 @@ static int sample_simulator_blank_partition(uint8_t partition_id)
 int main(void)
 {
 	int ret = -1;
+	int dret;
 
 	printk("Hello world zephyr-ubi secure sample!\n");
 
@@ -392,16 +393,14 @@ int main(void)
 	printk("Volumes: %zu, Free PEBs: %zu, Read-only-degraded: %s\n", dev_info.volume_count,
 	       dev_info.free_peb_count, dev_info.read_only_degraded ? "yes" : "no");
 
-deinit : {
-	const int dret = ubi_device_deinit(ubi);
-
+deinit:
+	dret = ubi_device_deinit(ubi);
 	if (dret != 0) {
 		printk("UBI deinitialization failure: %d\n", dret);
 		if (ret == 0) {
 			ret = dret;
 		}
 	}
-}
 
 destroy_key:
 	(void)psa_destroy_key(sample_root_key_id);
