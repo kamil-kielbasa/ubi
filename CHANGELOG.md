@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.61.0] - 2026-05-07
+
+### Added
+
+- A ready-to-run onboarding sample for the secure (AEAD-backed)
+  UBI backend, so users have a single, copy-pasteable starting
+  point for bringing up an encrypted volume. Build it with
+  `west build -p -b <board> sample/ -- -DOVERLAY_CONFIG=boards/secure.conf`;
+  CMake automatically selects the secure entry point when
+  `CONFIG_UBI_CRYPTO=y`. The sample shows how to initialise PSA
+  Crypto, import a root key, wire the four secure callbacks
+  (`get_key_id`, `check_freshness`, `sync_freshness`, `event_cb`)
+  and run a minimal single-version key policy end-to-end.
+- The secure sample is now compile-verified on every PR for the
+  supported Cortex-M targets (`b_u585i_iot02a` and
+  `nrf5340dk/nrf5340/cpuapp`, both `static` and `heap` backends),
+  so regressions in the secure onboarding flow are caught in CI
+  instead of by downstream users.
+
+### Fixed
+
+- The library no longer fails to build for downstream consumers
+  that link it without `CONFIG_UBI_TEST_API_ENABLE=y` (including
+  the new sample). The `struct ubi_device` size build-time
+  assertions previously hard-coded the in-tree test layout; they
+  now account for the test-only field and keep locking both the
+  production and test layouts on every supported architecture.
+
 ## [0.60.0] - 2026-05-07
 
 ### Added

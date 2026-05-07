@@ -108,9 +108,6 @@ jobs:
             board-slug: b_u585i_iot02a
           - board: nrf5340dk/nrf5340/cpuapp
             board-slug: nrf5340dk_cpuapp
-        exclude:
-          - app: sample
-            crypto: secure
     name: cross-build (${{ matrix.board-slug }}, ${{ matrix.app }}, ${{ matrix.mem }}, ${{ matrix.crypto }})
     steps:
       - name: Free disk space
