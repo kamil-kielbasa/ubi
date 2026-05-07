@@ -46,13 +46,18 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 48, "ubi_volume must be 48 bytes (secu
 BUILD_ASSERT(sizeof(struct ubi_device) == 224 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 224 bytes (secure, x86) or 228 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 228 + UBI_DEVICE_TEST_API_BYTES,
-	     "ubi_device must be 228 bytes (secure, ARM) or 232 bytes with TEST_API");
+BUILD_ASSERT(sizeof(struct ubi_device) == 232 + UBI_DEVICE_TEST_API_BYTES,
+	     "ubi_device must be 232 bytes (secure, ARM) or 236 bytes with TEST_API");
 #endif
 #else /* !CONFIG_UBI_CRYPTO */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
+#if defined(CONFIG_X86) || defined(CONFIG_ARCH_POSIX)
 BUILD_ASSERT(sizeof(struct ubi_device) == 132 + UBI_DEVICE_TEST_API_BYTES,
-	     "ubi_device must be 132 bytes (plain) or 136 bytes with TEST_API");
+	     "ubi_device must be 132 bytes (plain, x86) or 136 bytes with TEST_API");
+#elif defined(CONFIG_ARM)
+BUILD_ASSERT(sizeof(struct ubi_device) == 136 + UBI_DEVICE_TEST_API_BYTES,
+	     "ubi_device must be 136 bytes (plain, ARM) or 140 bytes with TEST_API");
+#endif
 #endif /* CONFIG_UBI_CRYPTO */
 
 /* Fault injection support ---------------------------------------------------------------------- */
