@@ -69,6 +69,7 @@ Pick the card that matches what you came here to do.
 
    guide/plain_workflow
    guide/secure_workflow
+   guide/environment_setup
    guide/configuration
    guide/cookbook
 

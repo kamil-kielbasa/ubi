@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 540"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+     role="img" aria-label="Secure UBI runtime interaction sequence between Application, UBI SECURE, and Flash">
+  <title>Secure UBI runtime interaction</title>
+  <desc>At runtime the application supplies the current key-version policy. UBI requests the matching PSA key id, writes the secure LEB and the commit-visible secure VID, and may emit KEY_ROTATE_SOON, KEY_ROTATE_NOW, FRESHNESS_SYNC_FAILURE, or KEY_RETIRABLE events. The optional sync_freshness callback is invoked after each commit-visible mutation; an error from the application latches a freshness-sync failure event.</desc>
+
+  <defs>
+    <style>
+      .lifeline-box { fill: #c2d4ec; stroke: #6b7c93; stroke-width: 1.5; rx: 6; }
+      .lifeline-lbl { fill: #1f2d3d; font-size: 13px; font-weight: 700; text-anchor: middle; }
+      .lifeline     { stroke: #6b7c93; stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+      .arrow        { stroke: #1f2d3d; stroke-width: 1.4; fill: none; }
+      .arrow-async  { stroke: #1f2d3d; stroke-width: 1.4; fill: none; stroke-dasharray: 5 3; }
+      .msg          { fill: #1f2d3d; font-size: 11px; }
+      .heading      { fill: #1f2d3d; font-size: 15px; font-weight: 700; text-anchor: middle; }
+      .legend       { fill: #6b7c93; font-size: 10px; }
+    </style>
+    <marker id="rt-arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#1f2d3d"/>
+    </marker>
+    <marker id="rt-arr-open" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L8,4 L0,8" fill="none" stroke="#1f2d3d" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <text class="heading" x="400" y="26">Secure UBI — runtime interaction (one write)</text>
+
+  <!-- lifeline boxes (top) -->
+  <rect class="lifeline-box" x="60"  y="50" width="140" height="36"/>
+  <text class="lifeline-lbl" x="130" y="73">Application</text>
+
+  <rect class="lifeline-box" x="330" y="50" width="140" height="36"/>
+  <text class="lifeline-lbl" x="400" y="73">UBI SECURE</text>
+
+  <rect class="lifeline-box" x="600" y="50" width="140" height="36"/>
+  <text class="lifeline-lbl" x="670" y="73">Flash</text>
+
+  <!-- vertical lifelines -->
+  <line class="lifeline" x1="130" y1="86" x2="130" y2="500"/>
+  <line class="lifeline" x1="400" y1="86" x2="400" y2="500"/>
+  <line class="lifeline" x1="670" y1="86" x2="670" y2="500"/>
+
+  <!-- 1: APP -> UBI : current policy -->
+  <line class="arrow" x1="130" y1="115" x2="400" y2="115" marker-end="url(#rt-arr)"/>
+  <text class="msg"  x="265" y="110" text-anchor="middle">current policy {allowlist, optional requested_write_key_version}</text>
+
+  <!-- 2: UBI -> APP : get_key_id -->
+  <line class="arrow" x1="400" y1="150" x2="130" y2="150" marker-end="url(#rt-arr)"/>
+  <text class="msg"  x="265" y="145" text-anchor="middle">get_key_id(write_active_key_version)</text>
+
+  <!-- 3: UBI -> FLASH : write secure LEB -->
+  <line class="arrow" x1="400" y1="190" x2="670" y2="190" marker-end="url(#rt-arr)"/>
+  <text class="msg"  x="535" y="185" text-anchor="middle">write secure LEB</text>
+
+  <!-- 4: UBI -> FLASH : write secure VID -->
+  <line class="arrow" x1="400" y1="225" x2="670" y2="225" marker-end="url(#rt-arr)"/>
+  <text class="msg"  x="535" y="220" text-anchor="middle">write secure VID (commit-visible)</text>
+
+  <!-- 5: UBI -.-> APP : KEY_ROTATE_SOON / KEY_ROTATE_NOW -->
+  <line class="arrow-async" x1="400" y1="265" x2="130" y2="265" marker-end="url(#rt-arr-open)"/>
+  <text class="msg"  x="265" y="260" text-anchor="middle">KEY_ROTATE_SOON / KEY_ROTATE_NOW (budget thresholds)</text>
+
+  <!-- 6: UBI -.-> APP : sync_freshness -->
+  <line class="arrow-async" x1="400" y1="305" x2="130" y2="305" marker-end="url(#rt-arr-open)"/>
+  <text class="msg"  x="265" y="300" text-anchor="middle">sync_freshness({device_revision, global_sqnum})</text>
+
+  <!-- 7: APP -.-> UBI : ok / error -->
+  <line class="arrow-async" x1="130" y1="345" x2="400" y2="345" marker-end="url(#rt-arr-open)"/>
+  <text class="msg"  x="265" y="340" text-anchor="middle">ok / error</text>
+
+  <!-- 8: UBI -.-> APP : FRESHNESS_SYNC_FAILURE -->
+  <line class="arrow-async" x1="400" y1="385" x2="130" y2="385" marker-end="url(#rt-arr-open)"/>
+  <text class="msg"  x="265" y="380" text-anchor="middle">FRESHNESS_SYNC_FAILURE on error</text>
+
+  <!-- 9: UBI -.-> APP : KEY_RETIRABLE -->
+  <line class="arrow-async" x1="400" y1="425" x2="130" y2="425" marker-end="url(#rt-arr-open)"/>
+  <text class="msg"  x="265" y="420" text-anchor="middle">KEY_RETIRABLE(key_version = old) when refcount = 0</text>
+
+  <!-- legend -->
+  <line class="arrow"       x1="540" y1="478" x2="570" y2="478" marker-end="url(#rt-arr)"/>
+  <text class="legend"      x="575" y="482">synchronous call</text>
+  <line class="arrow-async" x1="540" y1="498" x2="570" y2="498" marker-end="url(#rt-arr-open)"/>
+  <text class="legend"      x="575" y="502">async / callback / event</text>
+</svg>

@@ -426,22 +426,9 @@ The LEB key is volume-specific. That is why the LEB usage budget is tracked per:
 
 The key hierarchy itself is:
 
-```mermaid
-flowchart TD
-    IKM["IKM[key_version]"]
-    PRK["PRK[key_version]"]
-    DH["K_device_header[key_version]"]
-    VH["K_volume_header[key_version]"]
-    ECH["K_erase_counter[key_version]"]
-    VID["K_volume_identifier[key_version]"]
-    LEB["K_leb[key_version][volume_id]"]
-
-    IKM --> PRK
-    PRK --> DH
-    PRK --> VH
-    PRK --> ECH
-    PRK --> VID
-    PRK --> LEB
+```{image} ../img/key_hierarchy.svg
+:alt: Secure UBI key hierarchy: per-version IKM, HKDF-Extract to PRK, HKDF-Expand to per-domain child keys, K_leb further bound to volume_id
+:width: 100%
 ```
 
 Runtime accounting is attached to those domains, but it is **not** part of the derived key material itself:
@@ -2077,39 +2064,16 @@ The summary below omits a dedicated getter for the authenticated on-flash `write
 
 Attach-time interaction:
 
-```mermaid
-sequenceDiagram
-    participant APP as Application
-    participant UBI as UBI SECURE
-    participant FLASH as Flash
-
-    APP->>UBI: policy {allowlist, optional requested_write_key_version}
-    UBI->>FLASH: authenticate reserved metadata
-    UBI->>FLASH: read write_active_key_version from secure device header
-    UBI->>APP: get_key_id(write_active_key_version)
-    UBI->>FLASH: scan data PEBs and select live mappings
-    UBI-->>APP: check_freshness({device_revision, global_sqnum})
-    APP-->>UBI: accept / reject
-    UBI-->>APP: events if policy or auth failures occur
+```{image} ../img/secure_attach_sequence.svg
+:alt: Secure UBI attach-time sequence between Application, UBI SECURE, and Flash
+:width: 100%
 ```
 
 Runtime interaction:
 
-```mermaid
-sequenceDiagram
-    participant APP as Application
-    participant UBI as UBI SECURE
-    participant FLASH as Flash
-
-    APP->>UBI: current policy {allowlist, optional requested_write_key_version}
-    UBI->>APP: get_key_id(write_active_key_version)
-    UBI->>FLASH: write secure LEB
-    UBI->>FLASH: write secure VID (commit-visible)
-    UBI-->>APP: KEY_ROTATE_SOON / KEY_ROTATE_NOW if budgets cross thresholds
-    UBI-->>APP: sync_freshness({device_revision, global_sqnum})
-    APP-->>UBI: ok / error
-    UBI-->>APP: FRESHNESS_SYNC_FAILURE on error
-    UBI-->>APP: KEY_RETIRABLE(key_version = old) when refcount reaches 0
+```{image} ../img/secure_runtime_sequence.svg
+:alt: Secure UBI runtime sequence for one write between Application, UBI SECURE, and Flash
+:width: 100%
 ```
 
 ---

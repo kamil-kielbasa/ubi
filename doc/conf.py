@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.75.0'
+version = '0.76.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -71,7 +71,7 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'environment_setup.md', 'positioning']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'positioning']
 
 # -- Options for HTML output -------------------------------------------------
 

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.76.0] - 2026-05-08
+
+### Changed
+
+- The Secure On-Flash Format Specification no longer relies on Mermaid
+  for its three illustrations. The §6.2 key-hierarchy diagram now
+  reuses the existing `key_hierarchy.svg` figure (the same one shown
+  in the Secure Architecture Overview), and the §16 attach-time and
+  runtime sequence diagrams have been redrawn as static SVGs
+  (`secure_attach_sequence.svg`, `secure_runtime_sequence.svg`) using
+  the same palette as the rest of the documentation. The diagrams
+  now render identically on GitHub, on GitHub Pages, and in any
+  offline / PDF rendering of the documentation, with no dependency
+  on a Mermaid renderer.
+
 ## [0.75.0] - 2026-05-08
 
 ### Added

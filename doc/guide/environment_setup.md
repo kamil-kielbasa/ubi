@@ -257,12 +257,6 @@ Open a serial terminal to observe test output:
 picocom -b 115200 /dev/ttyACM1
 ```
 
-Open a serial terminal to observe test output:
-
-```sh
-picocom -b 115200 /dev/ttyACM0
-```
-
 ## 5. Flash Sample Application
 
 Flash the **sample** application to STM32U585:
@@ -314,7 +308,7 @@ west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t ro
 west build -p --build-dir build/stm32u5/sample -b b_u585i_iot02a ./sample/ -t ram_report
 ```
 
-UBI-only library numbers (partition size vs. code size) are documented in [Plain Architecture](/architecture/plain_architecture.md): the DeviceTree `ubi_partition` used in this repo is **128 KiB** (STM32U5) / **64 KiB** (nRF5340); the measured **library** ROM footprint is **~9.5 KB** plain / **~29 KB** secure (Cortex-M33, `-Os`, library archive only — PSA Crypto/mbedTLS not counted).
+UBI-only library numbers (partition size vs. code size) are documented in {doc}`/architecture/plain_architecture`: the DeviceTree `ubi_partition` used in this repo is **128 KiB** (STM32U5) / **64 KiB** (nRF5340); the measured **library** ROM footprint is **~9.5 KB** plain / **~29 KB** secure (Cortex-M33, `-Os`, library archive only — PSA Crypto/mbedTLS not counted).
 
 ## 8. Code Coverage
 
