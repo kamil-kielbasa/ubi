@@ -10,9 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A **social preview banner** (`doc/img/social_preview.svg` plus a
-  rendered 1280×640 PNG) is now embedded near the top of the README
-  and is suitable for use as the GitHub repository's social preview
-  image.
+  rendered 1280×640 PNG) ships with the repository and is intended to
+  be uploaded as the GitHub repository's social preview image.
 - The README now includes an **Acknowledgments** section that credits
   the Linux UBI subsystem as the direct inspiration for the
   wear-leveling, dual-bank, and LEB-to-PEB mapping design, and frames

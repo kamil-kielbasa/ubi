@@ -5,10 +5,6 @@
 [![codecov](https://codecov.io/gh/kamil-kielbasa/ubi/graph/badge.svg)](https://codecov.io/gh/kamil-kielbasa/ubi)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-<p align="center">
-  <img src="doc/img/social_preview.png" alt="UBI on Zephyr — Wear-leveling and logical volumes for raw flash, with optional authenticated encryption." width="720">
-</p>
-
 UBI is a lightweight **wear-leveling and logical volume management layer** for raw flash on [Zephyr RTOS](https://www.zephyrproject.org/). It sits between application-level storage logic and the physical flash device, providing logical eraseblocks, metadata redundancy, bad block handling, and crash-safe LEB-to-PEB mapping.
 
 > **Release status: v1.0.0 (in preparation).** The library API and on-flash format are stabilising for v1.0.0. CI, coverage, and metrics badges above reflect the current `main` branch.
