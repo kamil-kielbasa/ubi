@@ -337,7 +337,7 @@ producing 6 jobs (2 mem backends × 3 geometries).
 
 ### Targets
 
-| Metric | Target | Achieved (v0.22.0) |
+| Metric | Target | Achieved (v0.71.0) |
 |--------|--------|--------------------|
 | Line coverage | >= 80% | 85.0% plain (1670/1964), 77.3% secure (3572/4623) |
 | Branch coverage | >= 70% | 51.8% plain (844/1628), 40.7% secure (1554/3817) |

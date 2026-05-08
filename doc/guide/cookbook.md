@@ -188,6 +188,8 @@ reclaimed per call — you decide cadence and priority.
 #include <zephyr/logging/log.h>
 #include <ubi.h>
 
+/* The application's main translation unit must contain a matching
+ * LOG_MODULE_REGISTER(app); — this snippet only declares the module. */
 LOG_MODULE_DECLARE(app);
 
 #define GC_PERIOD_MS 1000

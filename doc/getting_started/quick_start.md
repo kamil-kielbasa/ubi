@@ -83,7 +83,7 @@ int main(void)
     ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
     char buf[64];
-    ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(data));
+    ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(buf));
 
     ubi_device_deinit(ubi);
     return 0;

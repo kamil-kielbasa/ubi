@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.72.0] - 2026-05-08
+
+### Added
+
+- New **Plain UBI Workflow** guide — a developer-oriented walkthrough
+  covering when to use plain UBI, the `ubi_device` lifecycle, volume
+  management, the LEB read/write contract, garbage collection,
+  error handling, and degraded read-only mode. Previously the only
+  way to assemble this picture was to read the API reference, the
+  Architecture page, and the Cookbook in parallel.
+- New **Error Codes** reference — every value the public API can
+  return is now listed in one table with the recommended
+  application-level reaction, plus per-code notes for the
+  non-obvious cases (`-ENOSPC` overloading, `-EROFS` self-healing,
+  `-EBADMSG` as a security event).
+
+### Fixed
+
+- Quick Start example used `sizeof(data)` as the read length, which
+  silently truncated the read buffer. Now reads `sizeof(buf)`.
+- Cookbook § *Periodic garbage collection* clarified that the
+  application's main translation unit must contain a matching
+  `LOG_MODULE_REGISTER(app)` for the snippet's `LOG_MODULE_DECLARE`
+  to link.
+- Test Strategy coverage table label refreshed from `(v0.22.0)` to
+  `(v0.71.0)`.
+
 ## [0.71.0] - 2026-05-08
 
 ### Documentation
