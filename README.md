@@ -5,7 +5,13 @@
 [![codecov](https://codecov.io/gh/kamil-kielbasa/ubi/graph/badge.svg)](https://codecov.io/gh/kamil-kielbasa/ubi)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+<p align="center">
+  <img src="doc/img/social_preview.png" alt="UBI on Zephyr — Wear-leveling and logical volumes for raw flash, with optional authenticated encryption." width="720">
+</p>
+
 UBI is a lightweight **wear-leveling and logical volume management layer** for raw flash on [Zephyr RTOS](https://www.zephyrproject.org/). It sits between application-level storage logic and the physical flash device, providing logical eraseblocks, metadata redundancy, bad block handling, and crash-safe LEB-to-PEB mapping.
+
+> **Release status: v1.0.0 (in preparation).** The library API and on-flash format are stabilising for v1.0.0. CI, coverage, and metrics badges above reflect the current `main` branch.
 
 <p align="center">
   <img src="doc/img/stack.svg" alt="UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash" width="600">
@@ -98,7 +104,7 @@ Full documentation is published at **<https://kamil-kielbasa.github.io/ubi/>**. 
 - [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
 - [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling.
 - [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html) — normative byte-level reference.
-- [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html)
+- [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html)
 
 ## Project Quality
 
@@ -114,6 +120,35 @@ Full documentation is published at **<https://kamil-kielbasa.github.io/ubi/>**. 
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+This project would not exist without the work of the Linux kernel
+community, and in particular the original authors and maintainers of
+the **Linux UBI subsystem**. The core idea — a thin layer over raw
+flash that provides logical volumes, wear-leveling, and crash-safe
+LEB-to-PEB mapping — is, to the author, simply brilliant. All credit
+for that concept belongs to them; this project only adapts it to a
+different environment.
+
+UBI on Zephyr is directly inspired by Linux UBI. For Zephyr's
+resource-constrained targets the implementation had to be substantially
+simplified — fewer moving parts, a smaller in-RAM footprint, no
+filesystem layer on top — but the underlying model (PEBs, LEBs,
+EC/VID headers, dual-bank reserved metadata, sequence-number
+recovery) is the same one Linux UBI established. From the author's
+perspective this was a missing piece on Zephyr: a building block that
+**scales to large flash devices** by giving the application a
+virtualised view of flash with wear-leveling underneath.
+
+**Secure UBI** is then the author's own addition on top of that
+foundation. The motivation is straightforward: Zephyr lacks a
+storage / volume-management layer that delivers all of the above
+benefits *and* full on-disk encryption end-to-end. Secure UBI fills
+that gap by authenticating and encrypting every on-flash structure —
+device header, volume headers, EC headers, VID headers, and LEB
+payloads — through the PSA Crypto API, so the same wear-leveling
+and dual-bank guarantees apply to ciphertext rather than plaintext.
 
 ## Contact
 

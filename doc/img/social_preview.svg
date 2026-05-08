@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" font-family="'Inter','Helvetica Neue',Arial,sans-serif">
+  <!-- background -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#0b1f3a"/>
+      <stop offset="100%" stop-color="#11365e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="#3ec1d3"/>
+      <stop offset="100%" stop-color="#7c5cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <!-- subtle PEB grid motif (right side) -->
+  <g transform="translate(760,90)" opacity="0.18" stroke="#9fd6ea" stroke-width="2" fill="none">
+    <!-- 6 columns x 6 rows of small "PEB" rectangles -->
+    <g>
+      <!-- generated grid -->
+      <g>
+        <rect x="0"   y="0"   width="60" height="60" rx="6"/>
+        <rect x="70"  y="0"   width="60" height="60" rx="6"/>
+        <rect x="140" y="0"   width="60" height="60" rx="6"/>
+        <rect x="210" y="0"   width="60" height="60" rx="6"/>
+        <rect x="280" y="0"   width="60" height="60" rx="6"/>
+        <rect x="350" y="0"   width="60" height="60" rx="6"/>
+        <rect x="420" y="0"   width="60" height="60" rx="6"/>
+      </g>
+      <g transform="translate(0,70)">
+        <rect x="0"   y="0"   width="60" height="60" rx="6"/>
+        <rect x="70"  y="0"   width="60" height="60" rx="6"/>
+        <rect x="140" y="0"   width="60" height="60" rx="6"/>
+        <rect x="210" y="0"   width="60" height="60" rx="6"/>
+        <rect x="280" y="0"   width="60" height="60" rx="6"/>
+        <rect x="350" y="0"   width="60" height="60" rx="6"/>
+        <rect x="420" y="0"   width="60" height="60" rx="6"/>
+      </g>
+      <g transform="translate(0,140)">
+        <rect x="0"   y="0"   width="60" height="60" rx="6"/>
+        <rect x="70"  y="0"   width="60" height="60" rx="6"/>
+        <rect x="140" y="0"   width="60" height="60" rx="6"/>
+        <rect x="210" y="0"   width="60" height="60" rx="6"/>
+        <rect x="280" y="0"   width="60" height="60" rx="6"/>
+        <rect x="350" y="0"   width="60" height="60" rx="6"/>
+        <rect x="420" y="0"   width="60" height="60" rx="6"/>
+      </g>
+      <g transform="translate(0,210)">
+        <rect x="0"   y="0"   width="60" height="60" rx="6"/>
+        <rect x="70"  y="0"   width="60" height="60" rx="6"/>
+        <rect x="140" y="0"   width="60" height="60" rx="6"/>
+        <rect x="210" y="0"   width="60" height="60" rx="6"/>
+        <rect x="280" y="0"   width="60" height="60" rx="6"/>
+        <rect x="350" y="0"   width="60" height="60" rx="6"/>
+        <rect x="420" y="0"   width="60" height="60" rx="6"/>
+      </g>
+      <g transform="translate(0,280)">
+        <rect x="0"   y="0"   width="60" height="60" rx="6"/>
+        <rect x="70"  y="0"   width="60" height="60" rx="6"/>
+        <rect x="140" y="0"   width="60" height="60" rx="6"/>
+        <rect x="210" y="0"   width="60" height="60" rx="6"/>
+        <rect x="280" y="0"   width="60" height="60" rx="6"/>
+        <rect x="350" y="0"   width="60" height="60" rx="6"/>
+        <rect x="420" y="0"   width="60" height="60" rx="6"/>
+      </g>
+      <g transform="translate(0,350)">
+        <rect x="0"   y="0"   width="60" height="60" rx="6"/>
+        <rect x="70"  y="0"   width="60" height="60" rx="6"/>
+        <rect x="140" y="0"   width="60" height="60" rx="6"/>
+        <rect x="210" y="0"   width="60" height="60" rx="6"/>
+        <rect x="280" y="0"   width="60" height="60" rx="6"/>
+        <rect x="350" y="0"   width="60" height="60" rx="6"/>
+        <rect x="420" y="0"   width="60" height="60" rx="6"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- highlighted reserved + active PEBs -->
+  <g transform="translate(760,90)" opacity="0.85">
+    <rect x="0"   y="0"   width="60" height="60" rx="6" fill="#3ec1d3" opacity="0.55"/>
+    <rect x="70"  y="0"   width="60" height="60" rx="6" fill="#3ec1d3" opacity="0.55"/>
+    <rect x="210" y="140" width="60" height="60" rx="6" fill="#7c5cff" opacity="0.65"/>
+    <rect x="350" y="280" width="60" height="60" rx="6" fill="#7c5cff" opacity="0.65"/>
+  </g>
+
+  <!-- accent bar -->
+  <rect x="80" y="120" width="6" height="200" fill="url(#accent)" rx="3"/>
+
+  <!-- title -->
+  <text x="110" y="180" font-size="120" font-weight="700" fill="#ffffff" letter-spacing="-2">UBI</text>
+  <text x="110" y="240" font-size="36" font-weight="500" fill="#9fd6ea" letter-spacing="0.5">on Zephyr RTOS</text>
+
+  <!-- tagline -->
+  <text x="110" y="320" font-size="28" font-weight="500" fill="#e6eef7">
+    Wear-leveling and logical volumes for raw flash
+  </text>
+  <text x="110" y="360" font-size="22" font-weight="400" fill="#a8b8cc">
+    Optional authenticated encryption with PSA Crypto
+  </text>
+
+  <!-- feature pills -->
+  <g font-size="18" font-weight="600" fill="#0b1f3a">
+    <g transform="translate(110,440)">
+      <rect width="180" height="42" rx="21" fill="#9fd6ea"/>
+      <text x="90" y="27" text-anchor="middle">Plain UBI</text>
+    </g>
+    <g transform="translate(305,440)">
+      <rect width="180" height="42" rx="21" fill="#7c5cff" fill-opacity="0.85"/>
+      <text x="90" y="27" text-anchor="middle" fill="#ffffff">Secure UBI</text>
+    </g>
+    <g transform="translate(500,440)">
+      <rect width="200" height="42" rx="21" fill="#ffffff" fill-opacity="0.12" stroke="#9fd6ea"/>
+      <text x="100" y="27" text-anchor="middle" fill="#e6eef7">AES-128-CCM</text>
+    </g>
+  </g>
+
+  <!-- footer URL -->
+  <text x="110" y="560" font-family="'JetBrains Mono','Menlo',monospace" font-size="22" fill="#9fd6ea">
+    github.com/kamil-kielbasa/ubi
+  </text>
+  <text x="110" y="595" font-size="18" fill="#7689a0">
+    MIT License · v1.0.0
+  </text>
+</svg>

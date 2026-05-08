@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.75.0] - 2026-05-08
+
+### Added
+
+- A **social preview banner** (`doc/img/social_preview.svg` plus a
+  rendered 1280×640 PNG) is now embedded near the top of the README
+  and is suitable for use as the GitHub repository's social preview
+  image.
+- The README now includes an **Acknowledgments** section that credits
+  the Linux UBI subsystem as the direct inspiration for the
+  wear-leveling, dual-bank, and LEB-to-PEB mapping design, and frames
+  Secure UBI as the author's own addition on top of that foundation —
+  motivated by the absence of a Zephyr storage/volume-management layer
+  with full on-disk authenticated encryption.
+
+### Changed
+
+- The README's release-status note has been promoted from a Sphinx
+  admonition to a clearly visible blockquote at the top of the file,
+  and the Documentation section now links to the new
+  **Glossary** alongside the existing reference pages.
+
 ## [0.74.0] - 2026-05-08
 
 ### Added
