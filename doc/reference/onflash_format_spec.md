@@ -35,22 +35,9 @@ The inner plain payloads stay the same; only their on-flash representation, keyi
 | Freshness exported to the application | UBI exports authenticated `(device_revision, global_sqnum)` and provides freshness callbacks. | The application can implement rollback / replay detection against its own trusted freshness store. |
 | Future-write continuity is explicit | Hidden per-volume anchors preserve per-volume LEB floors, and the secure device header preserves the global VID-domain floor. | Secure writes can continue safely after reclaim, `unmap`, `shrink`, and even after removing all volumes. |
 
-### 1.2 Why this is hard to tamper with
+### 1.2 Tamper resistance
 
-An attacker who controls raw flash, but does not know an accepted `IKM[key_version]`, cannot make arbitrary modified state look valid to SECURE UBI:
-
-- changing ciphertext or authenticated plaintext fields breaks tag verification,
-- moving a record to another physical location or another logical identity breaks AAD binding,
-- replaying older authenticated state still has to pass the application's freshness policy,
-- an accepted user mapping depends on authenticated secure EC, secure VID, and secure LEB state, not on one ciphertext blob in isolation.
-
-In practice, accepted reads and writes are protected by:
-
-- domain-separated child keys,
-- authenticated record linkage,
-- location and identity binding in AAD,
-- monotonic counter usage and usage budgets,
-- application-visible freshness for rollback / replay decisions.
+For an overview of what an attacker with raw-flash access can and cannot do without an accepted `IKM[key_version]`, see {doc}`/architecture/secure_overview` § 2 *Threat model*. This specification defines the byte-level format and rules that make those properties hold.
 
 ### 1.3 Plain-core baseline assumed by this document
 
@@ -184,48 +171,9 @@ For the base single-tag layout, secure data-PEB metadata consumes **208 B**:
 
 ---
 
-## 3. What SECURE mode gives and what it does not
+## 3. Scope
 
-### 3.1 What the application gets
-
-SECURE UBI combines one secure on-flash format with the existing UBI storage model:
-
-| Area | What the application gets |
-|------|---------------------------|
-| Confidentiality at rest | User data and UBI metadata are encrypted. |
-| Integrity and authenticity | Every secure record is authenticated before it is trusted. |
-| Plain UBI behavior | Logical volumes, wear-leveling, bad-block handling, dual-bank reserved metadata, and `sqnum`-based recovery remain. |
-| Rollback / replay hook | UBI exports authenticated `(device_revision, global_sqnum)` so the application can compare them against its trusted freshness store. |
-| Key lifecycle handling | `write_active_key_version`, allowlist enforcement, budgets, refcounts, retirement, and continuity floors live in UBI instead of being rebuilt above it. |
-| High-write orientation | The format is designed for repeated writes; nonce use, authenticated-byte usage, rotation thresholds, and reclaim-time continuity are explicit parts of the architecture. |
-
-### 3.2 Security consequence in plain language
-
-An attacker with raw-flash access but without an accepted root key version cannot:
-
-- read meaningful UBI metadata or user payload from secure ciphertext alone,
-- modify authenticated payload fields, counters, or metadata without failing AEAD verification,
-- move ciphertext to another physical eraseblock, volume, or logical number and still have it accepted,
-- replay older authenticated state without also defeating the application's trusted freshness policy.
-
-To make forged user data accepted, the attacker would need at least one of the following:
-
-- compromise an accepted `IKM[key_version]`, which yields all child keys for that version,
-- break the relevant AEAD checks across the secure EC -> secure VID -> secure LEB chain,
-- or defeat the application's trusted freshness store so that stale `(device_revision, global_sqnum)` is accepted.
-
-Knowledge of one child key alone is not sufficient to build a complete accepted mapping; accepted data depends on the authenticated chain and AAD binding, not on one record in isolation.
-
-### 3.3 Explicit boundary
-
-SECURE mode is intentionally scoped:
-
-- UBI does not assume a global journal or a hardware monotonic counter,
-- UBI does require fresh cryptographic randomness for every secure write,
-- UBI does export authenticated freshness values to the application,
-- complete anti-rollback still requires an external trusted freshness store or equivalent trust anchor.
-
-So SECURE mode provides authenticated on-flash encryption plus the continuity state and policy hooks needed to keep writing safely. It does not claim that rollback can be prevented without any external trust anchor.
+This specification defines the byte-level SECURE on-flash format and the rules that govern it. The **what / why** view of SECURE mode — what the application gets, the threat model, and the explicit security boundary (no global journal, no hardware monotonic counter, external freshness store still required for complete anti-rollback) — lives in {doc}`/architecture/secure_overview` § 1–3.
 
 ## 4. Terminology and invariants
 
@@ -296,23 +244,7 @@ After successful initialization:
 
 ### 5.1 Algorithm choice
 
-UBI SECURE uses **AES-128-CCM** for all authenticated-encryption records.
-
-This is a good match for UBI because UBI stores explicit records, not streams:
-
-- metadata records are naturally packet-sized,
-- AAD is explicit,
-- the nonce is explicit,
-- the format naturally fits the "authenticate then decrypt one complete record" model,
-- embedded platforms that expose hardware AEAD support commonly support CCM for this workload.
-
-The child AEAD key size is therefore fixed:
-
-```text
-AES child key size = 128 bits
-```
-
-This is independent from the root-key requirement for `IKM[v]`.
+UBI SECURE uses **AES-128-CCM** for all authenticated-encryption records. Child AEAD key size is fixed at 128 bits. The rationale (record-shaped traffic, explicit AAD, embedded AEAD support) is discussed in {doc}`/architecture/secure_overview` § 3.
 
 ### 5.2 CCM parameters
 
@@ -362,46 +294,19 @@ If that condition is false for the selected geometry, SECURE must either:
 - require chunked LEB mode for that geometry, or
 - reject SECURE mode at build time or initialization time.
 
-### 5.3 Why UBI tracks both AEAD invocations and authenticated bytes
+### 5.3 Two LEB metrics: invocations and authenticated bytes
 
-CCM has two properties that matter here:
+CCM requires nonce uniqueness per key, and its security margin degrades with cumulative authenticated data. UBI therefore tracks two monotonic usage dimensions per **LEB key** `{key_version, volume_id}`:
 
-1. every invocation under one key requires a unique nonce,
-2. the security margin degrades as more authenticated data are processed under the same key.
+- **`leb_write_counter`** — the next unused AEAD / nonce-counter value (also the number of invocations consumed so far),
+- **`leb_total_auth_bytes`** — cumulative authenticated bytes (`AAD bytes + payload plaintext bytes`).
 
-For **LEB keys**, UBI therefore tracks two monotonic usage dimensions:
-
-- **number of AEAD invocations already consumed under `{key_version, volume_id}`**
-- **total authenticated bytes already processed under `{key_version, volume_id}`**
-
-Those two dimensions are represented as:
-
-- `leb_write_counter`
-- `leb_total_auth_bytes`
-
-`leb_write_counter` is the next unused AEAD / nonce-counter value for that `{key_version, volume_id}`. `leb_total_auth_bytes` is the cumulative authenticated-byte volume:
-
-```text
-AAD bytes + payload plaintext bytes
-```
-
-For **metadata keys**, UBI also evaluates both dimensions, but the accounting is different:
+For **metadata keys**, both dimensions are still evaluated, but accounting differs:
 
 - metadata AEAD-invocation count is recovered directly from authenticated `prefix32.counter` values,
-- metadata authenticated-byte usage is derived, not persisted, because each metadata record type has a fixed plaintext size and a fixed AAD shape.
+- metadata authenticated-byte usage is derived (not persisted) because each metadata record type has a fixed plaintext size and a fixed AAD shape.
 
-That asymmetry is intentional:
-
-- metadata records have fixed sizes, so authenticated-byte usage can be reconstructed from `{domain, key_version}` and the next counter value,
-- LEB records have variable payload size, so cumulative authenticated-byte usage must be persisted in secure VID metadata,
-- the architecture budgets on AEAD invocations and authenticated bytes because those are the monotonic quantities directly visible at the UBI layer.
-
-The design does **not** persist an internal AES-128 block-operation count. If an implementation wants a block-level estimate, it can conservatively derive it from authenticated bytes and the fixed CCM per-record formatting cost. The architectural policy surface, however, is expressed in:
-
-- AEAD invocations,
-- authenticated bytes.
-
-Both dimensions are checked before a new write is committed.
+The architecture does **not** persist an internal AES-128 block-operation count; budgets are expressed in invocations and authenticated bytes only. Both are checked before a new write is committed.
 
 ### 5.4 Entropy source requirement
 
@@ -609,28 +514,9 @@ The design therefore keeps chunked mode simple:
 
 Chunked mode still increases the LEB usage budget because one logical write can consume more than one AEAD invocation. That accounting is described in sections 8.2 and 9.7.
 
-### 6.4 Why secure records are separate types
+### 6.4 Plain and secure record types are separate
 
-The architecture keeps **plain** and **secure** record types separate.
-
-That is deliberate.
-
-The plain structures remain the semantic payloads already used by UBI:
-
-- `struct ubi_dev_hdr`
-- `struct ubi_vol_hdr`
-- `struct ubi_ec_hdr`
-- `struct ubi_vid_hdr`
-
-The secure records are distinct wrapper types that add:
-
-- common prefix,
-- secure-only metadata,
-- tag,
-- AAD rules,
-- versioning.
-
-This makes the secure format easier to maintain, easier to version, and easier to reason about than trying to overload the plain record definitions themselves.
+The plain payload structures (`ubi_dev_hdr`, `ubi_vol_hdr`, `ubi_ec_hdr`, `ubi_vid_hdr`) are reused unchanged inside SECURE records. The secure records are distinct wrapper types that add the common prefix, secure-only metadata, the AEAD tag, AAD rules, and versioning. Plain and secure record definitions therefore evolve independently.
 
 ---
 
@@ -858,8 +744,6 @@ Normative rule:
 - If retained, inner CRC fields may be recomputed on write so that the embedded plain payload stays self-consistent.
 - If checked on read, an inner CRC mismatch after successful AEAD verification is a **format violation of authenticated plaintext**, not a separate authenticity result.
 - Inner CRC fields must not be used for nonce construction, AAD cross-record binding, rollback logic, or key-retirement logic.
-
-**Implementation note (UBI SECURE).** The secure read path deliberately does **not** re-verify inner `hdr_crc` fields after a successful AEAD verification. The 16-byte CCM tag already authenticates the entire serialized record (prefix + plaintext, including any inner CRC fields), so a second CRC check would be redundant for security and would only catch internal serializer bugs already covered by unit tests. Inner CRC fields are still computed on write so that the embedded plain payload stays self-consistent for plain-backend interop and external tooling, but the secure backend treats them as opaque authenticated bytes.
 
 ---
 
@@ -1168,30 +1052,7 @@ For LEB recovery, the secure VID sources include:
 - live user mappings for that `volume_id`,
 - the live hidden anchor mapping for that `volume_id`, if present.
 
-### 9.6 Why there are two LEB metrics
-
-`leb_write_counter` answers:
-
-> what is the next unused AEAD / nonce-counter value under this LEB key?
-
-Equivalently, it captures how many AEAD invocations have already been consumed under that `{key_version, volume_id}`.
-
-`leb_total_auth_bytes` answers:
-
-> how many authenticated bytes have already been processed under this LEB key?
-
-That total is:
-
-```text
-AAD bytes + payload plaintext bytes
-```
-
-UBI keeps both persisted values because neither one alone is sufficient:
-
-- AEAD-invocation count is needed for nonce uniqueness and counter overflow checks,
-- cumulative authenticated bytes are needed for usage budgets that reflect total CCM work under that key.
-
-### 9.7 Write-budget enforcement
+### 9.6 Write-budget enforcement
 
 UBI maintains runtime usage state:
 
@@ -1272,13 +1133,13 @@ Hidden-anchor maintenance writes use the same LEB accounting as ordinary zero-le
 
 The architecture deliberately does **not** hardcode one numeric AES-CCM budget in this document. Products can choose different acceptable margins, but the budgeting dimensions and the enforcement points remain the same.
 
-### 9.8 Counter lifecycle and continuity guarantees
+### 9.7 Counter lifecycle and continuity guarantees
 
 Freshness values such as `device_revision` and `global_sqnum` must not be confused with AEAD-usage floors.
 
 A counter continuity problem appears only when the **last authenticated carrier of the newest committed value** disappears from flash before another authenticated carrier inherits it.
 
-#### 9.8.1 Continuity matrix
+#### 9.7.1 Continuity matrix
 
 | Counter family | Latest committed carrier | Threat window | Continuity mechanism |
 |---|---|---|---|
@@ -1294,7 +1155,7 @@ The continuity mechanisms are intentionally different because the domains have d
 - DEV/VOL already live in dual-bank reserved metadata,
 - EC is accepted as best-effort and does not get an additional anchor.
 
-#### 9.8.2 Threat: `unmap/shrink -> erase -> reboot/crash`
+#### 9.7.2 Threat: `unmap/shrink -> erase -> reboot/crash`
 
 The per-volume LEB floor can be lost only if all of these become true:
 
@@ -1305,7 +1166,7 @@ The per-volume LEB floor can be lost only if all of these become true:
 
 Without another authenticated carrier, init could reopen an older per-volume floor for that `{key_version, volume_id}`. That is exactly the class of scenario that the hidden anchor solves.
 
-#### 9.8.3 Hidden per-volume anchor PEB
+#### 9.7.3 Hidden per-volume anchor PEB
 
 Each secure volume owns one hidden anchor PEB.
 
@@ -1375,7 +1236,7 @@ This solves the cases that motivated the anchor:
 
 The anchor is intentionally local and uses the same record types already present in SECURE. It is **not** rewritten on every user write; it is refreshed when create-time initialization or reclaim-time continuity requires it. No external journal is required.
 
-#### 9.8.4 Threat: `volume_remove`, including removing all volumes
+#### 9.7.4 Threat: `volume_remove`, including removing all volumes
 
 The secure VID key is intentionally global for one key version:
 
@@ -1393,7 +1254,7 @@ That means `volume_remove` has a separate risk window:
 
 A per-volume anchor does not solve this global VID-domain case by itself, because removing the volume also removes its hidden anchor.
 
-#### 9.8.5 Saving the last VID-domain floor in the secure device header
+#### 9.7.5 Saving the last VID-domain floor in the secure device header
 
 SECURE therefore stores the current global VID-domain floor in the secure device header:
 
@@ -1443,22 +1304,7 @@ This is why the current design chooses the secure device header for global VID c
 - the secure device header already has crash-safe dual-bank semantics,
 - the solution works even when the device temporarily has zero volumes.
 
-#### 9.8.6 Why this design is chosen
-
-The chosen continuity mechanisms are intentionally minimal:
-
-- **hidden per-volume anchor PEB** for the per-volume LEB floor,
-- **device-header VID floor snapshot** for the global VID-domain floor of the current write-active key version.
-
-This design is preferred because it keeps every continuity problem at the narrowest existing carrier:
-
-- per-volume state stays with a per-volume secure VID carrier,
-- global VID state stays in the dual-bank secure device header,
-- no external journal is introduced,
-- no new unauthenticated side channel is introduced,
-- the crash model continues to rely on existing UBI commit-visible objects and `vid_sqnum` ordering.
-
-### 9.9 External trusted freshness store contract
+### 9.8 External trusted freshness store contract
 
 Complete anti-rollback requires an external trusted freshness store or an equivalent trust anchor.
 
@@ -2000,60 +1846,17 @@ Implementation hygiene requirements:
 - if derived child keys are cached in RAM, cache lifetime must be bounded to one attach session and entries must be invalidated on device detach, init failure, or when the corresponding key version is no longer usable,
 - platforms that can keep child keys as non-exportable PSA objects should prefer that flow.
 
-### 13.7 Lazy rekey versus forced rekey after compromise
+### 13.7 Lazy versus forced rekey
 
-If the application considers one root key version compromised, two broad strategies exist:
+The application chooses between **lazy** rekey (future writes use a new key version; old objects age out naturally) and **forced** rekey (all live objects are proactively rewritten). UBI provides the same primitives for both: allowlist, write-active key version, usage budgets, retirement detection, crash-safe rewrite paths.
 
-- **lazy rekey**  
-  future writes use a new key version and old objects age out naturally,
-- **forced rekey**  
-  the application proactively rewrites all live objects under a new key version.
+Lazy rewrite alone is **not** sufficient as a compromise-response guarantee — stale EC headers, dirty data, and stale reserved generations can keep an old key version operationally required even after every live mapping has been rewritten. Immediate retirement therefore requires accelerated reclaim, explicit scrub of stale media state, and tightening the allowlist only after the old key's on-flash refcount reaches zero.
 
-UBI provides the mechanisms needed for either strategy:
+For the application-level workflows see {doc}`/guide/secure_workflow` § 5; for the operator state taxonomy and the `KEY_RETIRABLE` event see {doc}`/architecture/secure_overview` § 5.
 
-- allowlist,
-- write-active key version,
-- usage budgets,
-- retirement detection,
-- crash-safe rewrite paths.
+### 13.8 Retirement event
 
-A critical operational point is that rewriting all live mappings under a new key version is **not** the same thing as retiring the old key immediately. Old EC headers on free PEBs, stale reserved generations, and dirty data pending erase can still keep the old key version operationally required.
-
-So if a key version is considered compromised and the product wants immediate retirement semantics, the application may need more than ordinary live-data rewrite:
-
-- accelerated reclaim,
-- explicit scrub of stale media state,
-- stricter allowlist changes only after the old key refcount reaches zero.
-
-Lazy rewrite alone is not a sufficient compromise-response guarantee.
-
-The policy choice between lazy and forced rekey remains with the application.
-
-### 13.8 Operational retirement levels
-
-For operator clarity, SECURE should distinguish four states:
-
-1. **soft rotation**  
-   New writes use a newer key version.
-2. **live rewrite completed**  
-   All currently live mappings have been rewritten under the newer key version.
-3. **media scrub completed**  
-   Stale reserved generations, dirty data, and free-PEB EC objects that still reference the old key version have been eliminated.
-4. **key retired**  
-   The old key version has on-flash refcount zero and can be removed from the allowlist.
-
-`KEY_RETIRABLE` corresponds to the transition into state 4.
-
-```mermaid
-flowchart LR
-    A["old key is still write-active"] --> B["soft rotation\nnew writes use newer key"]
-    B --> C["live rewrite completed"]
-    C --> D["media scrub completed"]
-    D --> E["KEY_RETIRABLE\nrefcount == 0"]
-    E --> F["application may remove key from allowlist\nand purge PSA key material"]
-```
-
-**Implementation note (UBI SECURE).** This taxonomy is informational ("SECURE *should* distinguish ... for operator clarity"). The current implementation emits only `KEY_RETIRABLE` for state 4 — the security-relevant transition that authorizes purging key material. States 1–3 are not surfaced as dedicated events because they are already observable from the application side without library support: state 1 (soft rotation) corresponds to the application's own `requested_write_key_version` change, optionally combined with `KEY_ROTATE_NOW` and `ubi_secure_get_write_active_key_version()`; states 2 and 3 are intermediate progress markers with no security action attached. A future revision may add `KEY_SOFT_ROTATION`, `KEY_LIVE_REWRITE_COMPLETED`, and `KEY_MEDIA_SCRUB_COMPLETED` events if operator tooling needs them.
+UBI surfaces one transition from this taxonomy: **`KEY_RETIRABLE`** is emitted when the on-flash refcount of a key version reaches zero. That is the only point at which it is safe for the application to remove the key version from the allowlist and destroy the corresponding PSA key material. The four-state operator taxonomy (soft rotation → live rewrite completed → media scrub completed → key retired) is documented in {doc}`/architecture/secure_overview` § 5.
 
 ---
 

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.73.0] - 2026-05-08
+
+### Changed
+
+- The Secure On-Flash Format Specification is now a tighter normative
+  reference. Architectural rationale that previously appeared inside
+  the spec body — the threat-model narrative, the security boundary,
+  the key-state taxonomy, the lazy-vs-forced rekey discussion, and
+  several "why this design is chosen" sidebars — has been removed
+  from the spec and replaced with cross-links to the Secure
+  Architecture Overview and the Secure UBI Workflow guide, which were
+  already the canonical homes for that material. Readers looking for
+  byte-level rules now reach them sooner; readers looking for the
+  architectural reasoning still find it, in one place.
+- The *Application contract* section in the Secure Architecture
+  Overview is now a four-row map (PSA key provider, allowlist,
+  freshness store, event callback) that points into the matching
+  subsections of the Secure UBI Workflow guide. The detailed
+  signatures and verdict semantics live in the workflow guide as the
+  single source of truth, instead of being duplicated across both
+  pages.
+
 ## [0.72.0] - 2026-05-08
 
 ### Added

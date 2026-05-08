@@ -115,50 +115,17 @@ Properties to remember:
 ## 4. Application contract
 
 Secure UBI delegates four things to your application. They are
-non-optional for any non-trivial deployment.
+non-optional for any non-trivial deployment. The detailed signatures,
+contracts, and verdict semantics are the canonical
+{doc}`/guide/secure_workflow` § 4 *Callback contracts*; this section is
+the at-a-glance map.
 
-### 4.1 PSA key provider
-
-You implement a `get_key_id(key_version) -> psa_key_id_t` callback so
-Secure UBI can look up `IKM[v]` for any allowlisted version it
-encounters on flash.
-
-### 4.2 Key allowlist
-
-You provide `allowed_key_versions[]` — an explicit list of 8-bit
-versions that Secure UBI is allowed to authenticate. Anything outside
-this list raises `KEY_VERSION_NOT_ALLOWLISTED` and is rejected.
-
-### 4.3 Freshness store
-
-For rollback / replay defence, you provide:
-
-- a **freshness check** callback at attach time — Secure UBI presents
-  the authenticated `(device_revision, global_sqnum)` it just read
-  from flash; you compare against your trusted store and accept or
-  reject;
-- an optional **freshness sync** callback — Secure UBI hands you the
-  newer values after each commit-visible mutation; you persist them
-  to your trusted store on the cadence configured by
-  `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`.
-
-If you do not implement a freshness store, Secure UBI still gives you
-authenticated encryption — but it cannot detect rollback to an older
-authentic state.
-
-### 4.4 Event callback
-
-You implement an `event_cb(event) -> verdict` callback. Secure UBI
-calls it for every security-relevant event (auth failures, allowlist
-violations, RNG failures, key-rotation thresholds, retirement).
-Your verdict is one of:
-
-- `UBI_CRYPTO_EVENT_CONTINUE` — keep going,
-- `UBI_CRYPTO_EVENT_ENTER_READ_ONLY` — sticky read-only for the rest
-  of this attach session.
-
-The contract details (events, verdicts, mandatory escalations) live
-in {doc}`/guide/secure_workflow`.
+| What you provide | Why | Detail |
+|---|---|---|
+| **PSA key provider** — `get_key_id(key_version) -> psa_key_id_t` | Look up the PSA key holding `IKM[v]` for any allowlisted version Secure UBI sees on flash. | {doc}`/guide/secure_workflow` § 4.1 |
+| **Key allowlist** — `allowed_key_versions[]` | Explicit list of 8-bit versions Secure UBI may authenticate; everything else triggers `KEY_VERSION_NOT_ALLOWLISTED`. | {doc}`/guide/secure_workflow` § 4.2 |
+| **Freshness store** — `check_freshness` (mandatory) and `sync_freshness` (optional) | Without a freshness store Secure UBI still gives you authenticated encryption, but cannot detect rollback to an earlier authentic state. | {doc}`/guide/secure_workflow` § 4.3 |
+| **Event callback** — `event_cb(event) -> verdict` | Receive every security-relevant event (auth failures, allowlist violations, RNG failures, rotation thresholds, retirement) and decide whether to keep going or latch read-only. | {doc}`/guide/secure_workflow` § 4.4 |
 
 ## 5. Key lifecycle
 
