@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.74.0] - 2026-05-08
+
+### Added
+
+- A single-page **Glossary** (`reference/glossary`) collects every
+  UBI-specific term used across the documentation — PEB, LEB, EC, VID,
+  EBA, `vid_sqnum`, `global_sqnum`, `volume_id`, dual-bank, reserved
+  generation, freshness store, write-active key version, allowlist,
+  hidden anchor, `KEY_RETIRABLE`, strict read-only, and more. The
+  glossary is reachable from the index "Reference" card and from the
+  Reference toctree.
+
+### Changed
+
+- Plain UBI Architecture now uses the precise field names `vid_sqnum`
+  and `volume_id` where it previously said "sequence number" and
+  `vol_id` in prose, so the document and the C headers agree on
+  vocabulary.
+
 ## [0.73.0] - 2026-05-08
 
 ### Changed

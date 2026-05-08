@@ -17,7 +17,7 @@ These rules hold at all times after a successful `ubi_device_init()`:
 | Invariant | Description |
 |-----------|-------------|
 | One LEB, one PEB | Each mapped LEB points to exactly one active PEB. No two LEBs share a PEB. |
-| Higher sqnum wins | During init, if two PEBs claim the same (vol_id, lnum), the one with the higher sequence number is kept; the other becomes dirty. |
+| Higher sqnum wins | During init, if two PEBs claim the same (volume_id, lnum), the one with the higher `vid_sqnum` is kept; the other becomes dirty. |
 | Erase before reuse | A dirty PEB must be erased before it can return to the free pool. No in-place overwrites. |
 | Bad PEBs are terminal | Once a PEB is classified as bad, it never returns to the free or dirty pool (unless torture recovery succeeds). |
 | Reserved PEBs are mirrors | The first N reserved PEBs hold identical copies of device + volume metadata. They are never used for data. |
@@ -508,7 +508,7 @@ ubi_device_init(flash, NULL, &ubi)
 
 ### Sequence Number Conflict Resolution
 
-When two PEBs claim the same `(vol_id, leb_num)` pair (e.g., a write was interrupted and both the old and new PEB survive), UBI resolves the conflict using the `sqnum` field in the VID header:
+When two PEBs claim the same `(volume_id, lnum)` pair (e.g., a write was interrupted and both the old and new PEB survive), UBI resolves the conflict using the `vid_sqnum` field in the VID header:
 
 - The PEB with the **higher** `sqnum` is the newer write and is kept in the EBA table.
 - The PEB with the **lower** `sqnum` is moved to `dirty_pebs` for later erasure.

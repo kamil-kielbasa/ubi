@@ -50,6 +50,7 @@ Pick the card that matches what you came here to do.
 
        * :doc:`reference/api`
        * :doc:`reference/kconfig_reference`
+       * :doc:`reference/glossary`
        * :doc:`reference/onflash_format_spec`
 
 ----
@@ -85,6 +86,7 @@ Pick the card that matches what you came here to do.
    reference/api
    reference/kconfig_reference
    reference/error_codes
+   reference/glossary
    reference/onflash_format_spec
 
 .. toctree::
