@@ -2,53 +2,23 @@
 
 **What this page covers:** All Kconfig options, DeviceTree partition setup, and sizing guidelines for UBI.
 
-**Prerequisites:** [What is UBI?](what_is_ubi.md) and [Quick Start](quick_start.md).
+**Prerequisites:** [What is UBI?](/getting_started/what_is_ubi.md) and [Quick Start](/getting_started/quick_start.md).
 
 UBI is configured via Zephyr's Kconfig system and DeviceTree overlays.
 
 ## Kconfig Options
 
-Enable UBI and its options in your `prj.conf`:
+Enable UBI and pick its options in your `prj.conf`:
 
 ```
 CONFIG_UBI_ENABLE=y
 ```
 
-### Option Reference
-
-| Option | Type | Default | Range | Description |
-|--------|------|---------|-------|-------------|
-| `CONFIG_UBI_ENABLE` | bool | n | — | Enable the UBI subsystem |
-| `CONFIG_UBI_MEM_BACKEND_STATIC` | bool | y | — | Use `k_mem_slab` pools for all UBI allocations (default) |
-| `CONFIG_UBI_MEM_BACKEND_HEAP` | bool | n | — | Use `k_malloc`/`k_free` for all UBI allocations (legacy) |
-| `CONFIG_UBI_MAX_NR_OF_DEVICES` | int | 1 | 1–4 | Maximum number of concurrent UBI device handles (static backend) |
-| `CONFIG_UBI_MAX_NR_OF_DATA_PEBS` | int | 14 | 1–4096 | Maximum data PEBs per device (static backend pool sizing) |
-| `CONFIG_UBI_TEST_MEM_STATS` | bool | n | — | Enable slab pool usage statistics (static backend only) |
-| `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` | int | 2 | 2–4 | Number of reserved PEBs for device/volume metadata |
-| `CONFIG_UBI_MAX_NR_OF_VOLUMES` | int | 10 | 1–128 | Maximum number of volumes per device |
-| `CONFIG_UBI_PEB_WRITE_RETRY_COUNT` | int | 3 | 1–5 | Flash write retries on data PEBs before marking bad |
-| `CONFIG_UBI_BAD_PEB_TORTURE_CYCLES` | int | 3 | 1–10 | Bad PEBs tortured per `erase_peb()` call |
-| `CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE` | int | 1 | 1–10 | Max erase attempts per bad PEB during torture |
-| `CONFIG_UBI_LOG_LEVEL_*` | choice | INF | — | Log verbosity: OFF, ERR, WRN, INF, DBG |
-| `CONFIG_UBI_TEST_API_ENABLE` | bool | n | — | Enable test-only APIs (`ubi_device_get_peb_ec`, `ubi_device_check_invariants`) |
-| `CONFIG_UBI_TEST_FAULT_INJECTION` | bool | n | — | Controllable allocation failure hook for simulating OOM. Depends on `CONFIG_UBI_TEST_API_ENABLE`. |
-| `CONFIG_UBI_CRYPTO` | bool | n | — | Enable the secure (authenticated-encryption) backend. Requires Mbed TLS PSA Crypto. |
-| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | int | 4 | 1–255 | Maximum distinct key versions per attach session. Sizes per-key-version bookkeeping arrays. |
-| `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET` | int | 1000000 | — | Max metadata AEAD invocations per {domain, key_version} before KEY_ROTATE event. |
-| `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET` | int | 100000000 | — | Max cumulative authenticated metadata bytes per {domain, key_version}. |
-| `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET` | int | 1000000 | — | Max LEB AEAD invocations per {key_version, volume_id}. |
-| `CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET` | int | 100000000 | — | Max cumulative authenticated LEB bytes per {key_version, volume_id}. |
-| `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT` | int | 80 | 1–99 | Soft rotation threshold (%). Emits KEY_ROTATE_SOON. |
-| `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT` | int | 95 | 1–100 | Hard rotation threshold (%). Emits KEY_ROTATE_NOW; writes may be rejected. |
-| `CONFIG_UBI_CRYPTO_LEB_CHUNKED` | bool | n | — | Use chunked LEB layout: multiple AEAD tags per LEB for partial-read authentication (§7.8). |
-| `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` | int | 4096 | 256–65536 | Chunk size in bytes (must be multiple of flash write alignment). Smaller = finer reads, more tag overhead. |
-| `CONFIG_UBI_CRYPTO_PEB_CACHE` | bool | y | — | Allocate a PEB-sized staging buffer for secure encrypt/decrypt. Required for secure I/O. |
-| `CONFIG_UBI_CRYPTO_PEB_CACHE_STATIC` | bool | n | — | Allocate PEB staging buffer at compile time (else per-device at init). |
-| `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA` | int | 0 | 0–65535 | Mutations between sync_freshness callbacks. 0 = sync after every commit. |
-| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE` | bool | y | — | Enter read-only mode on RNG failure instead of only rejecting the current write. |
-| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE` | bool | y | — | Enter read-only on freshness policy rejection or rollback mismatch. |
-| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE` | bool | n | — | Enter read-only when sync_freshness callback errors. |
-| `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION` | bool | n | — | Secure backend fault injection (PSA crypto failures). Depends on `UBI_TEST_FAULT_INJECTION`. |
+The full enumerated list of every Kconfig symbol — type, default,
+range, and description — lives in {doc}`/reference/kconfig_reference`.
+The subsections below cover only the **guide-shaped** material:
+backend selection, sizing trade-offs, what each knob actually
+affects in production, and log levels.
 
 ### Memory Backend
 

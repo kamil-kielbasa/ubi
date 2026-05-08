@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.70.0'
+version = '0.71.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -29,25 +29,42 @@ extensions = [
     'sphinx_reredirects',
 ]
 
-# -- Redirects (for pages moved during the v1.0.0 docs restructure) ----------
-# Sources are pages removed from the new sidebar; targets are the new homes.
-# Each entry generates a small HTML page with a meta-refresh redirect.
+# -- Redirects ---------------------------------------------------------------
+# Old URLs from the v1.0.0 documentation reorganization. Each entry generates
+# a small HTML page with a meta-refresh redirect so external bookmarks and
+# search-engine results survive the reshuffle.
 redirects = {
-    # PR 1: positioning piece moved out of the published sidebar.
+    # Positioning piece kept out of the published sidebar.
     'why_ubi_for_zephyr': 'https://github.com/kamil-kielbasa/ubi/blob/main/doc/positioning/why_ubi_for_zephyr.md',
-    # PR 2: Overview + Introduction merged into "What is UBI?" + "Concepts".
-    'overview': 'what_is_ubi.html',
-    'introduction': 'what_is_ubi.html',
-    # PR 3: Getting Started split into Quick Start (essence) and Test Strategy
-    # (build/test/coverage tooling).
-    'getting_started': 'quick_start.html',
-    # PR 4: Secure Architecture split into a developer-targeted Overview
-    # plus the normative On-Flash Format Specification, and the three small
-    # secure spec satellites folded into the spec itself.
-    'secure_architecture': 'onflash_format_spec.html',
-    'secure_volume_lifecycle': 'onflash_format_spec.html',
-    'secure_recovery_notes': 'onflash_format_spec.html',
-    'secure_runtime_policy': 'onflash_format_spec.html',
+    # Pages merged into "What is UBI?".
+    'overview': 'getting_started/what_is_ubi.html',
+    'introduction': 'getting_started/what_is_ubi.html',
+    # Pages split into Quick Start + Test Strategy.
+    'getting_started': 'getting_started/quick_start.html',
+    # Secure Architecture split into developer Overview + normative spec; the
+    # three small secure satellites folded into the spec.
+    'secure_architecture': 'reference/onflash_format_spec.html',
+    'secure_volume_lifecycle': 'reference/onflash_format_spec.html',
+    'secure_recovery_notes': 'reference/onflash_format_spec.html',
+    'secure_runtime_policy': 'reference/onflash_format_spec.html',
+    # Pages relocated into topical subfolders (flat -> sectioned layout).
+    'what_is_ubi': 'getting_started/what_is_ubi.html',
+    'quick_start': 'getting_started/quick_start.html',
+    'concepts': 'getting_started/concepts.html',
+    'plain_workflow': 'guide/plain_workflow.html',
+    'secure_workflow': 'guide/secure_workflow.html',
+    'configuration': 'guide/configuration.html',
+    'cookbook': 'guide/cookbook.html',
+    'plain_architecture': 'architecture/plain_architecture.html',
+    'secure_overview': 'architecture/secure_overview.html',
+    'api': 'reference/api.html',
+    'kconfig_reference': 'reference/kconfig_reference.html',
+    'error_codes': 'reference/error_codes.html',
+    'onflash_format_spec': 'reference/onflash_format_spec.html',
+    'roadmap': 'project/roadmap.html',
+    'contributing': 'project/contributing.html',
+    'test_strategy': 'project/test_strategy.html',
+    'changelog': 'project/changelog.html',
 }
 
 source_suffix = ['.rst', '.md']

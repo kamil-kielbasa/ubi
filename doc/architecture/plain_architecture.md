@@ -2,7 +2,7 @@
 
 **What this page covers:** UBI internals — on-flash layout, in-RAM data structures, initialization, wear-leveling, dual-bank metadata redundancy, recovery, and failure handling.
 
-**Prerequisites:** Read [What is UBI?](what_is_ubi.md) and [Concepts at a Glance](concepts.md) first for the mental model (PEB, LEB, EC, VID, EBA).
+**Prerequisites:** Read [What is UBI?](/getting_started/what_is_ubi.md) and [Concepts at a Glance](/getting_started/concepts.md) first for the mental model (PEB, LEB, EC, VID, EBA).
 
 **What you will learn:** How UBI maps logical blocks to physical blocks, how it recovers from crashes, and how wear is distributed across the flash.
 
@@ -24,7 +24,7 @@ These rules hold at all times after a successful `ubi_device_init()`:
 | Free pool is EC-ordered | `free_pebs` is a red-black tree keyed by erase count. `rb_get_min()` always returns the least-worn block. |
 | Mutex serialization | All public API calls acquire a per-device mutex. UBI is thread-safe but not ISR-safe. |
 
-**Secure extension:** For authenticated encryption of all on-flash structures, see the [Secure Architecture: Overview](secure_overview.md) (developer-targeted) and the [Secure On-Flash Format Specification](onflash_format_spec.md) (normative byte-level reference).
+**Secure extension:** For authenticated encryption of all on-flash structures, see the [Secure Architecture: Overview](/architecture/secure_overview.md) (developer-targeted) and the [Secure On-Flash Format Specification](/reference/onflash_format_spec.md) (normative byte-level reference).
 
 ---
 
@@ -92,7 +92,7 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 ```
 
 The per-file implementation map (which `.c` file holds which responsibility)
-lives in {doc}`developer_notes` — it is reference material for contributors,
+lives in {doc}`/developer_notes` — it is reference material for contributors,
 not for users of the library.
 
 ---
@@ -101,7 +101,7 @@ not for users of the library.
 
 UBI reserves the first N PEBs for device and volume metadata, stored in a dual-bank configuration for crash resilience. N is configurable via `CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS` (default 2, range 2–4). The remaining PEBs (N through total-1) are data blocks available for volume use.
 
-```{image} img/onflash_layout.svg
+```{image} ../img/onflash_layout.svg
 :alt: UBI on-flash layout — reserved PEBs followed by data PEBs, each data PEB starting with an EC header (offset 0) and a VID header (offset 512) before the LEB data area.
 :align: center
 :width: 720px
@@ -321,15 +321,34 @@ Every PEB on flash is tracked by exactly one of these structures at any time:
 
 ### Resource Usage
 
-UBI is designed for resource-constrained embedded systems. The figures below were taken with `west build -b b_u585i_iot02a ./sample` (STM32U5, Cortex-M33), `CONFIG_UBI_ENABLE=y`, `CONFIG_SIZE_OPTIMIZATIONS=y`, and no test-only options. Library footprint comes from `arm-none-eabi-size build/stm32u5/sample/modules/ubi/lib/lib..__ubi__lib.a` (sum of `.text` + `.data` for flash, `.data` + `.bss` for static RAM in that archive). The CI pipeline also records flash usage via the `flash-usage` build artifact. Actual numbers vary with board, toolchain, and Kconfig.
+UBI is designed for resource-constrained embedded systems. The figures below were taken with `west build -b b_u585i_iot02a ./sample` (STM32U5, Cortex-M33), `CONFIG_UBI_ENABLE=y`, `CONFIG_SIZE_OPTIMIZATIONS=y`, and no test-only options. Library footprint comes from `arm-none-eabi-size build/modules/ubi/lib/lib..__ubi__lib.a` (sum of `.text` + `.data` for flash, `.data` + `.bss` for static RAM in that archive). The CI pipeline also records flash usage via the `flash-usage` build artifact. Actual numbers vary with board, toolchain, and Kconfig.
+
+#### Reproducing the measurement
+
+Build the sample for the target board and inspect the UBI library archive only — that way the number reflects UBI itself and not the rest of the application or the platform crypto stack:
+
+```sh
+# Plain backend (CONFIG_UBI_CRYPTO=n)
+west build -p always -b b_u585i_iot02a ./sample
+arm-none-eabi-size --total \
+    build/modules/ubi/lib/lib..__ubi__lib.a
+
+# Secure backend (CONFIG_UBI_CRYPTO=y)
+west build -p always -b b_u585i_iot02a ./sample \
+    -- -DOVERLAY_CONFIG=boards/secure.conf
+arm-none-eabi-size --total \
+    build/modules/ubi/lib/lib..__ubi__lib.a
+```
+
+The headline flash number is the `(TOTALS)` row's `text + data` columns. PSA Crypto / mbedTLS lives in separate archives (`lib..__mbedtls.a`, `lib..__nrf_security.a`, etc.) and is intentionally **not** counted here.
 
 #### Flash and static RAM
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Flash (plain) | ~9.2 KB | `.text` + `.data` in `lib..__ubi__lib.a`, Cortex-M33, `-Os` |
-| Flash (secure) | ~59.3 KB | Includes PSA Crypto (Mbed TLS) pulled in by `CONFIG_UBI_CRYPTO=y` |
-| Static RAM (BSS) | Depends on Kconfig | Proportional to `MAX_NR_OF_DEVICES`, `MAX_NR_OF_DATA_PEBS`, `MAX_NR_OF_VOLUMES` under `CONFIG_UBI_MEM_BACKEND_STATIC` (see [Configuration — Memory Sizing Guide](configuration.md#memory-sizing-guide)) |
+| Flash (plain) | ~9.5 KB | `.text` + `.data` in `lib..__ubi__lib.a`, Cortex-M33, `-Os` |
+| Flash (secure) | ~29 KB | `.text` + `.data` in `lib..__ubi__lib.a` with `CONFIG_UBI_CRYPTO=y`. UBI library archive only — PSA Crypto / mbedTLS is provided by the platform and is **not** counted here. The ~20 KB delta over plain is the secure-only sources (`ubi_secure_*.c` + `ubi_core_init.c`: AEAD framing, HKDF key derivation, the budget tracker, the freshness/rollback machinery, and on-flash serialisation) plus the crypto-aware branches added to the shared `ubi_plain_*.c` sources |
+| Static RAM (BSS) | Depends on Kconfig | Proportional to `MAX_NR_OF_DEVICES`, `MAX_NR_OF_DATA_PEBS`, `MAX_NR_OF_VOLUMES` under `CONFIG_UBI_MEM_BACKEND_STATIC` (see [Configuration — Memory Sizing Guide](/guide/configuration.md#memory-sizing-guide)) |
 
 With `CONFIG_UBI_MEM_BACKEND_STATIC` (default), runtime RAM is fully determined at compile time and isolated from the application heap. Under `CONFIG_UBI_MEM_BACKEND_HEAP` (legacy), static RAM is minimal (partition guard only) and all device/volume state is heap-allocated.
 
@@ -354,7 +373,7 @@ For a device with 16 PEBs (8 KB erase blocks, 128 KB partition) and 2 volumes:
 | `ubi_rbt_item` | 16 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
 | `ubi_list_item` | 12 B | `ubi_mem_leaf_alloc` → leaf slab (static) / k_malloc (heap) |
 
-Under the static backend (`CONFIG_UBI_MEM_BACKEND_STATIC`, default), all pools are pre-allocated at compile time. Under the heap backend, allocations are dynamic. See [Configuration — Memory Sizing Guide](configuration.md#memory-sizing-guide) for pool sizing details.
+Under the static backend (`CONFIG_UBI_MEM_BACKEND_STATIC`, default), all pools are pre-allocated at compile time. Under the heap backend, allocations are dynamic. See [Configuration — Memory Sizing Guide](/guide/configuration.md#memory-sizing-guide) for pool sizing details.
 
 ### Memory Backends
 
@@ -560,7 +579,7 @@ This two-sided greedy approach naturally distributes wear across all PEBs:
 - Least-worn dirty blocks are recycled first, keeping the counter distribution tight.
 - Over time, all PEBs converge toward a similar erase count.
 
-### Write Flow (Mermaid)
+### Write Flow
 
 Copy-on-write: the new PEB is fully written before the old mapping is swapped. On write failure, the previous mapping and data remain intact. The write order is EC → DATA → VID; the VID header acts as the commit point that makes the new mapping visible.
 

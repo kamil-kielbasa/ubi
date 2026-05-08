@@ -7,7 +7,7 @@ provides, what it deliberately leaves out, and when to use it (or not).
 
 **After reading this:** You will be able to decide whether UBI is the right
 fit for your project. For the runtime model and lifecycle terminology,
-continue to {doc}`concepts`.
+continue to {doc}`/getting_started/concepts`.
 
 ---
 
@@ -24,7 +24,7 @@ sectors. It is *not* a filesystem.
 
 ## Where UBI sits in the stack
 
-```{image} img/stack.svg
+```{image} ../img/stack.svg
 :alt: UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash
 :align: center
 :width: 600px
@@ -64,7 +64,7 @@ UBI fills this gap as a **thin, low-overhead volume manager**.
   at compile time.
 - Optional **authenticated encryption** of all on-flash structures
   (`CONFIG_UBI_CRYPTO`, AES-128-CCM via PSA Crypto). See
-  {doc}`secure_overview` for the developer-facing summary.
+  {doc}`/architecture/secure_overview` for the developer-facing summary.
 
 ## Non-goals
 
@@ -105,9 +105,9 @@ Look elsewhere when:
 
 ## What's next
 
-- {doc}`concepts` — five key concepts (PEB, LEB, EC, VID, EBA) and how UBI
+- {doc}`/getting_started/concepts` — five key concepts (PEB, LEB, EC, VID, EBA) and how UBI
   works in six steps.
-- {doc}`quick_start` — build, flash, write, read in 5 minutes.
-- {doc}`plain_architecture` — on-flash layout, header formats, in-RAM
+- {doc}`/getting_started/quick_start` — build, flash, write, read in 5 minutes.
+- {doc}`/architecture/plain_architecture` — on-flash layout, header formats, in-RAM
   structures, and resource usage.
-- {doc}`secure_overview` — what Secure UBI adds and when to enable it.
+- {doc}`/architecture/secure_overview` — what Secure UBI adds and when to enable it.

@@ -5,12 +5,12 @@ what it does, how the key hierarchy works, the threat model, the
 contract between Secure UBI and your application, and the four-state
 key lifecycle.
 
-**Prerequisites:** {doc}`what_is_ubi` and {doc}`plain_architecture`.
+**Prerequisites:** {doc}`/getting_started/what_is_ubi` and {doc}`/architecture/plain_architecture`.
 
 **After reading this:** You will understand whether Secure UBI fits
 your product. To wire it into an application, continue to
-{doc}`secure_workflow`. For the byte-level normative spec, see
-{doc}`onflash_format_spec`.
+{doc}`/guide/secure_workflow`. For the byte-level normative spec, see
+{doc}`/reference/onflash_format_spec`.
 
 ---
 
@@ -90,7 +90,7 @@ Secure UBI derives every working key from a single per-version root,
 `IKM[v]`. The root is referenced by a **PSA key identifier**; raw root
 bytes never enter the UBI API.
 
-```{image} img/key_hierarchy.svg
+```{image} ../img/key_hierarchy.svg
 :alt: Secure UBI key hierarchy — IKM[v] is HKDF-extracted into PRK[v], which is HKDF-expanded into per-domain child keys (device, volume, EC, VID, LEB); the LEB key is further bound to the durable volume_id.
 :align: center
 :width: 720px
@@ -158,7 +158,7 @@ Your verdict is one of:
   of this attach session.
 
 The contract details (events, verdicts, mandatory escalations) live
-in {doc}`secure_workflow`.
+in {doc}`/guide/secure_workflow`.
 
 ## 5. Key lifecycle
 
@@ -200,14 +200,14 @@ Rules that follow from this lifecycle:
 
 ## 6. What's next
 
-- {doc}`secure_workflow` — when to enable Secure UBI, the prerequisites
+- {doc}`/guide/secure_workflow` — when to enable Secure UBI, the prerequisites
   you need in place (PSA, RNG, allowlist, freshness store), the exact
   callback contracts, key rotation as a workflow, and event handling.
-- {doc}`onflash_format_spec` — the byte-level normative specification
+- {doc}`/reference/onflash_format_spec` — the byte-level normative specification
   (record layouts, AAD, nonce rules, on-flash counters, lifecycle
   invariants, recovery scenarios, runtime policy).
-- {doc}`cookbook` — recipes including "Implementing key rotation with
+- {doc}`/guide/cookbook` — recipes including "Implementing key rotation with
   PSA" and "Implementing a freshness store with Zephyr Settings"
   (lands in PR 5).
-- {doc}`test_strategy` — the ZTEST traceability tables that show how
+- {doc}`/project/test_strategy` — the ZTEST traceability tables that show how
   every Secure UBI rule is exercised in regression.

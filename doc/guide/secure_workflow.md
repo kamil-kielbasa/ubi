@@ -5,8 +5,8 @@ application — when to enable it, what you have to provide, the exact
 callback contracts, key rotation as a workflow, event handling, and
 retirement.
 
-**Prerequisites:** {doc}`secure_overview`. For the byte-level format
-and recovery rules, see {doc}`onflash_format_spec`.
+**Prerequisites:** {doc}`/architecture/secure_overview`. For the byte-level format
+and recovery rules, see {doc}`/reference/onflash_format_spec`.
 
 **After reading this:** You will know exactly what to put in your
 `crypto_cfg`, what each callback must do, and how to drive a key
@@ -32,9 +32,9 @@ Enable Secure UBI when **any** of the following is true:
   `HKDF-SHA-256`, and a CSPRNG (Secure UBI is unsupported there);
 - there is no path for a **device-unique** root secret (a serial
   number, MAC, or UUID is **not** acceptable as the IKM source — see
-  {doc}`secure_overview` §3).
+  {doc}`/architecture/secure_overview` §3).
 
-Cost rule of thumb (full numbers in {doc}`plain_architecture`
+Cost rule of thumb (full numbers in {doc}`/architecture/plain_architecture`
 § Resource Usage): expect ~50 KB of additional flash from the PSA /
 Mbed TLS code Secure UBI pulls in, and a few hundred bytes of extra
 RAM per device / volume.
@@ -59,7 +59,7 @@ are in place:
 
 Secure UBI is selected at runtime by passing a non-`NULL`
 `crypto_cfg` to `ubi_device_init()`. The exact fields are documented
-in {doc}`api`; the contract for **each** field is:
+in {doc}`/reference/api`; the contract for **each** field is:
 
 ```c
 struct ubi_crypto_cfg cfg = {
@@ -166,7 +166,7 @@ next time `check_freshness` is called (i.e., the next attach).
   may continue.
 
 The event types and what each one means are listed in
-{doc}`onflash_format_spec` chapter 21 (Runtime policy).
+{doc}`/reference/onflash_format_spec` chapter 21 (Runtime policy).
 
 ## 5. Key rotation workflow
 
@@ -206,7 +206,7 @@ steps to the lazy workflow:
 
 The four operational states (soft rotation → live rewrite completed →
 media scrub completed → key retired) are described in
-{doc}`secure_overview` §5 and specified in {doc}`onflash_format_spec`
+{doc}`/architecture/secure_overview` §5 and specified in {doc}`/reference/onflash_format_spec`
 §13.8.
 
 ### 5.3 Watching the budgets
@@ -290,11 +290,11 @@ rotation steps in §5.2 to actually drive the refcount to zero.
 
 ## 8. What's next
 
-- {doc}`onflash_format_spec` — chapters 13 (key lifecycle), 14
+- {doc}`/reference/onflash_format_spec` — chapters 13 (key lifecycle), 14
   (events), 19 (lifecycle), 20 (recovery), 21 (runtime policy) for
   the normative rules behind every paragraph above.
-- {doc}`cookbook` — runnable recipes: provisioning, lazy rotation,
+- {doc}`/guide/cookbook` — runnable recipes: provisioning, lazy rotation,
   forced rotation, freshness store on Zephyr Settings (lands in
   PR 5).
-- {doc}`test_strategy` § *ZTEST traceability for Secure UBI* — see
+- {doc}`/project/test_strategy` § *ZTEST traceability for Secure UBI* — see
   exactly which test exercises which behaviour.

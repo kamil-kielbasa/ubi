@@ -28,29 +28,29 @@ Pick the card that matches what you came here to do.
 
        Understand what UBI is and whether it fits your project.
 
-       * :doc:`what_is_ubi`
-       * :doc:`concepts`
+       * :doc:`getting_started/what_is_ubi`
+       * :doc:`getting_started/concepts`
      - **🔧 Want to integrate?**
 
        Build, configure, and write your first volume.
 
-       * :doc:`quick_start`
-       * :doc:`configuration`
-       * :doc:`cookbook`
+       * :doc:`getting_started/quick_start`
+       * :doc:`guide/configuration`
+       * :doc:`guide/cookbook`
 
    * - **🏗 How does it work?**
 
        Read the design — plain UBI and Secure UBI explained.
 
-       * :doc:`plain_architecture`
-       * :doc:`secure_overview`
+       * :doc:`architecture/plain_architecture`
+       * :doc:`architecture/secure_overview`
      - **📚 Looking up details?**
 
        Reference material for implementers and auditors.
 
-       * :doc:`api`
-       * :doc:`kconfig_reference`
-       * :doc:`onflash_format_spec`
+       * :doc:`reference/api`
+       * :doc:`reference/kconfig_reference`
+       * :doc:`reference/onflash_format_spec`
 
 ----
 
@@ -58,45 +58,40 @@ Pick the card that matches what you came here to do.
    :maxdepth: 2
    :caption: Getting Started
 
-   what_is_ubi
-   quick_start
-   concepts
+   getting_started/what_is_ubi
+   getting_started/quick_start
+   getting_started/concepts
 
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
 
-   plain_workflow
-   secure_workflow
-   configuration
-   cookbook
+   guide/plain_workflow
+   guide/secure_workflow
+   guide/configuration
+   guide/cookbook
 
 .. toctree::
    :maxdepth: 2
    :caption: Architecture
 
-   plain_architecture
-   secure_overview
+   architecture/plain_architecture
+   architecture/secure_overview
 
 .. toctree::
    :maxdepth: 2
    :caption: Reference
 
-   api
-   kconfig_reference
-   error_codes
-   onflash_format_spec
+   reference/api
+   reference/kconfig_reference
+   reference/error_codes
+   reference/onflash_format_spec
 
 .. toctree::
    :maxdepth: 1
    :caption: Project
 
-   roadmap
-   contributing
-   test_strategy
-   changelog
-
-.. Legacy pages (overview, introduction, getting_started, secure_architecture,
-   secure_volume_lifecycle, secure_recovery_notes, secure_runtime_policy) are
-   marked ``orphan: true`` while their content is being merged into the new
-   sections (PRs 2–4). They keep their URLs but no longer appear in any toctree.
+   project/roadmap
+   project/contributing
+   project/test_strategy
+   project/changelog

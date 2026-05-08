@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.71.0] - 2026-05-08
+
+### Documentation
+
+- Documentation reorganised into five topic folders
+  (`getting_started/`, `guide/`, `architecture/`, `reference/`,
+  `project/`). Old URLs continue to work via redirects, so existing
+  bookmarks and external links are preserved.
+- New **Kconfig Reference** page lists every UBI Kconfig symbol
+  with its type, default, range, dependencies, and a one-paragraph
+  description. The *Configuration* guide now links to it instead of
+  duplicating a less-detailed table.
+
+### Changed
+
+- The reported flash footprint of the UBI library is now ~9.5 KB
+  plain and ~29 KB secure on Cortex-M33 (`-Os`), measured against
+  the UBI archive only. PSA Crypto / mbedTLS is provided by the
+  platform and is not counted, so the number reflects the library
+  cost independently of the platform crypto stack.
+
+### Fixed
+
+- `key_hierarchy.svg`: the `K_volume_identifier[v]` label and the
+  `K_leb` sub-caption no longer overflow their boxes.
+- `onflash_layout.svg`: added the previously-missing zoom into a
+  reserved (dual-bank metadata) PEB so the diagram now shows
+  *both* the reserved PEB and the data PEB layouts.
+- `onflash_format_spec.md`: chapters 19 (Secure volume lifecycle),
+  20 (Secure recovery scenarios), and 21 (Runtime policy) now
+  appear before *Appendix A*. Previously the appendix was sandwiched
+  between §18 and §19, which made the table of contents confusing.
+
+### Removed
+
+- *Appendix B* and *Appendix C* of `onflash_format_spec.md`. Their
+  content (roadmap items and a release checklist) is fully covered
+  by `project/roadmap.md` and the ZTEST traceability tables in
+  `project/test_strategy.md`.
+
 ## [0.70.0] - 2026-05-07
 
 ### Changed

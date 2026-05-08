@@ -5,10 +5,10 @@ is self-contained — copy it into your project, adjust the partition
 geometry, and build.
 
 **Audience:** application authors who already understand the basics
-({doc}`what_is_ubi`, {doc}`concepts`, {doc}`quick_start`).
+({doc}`/getting_started/what_is_ubi`, {doc}`/getting_started/concepts`, {doc}`/getting_started/quick_start`).
 
-**See also:** {doc}`plain_workflow`, {doc}`secure_workflow`,
-{doc}`configuration`.
+**See also:** {doc}`/guide/plain_workflow`, {doc}`/guide/secure_workflow`,
+{doc}`/guide/configuration`.
 
 ```{contents}
 :local:
@@ -222,7 +222,7 @@ void ubi_gc_start(struct ubi_device *ubi)
   back-pressure writes.
 - This same loop also drives **degraded read-only recovery**: a
   transient reserved-bank fault can self-heal across a few GC ticks
-  without a reboot (see `ubi_device_erase_peb()` in {doc}`api`).
+  without a reboot (see `ubi_device_erase_peb()` in {doc}`/reference/api`).
 
 ---
 
@@ -232,7 +232,7 @@ void ubi_gc_start(struct ubi_device *ubi)
 version 2 without losing data and without spuriously retiring the
 old key.
 
-**Prerequisites:** read {doc}`secure_workflow` §5 for the conceptual
+**Prerequisites:** read {doc}`/guide/secure_workflow` §5 for the conceptual
 workflow. This recipe shows the application-side glue.
 
 ```c
@@ -294,7 +294,7 @@ my_event_cb(const struct ubi_crypto_event *ev, void *user_data)
    writing under `v=2`; existing live mappings stay under `v=1`.
 3. Either let normal traffic age `v=1` out (lazy), or — for
    compromise response — drive your GC loop hard until refcounts
-   reach zero (forced; see {doc}`secure_workflow` §5.2).
+   reach zero (forced; see {doc}`/guide/secure_workflow` §5.2).
 4. Wait for the `KEY_RETIRABLE` event for `v=1`. The handler above
    destroys the PSA key.
 5. On the next reattach, drop `1` from `allowed[]`.

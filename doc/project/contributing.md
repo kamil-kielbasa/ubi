@@ -5,7 +5,7 @@ Thank you for your interest in contributing to UBI on Zephyr.
 ## Getting Started
 
 1. Fork the repository and clone your fork.
-2. Set up the development environment following [Quick Start](quick_start.md) and the build/test/coverage instructions in [Test Strategy](test_strategy.md).
+2. Set up the development environment following [Quick Start](/getting_started/quick_start.md) and the build/test/coverage instructions in [Test Strategy](/project/test_strategy.md).
 3. Create a feature branch from `main`.
 
 ## Development Prerequisites
@@ -130,11 +130,11 @@ scripts/                     CI, coverage, formatting, forensic scan, and test r
 Any change that affects the following **must** include a documentation update:
 
 - Public API (`lib/include/ubi.h`) — update Doxygen comments and `doc/api.rst` if needed
-- On-flash layout or header structures — update `doc/plain_architecture.md` (or `doc/onflash_format_spec.md` for SECURE mode)
-- Kconfig options — update `doc/configuration.md`
-- Recovery semantics or failure modes — update `doc/plain_architecture.md` (or `doc/onflash_format_spec.md` for SECURE mode)
-- Flash/RAM footprint — update `doc/plain_architecture.md` (single source of truth for resource profile)
-- Test matrix — update `doc/test_strategy.md`
+- On-flash layout or header structures — update `doc/architecture/plain_architecture.md` (or `doc/reference/onflash_format_spec.md` for SECURE mode)
+- Kconfig options — update `doc/guide/configuration.md`
+- Recovery semantics or failure modes — update `doc/architecture/plain_architecture.md` (or `doc/reference/onflash_format_spec.md` for SECURE mode)
+- Flash/RAM footprint — update `doc/architecture/plain_architecture.md` (single source of truth for resource profile)
+- Test matrix — update `doc/project/test_strategy.md`
 
 ## Pull Request Process
 

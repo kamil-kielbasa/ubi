@@ -4,11 +4,11 @@
 EBA) and the six steps that describe its runtime behaviour. This is the
 shared vocabulary used throughout the rest of the documentation.
 
-**Prerequisites:** {doc}`what_is_ubi` for the high-level pitch.
+**Prerequisites:** {doc}`/getting_started/what_is_ubi` for the high-level pitch.
 
 **After reading this:** You will recognise every term used in the
 architecture, configuration, and API pages. For implementation depth,
-continue to {doc}`plain_architecture`.
+continue to {doc}`/architecture/plain_architecture`.
 
 ---
 
@@ -75,7 +75,7 @@ dirty.
 
 ## What's next
 
-- {doc}`quick_start` — build, flash, write, read in 5 minutes.
-- {doc}`plain_architecture` — on-flash layout, header formats, in-RAM
+- {doc}`/getting_started/quick_start` — build, flash, write, read in 5 minutes.
+- {doc}`/architecture/plain_architecture` — on-flash layout, header formats, in-RAM
   structures, and operation flows in detail.
-- {doc}`configuration` — Kconfig, devicetree, and memory sizing guide.
+- {doc}`/guide/configuration` — Kconfig, devicetree, and memory sizing guide.

@@ -4,9 +4,9 @@
 **Audience:** implementers, security reviewers, and auditors.
 **Scope:** the SECURE on-flash format for UBI — encrypted device and volume metadata, encrypted EC/VID/data records, key hierarchy, nonce/AAD rules, counter continuity, anchors, application-facing freshness, secure volume lifecycle, recovery scenarios, and runtime policy.
 
-This document is the single source of truth for the bytes on flash and the rules that govern them. Developers who only need to **use** Secure UBI should start with the developer-targeted {doc}`secure_overview` and {doc}`secure_workflow` first, and consult this specification when an integration question is not answered there.
+This document is the single source of truth for the bytes on flash and the rules that govern them. Developers who only need to **use** Secure UBI should start with the developer-targeted {doc}`/architecture/secure_overview` and {doc}`/guide/secure_workflow` first, and consult this specification when an integration question is not answered there.
 
-**Prerequisites:** {doc}`what_is_ubi` and {doc}`plain_architecture` for the plain UBI mental model, `volume_id`, `sqnum`, reserved PEB mirroring, and the `DATA -> VID` crash model.
+**Prerequisites:** {doc}`/getting_started/what_is_ubi` and {doc}`/architecture/plain_architecture` for the plain UBI mental model, `volume_id`, `sqnum`, reserved PEB mirroring, and the `DATA -> VID` crash model.
 
 ---
 
@@ -2542,6 +2542,415 @@ This is a write-path constraint. Read alignment is usually less restrictive and 
 
 ---
 
+## 19. Secure volume lifecycle
+
+This chapter defines the end-to-end on-flash lifecycle of a secure
+volume — including the behaviour of the hidden anchor PEB during
+create, resize, shrink, remove, and reboot. It builds on the formats
+and rules in §7.9, §9.8, and §11.4–§11.7.
+
+### 19.1 Overview
+
+Every secure volume has one hidden anchor PEB in addition to its
+user-visible LEBs. The anchor carries an authenticated zero-length
+secure LEB record that preserves the per-volume LEB floor across
+reclaim, unmap, and shrink.
+
+```
+volume create  ─► anchor init (INTERNAL_ANCHOR_LNUM)
+                   ├── leb_write_counter = 0
+                   └── vid_counter assigned from global next_vid_counter
+```
+
+### 19.2 Create
+
+`ubi_volume_create()` performs:
+
+1. Commit reserved metadata (device header + volume headers) — writes
+   the new volume's `leb_count` to the dual-bank reserved area.
+2. Create the hidden anchor PEB — an authenticated zero-length secure
+   LEB at `INTERNAL_ANCHOR_LNUM`, consuming one free PEB.
+3. On anchor failure: roll back the RAM state (no volume visible to the
+   caller).
+
+After create, `reserved_peb_count = leb_count + 1` (user LEBs + anchor).
+
+### 19.3 Resize (grow)
+
+`ubi_volume_resize()` with a larger `leb_count`:
+
+1. Commit updated reserved metadata with the new count.
+2. The anchor PEB is not rewritten — its floor already covers the
+   existing range.
+3. New LEBs are unmapped until explicitly written.
+
+After grow, `reserved_peb_count = new_leb_count + 1`.
+
+### 19.4 Shrink
+
+`ubi_volume_resize()` with a smaller `leb_count`:
+
+1. Commit updated reserved metadata with the new count.
+2. Tail LEBs whose `lnum >= new_leb_count` are moved from the EBA table
+   to the dirty list in RAM.
+3. The anchor PEB is not rewritten — it inherits the newest floor, and
+   the smaller `leb_count` prevents tail LEBs from being mapped on
+   reboot.
+
+**Key distinction (§11.7).** Shrink is committed in reserved metadata
+*before* the dirty PEBs are physically erased. After reboot without
+erase, tail PEBs whose authenticated `lnum` is out of range are
+recovered as *dirty*, not *mapped*.
+
+After shrink, `reserved_peb_count = new_leb_count + 1`.
+
+### 19.5 Remove
+
+`ubi_volume_remove()` performs:
+
+1. Commit reserved metadata with `vol_count - 1`.
+2. Move all user LEBs + the anchor PEB to the dirty list.
+3. Save `vid_next_counter_floor` in the secure device header (§9.8.5)
+   to prevent counter reset after removing all volumes.
+
+After remove of the last volume: `volume_count = 0`,
+`reserved_peb_count = 0`. The VID counter floor is preserved — creating
+a new volume after reboot will use counter values above the previous
+lifetime.
+
+### 19.6 Unmap
+
+`ubi_leb_unmap()` is an in-memory transition from `mapped` to `dirty`.
+No on-flash tombstone is written. Until the dirty PEB is erased, the
+old authenticated record survives — reboot before erase may reconstruct
+the old mapping.
+
+The hidden anchor is *not* affected by unmap of user LEBs.
+
+### 19.7 Erase and reclaim
+
+`ubi_device_erase_peb()` picks the dirtiest PEB and erases it. During
+erase, the anchor witness check (§11.6) may detect that the erased PEB
+carried the last known floor:
+
+1. If `dirty_entry.vid_counter > anchor.vid_counter`, the anchor is
+   rewritten with the newer floor *before* the dirty PEB is erased.
+2. The old anchor PEB becomes dirty and is eventually recycled — this
+   is how the anchor participates in wear-leveling.
+
+The emergency reserve (§11.5) ensures at least one free PEB is
+available for anchor migration during write-path operations.
+
+### 19.8 Reboot recovery
+
+On `ubi_device_init()`:
+
+1. Reserved metadata (dual-bank) is read + authenticated → provides
+   volume list, `vid_next_counter_floor`.
+2. Data PEBs are scanned — each authenticated VID is classified:
+   - Anchor PEB (`INTERNAL_ANCHOR_LNUM`): duplicate resolution by
+     `vid_sqnum`.
+   - User PEB: mapped if `lnum < leb_count`, otherwise dirty
+     (orphan/shrunk).
+3. `next_vid_counter` is reconstructed as
+   `max(floor, max_seen_counter + 1)`.
+4. Stale anchor duplicates (from migration) are resolved: only the one
+   with the highest `vid_sqnum` survives; the other becomes dirty.
+
+---
+
+## 20. Secure recovery scenarios
+
+This chapter enumerates recovery behaviour specific to secure mode
+after crashes, reboots, and corner-case erase sequences. It builds on
+§9.8, §10, and chapter 19.
+
+### 20.1 Recovery principles
+
+Secure mode inherits the plain core's recovery semantics with two
+additions:
+
+1. **Authentication gates classification.** Every PEB header must pass
+   AEAD verification before the PEB is trusted. Unauthenticated PEBs
+   are classified as dirty, not mapped.
+2. **Hidden anchor provides floor continuity.** The per-volume anchor
+   PEB ensures the LEB floor is never lost, even when all user LEBs
+   are unmapped or erased.
+
+### 20.2 `unmap → reboot` (before erase)
+
+The unmapped PEB's authenticated VID survives on flash. On reinit:
+
+- The PEB is rediscovered and the old mapping is reconstructed.
+- The anchor is unaffected — its floor is at least as fresh as the
+  user PEB.
+- From the user's perspective, the unmap did not persist.
+
+### 20.3 `unmap → erase → reboot`
+
+After erase, the user PEB is physically gone. If it carried the newest
+floor:
+
+- The erase path's witness check already rewrote the anchor with the
+  floor.
+- On reinit, the anchor supplies the floor — no counter regression.
+
+### 20.4 `shrink → reboot` (before erase)
+
+Shrink commits the new `leb_count` to reserved metadata immediately.
+On reinit:
+
+- Tail PEBs whose `lnum >= new_leb_count` are classified as dirty
+  (orphan), even though their authenticated VID is intact.
+- The volume's `leb_count` reflects the shrunken size.
+- No data loss for LEBs within the new range.
+
+### 20.5 `shrink → erase → reboot`
+
+Same as above, but dirty tail PEBs are erased before reboot:
+
+- If a tail PEB carried the newest floor, the anchor witness check
+  fires during erase and rewrites the anchor first.
+- On reinit: clean state, all PEBs accounted for.
+
+### 20.6 `remove all volumes → reboot → create`
+
+When the last volume is removed:
+
+- `vid_next_counter_floor` is saved in the secure device header
+  (§9.8.5).
+- All user PEBs and anchors are moved to dirty.
+- On reinit: `next_vid_counter` is restored from the floor.
+- A new volume's writes start from a counter above the previous
+  lifetime.
+
+### 20.7 Anchor migration during erase
+
+When a dirty PEB has a higher `vid_counter` than the current anchor:
+
+1. The anchor is rewritten to a new free PEB with the dirty PEB's
+   floor.
+2. The old anchor PEB is moved to dirty.
+3. The original dirty PEB is now safe to erase.
+
+This means the anchor PEB physically migrates across PEBs,
+participating in normal wear-leveling. No PEB is permanently trapped
+as an anchor.
+
+### 20.8 Stale anchor after reboot
+
+After anchor migration, two PEBs carry anchor VIDs (old + new). On
+reinit:
+
+- Both are discovered during the data-PEB scan.
+- Duplicate resolution selects the one with the higher `vid_sqnum`.
+- The stale copy is moved to dirty.
+
+### 20.9 Emergency reserve
+
+The write path calls `ubi_secure_try_refill_reserve()` before checking
+`free_peb_count`. If the free pool is empty but dirty PEBs exist, one
+dirty PEB is erased (with anchor witness check) to restore headroom.
+This prevents deadlock where a write needs a free PEB for both the
+data write and a potential anchor migration.
+
+### 20.10 Dual-bank reserved metadata
+
+Reserved metadata (device header, volume headers, device meta) is
+stored in a dual-bank layout. On reboot:
+
+- Both banks are read and authenticated.
+- The bank with the higher revision wins.
+- If one bank fails authentication, the device enters degraded mode
+  (`read_only_degraded = true`) — user data reads continue, but
+  reserved metadata mutations are blocked until the corrupted bank is
+  recovered.
+
+---
+
+## 21. Runtime policy
+
+This chapter describes runtime policy enforcement in the SECURE
+backend: freshness synchronisation, event callbacks, key-version
+refcount tracking, usage budgets, and the sticky crypto read-only
+mode. It is normative for implementers; the developer-facing summary
+lives in {doc}`/guide/secure_workflow`.
+
+### 21.1 Freshness sync
+
+After every commit-visible mutation (volume create / resize / remove,
+LEB write, LEB map, PEB erase) the backend calls `sync_freshness`
+according to the cadence configured by
+`CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`:
+
+- **delta = 0** (default): sync after every mutation.
+- **delta > 0**: sync every N mutations.
+
+If `sync_freshness` returns a non-zero error code, the backend:
+
+1. Emits `UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE` via the `event_cb`.
+2. Optionally enters sticky crypto read-only when
+   `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y`.
+
+### 21.2 Event callback and verdicts
+
+Every security-relevant event is delivered through the
+application-provided `event_cb`. The callback returns one of:
+
+| Verdict | Meaning |
+|---------|---------|
+| `UBI_CRYPTO_EVENT_CONTINUE` | Normal operation continues. |
+| `UBI_CRYPTO_EVENT_ENTER_READ_ONLY` | Sticky crypto read-only: all subsequent mutations are rejected with `-EROFS`. Reads remain functional. |
+
+Event types and their triggers:
+
+| Event | Trigger |
+|-------|---------|
+| `AUTH_FAILURE` | AEAD authentication failed during LEB read (EC, VID, or data domain). |
+| `FORMAT_VIOLATION` | Post-AEAD plaintext has valid authentication but invalid structure (size mismatch). |
+| `KEY_VERSION_NOT_ALLOWLISTED` | On-flash object carries a key version absent from the runtime allowlist. |
+| `KEY_VERSION_UNAVAILABLE` | `get_key_id` callback failed — key material not available for a key version. |
+| `ROLLBACK_POLICY_MISMATCH` | On-flash freshness lags behind the trusted store at attach time. |
+| `FRESHNESS_SYNC_FAILURE` | `sync_freshness` callback returned non-zero. |
+| `RNG_FAILURE` | Platform RNG could not produce a fresh salt for a secure write. |
+| `KEY_ROTATE_SOON` | LEB write/byte budget crossed soft threshold (`ROTATE_SOON_PCT`, default 80%). |
+| `KEY_ROTATE_NOW` | LEB write/byte budget crossed hard threshold (`ROTATE_NOW_PCT`, default 95%). |
+| `KEY_RETIRABLE` | All on-flash PEBs authenticated with a non-write-active key version have been erased. The key material can be safely destroyed. |
+
+### 21.3 Sticky crypto read-only
+
+When `read_only_crypto` is set (by an event callback verdict or by a
+strict-RO Kconfig policy), the central mutation gate blocks **all**
+mutation classes:
+
+- `UBI_MUT_RESERVED_METADATA` (volume create/resize/remove)
+- `UBI_MUT_DATA_PATH` (LEB write/map/unmap)
+- `UBI_MUT_MAINTENANCE` (PEB erase)
+
+The flag persists until `ubi_device_deinit`. It is independent of the
+degraded read-only flag, which only blocks reserved-metadata
+mutations.
+
+### 21.4 Key-version PEB refcount
+
+During attach, the init scan counts refcounts per data PEB: one for
+each EC header plus two for each VID-bearing PEB (VID header + LEB
+data record). Reserved PEBs are also counted: every reserved PEB
+contributes one secure device header plus one secure volume header
+per existing volume (`nr_res_pebs * (1 + vol_count)`), so a key
+version is only retirable once both its data-PEB objects and its
+reserved-PEB objects have been replaced.
+
+At runtime:
+
+- **Write (VID commit).** Increment refcount by 2 for the write-active
+  key version (VID header + LEB data objects).
+- **Erase.** Decrement refcount for the old EC key version (×1), plus
+  VID key version (×2) if the PEB had a VID header. Increment by 1 for
+  the write-active key version (new EC header written after erase).
+- **Reserved metadata commit** (`volume_create` / `volume_resize` /
+  `volume_remove`). The (kv, vol_count) contribution of the new state
+  is added before the old state's contribution is released
+  ("inc-first / dec-last"). This avoids transiently dropping the
+  active kv's refcount to zero, which would otherwise spuriously fire
+  `KEY_RETIRABLE`.
+- **`KEY_RETIRABLE`.** Emitted when a non-write-active key version's
+  refcount reaches zero.
+
+### 21.5 VID-domain counter floor on key rotation
+
+The authenticated `vid_next_counter_floor` field in the secure device
+header records the next unused VID-domain AEAD counter for the current
+write-active key version. When attach detects that
+`requested_write_key_version` differs from the on-flash write-active
+key version, the eager reserved-PEB upgrade restarts the floor at
+zero: `K_volume_identifier[new_kv]` is a fresh HKDF child key, so its
+48-bit nonce range is unused under the new version. Reattaching with
+the same key version preserves the monotonic floor.
+
+### 21.6 LEB usage budget
+
+Each LEB write tracks:
+
+- `leb_write_counter` — number of AEAD encrypt operations per
+  `{key_version, volume_id}`.
+- `leb_total_auth_bytes` — cumulative authenticated bytes per
+  `{key_version, volume_id}`.
+
+**Pre-write check (§14.2).** Before any flash mutation, the backend
+projects the post-write counter and byte usage. If either would cross
+`ROTATE_NOW_PCT`, the write is rejected with `-ENOSPC` and
+`KEY_ROTATE_NOW` is emitted. If the 48-bit nonce counter would
+overflow, the write is rejected with `-EOVERFLOW`.
+
+**Post-write check.** After each successful LEB commit, usage
+percentages are computed against the Kconfig budgets
+(`UBI_CRYPTO_LEB_WRITE_BUDGET`,
+`UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET`) and `KEY_ROTATE_SOON` or
+`KEY_ROTATE_NOW` events are emitted when thresholds are crossed.
+
+### 21.7 Metadata usage budget
+
+In addition to the per-`{key_version, volume_id}` LEB budget, each
+metadata-bearing AEAD record class is enforced under the active
+`write_active_key_version`:
+
+- **DEV** — encrypted device-header records (one per reserved-PEB
+  commit).
+- **VOL** — encrypted volume-header records (`vol_count` per
+  reserved-PEB commit).
+- **EC** — secure erase-counter headers written on every PEB erase.
+- **VID** — volume-ID headers written on every LEB write.
+
+DEV and VOL share the same on-flash counter (`next_dev_hdr_counter`);
+EC uses `next_ec_counter`; VID uses `next_vid_counter`. The per-record
+authenticated-byte sizes are derived from existing AAD / plaintext /
+record-size macros and are `BUILD_ASSERT`-locked in
+`ubi_secure_budget.c`.
+
+**Pre-commit check.** Before any flash mutation, the backend projects
+the post-commit counter and authenticated-byte total. If either
+crosses `ROTATE_NOW_PCT` of `UBI_CRYPTO_METADATA_COUNTER_BUDGET` /
+`UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `KEY_ROTATE_NOW` is
+emitted, sticky `read_only_crypto` is set, and the operation is
+rejected with `-ENOSPC` (or `-EROFS` if the gate already trips on a
+subsequent call).
+
+**Post-commit check.** After the on-flash counter has been bumped,
+usage percentages are evaluated and `KEY_ROTATE_SOON` or
+`KEY_ROTATE_NOW` is emitted when thresholds are crossed.
+
+**Budget reset on rotation.** Per-domain RAM-only "budget bases" are
+captured during `ubi_device_init`. When a successful rotation occurs
+(eager rotation at attach because `requested_write_key_version`
+differs from the on-flash key version), the bases are set to the
+current counter values so all subsequent writes count from zero under
+the new HKDF child keys. When the write-active kv is unchanged across
+a reattach, the bases stay at zero so the cumulative budget under that
+kv carries forward.
+
+### 21.8 Error propagation
+
+Internal crypto error codes (`UBI_SECURE_ENORAND`,
+`UBI_SECURE_ENOKEY`, `UBI_SECURE_EFORMAT`) propagate from low-level
+functions through the I/O layer to callers that hold the
+`ubi_device*`. Those callers classify the error and emit the
+appropriate event via the helpers in `ubi_secure_event.h`.
+
+### 21.9 Read-path allowlist
+
+During `ubi_secure_leb_read`, both the EC header and VID header key
+versions are checked against the runtime `allowed_key_versions`
+policy. If either key version is absent from the allowlist, the read
+is rejected with `-EACCES` and `KEY_VERSION_NOT_ALLOWLISTED` is
+emitted.
+
+### 21.10 Zeroization
+
+All stack-local plaintext buffers (EC, VID, LEB decrypt outputs) and
+heap-allocated scratch buffers are wiped via `ubi_secure_zeroize()` —
+a volatile-qualified byte-by-byte memset that is not subject to
+dead-store elimination — before returning or freeing.
 ## Appendix A. Illustrative API surface with Doxygen
 
 ### A.1 Runtime backend selection
@@ -2812,506 +3221,3 @@ struct ubi_crypto_config {
 };
 ```
 
----
-
-## Appendix B. Suggested roadmap items outside this spec
-
-This specification assumes that the plain-core prerequisites are already implemented.
-
-Remaining follow-up items that still sit outside the on-flash format itself are:
-
-```text
-1. native_sim synthetic power-cut tests
-   - interrupt after DATA but before VID
-   - interrupt zero-length DATA record before VID
-   - interrupt reserved-generation writes at deterministic points
-   - reboot and verify selection / classification outcomes
-
-2. secure-mode policy tests
-   - init freshness callback accept / reject
-   - post-commit freshness sync callback success / failure
-   - rollback freshness-store state older/newer than flash
-   - delta-based freshness sync scheduling
-   - strict read-only transitions on RNG or policy failure
-
-3. secure-mode key lifecycle tests
-   - KEY_RETIRABLE transitions
-   - allowlist enforcement
-   - unavailable key-version handling
-   - mixed-key-version recovery during rotation
-   - forced-rekey behavior while stale free/dirty/reserved objects still exist
-   - key-usage exhaustion and `ROTATE_NOW`
-
-4. replay / tamper validation
-   - replay stale EC / VID / LEB objects into other locations
-   - parent-child AAD binding failures
-   - mode mismatch and wrong-format attach rejection
-
-5. layout and geometry validation
-   - zero-length LEB encoding
-   - reserved-generation fit guard
-   - single-tag CCM-size guard
-   - single-tag tail-padding / alignment guard
-   - chunked geometry guard
-   - chunked alignment guard
-
-6. chunked-mode validation
-   - chunked partial-read correctness
-   - chunked cost / latency characterization
-   - 48-bit counter-overflow rejection for multi-chunk writes
-
-7. lifecycle corner cases
-   - unmap followed by reboot before erase
-   - shrink followed by reboot before erase
-   - unmap / shrink followed by erase and then reboot
-
-8. local hardware validation
-   - flash timing and latency measurements
-   - RAM-footprint measurements
-   - manual power-cut experiments on real boards
-```
-
-
----
-
-## Appendix C. Release checklist for SECURE
-
-### C.1 Critical format constraints
-
-- enforce reserved-generation fit against geometry,
-- enforce the single-tag CCM payload limit and require chunked mode or reject SECURE,
-- keep the zero-length LEB encoding fixed,
-- keep single-tag tail-padding behavior fixed,
-- reject cross-mode attach; mixed-mode migration and automatic reformat remain out of scope.
-
-### C.2 Important implementation notes
-
-- use the operational retirement levels from section 13.8 when describing key lifecycle,
-- include authenticated parent `key_version` in every child AAD binding that has a parent,
-- zeroize plaintext scratch and software-derived child-key buffers,
-- keep `volume_id` as the durable cryptographic identity used by the secure design,
-- keep the authenticated `write_active_key_version` monotonic and never move it backward,
-- if the API widens `device_revision`, preserve on-flash numeric ordering semantics.
-
-### C.3 Validation expected before upstream
-
-- complete synthetic power-cut testing for `DATA -> VID`, zero-length writes, hidden-anchor rewrites, and reserved-generation rewrites,
-- verify PSA-only failure paths, including RNG failure and missing key material,
-- verify zero-length, mixed-key, chunked-mode, alignment, and hidden-anchor corner cases under recovery,
-- verify `unmap/shrink -> erase -> reboot` when the erased PEB was the last current writable witness,
-- verify `volume_remove`, including removing all remaining volumes and rebooting into the zero-volume state,
-- verify device-header `vid_next_counter_floor` reconstruction and monotonic write-active-key transitions,
-- verify refcount-driven `KEY_RETIRABLE` transitions during ordinary reclaim and rotation.
-
-
----
-
-## 19. Secure volume lifecycle
-
-This chapter defines the end-to-end on-flash lifecycle of a secure
-volume — including the behaviour of the hidden anchor PEB during
-create, resize, shrink, remove, and reboot. It builds on the formats
-and rules in §7.9, §9.8, and §11.4–§11.7.
-
-### 19.1 Overview
-
-Every secure volume has one hidden anchor PEB in addition to its
-user-visible LEBs. The anchor carries an authenticated zero-length
-secure LEB record that preserves the per-volume LEB floor across
-reclaim, unmap, and shrink.
-
-```
-volume create  ─► anchor init (INTERNAL_ANCHOR_LNUM)
-                   ├── leb_write_counter = 0
-                   └── vid_counter assigned from global next_vid_counter
-```
-
-### 19.2 Create
-
-`ubi_volume_create()` performs:
-
-1. Commit reserved metadata (device header + volume headers) — writes
-   the new volume's `leb_count` to the dual-bank reserved area.
-2. Create the hidden anchor PEB — an authenticated zero-length secure
-   LEB at `INTERNAL_ANCHOR_LNUM`, consuming one free PEB.
-3. On anchor failure: roll back the RAM state (no volume visible to the
-   caller).
-
-After create, `reserved_peb_count = leb_count + 1` (user LEBs + anchor).
-
-### 19.3 Resize (grow)
-
-`ubi_volume_resize()` with a larger `leb_count`:
-
-1. Commit updated reserved metadata with the new count.
-2. The anchor PEB is not rewritten — its floor already covers the
-   existing range.
-3. New LEBs are unmapped until explicitly written.
-
-After grow, `reserved_peb_count = new_leb_count + 1`.
-
-### 19.4 Shrink
-
-`ubi_volume_resize()` with a smaller `leb_count`:
-
-1. Commit updated reserved metadata with the new count.
-2. Tail LEBs whose `lnum >= new_leb_count` are moved from the EBA table
-   to the dirty list in RAM.
-3. The anchor PEB is not rewritten — it inherits the newest floor, and
-   the smaller `leb_count` prevents tail LEBs from being mapped on
-   reboot.
-
-**Key distinction (§11.7).** Shrink is committed in reserved metadata
-*before* the dirty PEBs are physically erased. After reboot without
-erase, tail PEBs whose authenticated `lnum` is out of range are
-recovered as *dirty*, not *mapped*.
-
-After shrink, `reserved_peb_count = new_leb_count + 1`.
-
-### 19.5 Remove
-
-`ubi_volume_remove()` performs:
-
-1. Commit reserved metadata with `vol_count - 1`.
-2. Move all user LEBs + the anchor PEB to the dirty list.
-3. Save `vid_next_counter_floor` in the secure device header (§9.8.5)
-   to prevent counter reset after removing all volumes.
-
-After remove of the last volume: `volume_count = 0`,
-`reserved_peb_count = 0`. The VID counter floor is preserved — creating
-a new volume after reboot will use counter values above the previous
-lifetime.
-
-### 19.6 Unmap
-
-`ubi_leb_unmap()` is an in-memory transition from `mapped` to `dirty`.
-No on-flash tombstone is written. Until the dirty PEB is erased, the
-old authenticated record survives — reboot before erase may reconstruct
-the old mapping.
-
-The hidden anchor is *not* affected by unmap of user LEBs.
-
-### 19.7 Erase and reclaim
-
-`ubi_device_erase_peb()` picks the dirtiest PEB and erases it. During
-erase, the anchor witness check (§11.6) may detect that the erased PEB
-carried the last known floor:
-
-1. If `dirty_entry.vid_counter > anchor.vid_counter`, the anchor is
-   rewritten with the newer floor *before* the dirty PEB is erased.
-2. The old anchor PEB becomes dirty and is eventually recycled — this
-   is how the anchor participates in wear-leveling.
-
-The emergency reserve (§11.5) ensures at least one free PEB is
-available for anchor migration during write-path operations.
-
-### 19.8 Reboot recovery
-
-On `ubi_device_init()`:
-
-1. Reserved metadata (dual-bank) is read + authenticated → provides
-   volume list, `vid_next_counter_floor`.
-2. Data PEBs are scanned — each authenticated VID is classified:
-   - Anchor PEB (`INTERNAL_ANCHOR_LNUM`): duplicate resolution by
-     `vid_sqnum`.
-   - User PEB: mapped if `lnum < leb_count`, otherwise dirty
-     (orphan/shrunk).
-3. `next_vid_counter` is reconstructed as
-   `max(floor, max_seen_counter + 1)`.
-4. Stale anchor duplicates (from migration) are resolved: only the one
-   with the highest `vid_sqnum` survives; the other becomes dirty.
-
----
-
-## 20. Secure recovery scenarios
-
-This chapter enumerates recovery behaviour specific to secure mode
-after crashes, reboots, and corner-case erase sequences. It builds on
-§9.8, §10, and chapter 19.
-
-### 20.1 Recovery principles
-
-Secure mode inherits the plain core's recovery semantics with two
-additions:
-
-1. **Authentication gates classification.** Every PEB header must pass
-   AEAD verification before the PEB is trusted. Unauthenticated PEBs
-   are classified as dirty, not mapped.
-2. **Hidden anchor provides floor continuity.** The per-volume anchor
-   PEB ensures the LEB floor is never lost, even when all user LEBs
-   are unmapped or erased.
-
-### 20.2 `unmap → reboot` (before erase)
-
-The unmapped PEB's authenticated VID survives on flash. On reinit:
-
-- The PEB is rediscovered and the old mapping is reconstructed.
-- The anchor is unaffected — its floor is at least as fresh as the
-  user PEB.
-- From the user's perspective, the unmap did not persist.
-
-### 20.3 `unmap → erase → reboot`
-
-After erase, the user PEB is physically gone. If it carried the newest
-floor:
-
-- The erase path's witness check already rewrote the anchor with the
-  floor.
-- On reinit, the anchor supplies the floor — no counter regression.
-
-### 20.4 `shrink → reboot` (before erase)
-
-Shrink commits the new `leb_count` to reserved metadata immediately.
-On reinit:
-
-- Tail PEBs whose `lnum >= new_leb_count` are classified as dirty
-  (orphan), even though their authenticated VID is intact.
-- The volume's `leb_count` reflects the shrunken size.
-- No data loss for LEBs within the new range.
-
-### 20.5 `shrink → erase → reboot`
-
-Same as above, but dirty tail PEBs are erased before reboot:
-
-- If a tail PEB carried the newest floor, the anchor witness check
-  fires during erase and rewrites the anchor first.
-- On reinit: clean state, all PEBs accounted for.
-
-### 20.6 `remove all volumes → reboot → create`
-
-When the last volume is removed:
-
-- `vid_next_counter_floor` is saved in the secure device header
-  (§9.8.5).
-- All user PEBs and anchors are moved to dirty.
-- On reinit: `next_vid_counter` is restored from the floor.
-- A new volume's writes start from a counter above the previous
-  lifetime.
-
-### 20.7 Anchor migration during erase
-
-When a dirty PEB has a higher `vid_counter` than the current anchor:
-
-1. The anchor is rewritten to a new free PEB with the dirty PEB's
-   floor.
-2. The old anchor PEB is moved to dirty.
-3. The original dirty PEB is now safe to erase.
-
-This means the anchor PEB physically migrates across PEBs,
-participating in normal wear-leveling. No PEB is permanently trapped
-as an anchor.
-
-### 20.8 Stale anchor after reboot
-
-After anchor migration, two PEBs carry anchor VIDs (old + new). On
-reinit:
-
-- Both are discovered during the data-PEB scan.
-- Duplicate resolution selects the one with the higher `vid_sqnum`.
-- The stale copy is moved to dirty.
-
-### 20.9 Emergency reserve
-
-The write path calls `ubi_secure_try_refill_reserve()` before checking
-`free_peb_count`. If the free pool is empty but dirty PEBs exist, one
-dirty PEB is erased (with anchor witness check) to restore headroom.
-This prevents deadlock where a write needs a free PEB for both the
-data write and a potential anchor migration.
-
-### 20.10 Dual-bank reserved metadata
-
-Reserved metadata (device header, volume headers, device meta) is
-stored in a dual-bank layout. On reboot:
-
-- Both banks are read and authenticated.
-- The bank with the higher revision wins.
-- If one bank fails authentication, the device enters degraded mode
-  (`read_only_degraded = true`) — user data reads continue, but
-  reserved metadata mutations are blocked until the corrupted bank is
-  recovered.
-
----
-
-## 21. Runtime policy
-
-This chapter describes runtime policy enforcement in the SECURE
-backend: freshness synchronisation, event callbacks, key-version
-refcount tracking, usage budgets, and the sticky crypto read-only
-mode. It is normative for implementers; the developer-facing summary
-lives in {doc}`secure_workflow`.
-
-### 21.1 Freshness sync
-
-After every commit-visible mutation (volume create / resize / remove,
-LEB write, LEB map, PEB erase) the backend calls `sync_freshness`
-according to the cadence configured by
-`CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`:
-
-- **delta = 0** (default): sync after every mutation.
-- **delta > 0**: sync every N mutations.
-
-If `sync_freshness` returns a non-zero error code, the backend:
-
-1. Emits `UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE` via the `event_cb`.
-2. Optionally enters sticky crypto read-only when
-   `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y`.
-
-### 21.2 Event callback and verdicts
-
-Every security-relevant event is delivered through the
-application-provided `event_cb`. The callback returns one of:
-
-| Verdict | Meaning |
-|---------|---------|
-| `UBI_CRYPTO_EVENT_CONTINUE` | Normal operation continues. |
-| `UBI_CRYPTO_EVENT_ENTER_READ_ONLY` | Sticky crypto read-only: all subsequent mutations are rejected with `-EROFS`. Reads remain functional. |
-
-Event types and their triggers:
-
-| Event | Trigger |
-|-------|---------|
-| `AUTH_FAILURE` | AEAD authentication failed during LEB read (EC, VID, or data domain). |
-| `FORMAT_VIOLATION` | Post-AEAD plaintext has valid authentication but invalid structure (size mismatch). |
-| `KEY_VERSION_NOT_ALLOWLISTED` | On-flash object carries a key version absent from the runtime allowlist. |
-| `KEY_VERSION_UNAVAILABLE` | `get_key_id` callback failed — key material not available for a key version. |
-| `ROLLBACK_POLICY_MISMATCH` | On-flash freshness lags behind the trusted store at attach time. |
-| `FRESHNESS_SYNC_FAILURE` | `sync_freshness` callback returned non-zero. |
-| `RNG_FAILURE` | Platform RNG could not produce a fresh salt for a secure write. |
-| `KEY_ROTATE_SOON` | LEB write/byte budget crossed soft threshold (`ROTATE_SOON_PCT`, default 80%). |
-| `KEY_ROTATE_NOW` | LEB write/byte budget crossed hard threshold (`ROTATE_NOW_PCT`, default 95%). |
-| `KEY_RETIRABLE` | All on-flash PEBs authenticated with a non-write-active key version have been erased. The key material can be safely destroyed. |
-
-### 21.3 Sticky crypto read-only
-
-When `read_only_crypto` is set (by an event callback verdict or by a
-strict-RO Kconfig policy), the central mutation gate blocks **all**
-mutation classes:
-
-- `UBI_MUT_RESERVED_METADATA` (volume create/resize/remove)
-- `UBI_MUT_DATA_PATH` (LEB write/map/unmap)
-- `UBI_MUT_MAINTENANCE` (PEB erase)
-
-The flag persists until `ubi_device_deinit`. It is independent of the
-degraded read-only flag, which only blocks reserved-metadata
-mutations.
-
-### 21.4 Key-version PEB refcount
-
-During attach, the init scan counts refcounts per data PEB: one for
-each EC header plus two for each VID-bearing PEB (VID header + LEB
-data record). Reserved PEBs are also counted: every reserved PEB
-contributes one secure device header plus one secure volume header
-per existing volume (`nr_res_pebs * (1 + vol_count)`), so a key
-version is only retirable once both its data-PEB objects and its
-reserved-PEB objects have been replaced.
-
-At runtime:
-
-- **Write (VID commit).** Increment refcount by 2 for the write-active
-  key version (VID header + LEB data objects).
-- **Erase.** Decrement refcount for the old EC key version (×1), plus
-  VID key version (×2) if the PEB had a VID header. Increment by 1 for
-  the write-active key version (new EC header written after erase).
-- **Reserved metadata commit** (`volume_create` / `volume_resize` /
-  `volume_remove`). The (kv, vol_count) contribution of the new state
-  is added before the old state's contribution is released
-  ("inc-first / dec-last"). This avoids transiently dropping the
-  active kv's refcount to zero, which would otherwise spuriously fire
-  `KEY_RETIRABLE`.
-- **`KEY_RETIRABLE`.** Emitted when a non-write-active key version's
-  refcount reaches zero.
-
-### 21.5 VID-domain counter floor on key rotation
-
-The authenticated `vid_next_counter_floor` field in the secure device
-header records the next unused VID-domain AEAD counter for the current
-write-active key version. When attach detects that
-`requested_write_key_version` differs from the on-flash write-active
-key version, the eager reserved-PEB upgrade restarts the floor at
-zero: `K_volume_identifier[new_kv]` is a fresh HKDF child key, so its
-48-bit nonce range is unused under the new version. Reattaching with
-the same key version preserves the monotonic floor.
-
-### 21.6 LEB usage budget
-
-Each LEB write tracks:
-
-- `leb_write_counter` — number of AEAD encrypt operations per
-  `{key_version, volume_id}`.
-- `leb_total_auth_bytes` — cumulative authenticated bytes per
-  `{key_version, volume_id}`.
-
-**Pre-write check (§14.2).** Before any flash mutation, the backend
-projects the post-write counter and byte usage. If either would cross
-`ROTATE_NOW_PCT`, the write is rejected with `-ENOSPC` and
-`KEY_ROTATE_NOW` is emitted. If the 48-bit nonce counter would
-overflow, the write is rejected with `-EOVERFLOW`.
-
-**Post-write check.** After each successful LEB commit, usage
-percentages are computed against the Kconfig budgets
-(`UBI_CRYPTO_LEB_WRITE_BUDGET`,
-`UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET`) and `KEY_ROTATE_SOON` or
-`KEY_ROTATE_NOW` events are emitted when thresholds are crossed.
-
-### 21.7 Metadata usage budget
-
-In addition to the per-`{key_version, volume_id}` LEB budget, each
-metadata-bearing AEAD record class is enforced under the active
-`write_active_key_version`:
-
-- **DEV** — encrypted device-header records (one per reserved-PEB
-  commit).
-- **VOL** — encrypted volume-header records (`vol_count` per
-  reserved-PEB commit).
-- **EC** — secure erase-counter headers written on every PEB erase.
-- **VID** — volume-ID headers written on every LEB write.
-
-DEV and VOL share the same on-flash counter (`next_dev_hdr_counter`);
-EC uses `next_ec_counter`; VID uses `next_vid_counter`. The per-record
-authenticated-byte sizes are derived from existing AAD / plaintext /
-record-size macros and are `BUILD_ASSERT`-locked in
-`ubi_secure_budget.c`.
-
-**Pre-commit check.** Before any flash mutation, the backend projects
-the post-commit counter and authenticated-byte total. If either
-crosses `ROTATE_NOW_PCT` of `UBI_CRYPTO_METADATA_COUNTER_BUDGET` /
-`UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `KEY_ROTATE_NOW` is
-emitted, sticky `read_only_crypto` is set, and the operation is
-rejected with `-ENOSPC` (or `-EROFS` if the gate already trips on a
-subsequent call).
-
-**Post-commit check.** After the on-flash counter has been bumped,
-usage percentages are evaluated and `KEY_ROTATE_SOON` or
-`KEY_ROTATE_NOW` is emitted when thresholds are crossed.
-
-**Budget reset on rotation.** Per-domain RAM-only "budget bases" are
-captured during `ubi_device_init`. When a successful rotation occurs
-(eager rotation at attach because `requested_write_key_version`
-differs from the on-flash key version), the bases are set to the
-current counter values so all subsequent writes count from zero under
-the new HKDF child keys. When the write-active kv is unchanged across
-a reattach, the bases stay at zero so the cumulative budget under that
-kv carries forward.
-
-### 21.8 Error propagation
-
-Internal crypto error codes (`UBI_SECURE_ENORAND`,
-`UBI_SECURE_ENOKEY`, `UBI_SECURE_EFORMAT`) propagate from low-level
-functions through the I/O layer to callers that hold the
-`ubi_device*`. Those callers classify the error and emit the
-appropriate event via the helpers in `ubi_secure_event.h`.
-
-### 21.9 Read-path allowlist
-
-During `ubi_secure_leb_read`, both the EC header and VID header key
-versions are checked against the runtime `allowed_key_versions`
-policy. If either key version is absent from the allowlist, the read
-is rejected with `-EACCES` and `KEY_VERSION_NOT_ALLOWLISTED` is
-emitted.
-
-### 21.10 Zeroization
-
-All stack-local plaintext buffers (EC, VID, LEB decrypt outputs) and
-heap-allocated scratch buffers are wiped via `ubi_secure_zeroize()` —
-a volatile-qualified byte-by-byte memset that is not subject to
-dead-store elimination — before returning or freeing.

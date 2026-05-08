@@ -4,7 +4,7 @@
 coverage, the forensic scan, test categories, environments, coverage
 targets, test patterns, and known gaps.
 
-**Prerequisites:** [Quick Start](quick_start.md) for the basic Zephyr +
+**Prerequisites:** [Quick Start](/getting_started/quick_start.md) for the basic Zephyr +
 UBI build.
 
 ## Building and running tests
@@ -414,7 +414,6 @@ Tests build with strict warnings to catch issues at compile time:
 
 | Gap | Impact | Mitigation |
 |-----|--------|------------|
-| No power-loss simulation | Interrupted writes and metadata commits not tested | Recovery logic is tested via corruption injection (corrupt headers, duplicate LEBs) |
 | Partial flash write failure coverage | Flash write fault injection covers `flash_write_with_retry`; not all write call-sites are individually swept | `ubi_io_faults` suite validates erase failure -> bad PEB; write retry logic is code-reviewed |
 | HIL smoke only (no CI hardware) | `ubi_hil_smoke` suite exists but CI only cross-compiles for STM32U5 and nRF5340 | Manual hardware testing during development; HIL CI planned |
 | Non-0xFF erased value end-to-end | Erased-value helpers are unit-tested for 0x00, but the flash simulator only supports 0xFF | Helpers are trivial; integration tests on 0xFF backend cover the full scan path |
@@ -440,8 +439,8 @@ constraints with no direct runtime test (intentional; documented for
 traceability).
 
 The corresponding normative behaviour is specified in
-{doc}`onflash_format_spec` chapters 19 (Secure volume lifecycle), 20
-(Secure recovery scenarios), and Appendix C (release checklist).
+{doc}`/reference/onflash_format_spec` chapters 19 (Secure volume lifecycle), 20
+(Secure recovery scenarios), and 21 (Runtime policy).
 
 ### Lifecycle step → ZTEST coverage
 

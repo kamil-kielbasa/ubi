@@ -21,11 +21,11 @@ UBI is a lightweight **wear-leveling and logical volume management layer** for r
 | Metadata redundancy | Dual-bank reserved PEBs (configurable 2–4 copies) |
 | Crash recovery | Sequence-number-based conflict resolution on init |
 | Dynamic volume resize | Grow and shrink volumes at runtime |
-| Authenticated encryption | Optional AES-128-CCM backend encrypting all on-flash structures ([Secure Overview](https://kamil-kielbasa.github.io/ubi/secure_overview.html)) |
+| Authenticated encryption | Optional AES-128-CCM backend encrypting all on-flash structures ([Secure Overview](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html)) |
 | Filesystem | **No** — raw block-level I/O, not file-level |
-| Flash footprint | ~9.2 KB plain / ~59.3 KB secure (Cortex-M33, `-Os`, default config) |
-| Static RAM (BSS) | Depends on Kconfig (see [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html#memory-sizing-guide)) |
-| Runtime RAM | Proportional to PEB count + volume count (see [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html)) |
+| Flash footprint | ~9.5 KB plain / ~29 KB secure (library only; PSA Crypto/mbedTLS provided by platform, not counted) |
+| Static RAM (BSS) | Depends on Kconfig (see [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html#memory-sizing-guide)) |
+| Runtime RAM | Proportional to PEB count + volume count (see [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html)) |
 | Thread safety | Per-device mutex; not ISR-safe |
 
 ## When to Use
@@ -91,14 +91,14 @@ Error handling is omitted for brevity. All API functions return `0` on success o
 
 Full documentation is published at **<https://kamil-kielbasa.github.io/ubi/>**. Quick links to the most-used pages:
 
-- [What is UBI?](https://kamil-kielbasa.github.io/ubi/what_is_ubi.html) — 5-minute orientation, when (and when not) to use UBI.
-- [Quick Start](https://kamil-kielbasa.github.io/ubi/quick_start.html) — build, run the sample, write your first volume.
-- [Cookbook](https://kamil-kielbasa.github.io/ubi/cookbook.html) — STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store.
-- [Plain Architecture](https://kamil-kielbasa.github.io/ubi/plain_architecture.html) — on-flash layout, wear-leveling, dual-bank, recovery.
-- [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
-- [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/secure_workflow.html) — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling.
-- [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/onflash_format_spec.html) — normative byte-level reference.
-- [Configuration](https://kamil-kielbasa.github.io/ubi/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/api.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/contributing.html)
+- [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) — 5-minute orientation, when (and when not) to use UBI.
+- [Quick Start](https://kamil-kielbasa.github.io/ubi/getting_started/quick_start.html) — build, run the sample, write your first volume.
+- [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) — STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store.
+- [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) — on-flash layout, wear-leveling, dual-bank, recovery.
+- [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
+- [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling.
+- [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html) — normative byte-level reference.
+- [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html)
 
 ## Project Quality
 

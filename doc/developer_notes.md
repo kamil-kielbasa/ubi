@@ -8,7 +8,7 @@ orphan: true
 **Implementation map.** This page is for UBI maintainers and contributors.
 It is intentionally **not in the sidebar** and is not part of the v1.0.0
 public documentation surface. Public users should read
-{doc}`plain_architecture` and the {doc}`api` instead.
+{doc}`/architecture/plain_architecture` and the {doc}`/reference/api` instead.
 ```
 
 ## Plain UBI source files

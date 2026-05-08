@@ -8,8 +8,8 @@ write your first volume — in about 5 minutes.
 (`west`, Zephyr SDK).
 
 **After reading this:** You will have UBI built and running. For deeper
-integration on real hardware, continue to {doc}`configuration` and the
-{doc}`cookbook`.
+integration on real hardware, continue to {doc}`/guide/configuration` and the
+{doc}`/guide/cookbook`.
 
 ---
 
@@ -18,7 +18,7 @@ integration on real hardware, continue to {doc}`configuration` and the
 | Path | What you do | What you need |
 |------|-------------|---------------|
 | **Quick evaluation** | Build for `native_sim`, run the sample, see UBI in action | Zephyr SDK only |
-| **Project integration** | Add UBI as a west module, configure via Kconfig and DeviceTree | See {doc}`configuration` |
+| **Project integration** | Add UBI as a west module, configure via Kconfig and DeviceTree | See {doc}`/guide/configuration` |
 | **Hardware testing** | Build for `b_u585i_iot02a` or `nrf5340dk/nrf5340/cpuapp`, flash, observe via serial | STM32CubeProgrammer or nrfjprog, picocom |
 
 This page covers the **Quick evaluation** path end to end. The other two
@@ -95,12 +95,12 @@ A complete buildable version of this snippet ships in
 
 ## What's next
 
-- {doc}`concepts` — the vocabulary used throughout the rest of the docs
+- {doc}`/getting_started/concepts` — the vocabulary used throughout the rest of the docs
   (PEB, LEB, EC, VID, EBA).
-- {doc}`configuration` — Kconfig, DeviceTree overlays, and the memory
+- {doc}`/guide/configuration` — Kconfig, DeviceTree overlays, and the memory
   sizing guide.
-- {doc}`plain_workflow` — full lifecycle walkthrough including periodic
+- {doc}`/guide/plain_workflow` — full lifecycle walkthrough including periodic
   garbage collection and `read_only_degraded` handling.
-- {doc}`cookbook` — end-to-end recipes for common deployments.
-- {doc}`test_strategy` — how to build and run the test suite, and how
+- {doc}`/guide/cookbook` — end-to-end recipes for common deployments.
+- {doc}`/project/test_strategy` — how to build and run the test suite, and how
   coverage and forensic scans are produced.
