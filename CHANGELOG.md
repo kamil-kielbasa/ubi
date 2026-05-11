@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.79.0] - 2026-05-11
+
+### Added
+
+- A new Getting Started page, **Comparison: UBI vs LittleFS vs NVS vs
+  ZMS**, places UBI side-by-side with the three main Zephyr-native
+  storage subsystems and answers "which one do I pick?" in a single
+  table plus a two-question decision shortcut. Linked from the
+  Getting Started toctree and from the "When not to use UBI" section
+  of *What is UBI?*.
+
+### Changed
+
+- Removed redundant `{contents}` blocks from the Cookbook, Error Codes
+  and Kconfig Reference pages — Furo already renders a per-page
+  outline in the right sidebar.
+
+### Fixed
+
+- The GitHub icon in the page footer is now rendered as inline SVG
+  instead of an `<img src="_static/…">` reference, so it shows up on
+  nested URLs (e.g. `architecture/secure_overview.html`) where the
+  relative path previously resolved to a 404.
+
 ## [0.78.0] - 2026-05-11
 
 ### Changed

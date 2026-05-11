@@ -9,11 +9,6 @@ Source of truth: [`lib/Kconfig`](https://github.com/kamil-kielbasa/ubi/blob/main
 [`lib/Kconfig.plain`](https://github.com/kamil-kielbasa/ubi/blob/main/lib/Kconfig.plain),
 [`lib/Kconfig.secure`](https://github.com/kamil-kielbasa/ubi/blob/main/lib/Kconfig.secure).
 
-```{contents}
-:local:
-:depth: 2
-```
-
 ---
 
 ## Core options

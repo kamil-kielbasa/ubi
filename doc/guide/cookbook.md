@@ -10,11 +10,6 @@ geometry, and build.
 **See also:** {doc}`/guide/plain_workflow`, {doc}`/guide/secure_workflow`,
 {doc}`/guide/configuration`.
 
-```{contents}
-:local:
-:depth: 1
-```
-
 ---
 
 ## 1. UBI on STM32U5 (`b_u585i_iot02a`)

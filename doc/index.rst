@@ -60,6 +60,7 @@ Pick the card that matches what you came here to do.
    :caption: Getting Started
 
    getting_started/what_is_ubi
+   getting_started/comparison
    getting_started/quick_start
    getting_started/concepts
 

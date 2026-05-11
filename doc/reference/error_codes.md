@@ -8,11 +8,6 @@ layer, and how the application is expected to react.
 The table is the lookup view; the sections below add per-code
 recovery notes for the cases where "what to do" is not obvious.
 
-```{contents}
-:local:
-:depth: 2
-```
-
 ## Lookup table
 
 | Code | Returned by | Meaning | Recommended reaction |

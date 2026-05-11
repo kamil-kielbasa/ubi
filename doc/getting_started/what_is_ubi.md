@@ -103,6 +103,9 @@ Look elsewhere when:
   metadata. Wrap user-data writes in a higher-level transaction, or use a
   filesystem with full data journaling.
 
+For a fuller side-by-side, see
+{doc}`/getting_started/comparison`.
+
 ## What's next
 
 - {doc}`/getting_started/concepts` — five key concepts (PEB, LEB, EC, VID, EBA) and how UBI
