@@ -123,7 +123,7 @@ Offset 0x050  | Volume 1 Hdr  (48 B) |
               +----------------------+
 ```
 
-A data PEB starts with a 16-byte **EC header** at offset 0 (magic, version, erase_counter, CRC), followed by a 32-byte **VID header** at offset 0x010 (magic, vol_id, leb_num, sqnum, data_size, CRC), followed by the user-data area. When a data PEB is **free** (not assigned to any volume), its VID header area is erased (filled with the hardware-reported erased byte value). The EC header is always present on valid PEBs.
+A data PEB starts with a 16-byte **EC header** at offset 0 (magic, version, erase_counter, CRC), followed by a 32-byte **VID header** at offset 0x010 (magic, `volume_id`, `lnum`, `vid_sqnum`, data_size, CRC), followed by the user-data area. When a data PEB is **free** (not assigned to any volume), its VID header area is erased (filled with the hardware-reported erased byte value). The EC header is always present on valid PEBs.
 
 ---
 
@@ -162,7 +162,7 @@ Offset  Size  Field
 0x1C    4     hdr_crc     CRC-32 of bytes 0x00..0x1B
 ```
 
-The `sqnum` field is critical for crash recovery. During the PEB scan at init, if two PEBs claim the same (vol_id, lnum) pair, the one with the higher `sqnum` wins.
+The `vid_sqnum` field is critical for crash recovery. During the PEB scan at init, if two PEBs claim the same `(volume_id, lnum)` pair, the one with the higher `vid_sqnum` wins.
 
 ### Device Header — 32 bytes
 
@@ -610,7 +610,7 @@ flowchart TD
     WasOverwrite -- No --> Done
 ```
 
-### Read Flow (Mermaid)
+### Read Flow
 
 ```mermaid
 flowchart TD
@@ -627,7 +627,7 @@ flowchart TD
     IsMapped -- Yes --> ReadFlash --> Done
 ```
 
-### Erase / Reclaim Flow (Mermaid)
+### Erase / Reclaim Flow
 
 ```mermaid
 flowchart TD

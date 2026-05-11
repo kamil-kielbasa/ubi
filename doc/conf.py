@@ -17,7 +17,7 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.76.0'
+version = '0.77.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -76,6 +76,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'positioning']
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = 'sphinx_rtd_theme'
+html_static_path = ['_static']
+html_css_files = ['custom.css']
 
 # -- MyST parser options -----------------------------------------------------
 

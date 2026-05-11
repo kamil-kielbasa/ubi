@@ -174,7 +174,6 @@ Rules that follow from this lifecycle:
   (record layouts, AAD, nonce rules, on-flash counters, lifecycle
   invariants, recovery scenarios, runtime policy).
 - {doc}`/guide/cookbook` — recipes including "Implementing key rotation with
-  PSA" and "Implementing a freshness store with Zephyr Settings"
-  (lands in PR 5).
+  PSA" and "Implementing a freshness store with Zephyr Settings".
 - {doc}`/project/test_strategy` — the ZTEST traceability tables that show how
   every Secure UBI rule is exercised in regression.

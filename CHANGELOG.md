@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.77.0] - 2026-05-11
+
+### Changed
+
+- Plain UBI Architecture flow-diagram headings ("Read Flow", "Erase /
+  Reclaim Flow") no longer carry a "(Mermaid)" suffix — readers do not
+  need to know the rendering backend.
+- Plain UBI Architecture prose now uses the canonical field names
+  `volume_id` and `vid_sqnum` (previously `vol_id` and `sqnum`) when
+  describing the VID header and crash-recovery rule, aligning the
+  document with the C headers and the Glossary. Literal byte-layout
+  tables and the in-RAM cache diagrams keep the original short field
+  names since those are the actual symbols.
+
+### Fixed
+
+- Removed a stale placeholder from the Secure
+  Architecture Overview "What's next" list — the referenced Cookbook
+  recipes have been live since v0.71.0.
+
+### Added
+
+- A small Sphinx stylesheet (`_static/custom.css`) caps Mermaid
+  diagrams at 720 px and centres them, so the three plain-architecture
+  flow diagrams render at a consistent visual size regardless of how
+  many nodes each one has.
+
 ## [0.76.0] - 2026-05-08
 
 ### Changed
