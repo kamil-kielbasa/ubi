@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.80.0] - 2026-05-11
+
+### Changed
+
+- Plain UBI's three flow diagrams (Write / Read / Erase-Reclaim) in
+  *Plain UBI Architecture* are now a single side-by-side SVG
+  (`doc/img/plain_flows.svg`) instead of three stacked Mermaid blocks.
+  Same information, one screenful, no client-side render.
+
 ## [0.79.0] - 2026-05-11
 
 ### Added

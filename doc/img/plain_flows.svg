@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1720 1080" width="1720" height="1080" font-family="Helvetica,Arial,sans-serif" font-size="13">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4a5568"/></marker></defs>
+<text x="290.0" y="38" text-anchor="middle" font-size="18" font-weight="bold" fill="#1a202c">Write Flow</text>
+<text x="860.0" y="38" text-anchor="middle" font-size="18" font-weight="bold" fill="#1a202c">Read Flow</text>
+<text x="1430.0" y="38" text-anchor="middle" font-size="18" font-weight="bold" fill="#1a202c">Erase / Reclaim Flow</text>
+<rect x="160.0" y="57.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="84.0" text-anchor="middle" fill="#1a202c">ubi_leb_write(vol_id, lnum, buf, len)</text>
+<rect x="160.0" y="132.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="159.0" text-anchor="middle" fill="#1a202c">Look up LEB in volume EBA table</text>
+<rect x="160.0" y="207.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="227.0" text-anchor="middle" fill="#1a202c">Select free PEB with lowest EC</text>
+<text x="290.0" y="241.0" text-anchor="middle" fill="#1a202c">(rb_get_min on free_pebs)</text>
+<polygon points="290.0,277.0 400.0,305 290.0,333.0 180.0,305" fill="#fefcbf" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="309.0" text-anchor="middle" fill="#1a202c">Free PEB available?</text>
+<rect x="160.0" y="357.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="384.0" text-anchor="middle" fill="#1a202c">Write EC header on new PEB</text>
+<rect x="160.0" y="432.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="459.0" text-anchor="middle" fill="#1a202c">Write user data payload</text>
+<rect x="160.0" y="507.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="527.0" text-anchor="middle" fill="#1a202c">Write VID header (commit point)</text>
+<text x="290.0" y="541.0" text-anchor="middle" fill="#1a202c">vol_id, lnum, sqnum++, data_size</text>
+<polygon points="290.0,577.0 400.0,605 290.0,633.0 180.0,605" fill="#fefcbf" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="609.0" text-anchor="middle" fill="#1a202c">Write succeeded?</text>
+<rect x="160.0" y="657.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="684.0" text-anchor="middle" fill="#1a202c">Swap EBA: LEB → new PEB</text>
+<polygon points="290.0,727.0 400.0,755 290.0,783.0 180.0,755" fill="#fefcbf" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="759.0" text-anchor="middle" fill="#1a202c">Was overwrite?</text>
+<rect x="160.0" y="807.0" width="260" height="46" rx="7" ry="7" fill="#c6f6d5" stroke="#4a5568" stroke-width="1.4"/>
+<text x="290.0" y="834.0" text-anchor="middle" fill="#1a202c">Return 0</text>
+<path d="M290.0,103.0 L290.0,132.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,178.0 L290.0,207.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,253.0 L290.0,277.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,333.0 L290.0,357.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="298.0" y="348.0" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">yes</text>
+<path d="M290.0,403.0 L290.0,432.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,478.0 L290.0,507.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,553.0 L290.0,577.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,633.0 L290.0,657.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="298.0" y="648.0" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">yes</text>
+<path d="M290.0,703.0 L290.0,727.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M290.0,783.0 L290.0,807.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="298.0" y="798.0" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">no</text>
+<rect x="415.0" y="282.0" width="190" height="46" rx="7" ry="7" fill="#fed7d7" stroke="#4a5568" stroke-width="1.4"/>
+<text x="510.0" y="309.0" text-anchor="middle" fill="#1a202c">Return -ENOSPC</text>
+<path d="M400.0,305 L415.0,305" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="406.0" y="299" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">no</text>
+<rect x="-25.0" y="582.0" width="190" height="46" rx="7" ry="7" fill="#fed7d7" stroke="#4a5568" stroke-width="1.4"/>
+<text x="70.0" y="602.0" text-anchor="middle" fill="#1a202c">Mark new PEB bad</text>
+<text x="70.0" y="616.0" text-anchor="middle" fill="#1a202c">retry next free PEB</text>
+<path d="M180.0,605 L165.0,605" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="174.0" y="599" font-size="11" fill="#1a202c" font-style="italic" text-anchor="end">no</text>
+<path d="M70.0,582.0 L70.0,230 L160.0,230" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<rect x="-25.0" y="732.0" width="190" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="70.0" y="752.0" text-anchor="middle" fill="#1a202c">Move old PEB</text>
+<text x="70.0" y="766.0" text-anchor="middle" fill="#1a202c">to dirty_pebs</text>
+<path d="M180.0,755 L165.0,755" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="174.0" y="749" font-size="11" fill="#1a202c" font-style="italic" text-anchor="end">yes</text>
+<path d="M70.0,778.0 L70.0,830 L160.0,830" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<rect x="730.0" y="87.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="860.0" y="114.0" text-anchor="middle" fill="#1a202c">ubi_leb_read(vol_id, lnum, offset, buf, len)</text>
+<rect x="730.0" y="182.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="860.0" y="209.0" text-anchor="middle" fill="#1a202c">Find volume in vols RBT</text>
+<rect x="730.0" y="277.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="860.0" y="304.0" text-anchor="middle" fill="#1a202c">Look up LEB in volume EBA table</text>
+<polygon points="860.0,367.0 970.0,395 860.0,423.0 750.0,395" fill="#fefcbf" stroke="#4a5568" stroke-width="1.4"/>
+<text x="860.0" y="399.0" text-anchor="middle" fill="#1a202c">LEB mapped?</text>
+<rect x="730.0" y="467.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="860.0" y="487.0" text-anchor="middle" fill="#1a202c">Read from PEB at</text>
+<text x="860.0" y="501.0" text-anchor="middle" fill="#1a202c">data offset + user offset</text>
+<rect x="730.0" y="562.0" width="260" height="46" rx="7" ry="7" fill="#c6f6d5" stroke="#4a5568" stroke-width="1.4"/>
+<text x="860.0" y="589.0" text-anchor="middle" fill="#1a202c">Return 0</text>
+<path d="M860.0,133.0 L860.0,182.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M860.0,228.0 L860.0,277.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M860.0,323.0 L860.0,367.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M860.0,423.0 L860.0,467.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="868.0" y="448.0" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">yes</text>
+<path d="M860.0,513.0 L860.0,562.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<rect x="545.0" y="372.0" width="190" height="46" rx="7" ry="7" fill="#fed7d7" stroke="#4a5568" stroke-width="1.4"/>
+<text x="640.0" y="399.0" text-anchor="middle" fill="#1a202c">Return -EINVAL</text>
+<path d="M750.0,395 L735.0,395" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="744.0" y="389" font-size="11" fill="#1a202c" font-style="italic" text-anchor="end">no</text>
+<rect x="1300.0" y="67.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="94.0" text-anchor="middle" fill="#1a202c">ubi_device_erase_peb()</text>
+<polygon points="1430.0,144.0 1540.0,172 1430.0,200.0 1320.0,172" fill="#fefcbf" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="176.0" text-anchor="middle" fill="#1a202c">dirty_pebs non-empty?</text>
+<rect x="1300.0" y="231.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="251.0" text-anchor="middle" fill="#1a202c">Select dirty PEB with lowest EC</text>
+<text x="1430.0" y="265.0" text-anchor="middle" fill="#1a202c">(rb_get_min on dirty_pebs)</text>
+<rect x="1300.0" y="313.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="340.0" text-anchor="middle" fill="#1a202c">Erase PEB on flash</text>
+<polygon points="1430.0,390.0 1540.0,418 1430.0,446.0 1320.0,418" fill="#fefcbf" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="422.0" text-anchor="middle" fill="#1a202c">Erase succeeded?</text>
+<rect x="1300.0" y="477.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="504.0" text-anchor="middle" fill="#1a202c">Increment erase counter</text>
+<rect x="1300.0" y="559.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="586.0" text-anchor="middle" fill="#1a202c">Write new EC header</text>
+<rect x="1300.0" y="641.0" width="260" height="46" rx="7" ry="7" fill="#f7fafc" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="668.0" text-anchor="middle" fill="#1a202c">Move PEB to free_pebs</text>
+<rect x="1300.0" y="723.0" width="260" height="46" rx="7" ry="7" fill="#c6f6d5" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1430.0" y="750.0" text-anchor="middle" fill="#1a202c">Return 0</text>
+<path d="M1430.0,113.0 L1430.0,144.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M1430.0,200.0 L1430.0,231.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="1438.0" y="218.5" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">yes</text>
+<path d="M1430.0,277.0 L1430.0,313.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M1430.0,359.0 L1430.0,390.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M1430.0,446.0 L1430.0,477.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="1438.0" y="464.5" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">yes</text>
+<path d="M1430.0,523.0 L1430.0,559.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M1430.0,605.0 L1430.0,641.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<path d="M1430.0,687.0 L1430.0,723.0" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<rect x="1555.0" y="149.0" width="190" height="46" rx="7" ry="7" fill="#c6f6d5" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1650.0" y="169.0" text-anchor="middle" fill="#1a202c">Return 0</text>
+<text x="1650.0" y="183.0" text-anchor="middle" fill="#1a202c">(nothing to reclaim)</text>
+<path d="M1540.0,172 L1555.0,172" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="1546.0" y="166" font-size="11" fill="#1a202c" font-style="italic" text-anchor="start">no</text>
+<rect x="1115.0" y="395.0" width="190" height="46" rx="7" ry="7" fill="#fed7d7" stroke="#4a5568" stroke-width="1.4"/>
+<text x="1210.0" y="422.0" text-anchor="middle" fill="#1a202c">Mark PEB bad</text>
+<path d="M1320.0,418 L1305.0,418" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+<text x="1314.0" y="412" font-size="11" fill="#1a202c" font-style="italic" text-anchor="end">no</text>
+<path d="M1210.0,441.0 L1210.0,746 L1300.0,746" stroke="#4a5568" stroke-width="1.4" fill="none" marker-end="url(#arr)"/>
+</svg>

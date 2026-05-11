@@ -583,71 +583,21 @@ This two-sided greedy approach naturally distributes wear across all PEBs:
 
 Copy-on-write: the new PEB is fully written before the old mapping is swapped. On write failure, the previous mapping and data remain intact. The write order is EC → DATA → VID; the VID header acts as the commit point that makes the new mapping visible.
 
-```mermaid
-flowchart TD
-    Start["ubi_leb_write(vol_id, lnum, buf, len)"]
-    Lookup["Look up LEB in volume EBA table"]
-    SelectFree["Select free PEB with lowest EC\n(rb_get_min on free_pebs)"]
-    NoFree{"Free PEB available?"}
-    ErrNospc["Return -ENOSPC"]
-    WriteEC["Write EC header on new PEB"]
-    WriteData["Write user data payload"]
-    WriteVID["Write VID header\n(vol_id, lnum, sqnum++, data_size)\n— commit point —"]
-    WriteFail{"Write succeeded?"}
-    MarkBad["Mark new PEB as bad\nRetry with next free PEB"]
-    SwapEBA["Swap EBA: LEB → new PEB"]
-    WasOverwrite{"Was overwrite?"}
-    OldDirty["Move old PEB to dirty_pebs"]
-    Done["Return 0"]
-
-    Start --> Lookup --> SelectFree
-    SelectFree --> NoFree
-    NoFree -- No --> ErrNospc
-    NoFree -- Yes --> WriteEC --> WriteData --> WriteVID --> WriteFail
-    WriteFail -- No --> MarkBad --> SelectFree
-    WriteFail -- Yes --> SwapEBA --> WasOverwrite
-    WasOverwrite -- Yes --> OldDirty --> Done
-    WasOverwrite -- No --> Done
-```
-
 ### Read Flow
 
-```mermaid
-flowchart TD
-    Start["ubi_leb_read(vol_id, lnum, offset, buf, len)"]
-    FindVol["Find volume in vols RBT"]
-    FindLEB["Look up LEB in volume EBA table"]
-    IsMapped{"LEB mapped?"}
-    ErrInval["Return -EINVAL"]
-    ReadFlash["Read from PEB at data offset + user offset"]
-    Done["Return 0"]
-
-    Start --> FindVol --> FindLEB --> IsMapped
-    IsMapped -- No --> ErrInval
-    IsMapped -- Yes --> ReadFlash --> Done
-```
+Reads bypass the wear-leveling machinery: the EBA table resolves `(vol_id, lnum)` to a PEB number and the data is fetched from `PEB.data_offset + user_offset` in a single flash read.
 
 ### Erase / Reclaim Flow
 
-```mermaid
-flowchart TD
-    Start["ubi_device_erase_peb()"]
-    HasDirty{"dirty_pebs non-empty?"}
-    NoDirty["Return 0 (nothing to reclaim)"]
-    SelectMin["Select dirty PEB with lowest EC\n(rb_get_min on dirty_pebs)"]
-    Erase["Erase PEB on flash"]
-    EraseFail{"Erase succeeded?"}
-    MarkBad["Mark PEB as bad"]
-    IncEC["Increment erase counter"]
-    WriteEC["Write new EC header"]
-    MoveToFree["Move PEB to free_pebs"]
-    Done["Return 0"]
+`ubi_device_erase_peb()` is invoked by the background reclaim loop. It picks the **least-worn** dirty PEB (mirroring write-side selection), erases it on flash, bumps the erase counter, writes a fresh EC header, and returns the PEB to `free_pebs`. A failed erase is permanent: the PEB is marked bad and excluded from the pool.
 
-    Start --> HasDirty
-    HasDirty -- No --> NoDirty
-    HasDirty -- Yes --> SelectMin --> Erase --> EraseFail
-    EraseFail -- No --> MarkBad --> Done
-    EraseFail -- Yes --> IncEC --> WriteEC --> MoveToFree --> Done
+### Flowcharts
+
+The three flows side-by-side:
+
+```{image} ../img/plain_flows.svg
+:alt: Write, Read and Erase / Reclaim flowcharts for plain UBI
+:align: center
 ```
 
 ---
