@@ -17,14 +17,13 @@ _buildoc_path = (_confdir / '..' / 'build' / 'doc' / 'doxygen').resolve()
 project = 'UBI on Zephyr'
 copyright = '2026, Kamil Kielbasa'
 author = 'Kamil Kielbasa'
-version = '0.77.0'
+version = '0.78.0'
 
 # -- General configuration ---------------------------------------------------
 
 extensions = [
     'breathe',
     'myst_parser',
-    'sphinx_rtd_theme',
     'sphinxcontrib.mermaid',
     'sphinx_reredirects',
 ]
@@ -75,9 +74,25 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'positioning']
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'furo'
 html_static_path = ['_static']
 html_css_files = ['custom.css']
+html_title = 'UBI on Zephyr'
+html_theme_options = {
+    'source_repository': 'https://github.com/kamil-kielbasa/ubi/',
+    'source_branch': 'main',
+    'source_directory': 'doc/',
+    'sidebar_hide_name': False,
+    'footer_icons': [
+        {
+            'name': 'GitHub',
+            'url': 'https://github.com/kamil-kielbasa/ubi',
+            'class': '',
+            'html': '<img src="_static/github-logo.svg" alt="GitHub" '
+                    'style="height: 1.2em; vertical-align: middle;">',
+        },
+    ],
+}
 
 # -- MyST parser options -----------------------------------------------------
 

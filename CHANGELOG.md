@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.78.0] - 2026-05-11
+
+### Changed
+
+- Documentation site now uses the **Furo** theme instead of
+  `sphinx_rtd_theme`. Furo ships with a working light / dark mode
+  toggle, a copy-button on every code block, a sticky sidebar, and
+  "Edit on GitHub" links generated automatically from the
+  `source_repository` configuration. No content was touched and no
+  URLs change.
+
 ## [0.77.0] - 2026-05-11
 
 ### Changed
