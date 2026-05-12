@@ -219,7 +219,7 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 
 	const size_t delta = CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA;
 
-	ubi->freshness_mutations_since_sync++;
+	ubi->freshness_mutations_since_sync += 1;
 
 	if (delta > 0 && ubi->freshness_mutations_since_sync < delta) {
 		return;

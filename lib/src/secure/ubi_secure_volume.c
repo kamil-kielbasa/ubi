@@ -188,7 +188,7 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 
 	item->key = ec_hdr.ec;
 	rb_insert(&ubi->dirty_pebs, &item->node);
-	ubi->dirty_peb_count++;
+	ubi->dirty_peb_count += 1;
 
 	return 0;
 }
@@ -368,7 +368,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	item->key = vol->vol_id;
 	item->value.vol = vol;
 	rb_insert(&ubi->vols, &item->node);
-	ubi->vol_count++;
+	ubi->vol_count += 1;
 	ubi->vol_id_watermark = dev_hdr.vol_id_watermark;
 
 	/* Allocate hidden anchor PEB.
@@ -381,7 +381,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	if (ret != 0) {
 		LOG_ERR("Hidden anchor creation failed for vol %zu — rolling back", vol->vol_id);
 		rb_remove(&ubi->vols, &item->node);
-		ubi->vol_count--;
+		ubi->vol_count -= 1;
 		ubi_mem_leaf_free(item);
 		ubi_mem_volume_free(vol);
 		goto exit;
@@ -526,7 +526,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 
 			if (eba_item) {
 				rb_remove(&vol->eba_tbl, &eba_item->node);
-				vol->eba_tbl_count--;
+				vol->eba_tbl_count -= 1;
 
 				ret = reclaim_peb_to_dirty(ubi, eba_item);
 				if (ret != 0) {
@@ -642,7 +642,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 		struct ubi_rbt_item *eba_item = CONTAINER_OF(eba_node, struct ubi_rbt_item, node);
 
 		rb_remove(&vol->eba_tbl, &eba_item->node);
-		vol->eba_tbl_count--;
+		vol->eba_tbl_count -= 1;
 
 		(void)reclaim_peb_to_dirty(ubi, eba_item);
 	}
@@ -662,7 +662,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	rb_remove(&ubi->vols, &vol_entry->node);
-	ubi->vol_count--;
+	ubi->vol_count -= 1;
 
 	ubi_mem_volume_free(vol_entry->value.vol);
 	ubi_mem_leaf_free(vol_entry);

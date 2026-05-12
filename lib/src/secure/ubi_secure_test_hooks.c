@@ -22,6 +22,7 @@
 /* Static variables ----------------------------------------------------------------------------- */
 
 static bool hooks_armed[UBI_SECURE_HOOK_COUNT];
+static uint64_t leb_write_counter_floor;
 
 /* Public function definitions ------------------------------------------------------------------ */
 
@@ -73,8 +74,6 @@ void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_
 		*vid = ubi->next_vid_counter;
 	}
 }
-
-static uint64_t leb_write_counter_floor;
 
 void ubi_secure_test_set_leb_write_counter_floor(uint64_t floor)
 {

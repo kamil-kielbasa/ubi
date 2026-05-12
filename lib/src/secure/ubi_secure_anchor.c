@@ -49,7 +49,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	struct ubi_rbt_item *item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
 
 	rb_remove(&ubi->free_pebs, &item->node);
-	ubi->free_peb_count--;
+	ubi->free_peb_count -= 1;
 
 	const size_t pnum = item->value.pnum;
 
@@ -230,7 +230,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	struct ubi_rbt_item *new_item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
 
 	rb_remove(&ubi->free_pebs, &new_item->node);
-	ubi->free_peb_count--;
+	ubi->free_peb_count -= 1;
 
 	const size_t new_pnum = new_item->value.pnum;
 
@@ -318,7 +318,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 				old_anchor_ec.ec :
 				((ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0);
 	rb_insert(&ubi->dirty_pebs, &old_item->node);
-	ubi->dirty_peb_count++;
+	ubi->dirty_peb_count += 1;
 
 	/* clang-format off */
 	return 0;

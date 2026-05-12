@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.89.0] - 2026-05-12
+
+### Changed
+
+- Stack byte buffers used to build an AEAD nonce are now always
+  zero-initialized, closing a path where a partial fill could have
+  carried stack garbage into the chunked-LEB nonce.
+
+- Header-prefix and device-metadata structs are zeroed exactly once,
+  via their compound-literal initializer. The duplicate
+  `memset(...reserved..., 0, ...)` that followed each initializer
+  has been removed as dead code. The one `memset` that still exists
+  (`ubi_secure_dev_meta_deserialize()`) is intentional -- it discards
+  bytes read from flash, not initializer slack.
+
+### Documentation
+
+- `CODE_STYLE.md` now spells out the conventions the secure backend
+  already follows: standalone increments are written `x += 1;` /
+  `x -= 1;` (embedded post-increment and for-loop induction stay as
+  they are), stack byte buffers must be `= { 0 }`-initialized, a
+  compound-literal initializer is not to be followed by a redundant
+  `memset` of its `reserved` fields, and the `__ASSERT_NO_MSG`
+  precondition block is separated from the rest of the body by a
+  blank line. The secure backend was swept to match.
+
 ## [0.88.0] - 2026-05-12
 
 ### Changed

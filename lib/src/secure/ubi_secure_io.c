@@ -190,7 +190,6 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
 	}
 
 	ubi_secure_encode_counter48(counter, prefix.counter);
-	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	/* Build output buffer. */
 	uint8_t out_buf[UBI_SECURE_EC_HDR_SIZE] = { 0 };
@@ -409,7 +408,6 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 	}
 
 	ubi_secure_encode_counter48(counter, prefix.counter);
-	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	/* Build output buffer. */
 	uint8_t out_buf[UBI_SECURE_VID_HDR_SIZE] = { 0 };
@@ -687,7 +685,6 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	}
 
 	ubi_secure_encode_counter48(counter, prefix.counter);
-	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	/* Serialize prefix. */
 	uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
@@ -837,7 +834,6 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 	}
 
 	ubi_secure_encode_counter48(counter_base, prefix.counter);
-	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	/* Serialize prefix. */
 	uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
@@ -890,7 +886,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 		const size_t chunk_write_size = ROUND_UP(ct_tag_actual, flash->write_block_size);
 
 		/* Build per-chunk nonce: domain || salt || be48(counter_base + i). */
-		uint8_t chunk_counter[UBI_SECURE_COUNTER_SIZE];
+		uint8_t chunk_counter[UBI_SECURE_COUNTER_SIZE] = { 0 };
 
 		ubi_secure_encode_counter48(counter_base + i, chunk_counter);
 
@@ -1079,7 +1075,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 		}
 
 		/* Build per-chunk nonce. */
-		uint8_t chunk_counter[UBI_SECURE_COUNTER_SIZE];
+		uint8_t chunk_counter[UBI_SECURE_COUNTER_SIZE] = { 0 };
 
 		ubi_secure_encode_counter48(counter_base + i, chunk_counter);
 

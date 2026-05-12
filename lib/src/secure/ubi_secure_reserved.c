@@ -205,7 +205,6 @@ static int dev_hdr_pack_aead_encrypt(const struct ubi_dev_hdr *dev_hdr,
 	}
 
 	ubi_secure_encode_counter48(counter, prefix.counter);
-	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	/* Serialize prefix to output buffer. */
 	ubi_secure_prefix32_serialize(&prefix, out_buf);
@@ -268,7 +267,6 @@ static int vol_hdr_pack_aead_encrypt(const struct ubi_vol_hdr *vol_hdr, psa_key_
 	}
 
 	ubi_secure_encode_counter48(counter, prefix.counter);
-	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	ubi_secure_prefix32_serialize(&prefix, out_buf);
 
@@ -390,14 +388,14 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		if (ret != 0) {
 			LOG_ERR("Flash read failure at reserved PEB %zu", peb);
 			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			local.corrupt_count++;
+			local.corrupt_count += 1;
 			continue;
 		}
 
 		/* Check if blank. */
 		if (ubi_buf_is_erased(raw, sizeof(raw), erased_val)) {
 			local.state[peb] = UBI_SECURE_RES_PEB_SPARE;
-			local.spare_count++;
+			local.spare_count += 1;
 			continue;
 		}
 
@@ -406,7 +404,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 
 		if (magic != UBI_SECURE_PREFIX_MAGIC) {
 			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			local.corrupt_count++;
+			local.corrupt_count += 1;
 			continue;
 		}
 
@@ -420,7 +418,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		if (ubi_secure_policy_kv_slot(&crypto_cfg->policy, kv) < 0) {
 			LOG_ERR("Key version %u at PEB %zu not in allowlist", kv, peb);
 			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			local.corrupt_count++;
+			local.corrupt_count += 1;
 			continue;
 		}
 
@@ -432,7 +430,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		if (ret != 0) {
 			LOG_ERR("Cannot derive key for version %u on PEB %zu", kv, peb);
 			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			local.corrupt_count++;
+			local.corrupt_count += 1;
 			continue;
 		}
 
@@ -447,12 +445,12 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		if (ret != 0) {
 			LOG_ERR("Auth failure on reserved PEB %zu", peb);
 			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			local.corrupt_count++;
+			local.corrupt_count += 1;
 			continue;
 		}
 
 		local.state[peb] = UBI_SECURE_RES_PEB_AUTHENTICATED;
-		local.auth_count++;
+		local.auth_count += 1;
 		local.revision[peb] = hdr.revision;
 
 		/* Select highest revision as canonical. */
@@ -698,7 +696,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 			continue;
 		}
 
-		active_written++;
+		active_written += 1;
 	}
 
 	flash_area_close(fa);

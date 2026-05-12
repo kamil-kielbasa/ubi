@@ -128,7 +128,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 		goto mark_bad;
 	}
 
-	ubi->next_ec_counter++;
+	ubi->next_ec_counter += 1;
 
 	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER, ubi->next_ec_counter,
 					write_kv, 0);
@@ -143,13 +143,13 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 
 	/* Move from dirty to free. */
 	rb_remove(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count--;
+	ubi->dirty_peb_count -= 1;
 
 	ubi->ec_sum += 1;
 
 	entry->key = ec_hdr.ec;
 	rb_insert(&ubi->free_pebs, &entry->node);
-	ubi->free_peb_count++;
+	ubi->free_peb_count += 1;
 	/* clang-format off */
 	return 0;
 
@@ -159,10 +159,10 @@ mark_bad: {
 	const size_t ec = entry->key;
 
 	rb_remove(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count--;
+	ubi->dirty_peb_count -= 1;
 
 	ubi->ec_sum -= ec;
-	ubi->ec_count--;
+	ubi->ec_count -= 1;
 
 	struct ubi_list_item *bad_item = ubi_leaf_as_list(entry);
 
@@ -196,7 +196,7 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 		const size_t offset = item->pnum * ubi->flash.erase_block_size;
 		bool passed = false;
 
-		for (size_t i = 0; i < CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE; ++i) {
+		for (size_t i = 0; i < CONFIG_UBI_BAD_PEB_TORTURE_MAX_PER_ERASE; i++) {
 			ret = flash_area_erase(fa, offset, ubi->flash.erase_block_size);
 
 			if (ret == 0) {
@@ -446,21 +446,21 @@ int ubi_secure_device_deinit(struct ubi_device *ubi)
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
 		rb_remove(&ubi->free_pebs, &rbt_item->node);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->free_peb_count--;
+		ubi->free_peb_count -= 1;
 	}
 
 	while ((node = rb_get_min(&ubi->dirty_pebs))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
 		rb_remove(&ubi->dirty_pebs, &rbt_item->node);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->dirty_peb_count--;
+		ubi->dirty_peb_count -= 1;
 	}
 
 	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, list_item, list_next, node)
 	{
 		sys_slist_remove(&ubi->bad_pebs, NULL, &list_item->node);
 		ubi_mem_leaf_free(list_item);
-		ubi->bad_peb_count--;
+		ubi->bad_peb_count -= 1;
 	}
 
 	while ((node = rb_get_min(&ubi->vols))) {
@@ -474,12 +474,12 @@ int ubi_secure_device_deinit(struct ubi_device *ubi)
 				CONTAINER_OF(node, struct ubi_rbt_item, node);
 			rb_remove(&vol->eba_tbl, &vol_item->node);
 			ubi_mem_leaf_free(vol_item);
-			vol->eba_tbl_count--;
+			vol->eba_tbl_count -= 1;
 		}
 
 		ubi_mem_volume_free(rbt_item->value.vol);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->vol_count--;
+		ubi->vol_count -= 1;
 	}
 
 	ubi_partition_release(ubi->flash.partition_id);

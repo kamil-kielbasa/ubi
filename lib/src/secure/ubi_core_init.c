@@ -149,6 +149,7 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 static int validate_crypto_cfg(const struct ubi_crypto_config *cfg)
 {
 	__ASSERT_NO_MSG(cfg != NULL);
+
 	if (!cfg->get_key_id || !cfg->check_freshness || !cfg->sync_freshness || !cfg->event_cb) {
 		LOG_ERR("Crypto config has NULL callbacks");
 		return -EINVAL;
@@ -180,6 +181,7 @@ static bool key_version_is_allowed(const struct ubi_crypto_policy *policy, uint8
 {
 	__ASSERT_NO_MSG(policy != NULL);
 	__ASSERT_NO_MSG(policy->allowed_key_versions != NULL);
+
 	for (size_t i = 0; i < policy->allowed_key_versions_len; i++) {
 		if (policy->allowed_key_versions[i] == kv) {
 			return true;
@@ -266,7 +268,7 @@ static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 			return ret;
 		}
 
-		ubi_dev->next_ec_counter++;
+		ubi_dev->next_ec_counter += 1;
 	}
 
 	return 0;
@@ -337,7 +339,7 @@ static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_peb
 						       &ec_hdr, &ec_ctx);
 		if (ret == 0) {
 			ec_sum += ec_hdr.ec;
-			ec_count++;
+			ec_count += 1;
 		}
 	}
 
@@ -410,11 +412,11 @@ static int scan_classify_vid_region(struct ubi_device *dev, size_t pnum,
 
 	if (leb_erased) {
 		rb_insert(&dev->free_pebs, &item->node);
-		dev->free_peb_count++;
+		dev->free_peb_count += 1;
 	} else {
 		LOG_WRN("PEB %zu: erased VID but non-erased LEB prefix — dirty", pnum);
 		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count++;
+		dev->dirty_peb_count += 1;
 	}
 
 	/* clang-format off */
@@ -459,7 +461,7 @@ static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
 	item->key = ec_hdr->ec;
 	item->value.pnum = pnum;
 	rb_insert(&dev->dirty_pebs, &item->node);
-	dev->dirty_peb_count++;
+	dev->dirty_peb_count += 1;
 
 	return SCAN_PEB_HANDLED;
 }
@@ -519,7 +521,7 @@ static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_
 			item->key = ec_hdr->ec;
 			item->value.pnum = pnum;
 			rb_insert(&dev->dirty_pebs, &item->node);
-			dev->dirty_peb_count++;
+			dev->dirty_peb_count += 1;
 			/* clang-format off */
 			return SCAN_PEB_HANDLED;
 
@@ -536,7 +538,7 @@ replace_anchor: {
 	old_item->key = (ret == 0) ? old_ec.ec : ec_hdr->ec;
 	old_item->value.pnum = vol->anchor_pnum;
 	rb_insert(&dev->dirty_pebs, &old_item->node);
-	dev->dirty_peb_count++;
+	dev->dirty_peb_count += 1;
 }
 		}
 
@@ -562,14 +564,14 @@ replace_anchor: {
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
 		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count++;
+		dev->dirty_peb_count += 1;
 		return SCAN_PEB_HANDLED;
 	}
 
 	item->key = vid_hdr->lnum;
 	item->value.pnum = pnum;
 	rb_insert(&vol->eba_tbl, &item->node);
-	vol->eba_tbl_count++;
+	vol->eba_tbl_count += 1;
 
 	return SCAN_PEB_HANDLED;
 }
@@ -600,7 +602,7 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 				     &exist_ec_ctx);
 	if (ret != 0) {
 		rb_remove(&vol->eba_tbl, &existing->node);
-		vol->eba_tbl_count--;
+		vol->eba_tbl_count -= 1;
 
 		const size_t bad_pnum = existing->value.pnum;
 		struct ubi_list_item *bad = ubi_leaf_as_list(existing);
@@ -610,7 +612,7 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
 		rb_insert(&vol->eba_tbl, &item->node);
-		vol->eba_tbl_count++;
+		vol->eba_tbl_count += 1;
 
 		return SCAN_PEB_HANDLED;
 	}
@@ -623,7 +625,7 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 				      &exist_ec_ctx, &exist_vid, &exist_vid_meta, &exist_vid_ctx);
 	if (ret != 0) {
 		rb_remove(&vol->eba_tbl, &existing->node);
-		vol->eba_tbl_count--;
+		vol->eba_tbl_count -= 1;
 
 		const size_t bad_pnum = existing->value.pnum;
 		struct ubi_list_item *bad = ubi_leaf_as_list(existing);
@@ -633,7 +635,7 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
 		rb_insert(&vol->eba_tbl, &item->node);
-		vol->eba_tbl_count++;
+		vol->eba_tbl_count += 1;
 
 		return SCAN_PEB_HANDLED;
 	}
@@ -643,20 +645,20 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
 		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count++;
+		dev->dirty_peb_count += 1;
 	} else {
 		/* Current PEB is newer — replace the existing mapping. */
 		rb_remove(&vol->eba_tbl, &existing->node);
-		vol->eba_tbl_count--;
+		vol->eba_tbl_count -= 1;
 
 		existing->key = exist_ec.ec;
 		rb_insert(&dev->dirty_pebs, &existing->node);
-		dev->dirty_peb_count++;
+		dev->dirty_peb_count += 1;
 
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
 		rb_insert(&vol->eba_tbl, &item->node);
-		vol->eba_tbl_count++;
+		vol->eba_tbl_count += 1;
 	}
 
 	return SCAN_PEB_HANDLED;
@@ -811,7 +813,6 @@ static int secure_format(const struct ubi_flash_desc *flash,
 		.write_active_key_version = crypto_cfg->policy.requested_write_key_version,
 		.vid_next_counter_floor = 0,
 	};
-	memset(dev_meta.reserved0, 0, sizeof(dev_meta.reserved0));
 
 	/* Commit encrypted reserved PEBs. */
 	ret = ubi_secure_res_peb_commit(flash, crypto_cfg, &dev_hdr, &dev_meta, NULL, 0,

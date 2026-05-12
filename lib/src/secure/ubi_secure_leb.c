@@ -86,7 +86,7 @@ static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node)
 	struct ubi_list_item *bad_item = ubi_leaf_as_list(node);
 
 	ubi->ec_sum -= failed_ec;
-	ubi->ec_count--;
+	ubi->ec_count -= 1;
 	ubi_move_to_bad_blocks(ubi, failed_pnum, failed_ec, bad_item);
 }
 
@@ -169,7 +169,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	struct ubi_rbt_item *new_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
 
 	rb_remove(&ubi->free_pebs, &new_node->node);
-	ubi->free_peb_count--;
+	ubi->free_peb_count -= 1;
 
 	/* Read authentic EC context from the free PEB (needed for chained AAD). */
 	struct ubi_ec_hdr ec_hdr = { 0 };
@@ -284,16 +284,16 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 			&ubi->flash, ubi->crypto_cfg, old_entry->value.pnum, &old_ec, &old_ec_ctx);
 
 		rb_remove(&vol->eba_tbl, &old_entry->node);
-		vol->eba_tbl_count--;
+		vol->eba_tbl_count -= 1;
 
 		old_entry->key = (ec_ret == 0) ? old_ec.ec : 0;
 		rb_insert(&ubi->dirty_pebs, &old_entry->node);
-		ubi->dirty_peb_count++;
+		ubi->dirty_peb_count += 1;
 	}
 
 	new_node->key = lnum;
 	rb_insert(&vol->eba_tbl, &new_node->node);
-	vol->eba_tbl_count++;
+	vol->eba_tbl_count += 1;
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
@@ -595,11 +595,11 @@ int ubi_secure_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	}
 
 	rb_remove(&vol->eba_tbl, &entry->node);
-	vol->eba_tbl_count--;
+	vol->eba_tbl_count -= 1;
 
 	entry->key = ec_hdr.ec;
 	rb_insert(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count++;
+	ubi->dirty_peb_count += 1;
 
 	ret = 0;
 
