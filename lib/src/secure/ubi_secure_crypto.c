@@ -54,6 +54,22 @@ static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
 				enum ubi_secure_domain domain, uint8_t key_version,
 				uint32_t volume_id, psa_key_id_t *child_key_id);
 
+/**
+ * \brief Build the normative HKDF label for a given domain (file-local helper).
+ *
+ * Format: "UBI" || 0x00 || domain_name || 0x00 || 0x01
+ * For LEB domain: "UBI" || 0x00 || "LEB" || 0x00 || 0x01 || be32(volume_id)
+ */
+static int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, uint8_t *label,
+				  size_t label_cap, size_t *label_len);
+
+/**
+ * \brief Derive a 16-byte child key via HKDF-SHA-256 from a PSA root key
+ *        (file-local helper).
+ */
+static int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *label,
+				       size_t label_len, psa_key_id_t *child_key_id);
+
 /* Static function definitions ------------------------------------------------------------------ */
 
 static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
@@ -105,8 +121,8 @@ static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
 
 /* Module interface function definitions -------------------------------------------------------- */
 
-int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, uint8_t *label,
-			   size_t label_cap, size_t *label_len)
+static int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, uint8_t *label,
+				  size_t label_cap, size_t *label_len)
 {
 	if (label == NULL || label_len == NULL) {
 		LOG_ERR("build_label: NULL argument");
@@ -181,8 +197,8 @@ int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, ui
 	return 0;
 }
 
-int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *label, size_t label_len,
-				psa_key_id_t *child_key_id)
+static int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *label,
+				       size_t label_len, psa_key_id_t *child_key_id)
 {
 	if (label == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_child_key: NULL argument");

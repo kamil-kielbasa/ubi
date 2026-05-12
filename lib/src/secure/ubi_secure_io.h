@@ -140,7 +140,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 			     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
-			     void *buf, size_t len);
+			     uint8_t *buf, size_t len);
 
 /**
  * \brief Write an encrypted secure LEB record (single-tag) to a data PEB.
@@ -163,7 +163,7 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 			      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 			      const struct ubi_secure_ec_auth_ctx *ec_ctx,
-			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const void *buf,
+			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const uint8_t *buf,
 			      size_t len, uint8_t key_version, uint64_t counter);
 
 #if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
@@ -189,7 +189,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 				     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 				     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
-				     void *buf, size_t len);
+				     uint8_t *buf, size_t len);
 
 /**
  * \brief Write an encrypted secure LEB record (chunked mode) to a data PEB.
@@ -216,7 +216,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 				      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 				      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 				      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv,
-				      const void *buf, size_t len, uint8_t key_version,
+				      const uint8_t *buf, size_t len, uint8_t key_version,
 				      uint64_t counter_base);
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 

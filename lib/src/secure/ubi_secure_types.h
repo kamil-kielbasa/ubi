@@ -242,6 +242,93 @@ struct ubi_secure_vid_auth_ctx {
 	uint64_t vid_counter; /*!< VID-domain AEAD counter from prefix32. */
 };
 
+/* AAD input structs ---------------------------------------------------------------------------- */
+
+/**
+ * \brief AAD inputs bound into a secure device-header record.
+ *
+ * Carries the exact byte-tuple authenticated alongside the device header
+ * ciphertext: prefix32 || be32(peb_index) || be64(flash_offset).
+ */
+struct ubi_secure_dev_hdr_aad_input {
+	const uint8_t *prefix; /*!< Serialized prefix32 (UBI_SECURE_PREFIX_SIZE bytes). */
+	uint32_t peb_index; /*!< Reserved-PEB physical index. */
+	uint64_t flash_offset; /*!< Device-header offset from partition start. */
+};
+
+/**
+ * \brief AAD inputs bound into a secure volume-header record.
+ *
+ * Extends \ref ubi_secure_dev_hdr_aad_input with the authenticated device
+ * revision and the parent device-header key version.
+ */
+struct ubi_secure_vol_hdr_aad_input {
+	const uint8_t *prefix; /*!< Serialized prefix32 (UBI_SECURE_PREFIX_SIZE bytes). */
+	uint32_t peb_index; /*!< Reserved-PEB physical index. */
+	uint64_t flash_offset; /*!< Volume-header offset from partition start. */
+	uint64_t device_revision; /*!< Authenticated device_header.revision. */
+	uint8_t parent_kv; /*!< Parent secure-device key version. */
+};
+
+/**
+ * \brief AAD inputs bound into a secure EC-header record on a data PEB.
+ *
+ * Layout identical to \ref ubi_secure_dev_hdr_aad_input — the struct is named
+ * separately to keep the type system aware of which on-flash record the
+ * builder targets.
+ */
+struct ubi_secure_ec_hdr_aad_input {
+	const uint8_t *prefix; /*!< Serialized prefix32 (UBI_SECURE_PREFIX_SIZE bytes). */
+	uint32_t peb_index; /*!< Data-PEB physical index. */
+	uint64_t flash_offset; /*!< EC-header offset from partition start. */
+};
+
+/**
+ * \brief AAD inputs bound into a secure data-PEB VID-header record.
+ *
+ * Extends \ref ubi_secure_ec_hdr_aad_input with the authenticated EC value and
+ * the parent EC-header key version.
+ */
+struct ubi_secure_data_vid_aad_input {
+	const uint8_t *prefix; /*!< Serialized prefix32 (UBI_SECURE_PREFIX_SIZE bytes). */
+	uint32_t peb_index; /*!< Data-PEB physical index. */
+	uint64_t flash_offset; /*!< VID-header offset from partition start. */
+	uint64_t ec; /*!< Authenticated erase counter from EC header. */
+	uint8_t parent_ec_kv; /*!< Authenticated EC-header key_version. */
+};
+
+/**
+ * \brief AAD inputs bound into a single-tag LEB record.
+ *
+ * Extends \ref ubi_secure_data_vid_aad_input with the authenticated VID-header
+ * fields (vol_id, lnum, sqnum, data_size) and the parent VID-header key
+ * version.
+ */
+struct ubi_secure_leb_aad_input {
+	const uint8_t *prefix; /*!< Serialized prefix32 (UBI_SECURE_PREFIX_SIZE bytes). */
+	uint32_t peb_index; /*!< Data-PEB physical index. */
+	uint64_t flash_offset; /*!< LEB data offset from partition start. */
+	uint64_t ec; /*!< Authenticated erase counter from EC header. */
+	uint8_t parent_ec_kv; /*!< Authenticated EC-header key_version. */
+	uint32_t vol_id; /*!< Authenticated volume identifier. */
+	uint32_t lnum; /*!< Authenticated logical erase block number. */
+	uint64_t sqnum; /*!< Authenticated sequence number. */
+	uint32_t data_size; /*!< Authenticated payload size. */
+	uint8_t parent_vid_kv; /*!< Authenticated VID-header key_version. */
+};
+
+#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+/**
+ * \brief AAD inputs bound into one chunk of a chunked LEB record.
+ *
+ * Embeds the single-tag LEB AAD inputs and adds the zero-based chunk index.
+ */
+struct ubi_secure_leb_chunk_aad_input {
+	struct ubi_secure_leb_aad_input leb; /*!< Single-tag LEB AAD inputs. */
+	uint32_t chunk_index; /*!< Zero-based chunk index within the record. */
+};
+#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+
 /* AAD sizes ------------------------------------------------------------------------------------ */
 
 /* Per-field AAD component sizes (canonical byte widths bound into AAD). */

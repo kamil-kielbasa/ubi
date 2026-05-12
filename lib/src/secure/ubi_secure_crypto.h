@@ -60,7 +60,8 @@
 			sizeof(UBI_SECURE_LABEL_LEB_STR) - 1))))
 
 /**
- * Maximum label buffer size for \ref ubi_secure_build_label.
+ * Maximum label buffer size for the HKDF-Expand label built internally by
+ * the secure-domain key-derivation path.
  *
  * Derived from the actual label format
  * ("UBI" || 0x00 || domain_name || 0x00 || 0x01 [|| be32(volume_id)])
@@ -74,47 +75,12 @@
 /* Module interface function declarations ------------------------------------------------------- */
 
 /**
- * \brief Derive a 16-byte child key via HKDF-SHA-256 from a PSA root key.
- *
- * Performs HKDF-Extract(salt="", IKM) → PRK, then HKDF-Expand(PRK, label, 16).
- *
- * \param[in]  root_key_id  PSA key identifier for IKM[v].
- * \param[in]  label        Label bytes for HKDF-Expand (normative).
- * \param      label_len    Length of label in bytes.
- * \param[out] child_key_id Receives the derived PSA key identifier.
- *
- * \retval 0       Success.
- * \retval -EIO    PSA key derivation failure.
- * \retval -ENOMEM PSA key allocation failure.
- */
-int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *label, size_t label_len,
-				psa_key_id_t *child_key_id);
-
-/**
- * \brief Destroy a PSA key previously created by ubi_secure_derive_child_key().
+ * \brief Destroy a PSA key previously created by ubi_secure_derive_domain_key()
+ *        / ubi_secure_derive_leb_key().
  *
  * \param key_id PSA key identifier to destroy.
  */
 void ubi_secure_destroy_key(psa_key_id_t key_id);
-
-/**
- * \brief Build the normative HKDF label for a given domain.
- *
- * Format: "UBI" || 0x00 || domain_name || 0x00 || 0x01
- * For LEB domain: "UBI" || 0x00 || "LEB" || 0x00 || 0x01 || be32(volume_id)
- *
- * \param[in]  domain     Secure domain identifier.
- * \param      volume_id  Volume identifier (only used for LEB domain).
- * \param[out] label      Output buffer (must be at least 24 bytes).
- * \param      label_cap  Capacity of label buffer.
- * \param[out] label_len  Actual label length written.
- *
- * \retval 0       Success.
- * \retval -EINVAL Unknown domain.
- * \retval -ENOSPC Buffer too small.
- */
-int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, uint8_t *label,
-			   size_t label_cap, size_t *label_len);
 
 /**
  * \brief AEAD-encrypt (AES-128-CCM) with the given child key.

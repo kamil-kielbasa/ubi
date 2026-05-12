@@ -109,8 +109,13 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
 
 	/* Build AAD. */
 	uint8_t aad[UBI_SECURE_EC_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_ec_hdr_aad_input aad_input = {
+		.prefix = raw,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = offset,
+	};
 
-	ubi_secure_build_ec_hdr_aad(raw, (uint32_t)peb_idx, offset, aad);
+	ubi_secure_build_ec_hdr_aad(&aad_input, aad);
 
 	/* Decrypt. */
 	const uint8_t *ct = &raw[UBI_SECURE_PREFIX_SIZE];
@@ -200,8 +205,13 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
 	/* Build AAD. */
 	const size_t offset = peb_idx * flash->erase_block_size;
 	uint8_t aad[UBI_SECURE_EC_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_ec_hdr_aad_input aad_input = {
+		.prefix = out_buf,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = offset,
+	};
 
-	ubi_secure_build_ec_hdr_aad(out_buf, (uint32_t)peb_idx, offset, aad);
+	ubi_secure_build_ec_hdr_aad(&aad_input, aad);
 
 	/* Encrypt. */
 	size_t ct_len = 0;
@@ -309,9 +319,15 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 
 	/* Build AAD. */
 	uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
+	const struct ubi_secure_data_vid_aad_input aad_input = {
+		.prefix = raw,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = offset,
+		.ec = ec_ctx->ec,
+		.parent_ec_kv = ec_ctx->key_version,
+	};
 
-	ubi_secure_build_data_vid_aad(raw, (uint32_t)peb_idx, offset, ec_ctx->ec,
-				      ec_ctx->key_version, aad);
+	ubi_secure_build_data_vid_aad(&aad_input, aad);
 
 	/* Decrypt. */
 	const uint8_t *ct = &raw[UBI_SECURE_PREFIX_SIZE];
@@ -408,9 +424,15 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 	/* Build AAD. */
 	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 	uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
+	const struct ubi_secure_data_vid_aad_input aad_input = {
+		.prefix = out_buf,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = offset,
+		.ec = ec_ctx->ec,
+		.parent_ec_kv = ec_ctx->key_version,
+	};
 
-	ubi_secure_build_data_vid_aad(out_buf, (uint32_t)peb_idx, offset, ec_ctx->ec,
-				      ec_ctx->key_version, aad);
+	ubi_secure_build_data_vid_aad(&aad_input, aad);
 
 	/* Build plaintext: vid_hdr + vid_secure_meta. */
 	uint8_t plaintext[UBI_SECURE_DATA_VID_PLAINTEXT_SIZE] = { 0 };
@@ -454,7 +476,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 			     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
-			     void *buf, size_t len)
+			     uint8_t *buf, size_t len)
 {
 	if (flash == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
 		LOG_ERR("leb_data_read: NULL argument");
@@ -572,10 +594,20 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 	/* Build AAD. */
 	const struct ubi_vid_hdr *vh = vid_ctx->vid_hdr;
 	uint8_t aad[UBI_SECURE_LEB_AAD_SIZE] = { 0 };
+	const struct ubi_secure_leb_aad_input aad_input = {
+		.prefix = prefix_buf,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = leb_offset,
+		.ec = vid_ctx->ec_ctx.ec,
+		.parent_ec_kv = vid_ctx->ec_ctx.key_version,
+		.vol_id = vh->vol_id,
+		.lnum = vh->lnum,
+		.sqnum = vh->sqnum,
+		.data_size = data_size,
+		.parent_vid_kv = vid_ctx->key_version,
+	};
 
-	ubi_secure_build_leb_aad(prefix_buf, (uint32_t)peb_idx, leb_offset, vid_ctx->ec_ctx.ec,
-				 vid_ctx->ec_ctx.key_version, vh->vol_id, vh->lnum, vh->sqnum,
-				 data_size, vid_ctx->key_version, aad);
+	ubi_secure_build_leb_aad(&aad_input, aad);
 
 	/* Decrypt full payload into pt_buf (non-overlapping with ct_buf). */
 	size_t pt_len = 0;
@@ -609,7 +641,7 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 			      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 			      const struct ubi_secure_ec_auth_ctx *ec_ctx,
-			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const void *buf,
+			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const uint8_t *buf,
 			      size_t len, uint8_t key_version, uint64_t counter)
 {
 	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
@@ -670,10 +702,20 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	/* Build AAD. */
 	const size_t leb_offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
 	uint8_t aad[UBI_SECURE_LEB_AAD_SIZE] = { 0 };
+	const struct ubi_secure_leb_aad_input aad_input = {
+		.prefix = prefix_buf,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = leb_offset,
+		.ec = ec_ctx->ec,
+		.parent_ec_kv = ec_ctx->key_version,
+		.vol_id = vid_hdr->vol_id,
+		.lnum = vid_hdr->lnum,
+		.sqnum = vid_hdr->sqnum,
+		.data_size = vid_hdr->data_size,
+		.parent_vid_kv = vid_kv,
+	};
 
-	ubi_secure_build_leb_aad(prefix_buf, (uint32_t)peb_idx, leb_offset, ec_ctx->ec,
-				 ec_ctx->key_version, vid_hdr->vol_id, vid_hdr->lnum,
-				 vid_hdr->sqnum, vid_hdr->data_size, vid_kv, aad);
+	ubi_secure_build_leb_aad(&aad_input, aad);
 
 	/* Encrypt. */
 	const size_t ct_tag_size = len + UBI_SECURE_TAG_SIZE;
@@ -705,7 +747,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	}
 
 	size_t ct_len = 0;
-	const uint8_t *plaintext = (len > 0) ? (const uint8_t *)buf : NULL;
+	const uint8_t *plaintext = (len > 0) ? buf : NULL;
 
 	ret = ubi_secure_aead_encrypt(child_key_id, nonce, aad, sizeof(aad), plaintext, len, ct_buf,
 				      ct_tag_size, &ct_len);
@@ -755,7 +797,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 				      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 				      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 				      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv,
-				      const void *buf, size_t len, uint8_t key_version,
+				      const uint8_t *buf, size_t len, uint8_t key_version,
 				      uint64_t counter_base)
 {
 	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
@@ -840,7 +882,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 	const uint8_t erased_val = flash_area_erased_val(fa);
 
 	/* Encrypt and write each chunk. */
-	const uint8_t *src = (const uint8_t *)buf;
+	const uint8_t *src = buf;
 
 	for (size_t i = 0; i < chunk_count; i++) {
 		const size_t chunk_data_size = MIN(chunk_size, len - i * chunk_size);
@@ -858,11 +900,23 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 
 		/* Build per-chunk AAD (78 bytes). */
 		uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE] = { 0 };
+		const struct ubi_secure_leb_chunk_aad_input aad_input = {
+			.leb = {
+				.prefix = prefix_buf,
+				.peb_index = (uint32_t)peb_idx,
+				.flash_offset = leb_offset,
+				.ec = ec_ctx->ec,
+				.parent_ec_kv = ec_ctx->key_version,
+				.vol_id = vid_hdr->vol_id,
+				.lnum = vid_hdr->lnum,
+				.sqnum = vid_hdr->sqnum,
+				.data_size = vid_hdr->data_size,
+				.parent_vid_kv = vid_kv,
+			},
+			.chunk_index = (uint32_t)i,
+		};
 
-		ubi_secure_build_leb_chunk_aad(prefix_buf, (uint32_t)peb_idx, leb_offset,
-					       ec_ctx->ec, ec_ctx->key_version, vid_hdr->vol_id,
-					       vid_hdr->lnum, vid_hdr->sqnum, vid_hdr->data_size,
-					       vid_kv, (uint32_t)i, aad);
+		ubi_secure_build_leb_chunk_aad(&aad_input, aad);
 
 		/* Encrypt chunk. */
 		size_t ct_len = 0;
@@ -907,7 +961,7 @@ fail:
 int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 				     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
 				     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
-				     void *buf, size_t len)
+				     uint8_t *buf, size_t len)
 {
 	if (flash == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
 		LOG_ERR("leb_data_read_chunked: NULL argument");
@@ -1008,7 +1062,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 
 	uint8_t *const ct_buf = scratch;
 	uint8_t *const pt_buf = &scratch[max_ct_tag];
-	uint8_t *out = (uint8_t *)buf;
+	uint8_t *out = buf;
 	size_t out_pos = 0;
 
 	for (size_t i = first_chunk; i <= last_chunk; i++) {
@@ -1036,11 +1090,23 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 		/* Build per-chunk AAD. */
 		uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE] = { 0 };
 		const struct ubi_vid_hdr *vh = vid_ctx->vid_hdr;
+		const struct ubi_secure_leb_chunk_aad_input aad_input = {
+			.leb = {
+				.prefix = prefix_buf,
+				.peb_index = (uint32_t)peb_idx,
+				.flash_offset = leb_offset,
+				.ec = vid_ctx->ec_ctx.ec,
+				.parent_ec_kv = vid_ctx->ec_ctx.key_version,
+				.vol_id = vh->vol_id,
+				.lnum = vh->lnum,
+				.sqnum = vh->sqnum,
+				.data_size = data_size,
+				.parent_vid_kv = vid_ctx->key_version,
+			},
+			.chunk_index = (uint32_t)i,
+		};
 
-		ubi_secure_build_leb_chunk_aad(prefix_buf, (uint32_t)peb_idx, leb_offset,
-					       vid_ctx->ec_ctx.ec, vid_ctx->ec_ctx.key_version,
-					       vh->vol_id, vh->lnum, vh->sqnum, data_size,
-					       vid_ctx->key_version, (uint32_t)i, aad);
+		ubi_secure_build_leb_chunk_aad(&aad_input, aad);
 
 		/* Decrypt chunk. */
 		size_t pt_len = 0;

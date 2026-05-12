@@ -120,9 +120,10 @@ ZTEST(ubi_secure_defensive, test_ser_prefix32_deserialize_null)
 }
 
 /**
- * \brief AAD builder functions reject NULL prefix.
+ * \brief AAD builder functions reject NULL input pointer.
  *
- * \details Scenario: Exercise dev_hdr, vol_hdr, ec_hdr, data_vid, leb AAD builders.
+ * \details Scenario: Exercise dev_hdr, vol_hdr, ec_hdr, data_vid, leb AAD builders
+ *          with a NULL input struct pointer.
  *
  * \expect All return without crash.
  */
@@ -130,23 +131,23 @@ ZTEST(ubi_secure_defensive, test_ser_aad_builders_null)
 {
 	uint8_t aad_dev[UBI_SECURE_DEV_HDR_AAD_SIZE] = { 0 };
 
-	ubi_secure_build_dev_hdr_aad(NULL, 0, 0, aad_dev);
+	ubi_secure_build_dev_hdr_aad(NULL, aad_dev);
 
 	uint8_t aad_vol[UBI_SECURE_VOL_HDR_AAD_SIZE] = { 0 };
 
-	ubi_secure_build_vol_hdr_aad(NULL, 0, 0, 0, 0, aad_vol);
+	ubi_secure_build_vol_hdr_aad(NULL, aad_vol);
 
 	uint8_t aad_ec[UBI_SECURE_EC_HDR_AAD_SIZE] = { 0 };
 
-	ubi_secure_build_ec_hdr_aad(NULL, 0, 0, aad_ec);
+	ubi_secure_build_ec_hdr_aad(NULL, aad_ec);
 
 	uint8_t aad_vid[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
 
-	ubi_secure_build_data_vid_aad(NULL, 0, 0, 0, 0, aad_vid);
+	ubi_secure_build_data_vid_aad(NULL, aad_vid);
 
 	uint8_t aad_leb[UBI_SECURE_LEB_AAD_SIZE] = { 0 };
 
-	ubi_secure_build_leb_aad(NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, aad_leb);
+	ubi_secure_build_leb_aad(NULL, aad_leb);
 }
 
 /**
@@ -207,77 +208,6 @@ ZTEST(ubi_secure_defensive, test_ser_counter48_null)
 }
 
 /* ===================================== Crypto NULL checks ===================================== */
-
-/**
- * \brief build_label rejects NULL label pointer.
- *
- * \details Scenario: Calls with NULL label and NULL label_len.
- *
- * \expect Returns -EINVAL.
- */
-ZTEST(ubi_secure_defensive, test_crypto_build_label_null)
-{
-	size_t label_len = 0;
-
-	zassert_equal(ubi_secure_build_label(UBI_SECURE_DOMAIN_ERASE_COUNTER, 0, NULL, 32,
-					     &label_len),
-		      -EINVAL);
-
-	uint8_t label[32] = { 0 };
-
-	zassert_equal(ubi_secure_build_label(UBI_SECURE_DOMAIN_ERASE_COUNTER, 0, label, 32, NULL),
-		      -EINVAL);
-}
-
-/**
- * \brief build_label rejects unknown domain.
- *
- * \details Scenario: Passes an invalid domain enum value.
- *
- * \expect Returns -EINVAL.
- */
-ZTEST(ubi_secure_defensive, test_crypto_build_label_bad_domain)
-{
-	uint8_t label[64] = { 0 };
-	size_t label_len = 0;
-
-	zassert_equal(ubi_secure_build_label(255, 0, label, sizeof(label), &label_len), -EINVAL);
-}
-
-/**
- * \brief build_label rejects too-small buffer.
- *
- * \details Scenario: Passes a label_cap of 1 byte.
- *
- * \expect Returns -ENOSPC.
- */
-ZTEST(ubi_secure_defensive, test_crypto_build_label_small_buf)
-{
-	uint8_t label[2] = { 0 };
-	size_t label_len = 0;
-
-	zassert_equal(ubi_secure_build_label(UBI_SECURE_DOMAIN_ERASE_COUNTER, 0, label, 1,
-					     &label_len),
-		      -ENOSPC);
-}
-
-/**
- * \brief derive_child_key rejects NULL arguments.
- *
- * \details Scenario: Calls with NULL label and NULL child_key_id.
- *
- * \expect Returns -EINVAL.
- */
-ZTEST(ubi_secure_defensive, test_crypto_derive_child_key_null)
-{
-	uint32_t kid = 0;
-
-	zassert_equal(ubi_secure_derive_child_key(0, NULL, 0, &kid), -EINVAL);
-
-	const uint8_t label[] = { 0x01 };
-
-	zassert_equal(ubi_secure_derive_child_key(0, label, sizeof(label), NULL), -EINVAL);
-}
 
 /**
  * \brief aead_encrypt rejects NULL nonce.

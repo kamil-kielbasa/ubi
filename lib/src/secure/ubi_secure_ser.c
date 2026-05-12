@@ -79,52 +79,51 @@ void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_crypto_prefi
 	memcpy(prefix->reserved, &buf[PREFIX32_OFF_RESERVED], UBI_SECURE_PREFIX_RESERVED_SIZE);
 }
 
-void ubi_secure_build_dev_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
-				  uint64_t flash_offset, uint8_t aad[UBI_SECURE_DEV_HDR_AAD_SIZE])
+void ubi_secure_build_dev_hdr_aad(const struct ubi_secure_dev_hdr_aad_input *input,
+				  uint8_t aad[UBI_SECURE_DEV_HDR_AAD_SIZE])
 {
-	if (prefix == NULL || aad == NULL) {
+	if (input == NULL || input->prefix == NULL || aad == NULL) {
 		LOG_ERR("build_dev_hdr_aad: NULL argument");
 		return;
 	}
 
 	size_t pos = 0;
 
-	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	memcpy(&aad[pos], input->prefix, UBI_SECURE_PREFIX_SIZE);
 	pos += UBI_SECURE_PREFIX_SIZE;
 
-	sys_put_be32(peb_index, &aad[pos]);
+	sys_put_be32(input->peb_index, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be64(flash_offset, &aad[pos]);
+	sys_put_be64(input->flash_offset, &aad[pos]);
 	pos += sizeof(uint64_t);
 
 	__ASSERT_NO_MSG(pos == UBI_SECURE_DEV_HDR_AAD_SIZE);
 }
 
-void ubi_secure_build_vol_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
-				  uint64_t flash_offset, uint64_t device_revision,
-				  uint8_t parent_kv, uint8_t aad[UBI_SECURE_VOL_HDR_AAD_SIZE])
+void ubi_secure_build_vol_hdr_aad(const struct ubi_secure_vol_hdr_aad_input *input,
+				  uint8_t aad[UBI_SECURE_VOL_HDR_AAD_SIZE])
 {
-	if (prefix == NULL || aad == NULL) {
+	if (input == NULL || input->prefix == NULL || aad == NULL) {
 		LOG_ERR("build_vol_hdr_aad: NULL argument");
 		return;
 	}
 
 	size_t pos = 0;
 
-	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	memcpy(&aad[pos], input->prefix, UBI_SECURE_PREFIX_SIZE);
 	pos += UBI_SECURE_PREFIX_SIZE;
 
-	sys_put_be32(peb_index, &aad[pos]);
+	sys_put_be32(input->peb_index, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be64(flash_offset, &aad[pos]);
+	sys_put_be64(input->flash_offset, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	sys_put_be64(device_revision, &aad[pos]);
+	sys_put_be64(input->device_revision, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	aad[pos] = parent_kv;
+	aad[pos] = input->parent_kv;
 	pos += sizeof(uint8_t);
 
 	__ASSERT_NO_MSG(pos == UBI_SECURE_VOL_HDR_AAD_SIZE);
@@ -180,121 +179,113 @@ uint64_t ubi_secure_decode_counter48(const uint8_t buf[UBI_SECURE_COUNTER_SIZE])
 	       ((uint64_t)buf[3] << 16) | ((uint64_t)buf[4] << 8) | ((uint64_t)buf[5]);
 }
 
-void ubi_secure_build_ec_hdr_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
-				 uint64_t flash_offset, uint8_t aad[UBI_SECURE_EC_HDR_AAD_SIZE])
+void ubi_secure_build_ec_hdr_aad(const struct ubi_secure_ec_hdr_aad_input *input,
+				 uint8_t aad[UBI_SECURE_EC_HDR_AAD_SIZE])
 {
-	if (prefix == NULL || aad == NULL) {
+	if (input == NULL || input->prefix == NULL || aad == NULL) {
 		LOG_ERR("build_ec_hdr_aad: NULL argument");
 		return;
 	}
 
 	size_t pos = 0;
 
-	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	memcpy(&aad[pos], input->prefix, UBI_SECURE_PREFIX_SIZE);
 	pos += UBI_SECURE_PREFIX_SIZE;
 
-	sys_put_be32(peb_index, &aad[pos]);
+	sys_put_be32(input->peb_index, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be64(flash_offset, &aad[pos]);
+	sys_put_be64(input->flash_offset, &aad[pos]);
 	pos += sizeof(uint64_t);
 
 	__ASSERT_NO_MSG(pos == UBI_SECURE_EC_HDR_AAD_SIZE);
 }
 
-void ubi_secure_build_data_vid_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
-				   uint64_t flash_offset, uint64_t ec, uint8_t parent_ec_kv,
+void ubi_secure_build_data_vid_aad(const struct ubi_secure_data_vid_aad_input *input,
 				   uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE])
 {
-	if (prefix == NULL || aad == NULL) {
+	if (input == NULL || input->prefix == NULL || aad == NULL) {
 		LOG_ERR("build_data_vid_aad: NULL argument");
 		return;
 	}
 
 	size_t pos = 0;
 
-	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	memcpy(&aad[pos], input->prefix, UBI_SECURE_PREFIX_SIZE);
 	pos += UBI_SECURE_PREFIX_SIZE;
 
-	sys_put_be32(peb_index, &aad[pos]);
+	sys_put_be32(input->peb_index, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be64(flash_offset, &aad[pos]);
+	sys_put_be64(input->flash_offset, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	sys_put_be64(ec, &aad[pos]);
+	sys_put_be64(input->ec, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	aad[pos] = parent_ec_kv;
+	aad[pos] = input->parent_ec_kv;
 	pos += sizeof(uint8_t);
 
 	__ASSERT_NO_MSG(pos == UBI_SECURE_DATA_VID_AAD_SIZE);
 }
 
-void ubi_secure_build_leb_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE], uint32_t peb_index,
-			      uint64_t flash_offset, uint64_t ec, uint8_t parent_ec_kv,
-			      uint32_t vol_id, uint32_t lnum, uint64_t sqnum, uint32_t data_size,
-			      uint8_t parent_vid_kv, uint8_t aad[UBI_SECURE_LEB_AAD_SIZE])
+void ubi_secure_build_leb_aad(const struct ubi_secure_leb_aad_input *input,
+			      uint8_t aad[UBI_SECURE_LEB_AAD_SIZE])
 {
-	if (prefix == NULL || aad == NULL) {
+	if (input == NULL || input->prefix == NULL || aad == NULL) {
 		LOG_ERR("build_leb_aad: NULL argument");
 		return;
 	}
 
 	size_t pos = 0;
 
-	memcpy(&aad[pos], prefix, UBI_SECURE_PREFIX_SIZE);
+	memcpy(&aad[pos], input->prefix, UBI_SECURE_PREFIX_SIZE);
 	pos += UBI_SECURE_PREFIX_SIZE;
 
-	sys_put_be32(peb_index, &aad[pos]);
+	sys_put_be32(input->peb_index, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be64(flash_offset, &aad[pos]);
+	sys_put_be64(input->flash_offset, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	sys_put_be64(ec, &aad[pos]);
+	sys_put_be64(input->ec, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	aad[pos] = parent_ec_kv;
+	aad[pos] = input->parent_ec_kv;
 	pos += sizeof(uint8_t);
 
-	sys_put_be32(vol_id, &aad[pos]);
+	sys_put_be32(input->vol_id, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be32(lnum, &aad[pos]);
+	sys_put_be32(input->lnum, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	sys_put_be64(sqnum, &aad[pos]);
+	sys_put_be64(input->sqnum, &aad[pos]);
 	pos += sizeof(uint64_t);
 
-	sys_put_be32(data_size, &aad[pos]);
+	sys_put_be32(input->data_size, &aad[pos]);
 	pos += sizeof(uint32_t);
 
-	aad[pos] = parent_vid_kv;
+	aad[pos] = input->parent_vid_kv;
 	pos += sizeof(uint8_t);
 
 	__ASSERT_NO_MSG(pos == UBI_SECURE_LEB_AAD_SIZE);
 }
 
 #if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
-void ubi_secure_build_leb_chunk_aad(const uint8_t prefix[UBI_SECURE_PREFIX_SIZE],
-				    uint32_t peb_index, uint64_t flash_offset, uint64_t ec,
-				    uint8_t parent_ec_kv, uint32_t vol_id, uint32_t lnum,
-				    uint64_t sqnum, uint32_t data_size, uint8_t parent_vid_kv,
-				    uint32_t chunk_index,
+void ubi_secure_build_leb_chunk_aad(const struct ubi_secure_leb_chunk_aad_input *input,
 				    uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE])
 {
-	if (prefix == NULL || aad == NULL) {
+	if (input == NULL || aad == NULL) {
 		LOG_ERR("build_leb_chunk_aad: NULL argument");
 		return;
 	}
 
 	/* Reuse single-tag AAD for the first 74 bytes. */
-	ubi_secure_build_leb_aad(prefix, peb_index, flash_offset, ec, parent_ec_kv, vol_id, lnum,
-				 sqnum, data_size, parent_vid_kv, aad);
+	ubi_secure_build_leb_aad(&input->leb, aad);
 
 	/* Append be32(chunk_index) at offset 74 → total 78. */
-	sys_put_be32(chunk_index, &aad[UBI_SECURE_LEB_AAD_SIZE]);
+	sys_put_be32(input->chunk_index, &aad[UBI_SECURE_LEB_AAD_SIZE]);
 }
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 

@@ -144,8 +144,13 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
 	memcpy(prefix_bytes, raw, UBI_SECURE_PREFIX_SIZE);
 
 	uint8_t aad[UBI_SECURE_DEV_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_dev_hdr_aad_input aad_input = {
+		.prefix = prefix_bytes,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = flash_offset,
+	};
 
-	ubi_secure_build_dev_hdr_aad(prefix_bytes, peb_idx, flash_offset, aad);
+	ubi_secure_build_dev_hdr_aad(&aad_input, aad);
 
 	/* Decrypt ciphertext+tag. */
 	const uint8_t *ct = &raw[UBI_SECURE_PREFIX_SIZE];
@@ -210,8 +215,13 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
 
 	/* Build AAD. */
 	uint8_t aad[UBI_SECURE_DEV_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_dev_hdr_aad_input aad_input = {
+		.prefix = out_buf,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = flash_offset,
+	};
 
-	ubi_secure_build_dev_hdr_aad(out_buf, peb_idx, flash_offset, aad);
+	ubi_secure_build_dev_hdr_aad(&aad_input, aad);
 
 	/* Build plaintext: dev_hdr + dev_secure_meta. */
 	uint8_t plaintext[UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE] = { 0 };
@@ -265,9 +275,15 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child
 	ubi_secure_build_nonce(prefix.domain, prefix.salt, prefix.counter, nonce);
 
 	uint8_t aad[UBI_SECURE_VOL_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_vol_hdr_aad_input aad_input = {
+		.prefix = out_buf,
+		.peb_index = (uint32_t)peb_idx,
+		.flash_offset = flash_offset,
+		.device_revision = device_revision,
+		.parent_kv = parent_kv,
+	};
 
-	ubi_secure_build_vol_hdr_aad(out_buf, peb_idx, flash_offset, device_revision, parent_kv,
-				     aad);
+	ubi_secure_build_vol_hdr_aad(&aad_input, aad);
 
 	size_t ct_len = 0;
 
@@ -527,10 +543,15 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 
 		/* Build AAD with device revision and parent key version. */
 		uint8_t aad[UBI_SECURE_VOL_HDR_AAD_SIZE] = { 0 };
+		const struct ubi_secure_vol_hdr_aad_input aad_input = {
+			.prefix = raw,
+			.peb_index = (uint32_t)scan->canonical_peb_idx,
+			.flash_offset = vol_offset,
+			.device_revision = (uint64_t)scan->dev_hdr.revision,
+			.parent_kv = scan->dev_prefix.key_version,
+		};
 
-		ubi_secure_build_vol_hdr_aad(raw, (uint32_t)scan->canonical_peb_idx, vol_offset,
-					     (uint64_t)scan->dev_hdr.revision,
-					     scan->dev_prefix.key_version, aad);
+		ubi_secure_build_vol_hdr_aad(&aad_input, aad);
 
 		/* Decrypt. */
 		uint8_t plaintext[UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE] = { 0 };

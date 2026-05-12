@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.85.0] - 2026-05-12
+
+### Changed
+
+- Secure-backend internal refactor (no behaviour, API, or on-flash format
+  change): the per-record AAD builders in `ubi_secure_ser.{h,c}` now take a
+  typed per-domain input struct (`struct ubi_secure_{dev_hdr,vol_hdr,ec_hdr,
+  data_vid,leb,leb_chunk}_aad_input`) instead of a long positional argument
+  list, so call sites in `ubi_secure_io.c` and `ubi_secure_reserved.c` make
+  the AAD-bound fields explicit; the secure LEB I/O entry points
+  (`ubi_secure_leb_data_{read,write}{,_chunked}`) now use typed
+  `uint8_t *buf` / `const uint8_t *buf` instead of `void *` payload pointers;
+  the HKDF label helpers (`ubi_secure_build_label` and
+  `ubi_secure_derive_child_key`) are now file-static inside
+  `ubi_secure_crypto.c` and no longer part of the module-internal header.
+
 ## [0.84.0] - 2026-05-12
 
 ### Changed
