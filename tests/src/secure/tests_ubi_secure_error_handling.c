@@ -101,18 +101,6 @@ static struct ubi_device *sec_init(void)
 	return ubi;
 }
 
-/*
- * Symmetric counterpart to sec_init(): clears the file-static alias used by
- * the per-test teardown safety net before deinitialising the device. Calling
- * ubi_device_deinit() leaves the local pointer untouched but the teardown
- * would otherwise try to deinit the same device a second time.
- */
-static void sec_deinit(struct ubi_device *ubi)
-{
-	g_ubi = NULL;
-	zassert_ok(ubi_device_deinit(ubi));
-}
-
 /* Module interface function definitions -------------------------------------------------------- */
 /**
  * \brief Verify that ubi_device_init() rejects a NULL flash descriptor.
