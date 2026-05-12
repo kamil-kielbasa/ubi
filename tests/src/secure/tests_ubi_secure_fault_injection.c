@@ -46,21 +46,7 @@ static struct ubi_device *g_ubi;
 /* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
-	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
-
-	zassert_true(device_is_ready(flash_dev));
-
-	struct flash_pages_info page_info = { 0 };
-
-	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
-
-	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	flash.erase_block_size = page_info.size;
-	flash.write_block_size = flash_get_write_block_size(flash_dev);
-
-	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
-	ubi_test_import_root_key();
-
+	ubi_test_secure_suite_setup_impl(&flash);
 	return NULL;
 }
 

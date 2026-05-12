@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.94.0] - 2026-05-12
+
+### Changed
+
+- The `ztest_suite_setup()` boilerplate that 22 secure test files
+  duplicated verbatim (locate the `ubi_partition` device, read its
+  page geometry, fill the file-static `ubi_flash_desc`, init PSA,
+  import the test root key) is now a single `static inline`
+  `ubi_test_secure_suite_setup_impl()` in
+  `tests/src/secure/ubi_test_secure_fixture.h`. Each file's
+  `ztest_suite_setup()` is now two lines. The dual-partition
+  coexistence test keeps its bespoke setup because its geometry
+  differs.
+
 ## [0.93.0] - 2026-05-12
 
 ### Changed

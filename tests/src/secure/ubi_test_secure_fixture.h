@@ -117,4 +117,41 @@ static inline struct ubi_crypto_config ubi_test_mock_crypto_config(void)
 	return cfg;
 }
 
+/* Suite-setup boilerplate ---------------------------------------------------------------------- */
+
+#ifndef UBI_PARTITION_NAME
+#define UBI_PARTITION_NAME ubi_partition
+#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
+#define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
+#define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
+#endif /* UBI_PARTITION_NAME */
+
+/**
+ * \brief Initialise the shared `ubi_flash_desc` and the PSA test key.
+ *
+ * \details Encapsulates the boilerplate that every secure test file's
+ *          `ztest_suite_setup()` previously repeated verbatim: locate the
+ *          `ubi_partition` device, read its page geometry, fill the
+ *          caller-owned `ubi_flash_desc`, initialise PSA and import the
+ *          test root key. Each test file keeps a file-static
+ *          `struct ubi_flash_desc flash` and passes a pointer here.
+ */
+static inline void ubi_test_secure_suite_setup_impl(struct ubi_flash_desc *flash_out)
+{
+	const struct device *const flash_dev = UBI_PARTITION_DEVICE;
+
+	zassert_true(device_is_ready(flash_dev));
+
+	struct flash_pages_info page_info = { 0 };
+
+	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
+
+	flash_out->partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
+	flash_out->erase_block_size = page_info.size;
+	flash_out->write_block_size = flash_get_write_block_size(flash_dev);
+
+	zassert_equal(psa_crypto_init(), PSA_SUCCESS);
+	ubi_test_import_root_key();
+}
+
 #endif /* UBI_TEST_SECURE_FIXTURE_H */
