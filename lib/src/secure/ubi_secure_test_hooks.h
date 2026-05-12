@@ -25,6 +25,7 @@
 
 /* Standard library headers: */
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /* Types and type definitions ------------------------------------------------------------------- */
@@ -167,6 +168,54 @@ uint64_t ubi_secure_test_get_leb_write_counter_floor(void);
  */
 int ubi_secure_test_get_volume_cached_counter(struct ubi_device *ubi, int vol_id,
 					      uint64_t *write_counter, uint64_t *total_auth_bytes);
+
+/**
+ * \brief Test-only resolution of the live PEB index for a volume mapping.
+ *
+ * Returns the physical eraseblock currently mapped for the given
+ * \p vol_id and \p lnum, or the hidden anchor PEB when \p lnum is
+ * passed as \c SIZE_MAX.  Lets tests target a specific PEB for
+ * \ref ubi_secure_test_read_vid_meta_from_peb without depending on the
+ * internal layout of the EBA tree or the anchor field.
+ *
+ * \param[in]  ubi       UBI device handle.
+ * \param[in]  vol_id    Volume identifier.
+ * \param[in]  lnum      Logical eraseblock number, or \c SIZE_MAX to
+ *                       request the volume's hidden anchor PEB.
+ * \param[out] out_pnum  Resolved physical eraseblock index.
+ *
+ * \retval 0        Mapping resolved; \p *out_pnum is valid.
+ * \retval -ENOENT  Volume not found, anchor not allocated, or LEB not mapped.
+ * \retval -EINVAL  NULL device handle or NULL output pointer.
+ */
+int ubi_secure_test_get_peb_for_lnum(struct ubi_device *ubi, int vol_id, size_t lnum,
+				     size_t *out_pnum);
+
+/**
+ * \brief Test-only authenticated read of VID secure metadata from any PEB.
+ *
+ * Drives the standard EC + VID read/authentication path against the
+ * given physical eraseblock and surfaces the authenticated counter
+ * fields needed by per-volume floor-continuity tests.  The PEB must
+ * host a valid secure VID record (user LEB mapping or hidden anchor);
+ * any authentication or I/O failure is propagated to the caller.
+ *
+ * Any output pointer may be NULL to skip that field.
+ *
+ * \param[in]  ubi               UBI device handle.
+ * \param[in]  pnum              Physical eraseblock index.
+ * \param[out] write_counter     Authenticated leb_write_counter (or NULL).
+ * \param[out] total_auth_bytes  Authenticated leb_total_auth_bytes (or NULL).
+ * \param[out] sqnum             Authenticated VID sequence number (or NULL).
+ *
+ * \retval 0         Success.
+ * \retval -EIO      Flash or crypto failure.
+ * \retval -EBADMSG  Authentication failure.
+ * \retval -EINVAL   NULL device handle.
+ */
+int ubi_secure_test_read_vid_meta_from_peb(struct ubi_device *ubi, size_t pnum,
+					   uint64_t *write_counter, uint64_t *total_auth_bytes,
+					   uint64_t *sqnum);
 
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 #endif /* UBI_SECURE_TEST_HOOKS_H */

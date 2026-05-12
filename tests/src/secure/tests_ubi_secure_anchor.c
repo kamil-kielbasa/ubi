@@ -448,4 +448,84 @@ ZTEST(ubi_secure_anchor, test_write_unmap_erase_loop_strict_monotonic)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
+/**
+ * \brief Authenticated VID-meta read hook agrees with the RAM cache after
+ *        a single LEB write, and the same hook also surfaces the hidden
+ *        anchor PEB through the SIZE_MAX lnum sentinel.
+ *
+ * \scenario Create a dynamic volume, write one LEB, then for that LEB
+ *           and for the anchor PEB (resolved via
+ *           \ref ubi_secure_test_get_peb_for_lnum with
+ *           \c SIZE_MAX) read the authenticated VID secure metadata
+ *           via \ref ubi_secure_test_read_vid_meta_from_peb.
+ *
+ * \expect Resolution and authenticated reads succeed; the LEB's
+ *           authenticated leb_write_counter equals the cached value;
+ *           the anchor's authenticated leb_write_counter is non-zero
+ *           and not greater than the cache (the cache is the strict
+ *           upper bound).
+ */
+ZTEST(ubi_secure_anchor, test_read_vid_meta_hook_matches_cache_and_anchor)
+{
+	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_volume_config vol_cfg = {
+		.name = { 'p', 'r', 'a', 'h' },
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 2,
+	};
+	struct ubi_device *ubi = NULL;
+	int vol_id = -1;
+	const uint8_t data[] = { 0xA5, 0x5A };
+
+	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+
+	uint64_t cached_wc = 0;
+	uint64_t cached_tab = 0;
+
+	zassert_ok(ubi_secure_test_get_volume_cached_counter(ubi, vol_id, &cached_wc, &cached_tab));
+
+	size_t leb_pnum = SIZE_MAX;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, 0, &leb_pnum));
+	zassert_not_equal(SIZE_MAX, leb_pnum);
+
+	uint64_t leb_wc = 0;
+	uint64_t leb_tab = 0;
+	uint64_t leb_sqnum = 0;
+
+	zassert_ok(ubi_secure_test_read_vid_meta_from_peb(ubi, leb_pnum, &leb_wc, &leb_tab,
+							  &leb_sqnum));
+	zassert_equal(cached_wc, leb_wc,
+		      "LEB authenticated wc must match cache: cache=%llu peb=%llu",
+		      (unsigned long long)cached_wc, (unsigned long long)leb_wc);
+	zassert_equal(cached_tab, leb_tab);
+	zassert_true(leb_sqnum > 0);
+
+	size_t anchor_pnum = 0;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, SIZE_MAX, &anchor_pnum));
+	zassert_not_equal(anchor_pnum, leb_pnum);
+
+	uint64_t anchor_wc = 0;
+	uint64_t anchor_tab = 0;
+
+	zassert_ok(ubi_secure_test_read_vid_meta_from_peb(ubi, anchor_pnum, &anchor_wc, &anchor_tab,
+							  NULL));
+	zassert_true(anchor_wc > 0);
+	zassert_true(anchor_wc <= cached_wc,
+		     "cache is the strict upper bound: cache=%llu anchor=%llu",
+		     (unsigned long long)cached_wc, (unsigned long long)anchor_wc);
+	zassert_true(anchor_tab <= cached_tab);
+
+	/* Error paths: unknown vol_id and unmapped lnum both report -ENOENT. */
+	size_t scratch = 0;
+
+	zassert_equal(-ENOENT, ubi_secure_test_get_peb_for_lnum(ubi, 999, 0, &scratch));
+	zassert_equal(-ENOENT, ubi_secure_test_get_peb_for_lnum(ubi, vol_id, 1, &scratch));
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
+
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */

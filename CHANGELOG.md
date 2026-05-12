@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.91.0] - 2026-05-12
+
+### Added
+
+- Two test-only secure hooks, gated by
+  `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION`:
+  `ubi_secure_test_get_peb_for_lnum()` resolves the live PEB for a
+  `(vol_id, lnum)` mapping, or the hidden anchor PEB when `lnum` is
+  `SIZE_MAX`; `ubi_secure_test_read_vid_meta_from_peb()` drives the
+  standard EC + VID authentication path against any PEB and surfaces
+  the authenticated `leb_write_counter`, `leb_total_auth_bytes` and
+  `sqnum`. The two hooks unlock numeric counter-floor assertions in
+  upcoming anchor-continuity and stress tests without duplicating the
+  AEAD read path.
+
 ## [0.90.0] - 2026-05-12
 
 ### Changed
