@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.92.0] - 2026-05-12
+
+### Changed
+
+- The 45 plain/secure parity tests in `tests_ubi_error_handling.c`
+  and `tests_ubi_secure_error_handling.c` whose assertion bodies were
+  byte-identical after stripping init/deinit boilerplate now share a
+  single source of truth in `tests/src/common/ubi_api_contract.h`. Each
+  parity ZTEST is now a three-line wrapper that initialises the device,
+  calls the matching `ubi_contract_*()` helper, and deinitialises. A
+  contract change updates both backends in one place. The remaining
+  divergent parity tests (where the secure backend uses different LEB
+  counts due to per-PEB overhead) are left untouched and will be
+  addressed in a follow-up sweep.
+
 ## [0.91.0] - 2026-05-12
 
 ### Added

@@ -35,6 +35,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "ubi_api_contract.h"
+
 /* Module defines ------------------------------------------------------------------------------- */
 
 #define UBI_PARTITION_NAME ubi_partition
@@ -152,10 +154,13 @@ ZTEST(ubi_error_handling, deinit_null)
  */
 ZTEST(ubi_error_handling, get_info_null_device)
 {
-	struct ubi_device_info info = { 0 };
-	zassert_equal(-EINVAL, ubi_device_get_info(NULL, &info));
-}
+	struct ubi_device *ubi = NULL;
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
+	ubi_contract_get_info_null_device(ubi);
+
+	zassert_ok(ubi_device_deinit(ubi));
+}
 /**
  * \brief Verify that ubi_device_get_info() rejects a NULL info buffer.
  *
@@ -169,11 +174,10 @@ ZTEST(ubi_error_handling, get_info_null_info)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	zassert_equal(-EINVAL, ubi_device_get_info(ubi, NULL));
+	ubi_contract_get_info_null_info(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_device_erase_peb() rejects a NULL device pointer.
  *
@@ -199,20 +203,10 @@ ZTEST(ubi_error_handling, volume_create_null_params)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	int vol_id = -1;
-	const struct ubi_volume_config cfg = {
-		.name = "test",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 1,
-	};
-
-	zassert_equal(-EINVAL, ubi_volume_create(NULL, &cfg, &vol_id));
-	zassert_equal(-EINVAL, ubi_volume_create(ubi, NULL, &vol_id));
-	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, NULL));
+	ubi_contract_volume_create_null_params(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that creating the same volume twice is idempotent.
  *
@@ -227,25 +221,10 @@ ZTEST(ubi_error_handling, volume_create_idempotent)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "idem",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 1,
-	};
-	int vol_id_1 = -1;
-	int vol_id_2 = -1;
-
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id_1));
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id_2));
-	zassert_equal(vol_id_1, vol_id_2);
-
-	struct ubi_device_info info = { 0 };
-	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_equal(1, info.volume_count);
+	ubi_contract_volume_create_idempotent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that creating a volume larger than available PEBs fails.
  *
@@ -259,21 +238,10 @@ ZTEST(ubi_error_handling, volume_create_no_space)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	struct ubi_device_info info = { 0 };
-	zassert_ok(ubi_device_get_info(ubi, &info));
-
-	const struct ubi_volume_config cfg = {
-		.name = "huge",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = info.total_peb_count + 1,
-	};
-	int vol_id = -1;
-
-	zassert_equal(-ENOSPC, ubi_volume_create(ubi, &cfg, &vol_id));
+	ubi_contract_volume_create_no_space(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that removing a non-existent volume fails.
  *
@@ -287,11 +255,10 @@ ZTEST(ubi_error_handling, volume_remove_nonexistent)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	zassert_equal(-ENOENT, ubi_volume_remove(ubi, 999));
+	ubi_contract_volume_remove_nonexistent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that querying info for a non-existent volume fails.
  *
@@ -305,13 +272,10 @@ ZTEST(ubi_error_handling, volume_get_info_nonexistent)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	struct ubi_volume_config cfg = { 0 };
-	size_t alloc = 0;
-	zassert_equal(-ENOENT, ubi_volume_get_info(ubi, 999, &cfg, &alloc));
+	ubi_contract_volume_get_info_nonexistent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that resizing a static volume is rejected.
  *
@@ -326,21 +290,10 @@ ZTEST(ubi_error_handling, volume_resize_static)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "static",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	struct ubi_volume_config new_cfg = cfg;
-	new_cfg.leb_count = 4;
-	zassert_equal(-ECANCELED, ubi_volume_resize(ubi, vol_id, &new_cfg));
+	ubi_contract_volume_resize_static(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that resizing a volume to its current size is rejected.
  *
@@ -354,19 +307,10 @@ ZTEST(ubi_error_handling, volume_resize_same_size)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "dyn",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_equal(-ECANCELED, ubi_volume_resize(ubi, vol_id, &cfg));
+	ubi_contract_volume_resize_same_size(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that resizing a non-existent volume fails.
  *
@@ -380,16 +324,10 @@ ZTEST(ubi_error_handling, volume_resize_nonexistent)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "none",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	zassert_equal(-ENOENT, ubi_volume_resize(ubi, 999, &cfg));
+	ubi_contract_volume_resize_nonexistent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_write() rejects a NULL data buffer.
  *
@@ -403,19 +341,10 @@ ZTEST(ubi_error_handling, leb_write_null_buffer)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "wrtest",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_equal(-EINVAL, ubi_leb_write(ubi, vol_id, 0, NULL, 10));
+	ubi_contract_leb_write_null_buffer(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_write() rejects a zero-length write.
  *
@@ -429,20 +358,10 @@ ZTEST(ubi_error_handling, leb_write_zero_length)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "zerolen",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	uint8_t data = 0x42;
-	zassert_equal(-EINVAL, ubi_leb_write(ubi, vol_id, 0, &data, 0));
+	ubi_contract_leb_write_zero_length(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that reading from an unmapped LEB fails.
  *
@@ -482,19 +401,10 @@ ZTEST(ubi_error_handling, leb_read_null_buffer)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "rdnull",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_equal(-EINVAL, ubi_leb_read(ubi, vol_id, 0, 0, NULL, 10));
+	ubi_contract_leb_read_null_buffer(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that unmapping an already-unmapped LEB is idempotent.
  *
@@ -508,19 +418,10 @@ ZTEST(ubi_error_handling, leb_unmap_unmapped)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "umtest",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
+	ubi_contract_leb_unmap_unmapped(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_is_mapped() rejects a NULL output pointer.
  *
@@ -534,11 +435,10 @@ ZTEST(ubi_error_handling, leb_is_mapped_null)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	zassert_equal(-EINVAL, ubi_leb_is_mapped(ubi, 0, 0, NULL));
+	ubi_contract_leb_is_mapped_null(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_get_size() rejects a NULL output pointer.
  *
@@ -552,11 +452,10 @@ ZTEST(ubi_error_handling, leb_get_size_null)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	zassert_equal(-EINVAL, ubi_leb_get_size(ubi, 0, 0, NULL));
+	ubi_contract_leb_get_size_null(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that overwriting an existing LEB moves the old PEB to dirty.
  *
@@ -617,24 +516,10 @@ ZTEST(ubi_error_handling, leb_read_with_offset)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "offrd",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80 };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-
-	uint8_t rdata[4] = { 0 };
-	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 4, rdata, sizeof(rdata)));
-	zassert_mem_equal(rdata, &data[4], sizeof(rdata));
+	ubi_contract_leb_read_with_offset(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that shrinking a volume with mapped LEBs trims the excess.
  *
@@ -694,21 +579,10 @@ ZTEST(ubi_error_handling, leb_write_out_of_range_lnum)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "oor_w",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0xAA };
-	/* lnum > leb_count should return -EACCES */
-	zassert_equal(-EACCES, ubi_leb_write(ubi, vol_id, 3, data, sizeof(data)));
+	ubi_contract_leb_write_out_of_range_lnum(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that reading from an out-of-range LEB number is rejected.
  *
@@ -792,32 +666,10 @@ ZTEST(ubi_error_handling, leb_map_then_write)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "maptw",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	/* Map LEB 0 (reserves a PEB without data) */
-	zassert_ok(ubi_leb_map(ubi, vol_id, 0));
-
-	bool mapped = false;
-	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, 0, &mapped));
-	zassert_true(mapped);
-
-	/* Write data to already-mapped LEB 0 (should overwrite) */
-	const uint8_t data[] = { 0x01, 0x02, 0x03, 0x04 };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-
-	uint8_t rdata[4] = { 0 };
-	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
-	zassert_mem_equal(rdata, data, sizeof(data));
+	ubi_contract_leb_map_then_write(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_volume_resize() rejects a NULL configuration pointer.
  *
@@ -831,20 +683,10 @@ ZTEST(ubi_error_handling, volume_resize_null_config)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "rsnul",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	/* NULL vol_cfg should return -EINVAL */
-	zassert_equal(-EINVAL, ubi_volume_resize(ubi, vol_id, NULL));
+	ubi_contract_volume_resize_null_config(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_volume_resize() fails when no volumes exist.
  *
@@ -858,18 +700,10 @@ ZTEST(ubi_error_handling, volume_resize_no_volumes)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "nope",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-
-	/* No volumes exist, resize should return -ENOENT */
-	zassert_equal(-ENOENT, ubi_volume_resize(ubi, 0, &cfg));
+	ubi_contract_volume_resize_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_write() fails when no volumes exist on the device.
  *
@@ -883,13 +717,10 @@ ZTEST(ubi_error_handling, leb_write_no_volumes)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const uint8_t data[] = { 0xAA };
-	/* No volumes => -ENOENT */
-	zassert_equal(-ENOENT, ubi_leb_write(ubi, 0, 0, data, sizeof(data)));
+	ubi_contract_leb_write_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_read() fails when no volumes exist on the device.
  *
@@ -923,20 +754,10 @@ ZTEST(ubi_error_handling, leb_unmap_out_of_range)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "umoor",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	/* lnum > leb_count should return -EACCES */
-	zassert_equal(-EACCES, ubi_leb_unmap(ubi, vol_id, 5));
+	ubi_contract_leb_unmap_out_of_range(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_volume_get_info() fails when no volumes exist.
  *
@@ -950,13 +771,10 @@ ZTEST(ubi_error_handling, volume_get_info_no_volumes)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	struct ubi_volume_config cfg = { 0 };
-	size_t alloc = 0;
-	zassert_equal(-ENOENT, ubi_volume_get_info(ubi, 0, &cfg, &alloc));
+	ubi_contract_volume_get_info_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_volume_remove() fails when no volumes exist.
  *
@@ -970,11 +788,10 @@ ZTEST(ubi_error_handling, volume_remove_no_volumes)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	zassert_equal(-ENOENT, ubi_volume_remove(ubi, 0));
+	ubi_contract_volume_remove_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_unmap() fails when no volumes exist.
  *
@@ -988,11 +805,10 @@ ZTEST(ubi_error_handling, leb_unmap_no_volumes)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	zassert_equal(-ENOENT, ubi_leb_unmap(ubi, 0, 0));
+	ubi_contract_leb_unmap_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_is_mapped() fails when no volumes exist.
  *
@@ -1025,12 +841,10 @@ ZTEST(ubi_error_handling, leb_get_size_no_volumes)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	size_t size = 0;
-	zassert_equal(-ENOENT, ubi_leb_get_size(ubi, 0, 0, &size));
+	ubi_contract_leb_get_size_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_write() fails when the volume does not exist.
  *
@@ -1044,20 +858,10 @@ ZTEST(ubi_error_handling, leb_write_vol_not_found)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "w_vnf",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0xAA };
-	zassert_equal(-ENOENT, ubi_leb_write(ubi, 999, 0, data, sizeof(data)));
+	ubi_contract_leb_write_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_read() fails when the volume does not exist.
  *
@@ -1098,19 +902,10 @@ ZTEST(ubi_error_handling, leb_unmap_vol_not_found)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "u_vnf",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_equal(-ENOENT, ubi_leb_unmap(ubi, 999, 0));
+	ubi_contract_leb_unmap_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_is_mapped() fails when the volume does not exist.
  *
@@ -1151,20 +946,10 @@ ZTEST(ubi_error_handling, leb_get_size_vol_not_found)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "s_vnf",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	size_t size = 0;
-	zassert_equal(-ENOENT, ubi_leb_get_size(ubi, 999, 0, &size));
+	ubi_contract_leb_get_size_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_read() rejects an out-of-range LEB number.
  *
@@ -1232,20 +1017,10 @@ ZTEST(ubi_error_handling, leb_get_size_out_of_range)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "soor",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	size_t size = 0;
-	zassert_equal(-EACCES, ubi_leb_get_size(ubi, vol_id, 5, &size));
+	ubi_contract_leb_get_size_out_of_range(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that creating a volume with an invalid type is rejected.
  *
@@ -1258,17 +1033,10 @@ ZTEST(ubi_error_handling, volume_create_invalid_type)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "badtp",
-		.type = 42,
-		.leb_count = 1,
-	};
-	int vol_id = -1;
-	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, &vol_id));
+	ubi_contract_volume_create_invalid_type(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that creating a volume with leb_count == 0 is rejected.
  *
@@ -1281,17 +1049,10 @@ ZTEST(ubi_error_handling, volume_create_zero_lebs)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "zero",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 0,
-	};
-	int vol_id = -1;
-	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, &vol_id));
+	ubi_contract_volume_create_zero_lebs(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that resizing a volume to leb_count == 0 is rejected.
  *
@@ -1304,24 +1065,10 @@ ZTEST(ubi_error_handling, volume_resize_zero_lebs_rejected)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "rzero",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const struct ubi_volume_config zero_cfg = {
-		.name = "rzero",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 0,
-	};
-	zassert_equal(-EINVAL, ubi_volume_resize(ubi, vol_id, &zero_cfg));
+	ubi_contract_volume_resize_zero_lebs_rejected(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that unmapping an unmapped LEB twice is safe (idempotent).
  *
@@ -1334,20 +1081,10 @@ ZTEST(ubi_error_handling, leb_unmap_unmapped_is_idempotent)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "idem_u",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
-	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
+	ubi_contract_leb_unmap_unmapped_is_idempotent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that mapping an already-mapped LEB is a no-op.
  *
@@ -1360,30 +1097,10 @@ ZTEST(ubi_error_handling, leb_map_already_mapped_is_noop)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "noop_m",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	zassert_ok(ubi_leb_map(ubi, vol_id, 0));
-
-	struct ubi_device_info info_before = { 0 };
-	zassert_ok(ubi_device_get_info(ubi, &info_before));
-
-	zassert_ok(ubi_leb_map(ubi, vol_id, 0));
-
-	struct ubi_device_info info_after = { 0 };
-	zassert_ok(ubi_device_get_info(ubi, &info_after));
-
-	zassert_equal(info_before.free_peb_count, info_after.free_peb_count,
-		      "No-op map should not consume a PEB");
+	ubi_contract_leb_map_already_mapped_is_noop(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that writing to a static volume is allowed.
  *
@@ -1396,24 +1113,10 @@ ZTEST(ubi_error_handling, static_volume_write_allowed)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "stwr",
-		.type = UBI_VOLUME_TYPE_STATIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0xCA, 0xFE };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-
-	uint8_t rdata[2] = { 0 };
-	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
-	zassert_mem_equal(rdata, data, sizeof(data));
+	ubi_contract_static_volume_write_allowed(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_leb_get_size() fails when the LEB is not mapped.
  *
@@ -1427,20 +1130,10 @@ ZTEST(ubi_error_handling, leb_get_size_unmapped)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "gsum",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	size_t size = 0;
-	zassert_equal(-ENOENT, ubi_leb_get_size(ubi, vol_id, 0, &size));
+	ubi_contract_leb_get_size_unmapped(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that creating a volume with a duplicate name returns the
  *        existing volume's ID instead of creating a new one.
@@ -1575,19 +1268,10 @@ ZTEST(ubi_error_handling, volume_create_name_max_valid)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	struct ubi_volume_config cfg = {
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 1,
-	};
-	memset(cfg.name, 0, sizeof(cfg.name));
-	memset(cfg.name, 'B', UBI_VOLUME_NAME_MAX_LEN - 1);
-
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+	ubi_contract_volume_create_name_max_valid(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_volume_resize() fails when expanding beyond available
  *        PEBs.
@@ -1602,28 +1286,10 @@ ZTEST(ubi_error_handling, volume_resize_expand_enospc)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	struct ubi_device_info info = { 0 };
-	zassert_ok(ubi_device_get_info(ubi, &info));
-
-	const struct ubi_volume_config cfg = {
-		.name = "rspc",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	/* Try to resize to more LEBs than the partition can hold */
-	const struct ubi_volume_config big_cfg = {
-		.name = "rspc",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = info.total_peb_count + 10,
-	};
-	zassert_equal(-ENOSPC, ubi_volume_resize(ubi, vol_id, &big_cfg));
+	ubi_contract_volume_resize_expand_enospc(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that ubi_volume_resize() can shrink a volume that has mapped
  *        LEBs in the trimmed range, and the data in those LEBs is discarded.
@@ -1849,40 +1515,10 @@ ZTEST(ubi_error_handling, volume_resize_grow_preserves_data)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "grow",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 2,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0xAA, 0xBB };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-
-	const struct ubi_volume_config cfg4 = {
-		.name = "grow",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 4,
-	};
-	zassert_ok(ubi_volume_resize(ubi, vol_id, &cfg4));
-
-	/* Verify old data */
-	uint8_t rb[2] = { 0 };
-	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rb, sizeof(rb)));
-	zassert_mem_equal(rb, data, sizeof(data));
-
-	/* New LEBs should be accessible */
-	const uint8_t d3[] = { 0xCC };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 3, d3, sizeof(d3)));
-
-	uint8_t r3[1] = { 0 };
-	zassert_ok(ubi_leb_read(ubi, vol_id, 3, 0, r3, sizeof(r3)));
-	zassert_equal(0xCC, r3[0]);
+	ubi_contract_volume_resize_grow_preserves_data(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify volume_resize grow with insufficient PEBs returns -ENOSPC.
  *
@@ -1944,25 +1580,10 @@ ZTEST(ubi_error_handling, leb_read_last_byte_at_boundary)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "bdry",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 1,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80 };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-
-	/* Read last byte */
-	uint8_t rb = 0;
-	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 7, &rb, 1));
-	zassert_equal(0x80, rb);
+	ubi_contract_leb_read_last_byte_at_boundary(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify that reading beyond data_size in VID header returns -EINVAL.
  *
@@ -1975,24 +1596,10 @@ ZTEST(ubi_error_handling, leb_read_beyond_data_size)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "over",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 1,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	const uint8_t data[] = { 0xAA, 0xBB, 0xCC, 0xDD };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-
-	uint8_t rb[8] = { 0 };
-	int ret = ubi_leb_read(ubi, vol_id, 0, 0, rb, sizeof(rb));
-	zassert_equal(-EINVAL, ret, "Read beyond data_size should return -EINVAL");
+	ubi_contract_leb_read_beyond_data_size(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Verify volume remove followed by re-create with different config.
  *
@@ -2084,31 +1691,10 @@ ZTEST(ubi_error_handling, volume_get_info_detailed)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	const struct ubi_volume_config cfg = {
-		.name = "detail",
-		.type = UBI_VOLUME_TYPE_DYNAMIC,
-		.leb_count = 3,
-	};
-	int vol_id = -1;
-	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
-
-	/* Write to 2 LEBs */
-	const uint8_t data[] = { 0x11 };
-	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
-	zassert_ok(ubi_leb_write(ubi, vol_id, 2, data, sizeof(data)));
-
-	struct ubi_volume_config out_cfg = { 0 };
-	size_t alloc = 0;
-	zassert_ok(ubi_volume_get_info(ubi, vol_id, &out_cfg, &alloc));
-
-	zassert_equal(3, out_cfg.leb_count);
-	zassert_equal(UBI_VOLUME_TYPE_DYNAMIC, out_cfg.type);
-	zassert_equal(2, alloc, "Should have 2 allocated LEBs");
-	zassert_true(strncmp(out_cfg.name, "detail", 6) == 0);
+	ubi_contract_volume_get_info_detailed(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief Volume create with alloc fault during leaf allocation fails cleanly.
  *
@@ -2934,12 +2520,10 @@ ZTEST(ubi_error_handling, leb_map_vol_not_found)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
-	int ret = ubi_leb_map(ubi, 999, 0);
-	zassert_equal(ret, -ENOENT);
+	ubi_contract_leb_map_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
 /**
  * \brief LEB map with lnum exceeding volume capacity returns error.
  *
