@@ -361,6 +361,8 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	vol->eba_tbl_count = 0;
 	vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
 	vol->anchor_pnum = SIZE_MAX;
+	vol->cached_leb_write_counter = 0;
+	vol->cached_leb_total_auth_bytes = 0;
 
 	item->key = vol->vol_id;
 	item->value.vol = vol;
@@ -794,6 +796,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	/* 6. Success — track in volume. The item is not inserted into any tree;
 	 *    anchor PEBs are tracked via vol->anchor_pnum, not via EBA or free/dirty. */
 	vol->anchor_pnum = pnum;
+	ubi_volume_observe_counters(vol, vid_meta.leb_write_counter, vid_meta.leb_total_auth_bytes);
 	ubi_mem_leaf_free(item);
 	/* clang-format off */
 	return 0;

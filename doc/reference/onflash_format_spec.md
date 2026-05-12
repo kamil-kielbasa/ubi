@@ -1214,6 +1214,24 @@ Normative rule:
 - if no such safe candidate exists, the protected erase must be deferred or rejected by policy,
 - init reconstructs the per-volume floor as the maximum authenticated value over live user mappings and the live hidden anchor of that volume.
 
+##### 9.7.3.1 RAM cache of the per-volume floor
+
+To make every floor-related decision O(1) on the hot path, SECURE keeps a RAM-only mirror of the per-volume floor as two fields on `struct ubi_volume`:
+
+- `cached_leb_write_counter`,
+- `cached_leb_total_auth_bytes`.
+
+The cache is **strict-monotonically non-decreasing** across the lifetime of the device handle. It is maintained as follows:
+
+- **Attach scan.** For every PEB whose secure VID authenticates against a known volume -- live mapping, freshly discovered anchor, or duplicate-loser PEB about to enter the dirty pool -- the scan MAX-merges its `vid_meta` into the cache. After scan, the cache equals the maximum authenticated `(leb_write_counter, leb_total_auth_bytes)` across all on-flash evidence for that `{key_version, volume_id}` pair.
+- **Volume create.** `ubi_secure_anchor_create()` writes the initial anchor (zero-length LEB) and seeds the cache to that anchor's `vid_meta` (`leb_write_counter = 1`, `leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE`).
+- **LEB write commit.** `leb_prepare_new_mapping()` bumps the cache to the projected post-write values **before** issuing `leb_data_write()`. Counters are a one-way ratchet, so a partial-write retry uses a strictly higher counter and the failed-and-retried AAD/ciphertext can never collide. This is the conservative nonce reservation that preserves AEAD nonce uniqueness across partial-write failures.
+- **Anchor rewrite.** `maybe_rewrite_anchor_for_dirty()` advances the cache (with the same pre-mutation rule) when refreshing the anchor for a sole-witness dirty PEB.
+
+**Witness check is O(1).** Because `leb_write_counter` is strict-monotonically increasing, at most one on-flash PEB of a volume can carry `vid_meta.leb_write_counter == cached_leb_write_counter`. The runtime decides whether to rewrite the anchor by reading the dirty PEB's `vid_meta` once and comparing it to the cache; no scan over the EBA table or the rest of the dirty pool is required.
+
+The on-flash anchor remains the canonical persistent floor and is the only source consulted on cold attach when every data PEB of the volume has been erased; the RAM cache is the live working set.
+
 This solves the cases that motivated the anchor:
 
 - brand-new empty secure volumes,

@@ -64,11 +64,16 @@ static void torture_bad_blocks(struct ubi_device *ubi);
 /**
  * \brief If the dirty PEB is the last writable witness, rewrite the anchor.
  *
- * Before erasing a dirty PEB, check whether its VID carries a
- * leb_write_counter higher than the volume's hidden anchor.  If so — and no
- * mapped PEB for the same volume still carries that counter — the anchor
- * must be rewritten to inherit the counter state before the dirty PEB is
- * destroyed.
+ * Before erasing a dirty PEB, check whether it is the SOLE on-flash
+ * witness of the per-volume AEAD counter floor by comparing its
+ * authenticated vid_meta.leb_write_counter against the volume's RAM
+ * cache (vol->cached_leb_write_counter).  If they match, the dirty PEB
+ * is the only carrier of the cached floor (strict-monotonic counter
+ * invariant: at most one PEB per volume may equal the cache); the
+ * hidden anchor must be rewritten with a fresh floor before this PEB
+ * may be destroyed.  Otherwise the cache value is preserved either by
+ * another live or dirty PEB, or by the anchor itself, and the erase
+ * is safe with no extra work.
  *
  * \param[in] ubi        UBI device (caller holds mutex).
  * \param[in] dirty_pnum Physical erase block number of the dirty PEB.
@@ -192,7 +197,12 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	/* 1. Read the dirty PEB's VID header to get volume and counter state. */
+	/* 1. Read the dirty PEB's EC and VID headers.  This is the only
+	 *    flash read on the hot path; the two pieces of information
+	 *    extracted from it are:
+	 *      - which volume the PEB belongs to (vid_hdr.vol_id),
+	 *      - the counter state authenticated on it (vid_meta).
+	 */
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
@@ -200,8 +210,8 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 		ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_pnum, &ec_hdr, &ec_ctx);
 
 	if (ret != 0) {
-		/* Cannot read EC — PEB might already be partially erased.
-		 * Treat as safe to erase (no witness data). */
+		/* Cannot read EC -- PEB might already be partially erased.
+		 * No witness data is at risk. */
 		return 0;
 	}
 
@@ -212,114 +222,60 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_pnum, &ec_ctx, &vid_hdr,
 				      &vid_meta, &vid_ctx);
 	if (ret != 0) {
-		/* VID unreadable — no counter state to protect. */
+		/* VID unreadable -- no counter state to protect. */
 		return 0;
 	}
 
-	/* 2. Find the volume this VID belongs to. */
+	/* 2. Locate the owning volume. */
 	struct ubi_rbt_item *vol_entry = ubi_cache_search(&ubi->vols, vid_hdr.vol_id);
 
 	if (vol_entry == NULL) {
-		/* Orphan PEB — volume was removed. Safe to erase. */
+		/* Orphan PEB -- volume was removed.  Counters of removed volumes
+		 * are not preserved across re-creation (re-creation is a key
+		 * rotation event by spec). */
 		return 0;
 	}
 
 	struct ubi_volume *vol = vol_entry->value.vol;
 
 	if (vol->anchor_pnum == SIZE_MAX) {
-		/* No anchor for this volume — nothing to protect. */
+		/* No anchor for this volume -- nothing to protect. */
 		return 0;
 	}
 
-	/* 3. Read anchor's VID meta to compare counter state. */
-	struct ubi_ec_hdr anchor_ec = { 0 };
-	struct ubi_secure_ec_auth_ctx anchor_ec_ctx = { 0 };
+	/* 3. Witness check (O(1) via RAM cache).
+	 *
+	 *    leb_write_counter is strict-monotonically increasing per write,
+	 *    so AT MOST ONE on-flash PEB of this volume carries
+	 *    vid_meta.leb_write_counter == vol->cached_leb_write_counter.
+	 *    If the dirty PEB is that sole witness, erasing it would drop
+	 *    the floor below the cache and break AEAD nonce-uniqueness for
+	 *    a future cold attach.  Otherwise (dirty counter strictly less
+	 *    than cache), the cache value is preserved by another live or
+	 *    dirty PEB -- or by the anchor itself -- and the erase is safe.
+	 *
+	 *    Defensive: the dirty counter must never EXCEED the cache (cache
+	 *    is the strict upper bound).  If it does, the cache invariant
+	 *    has been violated; assert in debug, fall back conservatively
+	 *    (force rewrite) in release. */
+	__ASSERT_NO_MSG(vid_meta.leb_write_counter <= vol->cached_leb_write_counter);
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, vol->anchor_pnum, &anchor_ec,
-				     &anchor_ec_ctx);
-	if (ret != 0) {
-		LOG_WRN("Anchor EC read failure for vol %zu — skipping witness check", vol->vol_id);
+	if (vid_meta.leb_write_counter < vol->cached_leb_write_counter) {
+		/* Not the sole witness -- cache floor is preserved elsewhere. */
 		return 0;
 	}
 
-	struct ubi_vid_hdr anchor_vid = { 0 };
-	struct ubi_vid_secure_meta anchor_meta = { 0 };
-	struct ubi_secure_vid_auth_ctx anchor_vid_ctx = { 0 };
-
-	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, vol->anchor_pnum,
-				      &anchor_ec_ctx, &anchor_vid, &anchor_meta, &anchor_vid_ctx);
-	if (ret != 0) {
-		LOG_WRN("Anchor VID read failure for vol %zu — skipping witness check",
-			vol->vol_id);
-		return 0;
+	if (vid_meta.leb_write_counter > vol->cached_leb_write_counter) {
+		LOG_ERR("Cache invariant violated for vol %zu: dirty=%llu cache=%llu -- "
+			"forcing anchor rewrite",
+			vol->vol_id, (unsigned long long)vid_meta.leb_write_counter,
+			(unsigned long long)vol->cached_leb_write_counter);
 	}
 
-	/* 4. If the dirty PEB's counter is not higher, no rewrite needed. */
-	if (vid_meta.leb_write_counter <= anchor_meta.leb_write_counter) {
-		return 0;
-	}
-
-	/* 5. Check if any mapped or other dirty PEB for this volume still
-	 *    carries a counter >= the dirty PEB's counter.  If so, the
-	 *    counter state is not lost by erasing this PEB. */
-	struct ubi_rbt_item *eba_entry = NULL;
-
-	RB_FOR_EACH_CONTAINER(&vol->eba_tbl, eba_entry, node)
-	{
-		struct ubi_ec_hdr m_ec = { 0 };
-		struct ubi_secure_ec_auth_ctx m_ec_ctx = { 0 };
-		struct ubi_vid_hdr m_vid = { 0 };
-		struct ubi_vid_secure_meta m_meta = { 0 };
-		struct ubi_secure_vid_auth_ctx m_vid_ctx = { 0 };
-
-		if (ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, eba_entry->value.pnum,
-					   &m_ec, &m_ec_ctx) != 0) {
-			continue;
-		}
-		if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, eba_entry->value.pnum,
-					    &m_ec_ctx, &m_vid, &m_meta, &m_vid_ctx) != 0) {
-			continue;
-		}
-		if (m_meta.leb_write_counter >= vid_meta.leb_write_counter) {
-			return 0;
-		}
-	}
-
-	/* Also check other dirty PEBs — a dirty PEB for the same volume
-	 * with counter >= ours is still a witness on flash. */
-	struct ubi_rbt_item *dirty_entry = NULL;
-
-	RB_FOR_EACH_CONTAINER(&ubi->dirty_pebs, dirty_entry, node)
-	{
-		if (dirty_entry->value.pnum == dirty_pnum) {
-			continue;
-		}
-
-		struct ubi_ec_hdr d_ec = { 0 };
-		struct ubi_secure_ec_auth_ctx d_ec_ctx = { 0 };
-		struct ubi_vid_hdr d_vid = { 0 };
-		struct ubi_vid_secure_meta d_meta = { 0 };
-		struct ubi_secure_vid_auth_ctx d_vid_ctx = { 0 };
-
-		if (ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_entry->value.pnum,
-					   &d_ec, &d_ec_ctx) != 0) {
-			continue;
-		}
-		if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_entry->value.pnum,
-					    &d_ec_ctx, &d_vid, &d_meta, &d_vid_ctx) != 0) {
-			continue;
-		}
-		/* Must be same volume AND carry high enough counter. */
-		if (d_vid.vol_id == vid_hdr.vol_id &&
-		    d_meta.leb_write_counter >= vid_meta.leb_write_counter) {
-			return 0;
-		}
-	}
-
-	/* 6. Dirty PEB is the last writable witness — rewrite anchor.
-	 *    Need a free PEB for the new anchor. */
+	/* 4. Dirty PEB is the sole on-flash witness of the counter floor.
+	 *    Rewrite the anchor to a fresh PEB before allowing the erase. */
 	if (ubi->free_peb_count == 0) {
-		LOG_ERR("No free PEB for anchor rewrite — erase deferred");
+		LOG_ERR("No free PEB for anchor rewrite -- erase deferred");
 		return -ENOSPC;
 	}
 
@@ -341,7 +297,9 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 		goto rewrite_bad;
 	}
 
-	/* Build new anchor VID with inherited counter state. */
+	/* Build new anchor VID with inherited counter state derived from the
+	 * cache (strict upper bound).  This consumes one AEAD invocation and
+	 * AAD-sized bytes; advance the cache accordingly post-commit. */
 	struct ubi_vid_hdr new_vid = { 0 };
 
 	new_vid.magic = UBI_VID_HDR_MAGIC;
@@ -353,13 +311,17 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 	new_vid.hdr_crc =
 		crc32_ieee((const uint8_t *)&new_vid, sizeof(new_vid) - sizeof(new_vid.hdr_crc));
 
-	/* Advance anchor counters for the rewritten witness. */
 	const struct ubi_vid_secure_meta new_meta = {
-		.leb_write_counter = vid_meta.leb_write_counter + 1,
-		.leb_total_auth_bytes = vid_meta.leb_total_auth_bytes + UBI_SECURE_LEB_AAD_SIZE,
+		.leb_write_counter = vol->cached_leb_write_counter + 1,
+		.leb_total_auth_bytes = vol->cached_leb_total_auth_bytes + UBI_SECURE_LEB_AAD_SIZE,
 	};
 
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+
+	/* Conservative cache bump BEFORE flash mutation (same rule as
+	 * leb_prepare_new_mapping): if the write fails partway, counters
+	 * stay burned and a retry uses strictly higher values. */
+	ubi_volume_observe_counters(vol, new_meta.leb_write_counter, new_meta.leb_total_auth_bytes);
 
 	/* Write zero-length LEB data. */
 	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
@@ -369,7 +331,7 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 		goto rewrite_bad;
 	}
 
-	/* Write VID header — commit point. */
+	/* Write VID header -- commit point. */
 	const uint64_t vid_counter = ubi->next_vid_counter;
 
 	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
@@ -381,28 +343,33 @@ static int maybe_rewrite_anchor_for_dirty(struct ubi_device *ubi, size_t dirty_p
 
 	ubi->next_vid_counter = vid_counter + 1;
 
-	/* Old anchor PEB is now stale — return its leaf to pool and reclaim
-	 * the PEB to dirty for eventual erase. We don't need to allocate a
-	 * new leaf because anchor PEBs are not in any tree. Instead, we
-	 * reuse new_item for the old anchor. */
+	/* Old anchor PEB is now stale -- retire to dirty pool. */
 	const size_t old_anchor_pnum = vol->anchor_pnum;
+
+	/* Re-read old anchor's EC for the dirty-tree key.  Best-effort: if it
+	 * fails we still need to retire the PEB; use ec_avg as the key. */
+	struct ubi_ec_hdr old_anchor_ec = { 0 };
+	struct ubi_secure_ec_auth_ctx old_anchor_ec_ctx = { 0 };
+	const int old_ec_ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, old_anchor_pnum,
+						      &old_anchor_ec, &old_anchor_ec_ctx);
 
 	vol->anchor_pnum = new_pnum;
 	ubi_mem_leaf_free(new_item);
 
-	/* Put old anchor into dirty pool. Read its EC for insertion key. */
 	struct ubi_rbt_item *old_item = NULL;
 
 	ret = ubi_mem_leaf_alloc((void **)&old_item);
 	if (ret != 0) {
-		/* Leaf allocation failed — old anchor PEB is lost. Not critical
+		/* Leaf allocation failed -- old anchor PEB is lost.  Not critical
 		 * because it's now stale and the new anchor is committed. */
 		LOG_WRN("Leaf alloc failed for old anchor PEB %zu", old_anchor_pnum);
 		return 0;
 	}
 
 	old_item->value.pnum = old_anchor_pnum;
-	old_item->key = anchor_ec.ec;
+	old_item->key = (old_ec_ret == 0) ?
+				old_anchor_ec.ec :
+				((ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0);
 	rb_insert(&ubi->dirty_pebs, &old_item->node);
 	ubi->dirty_peb_count++;
 

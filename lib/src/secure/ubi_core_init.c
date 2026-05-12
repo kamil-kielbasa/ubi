@@ -300,6 +300,8 @@ static int init_collect_volumes(struct ubi_device *ubi_dev, const struct ubi_vol
 		vol->eba_tbl_count = 0;
 		vol->eba_tbl.lessthan_fn = ubi_cache_cmp;
 		vol->anchor_pnum = SIZE_MAX;
+		vol->cached_leb_write_counter = 0;
+		vol->cached_leb_total_auth_bytes = 0;
 
 		struct ubi_rbt_item *item = NULL;
 
@@ -734,6 +736,15 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 
 		struct ubi_rbt_item *vol_entry = ubi_cache_search(&ubi_dev->vols, vid_hdr.vol_id);
 		struct ubi_volume *vol = vol_entry->value.vol;
+
+		/* MAX-merge observed counters into the per-volume RAM cache.
+		 * Covers live mappings, the freshly-discovered anchor, and any
+		 * duplicate-loser PEB about to be moved to the dirty pool by
+		 * scan_map_first / scan_resolve_dup.  The cache must reflect the
+		 * highest authenticated counter across ALL on-flash evidence for
+		 * this {kv, vol_id} so that subsequent writes inherit the floor. */
+		ubi_volume_observe_counters(vol, vid_meta.leb_write_counter,
+					    vid_meta.leb_total_auth_bytes);
 
 		ret = scan_map_first(ubi_dev, pnum, &ec_hdr, &vid_hdr, vol);
 		if (ret < 0) {

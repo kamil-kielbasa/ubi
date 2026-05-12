@@ -43,15 +43,15 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node);
 
 /**
- * \brief Recover the previous VID secure metadata for an existing LEB mapping.
+ * \brief Read the per-volume cached AEAD counter floor (RAM-only).
  *
- * If the LEB is already mapped, reads the full EC→VID auth chain from the old PEB
- * and returns the authenticated leb_write_counter and leb_total_auth_bytes.
- * For an unmapped LEB both are 0 (first write).
+ * Returns the strict upper bound across ALL on-flash evidence for this
+ * {kv, vol_id}: anchor + all live mappings + dirty PEBs not yet erased.
+ * The cache is maintained by the attach scan and by every runtime
+ * commit; this helper never reads flash.
  */
-static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_volume *vol,
-				    size_t lnum, uint64_t *old_write_counter,
-				    uint64_t *old_total_auth_bytes);
+static void leb_get_volume_counter_floor(const struct ubi_volume *vol, uint64_t *out_write_counter,
+					 uint64_t *out_total_auth_bytes);
 
 /**
  * \brief Allocate a free PEB, write optional data payload, then write VID header.
@@ -89,62 +89,31 @@ static void leb_mark_peb_bad(struct ubi_device *ubi, struct ubi_rbt_item *node)
 	ubi_move_to_bad_blocks(ubi, failed_pnum, failed_ec, bad_item);
 }
 
-static int leb_recover_old_counters(struct ubi_device *ubi, const struct ubi_volume *vol,
-				    size_t lnum, uint64_t *old_write_counter,
-				    uint64_t *old_total_auth_bytes)
+static void leb_get_volume_counter_floor(const struct ubi_volume *vol, uint64_t *out_write_counter,
+					 uint64_t *out_total_auth_bytes)
 {
-	__ASSERT_NO_MSG(ubi != NULL);
 	__ASSERT_NO_MSG(vol != NULL);
-	__ASSERT_NO_MSG(old_write_counter != NULL);
-	__ASSERT_NO_MSG(old_total_auth_bytes != NULL);
+	__ASSERT_NO_MSG(out_write_counter != NULL);
+	__ASSERT_NO_MSG(out_total_auth_bytes != NULL);
 
-	const struct ubi_rbt_item *existing =
-		ubi_cache_search((struct rbtree *)&vol->eba_tbl, lnum);
-
-	if (!existing) {
-		*old_write_counter = 0;
-		*old_total_auth_bytes = 0;
-		return 0;
-	}
-
-	struct ubi_ec_hdr ec_hdr = { 0 };
-	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
-
-	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, existing->value.pnum,
-					 &ec_hdr, &ec_ctx);
-	if (ret != 0) {
-		LOG_ERR("EC header read for old LEB counter recovery failed");
-		return ret;
-	}
-
-	struct ubi_vid_hdr vid_hdr = { 0 };
-	struct ubi_vid_secure_meta vid_meta = { 0 };
-	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
-
-	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, existing->value.pnum, &ec_ctx,
-				      &vid_hdr, &vid_meta, &vid_ctx);
-	if (ret != 0) {
-		LOG_ERR("VID header read for old LEB counter recovery failed");
-		return ret;
-	}
-
-	*old_write_counter = vid_meta.leb_write_counter;
-	*old_total_auth_bytes = vid_meta.leb_total_auth_bytes;
+	uint64_t floor_counter = vol->cached_leb_write_counter;
+	uint64_t floor_bytes = vol->cached_leb_total_auth_bytes;
 
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-	/* Test-only override: clamp the recovered counter up to a configured
-	 * floor so tests can drive the per-LEB AEAD counter close to
-	 * UBI_SECURE_COUNTER_MAX without having to perform 2^48 real chunk
-	 * writes (the only way to exercise the chunked-write overflow guard
-	 * end-to-end). Production builds compile this branch out entirely. */
-	const uint64_t floor = ubi_secure_test_get_leb_write_counter_floor();
+	/* Test-only override: clamp the floor up to a configured value so tests
+	 * can drive the per-LEB AEAD counter close to UBI_SECURE_COUNTER_MAX
+	 * without performing 2^48 real chunk writes (the only way to exercise
+	 * the chunked-write overflow guard end-to-end).  Production builds
+	 * compile this branch out entirely. */
+	const uint64_t hook = ubi_secure_test_get_leb_write_counter_floor();
 
-	if (floor != 0 && *old_write_counter < floor) {
-		*old_write_counter = floor;
+	if (hook != 0 && floor_counter < hook) {
+		floor_counter = hook;
 	}
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
-	return 0;
+	*out_write_counter = floor_counter;
+	*out_total_auth_bytes = floor_bytes;
 }
 
 static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vol, size_t lnum,
@@ -248,6 +217,15 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 		.leb_write_counter = counter_base + aead_invocations,
 		.leb_total_auth_bytes = old_total_auth_bytes + leb_auth_bytes_this_write,
 	};
+
+	/* Bump the per-volume cache to the projected post-write values BEFORE
+	 * issuing any flash write.  Counters are a one-way ratchet: if the
+	 * subsequent flash mutation fails partway, the burned counter range
+	 * stays excluded from the cache and a retry uses a strictly higher
+	 * counter -- the failed-and-retried AAD/ciphertext can never collide
+	 * with the successful one.  This is the conservative nonce reservation
+	 * that preserves AEAD nonce-uniqueness across partial-write failures. */
+	ubi_volume_observe_counters(vol, vid_meta.leb_write_counter, vid_meta.leb_total_auth_bytes);
 
 	/* Step 1: Write LEB data payload first (if any). */
 	if (buf != NULL && len > 0) {
@@ -379,15 +357,12 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 		goto exit;
 	}
 
-	/* Recover monotonic counter state from old mapping (if any). */
+	/* Recover monotonic counter state from per-volume RAM cache (anchor +
+	 * all on-flash evidence, refreshed by attach scan + every commit). */
 	uint64_t old_wc = 0;
 	uint64_t old_tab = 0;
 
-	ret = leb_recover_old_counters(ubi, vol, lnum, &old_wc, &old_tab);
-	if (ret != 0) {
-		LOG_ERR("LEB counter recovery failure");
-		goto exit;
-	}
+	leb_get_volume_counter_floor(vol, &old_wc, &old_tab);
 
 	struct ubi_rbt_item *new_node = NULL;
 
@@ -553,10 +528,16 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 		goto exit;
 	}
 
-	/* Map is a zero-length write — counters start at 0 (no existing mapping). */
+	/* Map is a zero-length write -- inherit the cached volume counter floor
+	 * so the new mapping respects per-{kv, vol_id} AEAD nonce monotonicity. */
+	uint64_t old_wc = 0;
+	uint64_t old_tab = 0;
+
+	leb_get_volume_counter_floor(vol, &old_wc, &old_tab);
+
 	struct ubi_rbt_item *new_node = NULL;
 
-	ret = leb_prepare_new_mapping(ubi, vol, lnum, NULL, 0, 0, 0, &new_node);
+	ret = leb_prepare_new_mapping(ubi, vol, lnum, NULL, 0, old_wc, old_tab, &new_node);
 	if (ret != 0) {
 		goto exit;
 	}

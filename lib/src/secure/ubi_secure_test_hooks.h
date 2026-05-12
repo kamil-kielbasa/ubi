@@ -146,5 +146,27 @@ void ubi_secure_test_set_leb_write_counter_floor(uint64_t floor);
  */
 uint64_t ubi_secure_test_get_leb_write_counter_floor(void);
 
+/**
+ * \brief Test-only read of a volume's cached AEAD counter floor (RAM mirror).
+ *
+ * Exposes \ref ubi_volume::cached_leb_write_counter and \ref
+ * ubi_volume::cached_leb_total_auth_bytes for tests verifying that the
+ * per-volume counter cache survives unmap+erase, cold attach, and anchor
+ * rewrite scenarios.  Returns -ENOENT if the volume is not found.
+ *
+ * Any output pointer may be NULL to skip that field.
+ *
+ * \param[in]  ubi               UBI device handle.
+ * \param[in]  vol_id            Volume identifier.
+ * \param[out] write_counter     Cached leb_write_counter (or NULL).
+ * \param[out] total_auth_bytes  Cached leb_total_auth_bytes (or NULL).
+ *
+ * \retval 0        Cache values written to outputs.
+ * \retval -ENOENT  Volume not found.
+ * \retval -EINVAL  NULL device handle.
+ */
+int ubi_secure_test_get_volume_cached_counter(struct ubi_device *ubi, int vol_id,
+					      uint64_t *write_counter, uint64_t *total_auth_bytes);
+
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 #endif /* UBI_SECURE_TEST_HOOKS_H */

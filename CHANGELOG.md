@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.81.0] - 2026-05-12
+
+### Security
+
+- **Fix AEAD nonce-uniqueness regression in the secure backend.** The
+  previous `leb_recover_old_counters()` helper only consulted the PEB
+  currently mapped to the requested `lnum` when recovering counter
+  state for the next write. After `write \u2192 unmap \u2192 erase-all-dirty
+  \u2192 write` the new mapping restarted `leb_write_counter` at 0 under
+  the same HKDF child key, violating AEAD nonce uniqueness for that
+  `{key_version, volume_id}` pair. The hidden per-volume anchor PEB
+  (\u00a77.9) was designed to preserve continuity but the runtime never
+  consulted it on the new-mapping path. Closes a confidentiality and
+  integrity break on data written under the affected `kv`.
+
+### Changed
+
+- **Per-volume AEAD counter floor cached in RAM.** `struct ubi_volume`
+  now mirrors `(leb_write_counter, leb_total_auth_bytes)` as the strict
+  upper bound across all on-flash evidence for the volume. The cache
+  is reseeded from the anchor plus every authenticated data PEB during
+  attach scan, bumped before each `leb_data_write` (conservative
+  nonce reservation), and refreshed on anchor rewrite. The new
+  `leb_get_volume_counter_floor()` replaces the buggy per-LEB
+  recovery; the historical `leb_recover_old_counters()` symbol is
+  removed.
+- **`maybe_rewrite_anchor_for_dirty()` is now O(1).** Because
+  `leb_write_counter` is strict-monotonic, at most one on-flash PEB
+  of a volume carries `vid_meta.leb_write_counter ==
+  cached_leb_write_counter`. The witness check therefore compares the
+  dirty PEB's `vid_meta` against the cache instead of scanning every
+  EBA entry and every other dirty PEB (previously O(N\u00b2) flash reads
+  per erase).
+
+### Added
+
+- New test suite `ubi_secure_anchor` (six tests) covering counter
+  inheritance after unmap+erase, multi-LEB churn, cold-attach reseed
+  from the anchor, non-witness-erase no-op behaviour, 48-bit counter
+  saturation (`-EOVERFLOW` + `KEY_ROTATE_NOW`), and a 16-iteration
+  strict-monotonicity loop.
+- Test-only hook `ubi_secure_test_get_volume_cached_counter()` exposes
+  the per-volume cache for white-box tests.
+
 ## [0.80.0] - 2026-05-11
 
 ### Changed

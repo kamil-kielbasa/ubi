@@ -41,7 +41,7 @@ BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes"
 #define UBI_DEVICE_TEST_API_BYTES 0
 #endif
 #if defined(CONFIG_UBI_CRYPTO)
-BUILD_ASSERT(sizeof(struct ubi_volume) == 48, "ubi_volume must be 48 bytes (secure)");
+BUILD_ASSERT(sizeof(struct ubi_volume) == 64, "ubi_volume must be 64 bytes (secure)");
 #if defined(CONFIG_X86) || defined(CONFIG_ARCH_POSIX)
 BUILD_ASSERT(sizeof(struct ubi_device) == 224 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 224 bytes (secure, x86) or 228 bytes with TEST_API");

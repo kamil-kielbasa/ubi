@@ -54,8 +54,50 @@ struct ubi_volume {
 
 #if defined(CONFIG_UBI_CRYPTO)
 	size_t anchor_pnum; /**< PEB index of hidden anchor (SIZE_MAX = none). */
+
+	/**
+	 * \brief Cached AEAD counter floor for this {kv, vol_id} (RAM-only mirror).
+	 *
+	 * Strict upper bound on any (leb_write_counter, leb_total_auth_bytes)
+	 * ever authenticated for this volume on flash.  Maintained by:
+	 *   - attach scan: MAX-merge over anchor + every data PEB whose VID auth
+	 *     succeeds (init_scan_data_pebs, scan_map_first replace-anchor branch);
+	 *   - ubi_secure_anchor_create(): seed to the just-written anchor values;
+	 *   - leb_prepare_new_mapping(): bump to projected post-write values BEFORE
+	 *     leb_data_write() (conservative nonce reservation: counters are a
+	 *     one-way ratchet, so a partial-write retry cannot collide);
+	 *   - maybe_rewrite_anchor_on_erase(): refreshed on anchor rewrite.
+	 *
+	 * Invariant (strict-monotonic counter implies unique witness):
+	 *   at any moment AT MOST ONE on-flash PEB (live or dirty) belonging to
+	 *   this volume carries vid_meta.leb_write_counter == cached_leb_write_counter.
+	 *   If none does, the anchor PEB carries it.
+	 */
+	uint64_t cached_leb_write_counter;
+	uint64_t cached_leb_total_auth_bytes;
 #endif /* CONFIG_UBI_CRYPTO */
 };
+
+#if defined(CONFIG_UBI_CRYPTO)
+/**
+ * \brief MAX-merge observed VID secure metadata into the per-volume cache.
+ *
+ * Called for every successful VID authentication that belongs to a known
+ * volume (live mappings, anchor, duplicate-loser dirty PEBs).  Preserves
+ * the cache invariant across attach scan and runtime updates.
+ */
+static inline void ubi_volume_observe_counters(struct ubi_volume *vol, uint64_t leb_write_counter,
+					       uint64_t leb_total_auth_bytes)
+{
+	if (leb_write_counter > vol->cached_leb_write_counter) {
+		vol->cached_leb_write_counter = leb_write_counter;
+	}
+
+	if (leb_total_auth_bytes > vol->cached_leb_total_auth_bytes) {
+		vol->cached_leb_total_auth_bytes = leb_total_auth_bytes;
+	}
+}
+#endif /* CONFIG_UBI_CRYPTO */
 
 /**
  * \brief UBI device representation.
