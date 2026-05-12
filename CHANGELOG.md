@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.83.0] - 2026-05-12
+
+### Changed
+
+- Secure backend on-flash record sizes are now bound at compile time
+  to the C structures they serialize. Any future change to a header
+  layout that would shift the byte count of a committed secure record
+  (EC, VID, device header, volume header) now fails the build instead
+  of silently producing flash images that are incompatible with the
+  spec or with already-deployed devices. No behaviour change, no
+  on-flash format change.
+
 ## [0.82.0] - 2026-05-12
 
 ### Changed

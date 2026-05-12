@@ -39,9 +39,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * the wire format propagates automatically.  The value is BUILD_ASSERTed
  * below to pin it to the spec.
  */
-#define DEV_AUTH_BYTES                 \
-	(UBI_SECURE_DEV_HDR_AAD_SIZE + \
-	 (UBI_SECURE_DEV_HDR_SIZE - UBI_SECURE_PREFIX_SIZE - UBI_SECURE_TAG_SIZE))
+#define DEV_AUTH_BYTES (UBI_SECURE_DEV_HDR_AAD_SIZE + UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE)
 
 /**
  * \brief Per-record authenticated-byte size (AAD + plaintext) for the
@@ -51,9 +49,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * the wire format propagates automatically.  The value is BUILD_ASSERTed
  * below to pin it to the spec.
  */
-#define VOL_AUTH_BYTES                 \
-	(UBI_SECURE_VOL_HDR_AAD_SIZE + \
-	 (UBI_SECURE_VOL_HDR_SIZE - UBI_SECURE_PREFIX_SIZE - UBI_SECURE_TAG_SIZE))
+#define VOL_AUTH_BYTES (UBI_SECURE_VOL_HDR_AAD_SIZE + UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE)
 
 /**
  * \brief Per-record authenticated-byte size (AAD + plaintext) for the

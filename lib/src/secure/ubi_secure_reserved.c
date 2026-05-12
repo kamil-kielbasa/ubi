@@ -33,18 +33,6 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/** Plaintext payload for secure device header: dev_hdr(32) + dev_secure_meta(16) = 48. */
-#define DEV_HDR_PLAINTEXT_SIZE (UBI_DEV_HDR_SIZE + UBI_SECURE_DEV_META_SIZE)
-
-/** Ciphertext+tag for device header: 48 + 16 = 64. */
-#define DEV_HDR_CT_TAG_SIZE (DEV_HDR_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
-
-/** Plaintext payload for secure volume header: vol_hdr(48). */
-#define VOL_HDR_PLAINTEXT_SIZE (UBI_VOL_HDR_SIZE)
-
-/** Ciphertext+tag for volume header: 48 + 16 = 64. */
-#define VOL_HDR_CT_TAG_SIZE (VOL_HDR_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
-
 /* Static function declarations ----------------------------------------------------------------- */
 
 /**
@@ -172,18 +160,18 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
 
 	/* Decrypt ciphertext+tag. */
 	const uint8_t *ct = &raw[UBI_SECURE_PREFIX_SIZE];
-	uint8_t plaintext[DEV_HDR_PLAINTEXT_SIZE] = { 0 };
+	uint8_t plaintext[UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE] = { 0 };
 	size_t pt_len = 0;
 
 	const int ret = ubi_secure_aead_decrypt(child_key_id, nonce, aad, sizeof(aad), ct,
-						DEV_HDR_CT_TAG_SIZE, plaintext, sizeof(plaintext),
-						&pt_len);
+						UBI_SECURE_DEV_HDR_CT_TAG_SIZE, plaintext,
+						sizeof(plaintext), &pt_len);
 	if (ret != 0) {
 		LOG_ERR("AEAD decrypt failed for dev hdr at PEB %zu", peb_idx);
 		return ret;
 	}
 
-	if (pt_len != DEV_HDR_PLAINTEXT_SIZE) {
+	if (pt_len != UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE) {
 		LOG_ERR("Unexpected plaintext size: %zu", pt_len);
 		return -EBADMSG;
 	}
@@ -237,7 +225,7 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
 	ubi_secure_build_dev_hdr_aad(out_buf, peb_idx, flash_offset, aad);
 
 	/* Build plaintext: dev_hdr + dev_secure_meta. */
-	uint8_t plaintext[DEV_HDR_PLAINTEXT_SIZE] = { 0 };
+	uint8_t plaintext[UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE] = { 0 };
 
 	memcpy(plaintext, dev_hdr, UBI_DEV_HDR_SIZE);
 	ubi_secure_dev_meta_serialize(dev_meta, &plaintext[UBI_DEV_HDR_SIZE]);
@@ -247,7 +235,7 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
 
 	ret = ubi_secure_aead_encrypt(child_key_id, nonce, aad, sizeof(aad), plaintext,
 				      sizeof(plaintext), &out_buf[UBI_SECURE_PREFIX_SIZE],
-				      DEV_HDR_CT_TAG_SIZE, &ct_len);
+				      UBI_SECURE_DEV_HDR_CT_TAG_SIZE, &ct_len);
 	if (ret != 0) {
 		LOG_ERR("AEAD encrypt failed for dev hdr");
 	}
@@ -295,9 +283,9 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child
 	size_t ct_len = 0;
 
 	ret = ubi_secure_aead_encrypt(child_key_id, nonce, aad, sizeof(aad),
-				      (const uint8_t *)vol_hdr, VOL_HDR_PLAINTEXT_SIZE,
-				      &out_buf[UBI_SECURE_PREFIX_SIZE], VOL_HDR_CT_TAG_SIZE,
-				      &ct_len);
+				      (const uint8_t *)vol_hdr, UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE,
+				      &out_buf[UBI_SECURE_PREFIX_SIZE],
+				      UBI_SECURE_VOL_HDR_CT_TAG_SIZE, &ct_len);
 	if (ret != 0) {
 		LOG_ERR("AEAD encrypt failed for vol hdr");
 	}
@@ -561,19 +549,19 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 					     scan->dev_prefix.key_version, aad);
 
 		/* Decrypt. */
-		uint8_t plaintext[VOL_HDR_PLAINTEXT_SIZE] = { 0 };
+		uint8_t plaintext[UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE] = { 0 };
 		size_t pt_len = 0;
 		const uint8_t *ct = &raw[UBI_SECURE_PREFIX_SIZE];
 
 		ret = ubi_secure_aead_decrypt(child_key_id, nonce, aad, sizeof(aad), ct,
-					      VOL_HDR_CT_TAG_SIZE, plaintext, sizeof(plaintext),
-					      &pt_len);
+					      UBI_SECURE_VOL_HDR_CT_TAG_SIZE, plaintext,
+					      sizeof(plaintext), &pt_len);
 		if (ret != 0) {
 			LOG_ERR("Vol hdr %zu auth failure", i);
 			goto cleanup;
 		}
 
-		if (pt_len != VOL_HDR_PLAINTEXT_SIZE) {
+		if (pt_len != UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE) {
 			LOG_ERR("Vol hdr %zu unexpected plaintext size: %zu", i, pt_len);
 			ret = -EBADMSG;
 			goto cleanup;
