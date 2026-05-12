@@ -2805,7 +2805,7 @@ ZTEST(ubi_secure_defensive, test_derive_domain_key_rejects_non_allowlisted_kv)
 
 	cfg = ubi_test_mock_crypto_config();
 
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 	zassert_equal(ubi_secure_derive_domain_key(&cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER, 99,
 						   &child_key_id),
@@ -2825,7 +2825,7 @@ ZTEST(ubi_secure_defensive, test_derive_leb_key_rejects_non_allowlisted_kv)
 
 	cfg = ubi_test_mock_crypto_config();
 
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 	zassert_equal(ubi_secure_derive_leb_key(&cfg, 99, 0, &child_key_id), -UBI_SECURE_ENOKEY);
 }

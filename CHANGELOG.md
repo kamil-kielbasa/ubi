@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.82.0] - 2026-05-12
+
+### Changed
+
+- **BREAKING: the secure backend now uses `psa_key_id_t` for key
+  identifiers throughout its public API.** Applications that provide
+  the `get_key_id` callback (`ubi_crypto_get_key_id_cb_t`) must
+  update its second parameter from `uint32_t *` to `psa_key_id_t *`.
+  This restores type fidelity with the PSA Crypto API and removes a
+  portability assumption that `psa_key_id_t` is always `uint32_t`.
+  No on-flash format change, no behavioural change — secure devices
+  attach and continue to operate exactly as before.
+
 ## [0.81.0] - 2026-05-12
 
 ### Security

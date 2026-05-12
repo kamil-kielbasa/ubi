@@ -22,6 +22,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#if defined(CONFIG_UBI_CRYPTO)
+/* mbedTLS / PSA Crypto headers: */
+#include <psa/crypto_types.h>
+#else /* !CONFIG_UBI_CRYPTO */
+/* Plain-mode public surface: applications building with CONFIG_UBI_CRYPTO=n
+ * still include this header (for example to pass crypto_cfg=NULL to
+ * ubi_device_init()) and must not be forced to depend on PSA.  The fallback
+ * typedef matches the PSA Crypto API specification, where psa_key_id_t is a
+ * 32-bit identifier. */
+typedef uint32_t psa_key_id_t;
+#endif /* CONFIG_UBI_CRYPTO */
+
 /* Types and type definitions ------------------------------------------------------------------- */
 
 /**
@@ -159,7 +171,7 @@ struct ubi_crypto_policy {
  * \retval 0       Success.
  * \retval -errno  Key version unavailable.
  */
-typedef int (*ubi_crypto_get_key_id_cb_t)(uint8_t key_version, uint32_t *key_id_out);
+typedef int (*ubi_crypto_get_key_id_cb_t)(uint8_t key_version, psa_key_id_t *key_id_out);
 
 /**
  * \brief Check freshness at attach time.

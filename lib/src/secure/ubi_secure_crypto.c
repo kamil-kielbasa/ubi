@@ -115,8 +115,8 @@ int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, ui
 	return 0;
 }
 
-int ubi_secure_derive_child_key(uint32_t root_key_id, const uint8_t *label, size_t label_len,
-				uint32_t *child_key_id)
+int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *label, size_t label_len,
+				psa_key_id_t *child_key_id)
 {
 	if (label == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_child_key: NULL argument");
@@ -185,12 +185,12 @@ abort:
 	return -EIO;
 }
 
-void ubi_secure_destroy_key(uint32_t key_id)
+void ubi_secure_destroy_key(psa_key_id_t key_id)
 {
 	(void)psa_destroy_key(key_id);
 }
 
-int ubi_secure_aead_encrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONCE_SIZE],
+int ubi_secure_aead_encrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_NONCE_SIZE],
 			    const uint8_t *aad, size_t aad_len, const uint8_t *plaintext,
 			    size_t plaintext_len, uint8_t *ciphertext, size_t ciphertext_cap,
 			    size_t *ciphertext_len)
@@ -219,7 +219,7 @@ int ubi_secure_aead_encrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONC
 	return 0;
 }
 
-int ubi_secure_aead_decrypt(uint32_t key_id, const uint8_t nonce[UBI_SECURE_NONCE_SIZE],
+int ubi_secure_aead_decrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_NONCE_SIZE],
 			    const uint8_t *aad, size_t aad_len, const uint8_t *ciphertext,
 			    size_t ciphertext_len, uint8_t *plaintext, size_t plaintext_cap,
 			    size_t *plaintext_len)
@@ -288,7 +288,7 @@ void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_S
 
 int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 				 enum ubi_secure_domain domain, uint8_t key_version,
-				 uint32_t *child_key_id)
+				 psa_key_id_t *child_key_id)
 {
 	if (crypto_cfg == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_domain_key: NULL argument");
@@ -317,7 +317,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 	}
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
-	uint32_t root_key_id = 0;
+	psa_key_id_t root_key_id = PSA_KEY_ID_NULL;
 	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
 
 	if (ret != 0) {
@@ -343,7 +343,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 }
 
 int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_t key_version,
-			      uint32_t volume_id, uint32_t *child_key_id)
+			      uint32_t volume_id, psa_key_id_t *child_key_id)
 {
 	if (crypto_cfg == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_leb_key: NULL argument");
@@ -373,7 +373,7 @@ int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_
 	}
 #endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
-	uint32_t root_key_id = 0;
+	psa_key_id_t root_key_id = PSA_KEY_ID_NULL;
 	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
 
 	if (ret != 0) {

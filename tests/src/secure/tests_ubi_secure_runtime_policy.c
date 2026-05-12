@@ -161,12 +161,12 @@ static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness,
 /**
  * \brief Selective get_key_id — returns error for ts.fail_key_version.
  */
-static int selective_get_key_id(uint8_t key_version, uint32_t *key_id_out)
+static int selective_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 {
 	if (ts.fail_key_version != 0 && key_version == ts.fail_key_version) {
 		return -ENOENT;
 	}
-	*key_id_out = (uint32_t)ubi_test_root_key_id;
+	*key_id_out = ubi_test_root_key_id;
 	return 0;
 }
 

@@ -32,7 +32,7 @@ static const uint8_t UBI_TEST_ROOT_KEY_MATERIAL[16] = {
 };
 
 /** Global PSA key ID of the imported test root key. */
-static psa_key_id_t ubi_test_root_key_id = 0;
+static psa_key_id_t ubi_test_root_key_id = PSA_KEY_ID_NULL;
 
 /**
  * \brief Import the test root key into PSA.
@@ -60,15 +60,15 @@ static inline void ubi_test_import_root_key(void)
 static inline void ubi_test_destroy_root_key(void)
 {
 	psa_destroy_key(ubi_test_root_key_id);
-	ubi_test_root_key_id = 0;
+	ubi_test_root_key_id = PSA_KEY_ID_NULL;
 }
 
 /* Mock callbacks for testing ------------------------------------------------------------------- */
 
-static inline int mock_get_key_id(uint8_t key_version, uint32_t *key_id_out)
+static inline int mock_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 {
 	(void)key_version;
-	*key_id_out = (uint32_t)ubi_test_root_key_id;
+	*key_id_out = ubi_test_root_key_id;
 	return 0;
 }
 

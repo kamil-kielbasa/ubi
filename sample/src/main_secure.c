@@ -82,7 +82,7 @@ static const uint8_t sample_root_key_material[16] = {
 static const uint8_t sample_allowed_key_versions[] = { SAMPLE_WRITE_KEY_VERSION };
 
 /** PSA key ID of the imported root key (assigned by \c psa_import_key). */
-static psa_key_id_t sample_root_key_id;
+static psa_key_id_t sample_root_key_id = PSA_KEY_ID_NULL;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
@@ -103,7 +103,7 @@ static int sample_psa_init_and_import_key(void);
  * \retval 0       Success.
  * \retval -ENOENT The requested key version is not provisioned.
  */
-static int sample_get_key_id(uint8_t key_version, uint32_t *key_id_out);
+static int sample_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out);
 
 /**
  * \brief \c check_freshness callback: rollback / freshness gate at attach.
@@ -215,12 +215,12 @@ static int sample_psa_init_and_import_key(void)
 	return 0;
 }
 
-static int sample_get_key_id(uint8_t key_version, uint32_t *key_id_out)
+static int sample_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 {
 	if (key_version != SAMPLE_WRITE_KEY_VERSION) {
 		return -ENOENT;
 	}
-	*key_id_out = (uint32_t)sample_root_key_id;
+	*key_id_out = sample_root_key_id;
 	return 0;
 }
 
@@ -406,7 +406,7 @@ deinit:
 
 destroy_key:
 	(void)psa_destroy_key(sample_root_key_id);
-	sample_root_key_id = 0;
+	sample_root_key_id = PSA_KEY_ID_NULL;
 
 	return ret;
 }

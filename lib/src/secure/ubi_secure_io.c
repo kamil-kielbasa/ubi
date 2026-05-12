@@ -24,6 +24,9 @@
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
+/* mbedTLS / PSA Crypto headers: */
+#include <psa/crypto.h>
+
 /* Standard library headers: */
 #include <errno.h>
 #include <string.h>
@@ -107,7 +110,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
 	ec_ctx->key_version = prefix.key_version;
 
 	/* Derive EC-domain child key. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER,
 					   prefix.key_version, &child_key_id);
@@ -173,7 +176,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive EC-domain child key. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER,
 					       key_version, &child_key_id);
 
@@ -307,7 +310,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 	vid_ctx->key_version = prefix.key_version;
 
 	/* Derive VID-domain child key. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
 					   prefix.key_version, &child_key_id);
@@ -381,7 +384,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive VID-domain child key. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
 					       key_version, &child_key_id);
 
@@ -542,7 +545,7 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive LEB key using the prefix's authoritative key_version. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 	ret = ubi_secure_derive_leb_key(crypto_cfg, prefix.key_version, vid_ctx->vid_hdr->vol_id,
 					&child_key_id);
@@ -643,7 +646,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive LEB key for {key_version, volume_id}. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret =
 		ubi_secure_derive_leb_key(crypto_cfg, key_version, vid_hdr->vol_id, &child_key_id);
 
@@ -782,7 +785,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive LEB key for {key_version, volume_id}. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret =
 		ubi_secure_derive_leb_key(crypto_cfg, key_version, vid_hdr->vol_id, &child_key_id);
 
@@ -989,7 +992,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive LEB key. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 	ret = ubi_secure_derive_leb_key(crypto_cfg, prefix.key_version, vid_ctx->vid_hdr->vol_id,
 					&child_key_id);

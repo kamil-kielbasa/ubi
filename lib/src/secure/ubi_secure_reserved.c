@@ -22,6 +22,9 @@
 #include <zephyr/sys/__assert.h>
 #include <zephyr/sys/byteorder.h>
 
+/* mbedTLS / PSA Crypto headers: */
+#include <psa/crypto.h>
+
 /* Standard library headers: */
 #include <errno.h>
 #include <string.h>
@@ -76,7 +79,7 @@ static int secure_flash_write(const struct flash_area *fa, off_t offset, const v
  *         crypto/I/O error).
  */
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
-				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
+				psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
 				struct ubi_dev_secure_meta *dev_meta,
 				struct ubi_crypto_prefix32 *prefix);
 
@@ -98,7 +101,7 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
  * \return 0 on success, or negative errno on failure.
  */
 static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
-			   const struct ubi_dev_secure_meta *dev_meta, uint32_t child_key_id,
+			   const struct ubi_dev_secure_meta *dev_meta, psa_key_id_t child_key_id,
 			   uint8_t key_version, uint64_t counter, size_t peb_idx,
 			   uint64_t flash_offset, uint8_t *out_buf);
 
@@ -117,7 +120,7 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
  *
  * \return 0 on success, or negative errno on failure.
  */
-static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key_id,
+static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child_key_id,
 			   uint8_t key_version, uint64_t counter, size_t peb_idx,
 			   uint64_t flash_offset, uint64_t device_revision, uint8_t parent_kv,
 			   uint8_t *out_buf);
@@ -125,7 +128,7 @@ static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key
 /* Static function definitions ------------------------------------------------------------------ */
 
 static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
-				uint32_t child_key_id, struct ubi_dev_hdr *dev_hdr,
+				psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
 				struct ubi_dev_secure_meta *dev_meta,
 				struct ubi_crypto_prefix32 *prefix)
 {
@@ -193,7 +196,7 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
 }
 
 static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
-			   const struct ubi_dev_secure_meta *dev_meta, uint32_t child_key_id,
+			   const struct ubi_dev_secure_meta *dev_meta, psa_key_id_t child_key_id,
 			   uint8_t key_version, uint64_t counter, size_t peb_idx,
 			   uint64_t flash_offset, uint8_t *out_buf)
 {
@@ -252,7 +255,7 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
 	return ret;
 }
 
-static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, uint32_t child_key_id,
+static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child_key_id,
 			   uint8_t key_version, uint64_t counter, size_t peb_idx,
 			   uint64_t flash_offset, uint64_t device_revision, uint8_t parent_kv,
 			   uint8_t *out_buf)
@@ -433,7 +436,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		}
 
 		/* Derive child key for this version. */
-		uint32_t child_key_id = 0;
+		psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
 		ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER, kv,
 						   &child_key_id);
@@ -496,7 +499,7 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive volume-header child key. */
-	uint32_t child_key_id = 0;
+	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER,
 					       scan->dev_prefix.key_version, &child_key_id);
 	if (ret != 0) {
@@ -611,7 +614,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 	}
 
 	/* Derive device-header and volume-header child keys. */
-	uint32_t dev_key_id = 0;
+	psa_key_id_t dev_key_id = PSA_KEY_ID_NULL;
 
 	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER,
 					       key_version, &dev_key_id);
@@ -620,7 +623,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 		return ret;
 	}
 
-	uint32_t vol_key_id = 0;
+	psa_key_id_t vol_key_id = PSA_KEY_ID_NULL;
 
 	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER, key_version,
 					   &vol_key_id);
