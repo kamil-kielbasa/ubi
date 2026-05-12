@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.96.0] - 2026-05-12
+
+### Changed
+
+- The `sec_init()` helper that 6 secure test files duplicated verbatim
+  (build the mock crypto config, call `ubi_device_init()`, assert
+  success) is now backed by a single `static inline`
+  `ubi_test_secure_init(struct ubi_flash_desc *)` in
+  `tests/src/secure/ubi_test_secure_fixture.h`. Each file's local
+  `sec_init()` thin-wrapper still owns the assignment to its file-static
+  `g_ubi` alias so the per-suite teardown safety net keeps working
+  unchanged.
+
 ## [0.95.0] - 2026-05-12
 
 ### Changed

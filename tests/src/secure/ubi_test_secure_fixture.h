@@ -173,4 +173,26 @@ static inline void ubi_test_secure_before_impl(void)
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
+/**
+ * \brief Initialise a secure UBI device wired to the test mock crypto config.
+ *
+ * \details Builds a fresh `ubi_crypto_config` from the test mocks (in a
+ *          file-static so the device can keep its pointer alive past
+ *          this call), invokes `ubi_device_init()` against the caller's
+ *          flash descriptor and asserts success. Callers are expected to
+ *          store the returned pointer into their per-file `g_ubi` alias
+ *          so the suite's teardown safety net can recover from a test
+ *          that aborts before its own deinit runs.
+ */
+static inline struct ubi_device *ubi_test_secure_init(struct ubi_flash_desc *flash_desc)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+	struct ubi_device *ubi = NULL;
+
+	zassert_ok(ubi_device_init(flash_desc, &cfg, &ubi));
+	return ubi;
+}
+
 #endif /* UBI_TEST_SECURE_FIXTURE_H */

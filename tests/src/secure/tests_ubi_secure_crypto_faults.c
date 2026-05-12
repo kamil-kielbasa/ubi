@@ -76,12 +76,8 @@ static void ztest_testcase_teardown(void *ctx)
 
 static struct ubi_device *sec_init(void)
 {
-	static struct ubi_crypto_config cfg;
+	struct ubi_device *const ubi = ubi_test_secure_init(&flash);
 
-	cfg = ubi_test_mock_crypto_config();
-	struct ubi_device *ubi = NULL;
-
-	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	g_ubi = ubi;
 	return ubi;
 }
