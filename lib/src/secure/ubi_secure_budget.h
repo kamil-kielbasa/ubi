@@ -59,7 +59,7 @@ struct ubi_device;
  * \param[in,out] ubi               UBI device.
  * \param[in]     rotation_happened true if a new write-active kv was just installed.
  */
-void ubi_secure_budget_init_bases(struct ubi_device *ubi, bool rotation_happened);
+void ubi_secure_budget_bases_init(struct ubi_device *ubi, bool rotation_happened);
 
 /**
  * \brief Pre-write metadata-domain budget check.
@@ -91,6 +91,14 @@ int ubi_secure_budget_metadata_pre(struct ubi_device *ubi, enum ubi_secure_domai
  * Same projection as the pre-check, called after the write succeeded.
  * Emits KEY_ROTATE_SOON when usage crosses ROTATE_SOON_PCT and re-emits
  * KEY_ROTATE_NOW defensively if the post-write usage exceeds NOW.
+ *
+ * \param[in,out] ubi          UBI device (caller holds mutex).
+ * \param[in]     domain       One of DEVICE_HEADER, VOLUME_HEADER,
+ *                             ERASE_COUNTER, VOLUME_IDENTIFIER.
+ * \param[in]     post_counter Raw global counter value reached after the
+ *                             write completed (e.g. ubi->next_*_counter).
+ * \param[in]     kv           Write-active key version (used in event).
+ * \param[in]     vol_id       Volume id (used in event; 0 if N/A).
  */
 void ubi_secure_budget_metadata_post(struct ubi_device *ubi, enum ubi_secure_domain domain,
 				     uint64_t post_counter, uint8_t kv, uint32_t vol_id);
@@ -120,6 +128,12 @@ int ubi_secure_budget_leb_pre(struct ubi_device *ubi, uint8_t kv, uint32_t vol_i
  *
  * Emits KEY_ROTATE_SOON when usage crosses ROTATE_SOON_PCT.  Defensively
  * also re-emits KEY_ROTATE_NOW if the post-write usage exceeds NOW.
+ *
+ * \param[in,out] ubi          UBI device (caller holds mutex).
+ * \param[in]     kv           Write-active key version.
+ * \param[in]     vol_id       Volume id.
+ * \param[in]     post_counter Per-LEB counter value reached after the write.
+ * \param[in]     post_bytes   Per-LEB authenticated-byte total reached.
  */
 void ubi_secure_budget_leb_post(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id,
 				uint64_t post_counter, uint64_t post_bytes);

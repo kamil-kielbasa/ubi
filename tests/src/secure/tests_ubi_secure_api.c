@@ -152,10 +152,10 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
 
-	zassert_equal(ubi_secure_get_write_active_key_version(NULL, &kv), -EINVAL);
+	zassert_equal(ubi_secure_key_get_active_version(NULL, &kv), -EINVAL);
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
-	zassert_equal(ubi_secure_get_write_active_key_version(ubi, NULL), -EINVAL);
+	zassert_equal(ubi_secure_key_get_active_version(ubi, NULL), -EINVAL);
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -165,7 +165,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
  * \expect -ENOTSUP when device was initialized with crypto_cfg=NULL.
  *
  * \details Scenario: Initialize device with crypto_cfg=NULL (plain mode). Call
- *          ubi_secure_get_write_active_key_version with the device handle and an output
+ *          ubi_secure_key_get_active_version with the device handle and an output
  *          buffer. Deinit.
  */
 ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
@@ -174,7 +174,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
 	uint8_t kv = 0xAA;
 
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	zassert_equal(ubi_secure_get_write_active_key_version(ubi, &kv), -ENOTSUP);
+	zassert_equal(ubi_secure_key_get_active_version(ubi, &kv), -ENOTSUP);
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -194,7 +194,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
 	uint8_t kv = 0;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
-	zassert_ok(ubi_secure_get_write_active_key_version(ubi, &kv));
+	zassert_ok(ubi_secure_key_get_active_version(ubi, &kv));
 	zassert_equal(kv, 1, "expected formatted kv=1, got %u", kv);
 	zassert_ok(ubi_device_deinit(ubi));
 
@@ -208,7 +208,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
 	ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 	kv = 0;
-	zassert_ok(ubi_secure_get_write_active_key_version(ubi, &kv));
+	zassert_ok(ubi_secure_key_get_active_version(ubi, &kv));
 	zassert_equal(kv, 2, "expected post-rotation kv=2, got %u", kv);
 	zassert_ok(ubi_device_deinit(ubi));
 }

@@ -96,7 +96,7 @@ static inline void ubi_secure_reserved_refcount_inc(struct ubi_device *ubi, uint
  * \return Freshness descriptor.
  */
 static inline struct ubi_crypto_freshness
-ubi_secure_freshness_snapshot(const struct ubi_device *ubi)
+ubi_secure_freshness_get_snapshot(const struct ubi_device *ubi)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
@@ -116,7 +116,7 @@ ubi_secure_freshness_snapshot(const struct ubi_device *ubi)
  * \param[in,out] ubi    UBI device (caller holds mutex).
  * \param[in]     event  Event payload to emit.
  */
-static inline void ubi_secure_emit_event(struct ubi_device *ubi,
+static inline void ubi_secure_event_emit(struct ubi_device *ubi,
 					 const struct ubi_crypto_event *event)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -163,11 +163,11 @@ static inline void ubi_secure_key_refcount_dec_and_check(struct ubi_device *ubi,
 	    kv != ubi->crypto_cfg->policy.requested_write_key_version) {
 		const struct ubi_crypto_event event = {
 			.type = UBI_CRYPTO_EVENT_KEY_RETIRABLE,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.rotation = { .key_version = kv },
 		};
 
-		ubi_secure_emit_event(ubi, &event);
+		ubi_secure_event_emit(ubi, &event);
 	}
 }
 
@@ -209,7 +209,7 @@ static inline void ubi_secure_reserved_refcount_dec(struct ubi_device *ubi, uint
  *
  * \param[in,out] ubi  UBI device (caller holds mutex).
  */
-static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
+static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
@@ -225,7 +225,7 @@ static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
 		return;
 	}
 
-	const struct ubi_crypto_freshness freshness = ubi_secure_freshness_snapshot(ubi);
+	const struct ubi_crypto_freshness freshness = ubi_secure_freshness_get_snapshot(ubi);
 
 	const int rc = ubi->crypto_cfg->sync_freshness(&freshness, ubi->crypto_cfg->user_data);
 
@@ -242,7 +242,7 @@ static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
 			.sync = { .sync_errno = rc },
 		};
 
-		ubi_secure_emit_event(ubi, &event);
+		ubi_secure_event_emit(ubi, &event);
 
 #if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE)
 		ubi->read_only_crypto = true;
@@ -250,20 +250,6 @@ static inline void ubi_secure_maybe_sync_freshness(struct ubi_device *ubi)
 	}
 }
 
-/**
- * \brief Check LEB usage budgets and emit rotation events if thresholds crossed.
- *
- * Computes the maximum usage percentage across the counter budget
- * (UBI_CRYPTO_LEB_WRITE_BUDGET) and the byte budget
- * (UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET). If the percentage crosses
- * ROTATE_SOON_PCT or ROTATE_NOW_PCT, the corresponding event is emitted.
- *
- * \param[in,out] ubi        UBI device (caller holds mutex).
- * \param[in]     kv         Key version used for this write.
- * \param[in]     vol_id     Volume ID.
- * \param[in]     counter    New leb_write_counter value after this write.
- * \param[in]     auth_bytes New leb_total_auth_bytes after this write.
- */
 /**
  * \brief Compute usage percentage from a value and budget.
  *
@@ -303,7 +289,7 @@ static inline unsigned int ubi_secure_usage_pct(uint64_t value, uint64_t budget)
  * \retval 0    A crypto event was emitted for the recognized error code.
  * \retval ret  Unrecognized error code — no event emitted, original error returned.
  */
-static inline int ubi_secure_handle_write_error(struct ubi_device *ubi, int ret, uint32_t pnum)
+static inline int ubi_secure_event_handle_write_error(struct ubi_device *ubi, int ret, uint32_t pnum)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
@@ -311,10 +297,10 @@ static inline int ubi_secure_handle_write_error(struct ubi_device *ubi, int ret,
 	case -UBI_SECURE_ENORAND: {
 		const struct ubi_crypto_event ev = {
 			.type = UBI_CRYPTO_EVENT_RNG_FAILURE,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.rng = { .rng_errno = ret },
 		};
-		ubi_secure_emit_event(ubi, &ev);
+		ubi_secure_event_emit(ubi, &ev);
 #if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE)
 		ubi->read_only_crypto = true;
 #endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE */
@@ -323,11 +309,11 @@ static inline int ubi_secure_handle_write_error(struct ubi_device *ubi, int ret,
 	case -UBI_SECURE_ENOKEY: {
 		const struct ubi_crypto_event ev = {
 			.type = UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.key = { .key_version =
 					 ubi->crypto_cfg->policy.requested_write_key_version },
 		};
-		ubi_secure_emit_event(ubi, &ev);
+		ubi_secure_event_emit(ubi, &ev);
 		return 0;
 	}
 	default:
@@ -351,7 +337,7 @@ static inline int ubi_secure_handle_write_error(struct ubi_device *ubi, int ret,
  * \retval 0    A crypto event was emitted for the recognized error code.
  * \retval ret  Unrecognized error code — no event emitted, original error returned.
  */
-static inline int ubi_secure_handle_read_error(struct ubi_device *ubi, int ret, uint32_t pnum,
+static inline int ubi_secure_event_handle_read_error(struct ubi_device *ubi, int ret, uint32_t pnum,
 					       uint8_t domain, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
@@ -360,28 +346,28 @@ static inline int ubi_secure_handle_read_error(struct ubi_device *ubi, int ret, 
 	case -UBI_SECURE_ENOKEY: {
 		const struct ubi_crypto_event ev = {
 			.type = UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.key = { .key_version = kv },
 		};
-		ubi_secure_emit_event(ubi, &ev);
+		ubi_secure_event_emit(ubi, &ev);
 		return 0;
 	}
 	case -EBADMSG: {
 		const struct ubi_crypto_event ev = {
 			.type = UBI_CRYPTO_EVENT_AUTH_FAILURE,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.auth = { .peb_index = pnum, .domain = domain },
 		};
-		ubi_secure_emit_event(ubi, &ev);
+		ubi_secure_event_emit(ubi, &ev);
 		return 0;
 	}
 	case -UBI_SECURE_EFORMAT: {
 		const struct ubi_crypto_event ev = {
 			.type = UBI_CRYPTO_EVENT_FORMAT_VIOLATION,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.auth = { .peb_index = pnum, .domain = domain },
 		};
-		ubi_secure_emit_event(ubi, &ev);
+		ubi_secure_event_emit(ubi, &ev);
 		return 0;
 	}
 	default:
@@ -395,14 +381,13 @@ static inline int ubi_secure_handle_read_error(struct ubi_device *ubi, int ret, 
  * Returns true if the key version is allowlisted, false otherwise. When
  * rejected, emits KEY_VERSION_NOT_ALLOWLISTED.
  *
- * \param[in,out] ubi   UBI device (caller holds mutex).
- * \param[in]     kv    Key version from on-flash prefix.
- * \param[in]     pnum  PEB index.
+ * \param[in,out] ubi UBI device (caller holds mutex).
+ * \param[in]     kv  Key version from on-flash prefix.
  *
  * \retval true   Key version is allowed.
  * \retval false  Key version rejected — event emitted.
  */
-static inline bool ubi_secure_check_allowlist(struct ubi_device *ubi, uint8_t kv, uint32_t pnum)
+static inline bool ubi_secure_policy_check_allowlist(struct ubi_device *ubi, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
@@ -413,10 +398,10 @@ static inline bool ubi_secure_check_allowlist(struct ubi_device *ubi, uint8_t kv
 
 	const struct ubi_crypto_event ev = {
 		.type = UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED,
-		.freshness = ubi_secure_freshness_snapshot(ubi),
+		.freshness = ubi_secure_freshness_get_snapshot(ubi),
 		.key = { .key_version = kv },
 	};
-	ubi_secure_emit_event(ubi, &ev);
+	ubi_secure_event_emit(ubi, &ev);
 	return false;
 }
 

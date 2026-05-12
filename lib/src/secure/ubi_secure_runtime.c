@@ -124,7 +124,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 				      write_kv, ubi->next_ec_counter);
 	if (ret != 0) {
 		LOG_ERR("EC header write failure");
-		ubi_secure_handle_write_error(ubi, ret, entry->value.pnum);
+		ubi_secure_event_handle_write_error(ubi, ret, entry->value.pnum);
 		goto mark_bad;
 	}
 
@@ -284,7 +284,7 @@ int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *i
 	return 0;
 }
 
-int ubi_secure_get_write_active_key_version(struct ubi_device *ubi, uint8_t *out_kv)
+int ubi_secure_key_get_active_version(struct ubi_device *ubi, uint8_t *out_kv)
 {
 	if (ubi == NULL || out_kv == NULL) {
 		LOG_ERR("get_write_active_key_version: NULL argument");
@@ -355,7 +355,7 @@ int ubi_secure_device_erase_peb(struct ubi_device *ubi)
 	}
 
 	if (ret == 0) {
-		ubi_secure_maybe_sync_freshness(ubi);
+		ubi_secure_freshness_maybe_sync(ubi);
 	}
 
 exit:
@@ -379,7 +379,7 @@ exit:
 	return ret;
 }
 
-void ubi_secure_try_refill_reserve(struct ubi_device *ubi)
+void ubi_secure_anchor_try_refill_reserve(struct ubi_device *ubi)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 

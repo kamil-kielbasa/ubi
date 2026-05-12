@@ -93,6 +93,6 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
  *
  * \param[in,out] ubi UBI device.
  */
-void ubi_secure_try_refill_reserve(struct ubi_device *ubi);
+void ubi_secure_anchor_try_refill_reserve(struct ubi_device *ubi);
 
 #endif /* UBI_SECURE_ANCHOR_H */

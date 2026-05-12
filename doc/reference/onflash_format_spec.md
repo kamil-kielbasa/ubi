@@ -2533,7 +2533,7 @@ reinit:
 
 ### 20.9 Emergency reserve
 
-The write path calls `ubi_secure_try_refill_reserve()` before checking
+The write path calls `ubi_secure_anchor_try_refill_reserve()` before checking
 `free_peb_count`. If the free pool is empty but dirty PEBs exist, one
 dirty PEB is erased (with anchor witness check) to restore headroom.
 This prevents deadlock where a write needs a free PEB for both the

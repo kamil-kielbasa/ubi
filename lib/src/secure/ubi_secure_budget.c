@@ -242,11 +242,11 @@ static void emit_rotate_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id,
 
 	const struct ubi_crypto_event ev = {
 		.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-		.freshness = ubi_secure_freshness_snapshot(ubi),
+		.freshness = ubi_secure_freshness_get_snapshot(ubi),
 		.rotation = { .key_version = kv, .volume_id = vol_id, .usage_pct = pct },
 	};
 
-	ubi_secure_emit_event(ubi, &ev);
+	ubi_secure_event_emit(ubi, &ev);
 	ubi->read_only_crypto = true;
 }
 
@@ -277,11 +277,11 @@ static void emit_post_event(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id,
 
 	const struct ubi_crypto_event ev = {
 		.type = type,
-		.freshness = ubi_secure_freshness_snapshot(ubi),
+		.freshness = ubi_secure_freshness_get_snapshot(ubi),
 		.rotation = { .key_version = kv, .volume_id = vol_id, .usage_pct = (uint8_t)pct },
 	};
 
-	ubi_secure_emit_event(ubi, &ev);
+	ubi_secure_event_emit(ubi, &ev);
 }
 
 static void metadata_effective(const struct ubi_device *ubi, enum ubi_secure_domain domain,
@@ -314,7 +314,7 @@ static bool metadata_domain_valid(const char *func, enum ubi_secure_domain domai
 
 /* Module interface function definitions -------------------------------------------------------- */
 
-void ubi_secure_budget_init_bases(struct ubi_device *ubi, bool rotation_happened)
+void ubi_secure_budget_bases_init(struct ubi_device *ubi, bool rotation_happened)
 {
 	if (ubi == NULL) {
 		LOG_ERR("budget_init_bases: NULL ubi");

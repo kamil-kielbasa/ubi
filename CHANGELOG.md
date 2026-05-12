@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.87.0] - 2026-05-12
+
+### Changed
+
+- Secure-backend symbol names now follow the project's
+  `ubi_<module>_<noun>_<verb>` convention so the owning subsystem is
+  visible from the identifier alone. Event-, freshness-, budget-,
+  policy- and key-family entry points were renamed accordingly; the
+  only public-ABI rename is `ubi_secure_get_write_active_key_version`
+  → `ubi_secure_key_get_active_version` in `ubi_crypto.h`. Call
+  semantics are unchanged.
+
+- `ubi_secure_policy_check_allowlist()` no longer takes a `pnum`
+  argument. The allowlist decision is a pure function of
+  `(policy, key_version)`; the PEB index was never consulted and its
+  presence falsely suggested the decision could vary per-PEB.
+
+- Doxygen and inline comments brought back in sync with the code:
+  the post-write budget helpers now document their parameters (the
+  pre-write twins already did), the stale "Check LEB usage budgets"
+  block above `ubi_secure_usage_pct()` in `ubi_secure_event.h` --
+  describing a function deleted in v0.85.0 -- was removed, and the
+  duplicate-anchor branch in `scan_map_first()` now explains the
+  crash-mid-rewrite scenario that produces two authenticated anchor
+  copies and why higher sqnum is the correct tie-break.
+
 ## [0.86.0] - 2026-05-12
 
 ### Changed

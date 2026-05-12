@@ -232,7 +232,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
-			ubi_secure_handle_write_error(ubi, ret, new_node->value.pnum);
+			ubi_secure_event_handle_write_error(ubi, ret, new_node->value.pnum);
 			leb_mark_peb_bad(ubi, new_node);
 			return ret;
 		}
@@ -246,7 +246,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 				       &vid_hdr, &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("VID header write failure");
-		ubi_secure_handle_write_error(ubi, ret, new_node->value.pnum);
+		ubi_secure_event_handle_write_error(ubi, ret, new_node->value.pnum);
 		leb_mark_peb_bad(ubi, new_node);
 		return ret;
 	}
@@ -335,7 +335,7 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 	}
 
 	/* Preserve emergency free-PEB reserve. */
-	ubi_secure_try_refill_reserve(ubi);
+	ubi_secure_anchor_try_refill_reserve(ubi);
 
 	if (ubi->free_peb_count == 0) {
 		LOG_ERR("Lack of free PEBs");
@@ -365,7 +365,7 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 
 	leb_commit_mapping_swap(ubi, vol, lnum, new_node);
 
-	ubi_secure_maybe_sync_freshness(ubi);
+	ubi_secure_freshness_maybe_sync(ubi);
 
 exit:
 	k_mutex_unlock(&ubi->mutex);
@@ -414,13 +414,13 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
-		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum,
+		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum,
 					     UBI_SECURE_DOMAIN_ERASE_COUNTER, ec_ctx.key_version);
 		goto exit;
 	}
 
 	/* Check EC key version against allowlist. */
-	if (!ubi_secure_check_allowlist(ubi, ec_ctx.key_version, entry->value.pnum)) {
+	if (!ubi_secure_policy_check_allowlist(ubi, ec_ctx.key_version)) {
 		LOG_ERR("Key version not in allowlist");
 		ret = -EACCES;
 		goto exit;
@@ -435,14 +435,14 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 				      &vid_hdr, &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");
-		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum,
+		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum,
 					     UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
 					     vid_ctx.key_version);
 		goto exit;
 	}
 
 	/* Check VID key version against allowlist. */
-	if (!ubi_secure_check_allowlist(ubi, vid_ctx.key_version, entry->value.pnum)) {
+	if (!ubi_secure_policy_check_allowlist(ubi, vid_ctx.key_version)) {
 		LOG_ERR("Key version not in allowlist");
 		ret = -EACCES;
 		goto exit;
@@ -466,7 +466,7 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 	if (ret != 0) {
 		LOG_ERR("LEB data read failure");
-		ubi_secure_handle_read_error(ubi, ret, entry->value.pnum, UBI_SECURE_DOMAIN_LEB,
+		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum, UBI_SECURE_DOMAIN_LEB,
 					     vid_ctx.key_version);
 		goto exit;
 	}
@@ -512,7 +512,7 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 	}
 
 	/* Preserve emergency free-PEB reserve. */
-	ubi_secure_try_refill_reserve(ubi);
+	ubi_secure_anchor_try_refill_reserve(ubi);
 
 	if (ubi->free_peb_count == 0) {
 		LOG_ERR("Lack of free PEBs");
@@ -536,7 +536,7 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 
 	leb_commit_mapping_swap(ubi, vol, lnum, new_node);
 
-	ubi_secure_maybe_sync_freshness(ubi);
+	ubi_secure_freshness_maybe_sync(ubi);
 
 exit:
 	k_mutex_unlock(&ubi->mutex);

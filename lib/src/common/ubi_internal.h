@@ -130,7 +130,7 @@ struct ubi_device {
 	/* Per-domain budget bases — counter values at the moment the current
 	 * write-active key version was activated.  Subtraction yields the true
 	 * number of AEAD invocations performed under the active kv.  RAM-only;
-	 * captured by ubi_secure_budget_init_bases() during attach.  DEVICE_HEADER
+	 * captured by ubi_secure_budget_bases_init() during attach.  DEVICE_HEADER
 	 * and VOLUME_HEADER are tracked separately even though they share the
 	 * on-flash counter (next_dev_hdr_counter): they use distinct HKDF
 	 * child keys and have different per-record AAD sizes, so the VOLUME_HEADER

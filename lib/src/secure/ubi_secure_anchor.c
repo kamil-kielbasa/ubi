@@ -104,11 +104,11 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 		LOG_ERR("VID counter overflow");
 		const struct ubi_crypto_event event = {
 			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
+			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.rotation = { .key_version = write_kv,
 				      .usage_pct = UBI_SECURE_PERCENT_BASE },
 		};
-		ubi_secure_emit_event(ubi, &event);
+		ubi_secure_event_emit(ubi, &event);
 		ret = -EOVERFLOW;
 		goto mark_bad;
 	}

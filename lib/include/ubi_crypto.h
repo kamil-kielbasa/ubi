@@ -256,6 +256,6 @@ struct ubi_device;
  * \retval -EINVAL  NULL pointer.
  * \retval -ENOTSUP Device is not in secure mode.
  */
-int ubi_secure_get_write_active_key_version(struct ubi_device *ubi, uint8_t *out_kv);
+int ubi_secure_key_get_active_version(struct ubi_device *ubi, uint8_t *out_kv);
 
 #endif /* UBI_CRYPTO_H */

@@ -475,7 +475,15 @@ static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_
 	/* Hidden anchor PEB — track in volume, not in EBA table. */
 	if (vid_hdr->lnum == UBI_SECURE_INTERNAL_ANCHOR_LNUM) {
 		if (vol->anchor_pnum != SIZE_MAX) {
-			/* Duplicate anchor — keep the one with higher sqnum. */
+			/* Duplicate anchor — can occur when a crash interrupts an
+			 * anchor rewrite (ubi_secure_anchor_rewrite_for_dirty_witness)
+			 * after the new anchor was committed to flash but before the
+			 * old anchor PEB could be retired to the dirty pool.  Both
+			 * PEBs authenticate correctly; the scan resolves by keeping
+			 * the higher-sqnum copy (always the new one because the
+			 * rewrite increments the global sqnum before writing).  The
+			 * older copy is moved to dirty so it gets erased on the next
+			 * maintenance cycle. */
 			struct ubi_ec_hdr old_ec = { 0 };
 			struct ubi_secure_ec_auth_ctx old_ec_ctx = { 0 };
 			struct ubi_vid_hdr old_vid = { 0 };
@@ -839,7 +847,7 @@ static int secure_format(const struct ubi_flash_desc *flash,
 
 	/* Fresh format under the requested write_active_kv — no rotation,
 	 * cumulative budget bases stay at zero. */
-	ubi_secure_budget_init_bases(ubi_dev, false);
+	ubi_secure_budget_bases_init(ubi_dev, false);
 
 	return 0;
 }
@@ -1246,7 +1254,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	 * format the value is always false (set above).  See secure_architecture.md
 	 * §9.7. */
 	if (any_secure) {
-		ubi_secure_budget_init_bases(ubi_dev, rotation_happened);
+		ubi_secure_budget_bases_init(ubi_dev, rotation_happened);
 	}
 
 	/* Re-create missing hidden anchors for orphaned volumes.
@@ -1296,7 +1304,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 				.freshness = freshness,
 				.rollback = { ._reserved = 0 },
 			};
-			ubi_secure_emit_event(ubi_dev, &ev);
+			ubi_secure_event_emit(ubi_dev, &ev);
 #if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE)
 			ubi_dev->read_only_crypto = true;
 #endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE */

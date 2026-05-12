@@ -388,7 +388,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	}
 
 	*vol_id = vol->vol_id;
-	ubi_secure_maybe_sync_freshness(ubi);
+	ubi_secure_freshness_maybe_sync(ubi);
 	ret = 0;
 
 exit:
@@ -537,7 +537,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	}
 
 	vol->cfg.leb_count = vol_cfg->leb_count;
-	ubi_secure_maybe_sync_freshness(ubi);
+	ubi_secure_freshness_maybe_sync(ubi);
 	ret = 0;
 
 exit:
@@ -667,7 +667,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	ubi_mem_volume_free(vol_entry->value.vol);
 	ubi_mem_leaf_free(vol_entry);
 
-	ubi_secure_maybe_sync_freshness(ubi);
+	ubi_secure_freshness_maybe_sync(ubi);
 	ret = 0;
 
 exit:
