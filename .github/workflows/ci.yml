@@ -33,6 +33,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      - name: Pull CI image (with retry)
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$CI_IMAGE" && break
+            echo "Pull attempt $i failed, retrying in $((i*10))s..."
+            sleep $((i*10))
+          done
+
       - name: Check formatting
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
@@ -58,6 +66,14 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           path: ubi
+
+      - name: Pull CI image (with retry)
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$CI_IMAGE" && break
+            echo "Pull attempt $i failed, retrying in $((i*10))s..."
+            sleep $((i*10))
+          done
 
       - name: Initialize west workspace
         run: |
@@ -120,6 +136,14 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           path: ubi
+
+      - name: Pull CI image (with retry)
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$CI_IMAGE" && break
+            echo "Pull attempt $i failed, retrying in $((i*10))s..."
+            sleep $((i*10))
+          done
 
       - name: Initialize west workspace
         run: |
@@ -189,6 +213,14 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           path: ubi
+
+      - name: Pull CI image (with retry)
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$CI_IMAGE" && break
+            echo "Pull attempt $i failed, retrying in $((i*10))s..."
+            sleep $((i*10))
+          done
 
       - name: Initialize west workspace
         run: |
@@ -274,6 +306,14 @@ jobs:
         with:
           path: ubi
 
+      - name: Pull CI image (with retry)
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$CI_IMAGE" && break
+            echo "Pull attempt $i failed, retrying in $((i*10))s..."
+            sleep $((i*10))
+          done
+
       - name: Initialize west workspace
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE":/ws -w /ws \
@@ -357,6 +397,14 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           path: ubi
+
+      - name: Pull CI image (with retry)
+        run: |
+          for i in 1 2 3 4 5; do
+            docker pull "$CI_IMAGE" && break
+            echo "Pull attempt $i failed, retrying in $((i*10))s..."
+            sleep $((i*10))
+          done
 
       - name: Initialize west workspace
         run: |
