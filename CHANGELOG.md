@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.93.0] - 2026-05-12
+
+### Changed
+
+- The 19 random byte arrays used by the test suite were moved from
+  inline `static const` definitions in `tests/src/common/arrays.h` into
+  a single `tests/src/common/arrays.c` translation unit. The header now
+  only declares them as `extern const uint8_t array_N[N]`, so
+  `sizeof(array_N)` keeps working unchanged. Each array's `.rodata`
+  payload is emitted exactly once for the whole test binary instead of
+  being duplicated by every translation unit that included the header,
+  which shrinks the test ROM footprint and speeds up the build.
+
 ## [0.92.0] - 2026-05-12
 
 ### Changed

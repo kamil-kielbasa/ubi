@@ -44,6 +44,8 @@ endif()
 target_include_directories(app PRIVATE src/common)
 target_include_directories(app PRIVATE src/secure)
 
+target_sources(app PRIVATE src/common/arrays.c)
+
 if(CONFIG_UBI_CRYPTO)
     target_include_directories(app PRIVATE ../lib/src/secure)
     target_include_directories(app PRIVATE ../lib/src/plain)
