@@ -70,10 +70,9 @@ static void *ztest_suite_setup(void)
 static void ztest_suite_before(void *ctx)
 {
 	(void)ctx;
-	auth_failure_count = 0;
+	ubi_test_secure_before_impl();
 	g_ubi = NULL;
-	ubi_test_partition_force_release_all();
-	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
+	auth_failure_count = 0;
 }
 
 static void ztest_suite_after(void *ctx)

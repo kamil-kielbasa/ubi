@@ -154,4 +154,23 @@ static inline void ubi_test_secure_suite_setup_impl(struct ubi_flash_desc *flash
 	ubi_test_import_root_key();
 }
 
+/**
+ * \brief Reset shared test state between secure-suite test cases.
+ *
+ * \details Encapsulates the boilerplate that most secure test files'
+ *          `ztest_suite_before()` callbacks repeat: release any partition
+ *          handles still held by the previous test, reset the test
+ *          allocator fault injector to its default permissive state, and
+ *          erase the entire `ubi_partition` so the next test starts from
+ *          a known blank flash. Files that also track an alias-globalka
+ *          such as `g_ubi` are expected to clear it themselves after the
+ *          call; this helper does not know about per-file globals.
+ */
+static inline void ubi_test_secure_before_impl(void)
+{
+	ubi_test_partition_force_release_all();
+	ubi_test_fault_reset();
+	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
+}
+
 #endif /* UBI_TEST_SECURE_FIXTURE_H */

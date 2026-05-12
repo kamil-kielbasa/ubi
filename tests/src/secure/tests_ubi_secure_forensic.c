@@ -128,10 +128,8 @@ static void *ztest_suite_setup(void)
 static void ztest_suite_before(void *ctx)
 {
 	(void)ctx;
+	ubi_test_secure_before_impl();
 	g_ubi = NULL;
-	ubi_test_fault_reset();
-	ubi_test_partition_force_release_all();
-	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
 }
 
 static void ztest_testcase_after(void *ctx)

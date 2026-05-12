@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.95.0] - 2026-05-12
+
+### Changed
+
+- The `ztest_suite_before()` boilerplate that 21 secure test files
+  duplicated (release partition handles, reset the test allocator fault
+  injector, erase the entire `ubi_partition`) is now a single
+  `static inline` `ubi_test_secure_before_impl()` in
+  `tests/src/secure/ubi_test_secure_fixture.h`. Files that also track
+  per-file globals such as `g_ubi`, `ts`, or local auth-failure counters
+  keep their one-line reset right after the call, so the per-test state
+  policy is still visible at the call site. The dual-partition
+  coexistence test keeps its bespoke before-callback because it erases
+  two partitions.
+
 ## [0.94.0] - 2026-05-12
 
 ### Changed
