@@ -329,23 +329,24 @@ BUILD_ASSERT(UBI_SECURE_LEB_CHUNK_AAD_SIZE == 78, "LEB chunked AAD size composit
 
 /* DEVICE_HEADER domain. */
 BUILD_ASSERT(UBI_SECURE_DEV_HDR_SIZE == UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_dev_hdr) +
-						 sizeof(struct ubi_dev_secure_meta) +
-						 UBI_SECURE_TAG_SIZE,
+						sizeof(struct ubi_dev_secure_meta) +
+						UBI_SECURE_TAG_SIZE,
 	     "UBI_SECURE_DEV_HDR_SIZE drifted from struct ubi_dev_hdr + ubi_dev_secure_meta");
-BUILD_ASSERT(UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE ==
-		     sizeof(struct ubi_dev_hdr) + sizeof(struct ubi_dev_secure_meta),
-	     "UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE drifted from struct ubi_dev_hdr + ubi_dev_secure_meta");
+BUILD_ASSERT(
+	UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE ==
+		sizeof(struct ubi_dev_hdr) + sizeof(struct ubi_dev_secure_meta),
+	"UBI_SECURE_DEV_HDR_PLAINTEXT_SIZE drifted from struct ubi_dev_hdr + ubi_dev_secure_meta");
 
 /* VOLUME_HEADER domain. */
-BUILD_ASSERT(UBI_SECURE_VOL_HDR_SIZE == UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_vol_hdr) +
-						 UBI_SECURE_TAG_SIZE,
+BUILD_ASSERT(UBI_SECURE_VOL_HDR_SIZE ==
+		     UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_vol_hdr) + UBI_SECURE_TAG_SIZE,
 	     "UBI_SECURE_VOL_HDR_SIZE drifted from struct ubi_vol_hdr layout");
 BUILD_ASSERT(UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE == sizeof(struct ubi_vol_hdr),
 	     "UBI_SECURE_VOL_HDR_PLAINTEXT_SIZE drifted from struct ubi_vol_hdr layout");
 
 /* ERASE_COUNTER domain. */
-BUILD_ASSERT(UBI_SECURE_EC_HDR_SIZE == UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_ec_hdr) +
-						 UBI_SECURE_TAG_SIZE,
+BUILD_ASSERT(UBI_SECURE_EC_HDR_SIZE ==
+		     UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_ec_hdr) + UBI_SECURE_TAG_SIZE,
 	     "UBI_SECURE_EC_HDR_SIZE drifted from struct ubi_ec_hdr layout");
 BUILD_ASSERT(UBI_SECURE_PLAIN_EC_HDR_SIZE == sizeof(struct ubi_ec_hdr),
 	     "UBI_SECURE_PLAIN_EC_HDR_SIZE drifted from struct ubi_ec_hdr layout");
@@ -355,9 +356,10 @@ BUILD_ASSERT(UBI_SECURE_DATA_VID_SIZE == UBI_SECURE_PREFIX_SIZE + sizeof(struct 
 						 sizeof(struct ubi_vid_secure_meta) +
 						 UBI_SECURE_TAG_SIZE,
 	     "UBI_SECURE_DATA_VID_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
-BUILD_ASSERT(UBI_SECURE_DATA_VID_PLAINTEXT_SIZE ==
-		     sizeof(struct ubi_vid_hdr) + sizeof(struct ubi_vid_secure_meta),
-	     "UBI_SECURE_DATA_VID_PLAINTEXT_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
+BUILD_ASSERT(
+	UBI_SECURE_DATA_VID_PLAINTEXT_SIZE ==
+		sizeof(struct ubi_vid_hdr) + sizeof(struct ubi_vid_secure_meta),
+	"UBI_SECURE_DATA_VID_PLAINTEXT_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
 BUILD_ASSERT(UBI_SECURE_PLAIN_VID_HDR_SIZE == sizeof(struct ubi_vid_hdr),
 	     "UBI_SECURE_PLAIN_VID_HDR_SIZE drifted from struct ubi_vid_hdr layout");
 
