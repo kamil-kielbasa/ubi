@@ -351,14 +351,15 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 
 	/* Recover monotonic counter state from per-volume RAM cache (anchor +
 	 * all on-flash evidence, refreshed by attach scan + every commit). */
-	uint64_t old_wc = 0;
-	uint64_t old_tab = 0;
+	uint64_t prev_leb_write_counter = 0;
+	uint64_t prev_leb_total_auth_bytes = 0;
 
-	leb_get_volume_counter_floor(vol, &old_wc, &old_tab);
+	leb_get_volume_counter_floor(vol, &prev_leb_write_counter, &prev_leb_total_auth_bytes);
 
 	struct ubi_rbt_item *new_node = NULL;
 
-	ret = leb_prepare_new_mapping(ubi, vol, lnum, buf, len, old_wc, old_tab, &new_node);
+	ret = leb_prepare_new_mapping(ubi, vol, lnum, buf, len, prev_leb_write_counter,
+				      prev_leb_total_auth_bytes, &new_node);
 	if (ret != 0) {
 		goto exit;
 	}
@@ -523,14 +524,15 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 
 	/* Map is a zero-length write -- inherit the cached volume counter floor
 	 * so the new mapping respects per-{kv, vol_id} AEAD nonce monotonicity. */
-	uint64_t old_wc = 0;
-	uint64_t old_tab = 0;
+	uint64_t prev_leb_write_counter = 0;
+	uint64_t prev_leb_total_auth_bytes = 0;
 
-	leb_get_volume_counter_floor(vol, &old_wc, &old_tab);
+	leb_get_volume_counter_floor(vol, &prev_leb_write_counter, &prev_leb_total_auth_bytes);
 
 	struct ubi_rbt_item *new_node = NULL;
 
-	ret = leb_prepare_new_mapping(ubi, vol, lnum, NULL, 0, old_wc, old_tab, &new_node);
+	ret = leb_prepare_new_mapping(ubi, vol, lnum, NULL, 0, prev_leb_write_counter,
+				      prev_leb_total_auth_bytes, &new_node);
 	if (ret != 0) {
 		goto exit;
 	}

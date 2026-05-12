@@ -55,10 +55,10 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * \return 0 on success, or negative errno (-EBADMSG on auth failure, -EIO on
  *         crypto/I/O error).
  */
-static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
-				psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
-				struct ubi_dev_secure_meta *dev_meta,
-				struct ubi_crypto_prefix32 *prefix);
+static int dev_hdr_aead_decrypt_unpack(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
+				       psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
+				       struct ubi_dev_secure_meta *dev_meta,
+				       struct ubi_crypto_prefix32 *prefix);
 
 /**
  * \brief Encrypt and serialize one reserved-PEB device-header record.
@@ -77,10 +77,11 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
  *
  * \return 0 on success, or negative errno on failure.
  */
-static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
-			   const struct ubi_dev_secure_meta *dev_meta, psa_key_id_t child_key_id,
-			   uint8_t key_version, uint64_t counter, size_t peb_idx,
-			   uint64_t flash_offset, uint8_t *out_buf);
+static int dev_hdr_pack_aead_encrypt(const struct ubi_dev_hdr *dev_hdr,
+				     const struct ubi_dev_secure_meta *dev_meta,
+				     psa_key_id_t child_key_id, uint8_t key_version,
+				     uint64_t counter, size_t peb_idx, uint64_t flash_offset,
+				     uint8_t *out_buf);
 
 /**
  * \brief Encrypt and serialize one reserved-PEB volume-header record.
@@ -97,17 +98,17 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
  *
  * \return 0 on success, or negative errno on failure.
  */
-static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child_key_id,
-			   uint8_t key_version, uint64_t counter, size_t peb_idx,
-			   uint64_t flash_offset, uint64_t device_revision, uint8_t parent_kv,
-			   uint8_t *out_buf);
+static int vol_hdr_pack_aead_encrypt(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child_key_id,
+				     uint8_t key_version, uint64_t counter, size_t peb_idx,
+				     uint64_t flash_offset, uint64_t device_revision,
+				     uint8_t parent_kv, uint8_t *out_buf);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
-				psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
-				struct ubi_dev_secure_meta *dev_meta,
-				struct ubi_crypto_prefix32 *prefix)
+static int dev_hdr_aead_decrypt_unpack(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
+				       psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
+				       struct ubi_dev_secure_meta *dev_meta,
+				       struct ubi_crypto_prefix32 *prefix)
 {
 	__ASSERT_NO_MSG(raw != NULL);
 	__ASSERT_NO_MSG(dev_hdr != NULL);
@@ -177,10 +178,11 @@ static int authenticate_dev_hdr(const uint8_t *raw, size_t peb_idx, uint64_t fla
 	return 0;
 }
 
-static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
-			   const struct ubi_dev_secure_meta *dev_meta, psa_key_id_t child_key_id,
-			   uint8_t key_version, uint64_t counter, size_t peb_idx,
-			   uint64_t flash_offset, uint8_t *out_buf)
+static int dev_hdr_pack_aead_encrypt(const struct ubi_dev_hdr *dev_hdr,
+				     const struct ubi_dev_secure_meta *dev_meta,
+				     psa_key_id_t child_key_id, uint8_t key_version,
+				     uint64_t counter, size_t peb_idx, uint64_t flash_offset,
+				     uint8_t *out_buf)
 {
 	__ASSERT_NO_MSG(dev_hdr != NULL);
 	__ASSERT_NO_MSG(dev_meta != NULL);
@@ -242,10 +244,10 @@ static int encrypt_dev_hdr(const struct ubi_dev_hdr *dev_hdr,
 	return ret;
 }
 
-static int encrypt_vol_hdr(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child_key_id,
-			   uint8_t key_version, uint64_t counter, size_t peb_idx,
-			   uint64_t flash_offset, uint64_t device_revision, uint8_t parent_kv,
-			   uint8_t *out_buf)
+static int vol_hdr_pack_aead_encrypt(const struct ubi_vol_hdr *vol_hdr, psa_key_id_t child_key_id,
+				     uint8_t key_version, uint64_t counter, size_t peb_idx,
+				     uint64_t flash_offset, uint64_t device_revision,
+				     uint8_t parent_kv, uint8_t *out_buf)
 {
 	__ASSERT_NO_MSG(vol_hdr != NULL);
 	__ASSERT_NO_MSG(out_buf != NULL);
@@ -438,7 +440,8 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		struct ubi_dev_secure_meta meta = { 0 };
 		struct ubi_crypto_prefix32 prefix = { 0 };
 
-		ret = authenticate_dev_hdr(raw, peb, offset, child_key_id, &hdr, &meta, &prefix);
+		ret = dev_hdr_aead_decrypt_unpack(raw, peb, offset, child_key_id, &hdr, &meta,
+						  &prefix);
 		ubi_secure_destroy_key(child_key_id);
 
 		if (ret != 0) {
@@ -662,8 +665,8 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 		}
 
 		/* Encrypt device header (counter, fresh salt per PEB). */
-		ret = encrypt_dev_hdr(dev_hdr, dev_meta, dev_key_id, key_version, counter, peb,
-				      peb_offset, content);
+		ret = dev_hdr_pack_aead_encrypt(dev_hdr, dev_meta, dev_key_id, key_version, counter,
+						peb, peb_offset, content);
 		if (ret != 0) {
 			LOG_ERR("Encrypt dev hdr failed for PEB %zu", peb);
 			continue;
@@ -674,7 +677,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 			const size_t vol_flash_offset = peb_offset + UBI_SECURE_DEV_HDR_SIZE +
 							(v * UBI_SECURE_VOL_HDR_SIZE);
 			/* Volume headers use an incrementing counter after the device header. */
-			ret = encrypt_vol_hdr(
+			ret = vol_hdr_pack_aead_encrypt(
 				&vol_hdrs[v], vol_key_id, key_version, counter + 1 + v, peb,
 				vol_flash_offset, (uint64_t)dev_hdr->revision, key_version,
 				&content[UBI_SECURE_DEV_HDR_SIZE + (v * UBI_SECURE_VOL_HDR_SIZE)]);

@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.88.0] - 2026-05-12
+
+### Changed
+
+- Usage-percentage values now carry the same type end-to-end. The
+  budget helpers (`ubi_secure_usage_pct()` and friends) returned
+  `unsigned int` while the public `ubi_crypto_event.rotation.usage_pct`
+  field is `uint8_t`, so every caller wrote a `(uint8_t)` cast at the
+  emission site. The helpers now return `uint8_t` directly and the
+  casts are gone.
+
+- AEAD entry points reject the under-specified case `aad == NULL &&
+  aad_len != 0` at the boundary with `-EINVAL` instead of forwarding
+  it to PSA, and `ubi_secure_build_label()` rejects `label_cap == 0`
+  before the size check. `ubi_secure_destroy_key()` now logs a warning
+  when PSA reports anything other than success or
+  `PSA_ERROR_INVALID_HANDLE`, so a key-slot leak no longer disappears
+  silently on cleanup paths.
+
+### Renamed
+
+- File-static helpers in `ubi_secure_reserved.c` renamed so the name
+  reflects the operation pipeline (`<object>_<steps-in-order>`):
+  `authenticate_dev_hdr()` → `dev_hdr_aead_decrypt_unpack()` (AEAD
+  decrypt then unpack plaintext into typed structs -- authentication
+  is a side-effect of the AEAD tag check, not the primary action);
+  `encrypt_dev_hdr()` → `dev_hdr_pack_aead_encrypt()` and
+  `encrypt_vol_hdr()` → `vol_hdr_pack_aead_encrypt()` (pack typed
+  struct into the plaintext layout, then AEAD encrypt).
+
+- `old_wc` / `old_tab` locals in `ubi_secure_leb.c` →
+  `prev_leb_write_counter` / `prev_leb_total_auth_bytes`, matching the
+  field names of the cached counter floor they read.
+
 ## [0.87.0] - 2026-05-12
 
 ### Changed

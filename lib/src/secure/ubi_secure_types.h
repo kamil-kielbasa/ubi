@@ -101,6 +101,9 @@ static inline void ubi_secure_zeroize(void *buf, size_t len)
 /** HKDF-SHA-256 child key output length. */
 #define UBI_SECURE_KEY_SIZE (16)
 
+/** HKDF-SHA-256 child key length in bits (used by PSA attributes). */
+#define UBI_SECURE_KEY_BITS (UBI_SECURE_KEY_SIZE * 8)
+
 /** Size of secure device header on flash: prefix(32) + ciphertext(32+16) + tag(16). */
 #define UBI_SECURE_DEV_HDR_SIZE (96)
 

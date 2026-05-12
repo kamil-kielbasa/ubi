@@ -48,6 +48,12 @@
 /** Bytes contributed by the 0x01 version byte. */
 #define UBI_SECURE_LABEL_VERSION_BYTES (1)
 
+/** Byte value of the label separator (NUL between fields). */
+#define UBI_SECURE_LABEL_SEPARATOR_BYTE (0x00)
+
+/** Byte value of the label version marker (v1). */
+#define UBI_SECURE_LABEL_VERSION_BYTE (0x01)
+
 /** Bytes contributed by the be32(volume_id) tail (LEB domain only). */
 #define UBI_SECURE_LABEL_VOLUME_ID_BYTES (4)
 

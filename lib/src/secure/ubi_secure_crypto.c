@@ -129,6 +129,11 @@ static int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume
 		return -EINVAL;
 	}
 
+	if (label_cap == 0) {
+		LOG_ERR("build_label: zero label capacity");
+		return -ENOSPC;
+	}
+
 	const char *domain_name = NULL;
 	size_t domain_name_len = 0;
 
@@ -177,20 +182,20 @@ static int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume
 	/* "UBI" + 0x00 */
 	memcpy(&label[pos], UBI_SECURE_LABEL_PREFIX_STR, sizeof(UBI_SECURE_LABEL_PREFIX_STR) - 1);
 	pos += sizeof(UBI_SECURE_LABEL_PREFIX_STR) - 1;
-	label[pos++] = 0x00;
+	label[pos++] = UBI_SECURE_LABEL_SEPARATOR_BYTE;
 
 	/* domain_name + 0x00 */
 	memcpy(&label[pos], domain_name, domain_name_len);
 	pos += domain_name_len;
-	label[pos++] = 0x00;
+	label[pos++] = UBI_SECURE_LABEL_SEPARATOR_BYTE;
 
 	/* 0x01 */
-	label[pos++] = 0x01;
+	label[pos++] = UBI_SECURE_LABEL_VERSION_BYTE;
 
 	/* For LEB: be32(volume_id) */
 	if (domain == UBI_SECURE_DOMAIN_LEB) {
 		sys_put_be32(volume_id, &label[pos]);
-		pos += 4;
+		pos += UBI_SECURE_LABEL_VOLUME_ID_BYTES;
 	}
 
 	*label_len = pos;
@@ -248,7 +253,7 @@ static int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *
 	psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
 	psa_set_key_algorithm(&attr, PSA_ALG_CCM);
 	psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
-	psa_set_key_bits(&attr, UBI_SECURE_KEY_SIZE * 8);
+	psa_set_key_bits(&attr, UBI_SECURE_KEY_BITS);
 
 	status = psa_key_derivation_output_key(&attr, &op, child_key_id);
 	psa_reset_key_attributes(&attr);
@@ -269,7 +274,11 @@ abort:
 
 void ubi_secure_destroy_key(psa_key_id_t key_id)
 {
-	(void)psa_destroy_key(key_id);
+	const psa_status_t status = psa_destroy_key(key_id);
+
+	if (status != PSA_SUCCESS && status != PSA_ERROR_INVALID_HANDLE) {
+		LOG_WRN("psa_destroy_key failed: %d", (int)status);
+	}
 }
 
 int ubi_secure_aead_encrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_NONCE_SIZE],
@@ -279,6 +288,11 @@ int ubi_secure_aead_encrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_
 {
 	if (nonce == NULL || ciphertext == NULL || ciphertext_len == NULL) {
 		LOG_ERR("aead_encrypt: NULL argument");
+		return -EINVAL;
+	}
+
+	if (aad == NULL && aad_len != 0) {
+		LOG_ERR("aead_encrypt: NULL aad with non-zero aad_len");
 		return -EINVAL;
 	}
 
@@ -308,6 +322,11 @@ int ubi_secure_aead_decrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_
 {
 	if (nonce == NULL || plaintext == NULL || plaintext_len == NULL) {
 		LOG_ERR("aead_decrypt: NULL argument");
+		return -EINVAL;
+	}
+
+	if (aad == NULL && aad_len != 0) {
+		LOG_ERR("aead_decrypt: NULL aad with non-zero aad_len");
 		return -EINVAL;
 	}
 
@@ -363,9 +382,16 @@ void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_S
 		return;
 	}
 
-	nonce[0] = domain;
-	memcpy(&nonce[1], salt, UBI_SECURE_SALT_SIZE);
-	memcpy(&nonce[1 + UBI_SECURE_SALT_SIZE], counter, UBI_SECURE_COUNTER_SIZE);
+	size_t pos = 0;
+
+	nonce[pos] = domain;
+	pos += sizeof(uint8_t);
+	memcpy(&nonce[pos], salt, UBI_SECURE_SALT_SIZE);
+	pos += UBI_SECURE_SALT_SIZE;
+	memcpy(&nonce[pos], counter, UBI_SECURE_COUNTER_SIZE);
+	pos += UBI_SECURE_COUNTER_SIZE;
+
+	__ASSERT_NO_MSG(pos == UBI_SECURE_NONCE_SIZE);
 }
 
 int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,

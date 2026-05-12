@@ -261,15 +261,15 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
  *
  * \return Usage percentage (0 .. UBI_SECURE_PERCENT_BASE).
  */
-static inline unsigned int ubi_secure_usage_pct(uint64_t value, uint64_t budget)
+static inline uint8_t ubi_secure_usage_pct(uint64_t value, uint64_t budget)
 {
 	if (budget == 0) {
-		return UBI_SECURE_PERCENT_BASE;
+		return (uint8_t)UBI_SECURE_PERCENT_BASE;
 	}
 
-	const unsigned int pct = (unsigned int)((value * UBI_SECURE_PERCENT_BASE) / budget);
+	const uint64_t pct = (value * UBI_SECURE_PERCENT_BASE) / budget;
 
-	return (pct > UBI_SECURE_PERCENT_BASE) ? UBI_SECURE_PERCENT_BASE : pct;
+	return (uint8_t)((pct > UBI_SECURE_PERCENT_BASE) ? UBI_SECURE_PERCENT_BASE : pct);
 }
 
 /**
