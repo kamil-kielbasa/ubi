@@ -100,6 +100,73 @@ static inline void ubi_volume_observe_counters(struct ubi_volume *vol, uint64_t 
 #endif /* CONFIG_UBI_CRYPTO */
 
 /**
+ * \brief PEB pool: rbtree of PEBs keyed by erase counter plus its size.
+ *
+ * Keeping the count next to the tree makes "drop the tree, the count is
+ * already wrong" classes of bugs harder to write. Used for both the free
+ * and the dirty pool on every \ref ubi_device.
+ */
+struct ubi_peb_pool {
+	struct rbtree tree; /**< Red-black tree: key=erase counter, value=PEB index. */
+	size_t count; /**< Cached cardinality of \c tree. */
+};
+
+#if defined(CONFIG_UBI_CRYPTO)
+/**
+ * \brief Per-domain AEAD counter floor (RAM mirror of on-flash counters).
+ *
+ * \c next_vid / \c next_ec are bumped at every successful data-PEB write.
+ * \c next_res_peb is shared by the DEVICE_HEADER and VOLUME_HEADER on-flash
+ * domains: a single reserved-PEB commit writes one DEV record followed by N
+ * VOL records, so it consumes \c 1 + N consecutive slots from the same
+ * monotonic sequence (this guarantees nonce uniqueness for the reserved
+ * PEB area). The two domains still get their own budget_base in
+ * \ref ubi_secure_budget_bases because they use distinct HKDF child keys
+ * and have different per-record AAD sizes, so their bytes-budgets fill at
+ * different rates.
+ */
+struct ubi_secure_aead_counters {
+	uint64_t next_res_peb; /**< Next unused reserved-PEB AEAD slot (DEV+VOL). */
+	uint64_t next_vid; /**< Next unused VID-domain AEAD counter. */
+	uint64_t next_ec; /**< Next unused EC-domain AEAD counter. */
+};
+
+/**
+ * \brief Per-domain budget bases.
+ *
+ * Counter values captured at the moment the current write-active key version
+ * was activated. Subtraction (current counter - base) yields the true number
+ * of AEAD invocations performed under the active kv. RAM-only; captured by
+ * \ref ubi_secure_budget_bases_init during attach. DEVICE_HEADER and
+ * VOLUME_HEADER are tracked separately even though they share the on-flash
+ * counter \c next_res_peb -- they use distinct HKDF child keys and have
+ * different per-record AAD sizes, so the VOLUME_HEADER bytes-budget fills
+ * faster than the DEVICE_HEADER one.
+ */
+struct ubi_secure_budget_bases {
+	uint64_t dev; /**< Base for DEVICE_HEADER domain. */
+	uint64_t vol; /**< Base for VOLUME_HEADER domain. */
+	uint64_t ec; /**< Base for ERASE_COUNTER domain. */
+	uint64_t vid; /**< Base for VOLUME_IDENTIFIER domain. */
+};
+
+/**
+ * \brief Freshness state mirrored in RAM.
+ *
+ * \c cached_device_revision is the dev_hdr revision reported by the most
+ * recent successful attach / sync; it is included in every freshness
+ * snapshot we hand back to the host. \c mutations_since_sync counts how
+ * many reserved-metadata mutations have been committed since the last
+ * \c sync_freshness callback returned success, so that the runtime can
+ * batch syncs by mutation count.
+ */
+struct ubi_secure_freshness_state {
+	uint64_t cached_device_revision; /**< Cached dev_hdr revision for snapshots. */
+	size_t mutations_since_sync; /**< Mutations since last sync_freshness call. */
+};
+#endif /* CONFIG_UBI_CRYPTO */
+
+/**
  * \brief UBI device representation.
  *
  * This structure describes a UBI device with its PEB management
@@ -124,37 +191,16 @@ struct ubi_device {
 	    PEB refcount: number of on-flash objects authenticated with each key version.
 	    Includes data-PEB EC/VID/LEB objects AND reserved-PEB objects.
 	    Indexed by allowlist position, not by raw key_version value. */
-	uint64_t next_vid_counter; /**< Next unused VID-domain AEAD counter. */
-	uint64_t next_ec_counter; /**< Next unused EC-domain AEAD counter. */
-	uint64_t next_dev_hdr_counter; /**< Next unused reserved-PEB AEAD counter. */
-	/* Per-domain budget bases — counter values at the moment the current
-	 * write-active key version was activated.  Subtraction yields the true
-	 * number of AEAD invocations performed under the active kv.  RAM-only;
-	 * captured by ubi_secure_budget_bases_init() during attach.  DEVICE_HEADER
-	 * and VOLUME_HEADER are tracked separately even though they share the
-	 * on-flash counter (next_dev_hdr_counter): they use distinct HKDF
-	 * child keys and have different per-record AAD sizes, so the VOLUME_HEADER
-	 * bytes-budget fills faster than the DEVICE_HEADER one. */
-	uint64_t budget_base_dev; /**< Base for DEVICE_HEADER domain. */
-	uint64_t budget_base_vol; /**< Base for VOLUME_HEADER domain. */
-	uint64_t budget_base_ec; /**< Base for ERASE_COUNTER domain. */
-	uint64_t budget_base_vid; /**< Base for VOLUME_IDENTIFIER domain. */
-	uint64_t cached_device_revision; /**< Cached dev_hdr revision for freshness snapshots. */
-	size_t freshness_mutations_since_sync; /**< Mutations since last sync_freshness call. */
+	struct ubi_secure_aead_counters aead; /**< Per-domain AEAD counter floor. */
+	struct ubi_secure_budget_bases budget_bases; /**< Per-domain budget bases. */
+	struct ubi_secure_freshness_state freshness; /**< Freshness state. */
 #endif /* CONFIG_UBI_CRYPTO */
 
 	size_t total_data_peb_count; /**< Total usable data PEBs (cached at init). */
 	size_t leb_size; /**< Usable data size per LEB in bytes (cached at init). */
 
-	size_t free_peb_count; /**< Number of free PEBs available. */
-	struct rbtree free_pebs; /**< Red-black tree of free PEBs:
-                                     - Key: Erase counter
-                                     - Value: PEB index */
-
-	size_t dirty_peb_count; /**< Number of dirty PEBs (need erasure). */
-	struct rbtree dirty_pebs; /**< Red-black tree of dirty PEBs:
-                                     - Key: Erase counter
-                                     - Value: PEB index */
+	struct ubi_peb_pool free_pool; /**< Free PEBs (key=erase counter, value=PEB idx). */
+	struct ubi_peb_pool dirty_pool; /**< Dirty PEBs awaiting erasure. */
 
 	size_t bad_peb_count; /**< Number of bad PEBs detected. */
 	sys_slist_t bad_pebs; /**< Singly linked list of bad PEB indices. */

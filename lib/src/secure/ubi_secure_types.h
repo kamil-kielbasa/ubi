@@ -190,10 +190,10 @@ struct ubi_crypto_prefix32 {
 	uint8_t wrapper_version; /*!< UBI_SECURE_WRAPPER_VERSION */
 	uint8_t domain; /*!< enum ubi_secure_domain */
 	uint8_t key_version; /*!< IKM[v] version */
-	uint8_t flags; /*!< Record flags (zero in v1) */
+	uint8_t flags; /*!< Record flags (reserved, not used) */
 	uint8_t salt[UBI_SECURE_SALT_SIZE]; /*!< Fresh RNG salt */
 	uint8_t counter[UBI_SECURE_COUNTER_SIZE]; /*!< Monotonic AEAD counter */
-	uint8_t reserved[UBI_SECURE_PREFIX_RESERVED_SIZE]; /*!< Zero in v1 */
+	uint8_t reserved[UBI_SECURE_PREFIX_RESERVED_SIZE]; /*!< Reserved, not used */
 };
 BUILD_ASSERT(sizeof(struct ubi_crypto_prefix32) == UBI_SECURE_PREFIX_SIZE);
 
@@ -202,7 +202,7 @@ BUILD_ASSERT(sizeof(struct ubi_crypto_prefix32) == UBI_SECURE_PREFIX_SIZE);
  */
 struct ubi_dev_secure_meta {
 	uint8_t write_active_key_version; /*!< Authenticated current write-active version */
-	uint8_t reserved0[7]; /*!< Zero in v1 */
+	uint8_t reserved0[7]; /*!< Reserved, not used */
 	uint64_t vid_next_counter_floor; /*!< Next unused VID counter for write_active */
 };
 BUILD_ASSERT(sizeof(struct ubi_dev_secure_meta) == UBI_SECURE_DEV_META_SIZE);

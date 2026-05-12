@@ -1126,7 +1126,7 @@ ZTEST(ubi_secure_runtime_policy, test_reserved_metadata_budget_exhausts_blocks_u
 	 * EC and VID at zero so only the reserved-area domain can trip. */
 	ubi_secure_test_set_metadata_counters(g_ubi, BUDGET_NOW_THRESHOLD - BUDGET_HEADROOM, 0, 0);
 
-	/* Each commit advances next_dev_hdr_counter by 1 + vol_count
+	/* Each commit advances next_res_peb_counter by 1 + vol_count
 	 * (vol_count == 1 here ⇒ +2 per resize).  Alternate leb_count so
 	 * every call is a real resize. */
 	struct ubi_volume_config grown = vol_cfg;

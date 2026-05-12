@@ -440,15 +440,15 @@ static int validate_vid_header(struct ubi_device *dev, size_t pnum, const struct
 
 		if (ubi_buf_is_erased(probe_buf, probe_len, erased_val)) {
 			/* VID erased + data erased -> genuinely free. */
-			rb_insert(&dev->free_pebs, &item->node);
-			dev->free_peb_count += 1;
+			rb_insert(&dev->free_pool.tree, &item->node);
+			dev->free_pool.count += 1;
 		} else {
 			/* VID erased + data present -> uncommitted / dirty. */
 			LOG_WRN("PEB %zu: erased VID but non-erased data — "
 				"classifying as dirty (uncommitted write)",
 				pnum);
-			rb_insert(&dev->dirty_pebs, &item->node);
-			dev->dirty_peb_count += 1;
+			rb_insert(&dev->dirty_pool.tree, &item->node);
+			dev->dirty_pool.count += 1;
 		}
 
 		return SCAN_PEB_HANDLED;
@@ -504,8 +504,8 @@ static int classify_orphan_peb(struct ubi_device *dev, size_t pnum, const struct
 
 	item->key = ec_hdr->ec;
 	item->value.pnum = pnum;
-	rb_insert(&dev->dirty_pebs, &item->node);
-	dev->dirty_peb_count += 1;
+	rb_insert(&dev->dirty_pool.tree, &item->node);
+	dev->dirty_pool.count += 1;
 
 	return SCAN_PEB_HANDLED;
 }
@@ -536,8 +536,8 @@ static int map_leb_first_occurrence(struct ubi_device *dev, size_t pnum,
 	if (vid_hdr->lnum >= vol->cfg.leb_count) {
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
-		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &item->node);
+		dev->dirty_pool.count += 1;
 		return SCAN_PEB_HANDLED;
 	}
 
@@ -609,16 +609,16 @@ static int resolve_duplicate_leb(struct ubi_device *dev, size_t pnum, size_t ec_
 		/* Current PEB is older — discard to dirty pool. */
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
-		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &item->node);
+		dev->dirty_pool.count += 1;
 	} else {
 		/* Current PEB is newer — replace the existing mapping. */
 		rb_remove(&vol->eba_tbl, &existing->node);
 		vol->eba_tbl_count -= 1;
 
 		existing->key = exist_ec.ec;
-		rb_insert(&dev->dirty_pebs, &existing->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &existing->node);
+		dev->dirty_pool.count += 1;
 
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
@@ -752,8 +752,8 @@ int ubi_plain_device_init(const struct ubi_flash_desc *flash,
 	ubi_dev->flash = *flash;
 	ubi_dev->mode = UBI_MODE_PLAIN;
 	ubi_dev->ops = ubi_plain_backend();
-	ubi_dev->free_pebs.lessthan_fn = ubi_cache_cmp;
-	ubi_dev->dirty_pebs.lessthan_fn = ubi_cache_cmp;
+	ubi_dev->free_pool.tree.lessthan_fn = ubi_cache_cmp;
+	ubi_dev->dirty_pool.tree.lessthan_fn = ubi_cache_cmp;
 	sys_slist_init(&ubi_dev->bad_pebs);
 	ubi_dev->vols.lessthan_fn = ubi_cache_cmp;
 

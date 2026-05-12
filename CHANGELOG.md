@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.90.0] - 2026-05-12
+
+### Changed
+
+- The crypto-related fields on `struct ubi_device` are now grouped into
+  three sub-structs (`aead`, `budget_bases`, `freshness`) and the two
+  PEB pools are now one struct (`free_pool` / `dirty_pool`, each
+  carrying its rbtree and its cached count side by side). The shape of
+  the on-flash format does not change; only the names used inside the
+  backend do (e.g. `ubi->next_vid_counter` -> `ubi->aead.next_vid`,
+  `ubi->free_peb_count` -> `ubi->free_pool.count`). Public
+  `struct ubi_device_info` is unchanged so application code keeps
+  working as-is.
+
+- The reserved-PEB AEAD counter was renamed from `next_dev_hdr` to
+  `next_res_peb` to reflect what it actually tracks: a single
+  reserved-PEB commit writes one DEVICE_HEADER record followed by N
+  VOLUME_HEADER records and consumes `1 + N` consecutive slots from
+  this one monotonic sequence. The old name suggested it was only
+  about device headers.
+
+### Added
+
+- `CONFIG_UBI_CRYPTO_SYNC_FRESHNESS_VERIFY` (default `n`). When enabled,
+  every successful `sync_freshness` callback is immediately followed by
+  a `check_freshness` round-trip against the same snapshot. If
+  `check_freshness` then rejects, the runtime emits
+  `ROLLBACK_POLICY_MISMATCH` -- catching the case where the application
+  acknowledged `sync_freshness` but failed to durably persist the new
+  state. Off by default; integrations that already verify in their
+  persistence layer pay nothing.
+
+### Documentation
+
+- `struct ubi_dev_secure_meta::reserved0` and
+  `struct ubi_crypto_prefix32::reserved` / `::flags` doxygen reads
+  "reserved, not used" instead of "zero in v1".
+- The two-region scratch buffer in the secure LEB read path
+  (ciphertext+tag followed by plaintext) gained an explanatory
+  comment -- AEAD forbids in-place decrypt because the tag check spans
+  the whole ciphertext, so both buffers must be live at the same time.
+- The 2x `dec_and_check(vid_kv)` after dirty-PEB recovery in
+  `ubi_secure_runtime.c` now carries a comment: a data PEB
+  authenticated under one key-version contributes two on-flash objects
+  (VID header + LEB payload) and both are reclaimed together with the
+  PEB, so the per-kv refcount must drop by two.
+
 ## [0.89.0] - 2026-05-12
 
 ### Changed

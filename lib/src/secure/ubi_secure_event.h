@@ -101,7 +101,7 @@ ubi_secure_freshness_get_snapshot(const struct ubi_device *ubi)
 	__ASSERT_NO_MSG(ubi != NULL);
 
 	return (struct ubi_crypto_freshness){
-		.device_revision = ubi->cached_device_revision,
+		.device_revision = ubi->freshness.cached_device_revision,
 		.global_sqnum = ubi->global_sqnum,
 	};
 }
@@ -219,9 +219,9 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 
 	const size_t delta = CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA;
 
-	ubi->freshness_mutations_since_sync += 1;
+	ubi->freshness.mutations_since_sync += 1;
 
-	if (delta > 0 && ubi->freshness_mutations_since_sync < delta) {
+	if (delta > 0 && ubi->freshness.mutations_since_sync < delta) {
 		return;
 	}
 
@@ -229,7 +229,7 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 
 	const int rc = ubi->crypto_cfg->sync_freshness(&freshness, ubi->crypto_cfg->user_data);
 
-	ubi->freshness_mutations_since_sync = 0;
+	ubi->freshness.mutations_since_sync = 0;
 
 	if (rc != 0
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
@@ -247,7 +247,32 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 #if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE)
 		ubi->read_only_crypto = true;
 #endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE */
+		return;
 	}
+
+#if defined(CONFIG_UBI_CRYPTO_SYNC_FRESHNESS_VERIFY)
+	/* Opt-in defensive round-trip: ask check_freshness whether the
+	 * snapshot the application just acknowledged is actually durable.
+	 * Catches "sync_freshness returned 0 but the persistence layer
+	 * lied or did not flush" classes of bugs. */
+	if (ubi->crypto_cfg->check_freshness != NULL) {
+		const enum ubi_crypto_rollback_verdict verdict =
+			ubi->crypto_cfg->check_freshness(&freshness, ubi->crypto_cfg->user_data);
+
+		if (verdict != UBI_CRYPTO_ROLLBACK_ACCEPT) {
+			const struct ubi_crypto_event event = {
+				.type = UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,
+				.freshness = freshness,
+			};
+
+			ubi_secure_event_emit(ubi, &event);
+
+#if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE)
+			ubi->read_only_crypto = true;
+#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE */
+		}
+	}
+#endif /* CONFIG_UBI_CRYPTO_SYNC_FRESHNESS_VERIFY */
 }
 
 /**

@@ -2687,7 +2687,7 @@ metadata-bearing AEAD record class is enforced under the active
 - **EC** — secure erase-counter headers written on every PEB erase.
 - **VID** — volume-ID headers written on every LEB write.
 
-DEV and VOL share the same on-flash counter (`next_dev_hdr_counter`);
+DEV and VOL share the same on-flash counter (`next_res_peb_counter`);
 EC uses `next_ec_counter`; VID uses `next_vid_counter`. The per-record
 authenticated-byte sizes are derived from existing AAD / plaintext /
 record-size macros and are `BUILD_ASSERT`-locked in

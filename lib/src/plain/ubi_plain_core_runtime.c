@@ -57,8 +57,8 @@ int ubi_plain_device_get_info(struct ubi_device *ubi, struct ubi_device_info *in
 	info->total_peb_count = ubi->total_data_peb_count;
 	info->leb_size = ubi->leb_size;
 
-	info->free_peb_count = ubi->free_peb_count;
-	info->dirty_peb_count = ubi->dirty_peb_count;
+	info->free_peb_count = ubi->free_pool.count;
+	info->dirty_peb_count = ubi->dirty_pool.count;
 	info->bad_peb_count = ubi->bad_peb_count;
 	info->ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
 
@@ -134,8 +134,8 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 			struct ubi_rbt_item *free_item = ubi_leaf_as_rbt(item);
 			free_item->key = ec_avg;
 			free_item->value.pnum = recovered_pnum;
-			rb_insert(&ubi->free_pebs, &free_item->node);
-			ubi->free_peb_count += 1;
+			rb_insert(&ubi->free_pool.tree, &free_item->node);
+			ubi->free_pool.count += 1;
 
 			ubi->ec_sum += ec_avg;
 			ubi->ec_count += 1;
@@ -162,8 +162,8 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 		goto exit;
 	}
 
-	if (ubi->dirty_peb_count > 0) {
-		struct rbnode *node = rb_get_min(&ubi->dirty_pebs);
+	if (ubi->dirty_pool.count > 0) {
+		struct rbnode *node = rb_get_min(&ubi->dirty_pool.tree);
 		struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
 
 		struct ubi_ec_hdr ec_hdr = { 0 };
@@ -175,8 +175,8 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 			const size_t pnum = entry->value.pnum;
 			const size_t ec = entry->key;
 
-			rb_remove(&ubi->dirty_pebs, &entry->node);
-			ubi->dirty_peb_count -= 1;
+			rb_remove(&ubi->dirty_pool.tree, &entry->node);
+			ubi->dirty_pool.count -= 1;
 
 			ubi->ec_sum -= ec;
 			ubi->ec_count -= 1;
@@ -213,8 +213,8 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 			const size_t pnum = entry->value.pnum;
 			const size_t ec = entry->key;
 
-			rb_remove(&ubi->dirty_pebs, &entry->node);
-			ubi->dirty_peb_count -= 1;
+			rb_remove(&ubi->dirty_pool.tree, &entry->node);
+			ubi->dirty_pool.count -= 1;
 
 			ubi->ec_sum -= ec;
 			ubi->ec_count -= 1;
@@ -236,8 +236,8 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 			const size_t pnum = entry->value.pnum;
 			const size_t ec = entry->key;
 
-			rb_remove(&ubi->dirty_pebs, &entry->node);
-			ubi->dirty_peb_count -= 1;
+			rb_remove(&ubi->dirty_pool.tree, &entry->node);
+			ubi->dirty_pool.count -= 1;
 
 			ubi->ec_sum -= ec;
 			ubi->ec_count -= 1;
@@ -248,14 +248,14 @@ int ubi_plain_device_erase_peb(struct ubi_device *ubi)
 			goto exit;
 		}
 
-		rb_remove(&ubi->dirty_pebs, &entry->node);
-		ubi->dirty_peb_count -= 1;
+		rb_remove(&ubi->dirty_pool.tree, &entry->node);
+		ubi->dirty_pool.count -= 1;
 
 		ubi->ec_sum += 1;
 
 		entry->key = ec_hdr.ec;
-		rb_insert(&ubi->free_pebs, &entry->node);
-		ubi->free_peb_count += 1;
+		rb_insert(&ubi->free_pool.tree, &entry->node);
+		ubi->free_pool.count += 1;
 	}
 
 exit:
@@ -291,18 +291,18 @@ int ubi_plain_device_deinit(struct ubi_device *ubi)
 	struct ubi_list_item *list_item = NULL;
 	struct ubi_list_item *list_next = NULL;
 
-	while ((node = rb_get_min(&ubi->free_pebs))) {
+	while ((node = rb_get_min(&ubi->free_pool.tree))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
-		rb_remove(&ubi->free_pebs, &rbt_item->node);
+		rb_remove(&ubi->free_pool.tree, &rbt_item->node);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->free_peb_count -= 1;
+		ubi->free_pool.count -= 1;
 	}
 
-	while ((node = rb_get_min(&ubi->dirty_pebs))) {
+	while ((node = rb_get_min(&ubi->dirty_pool.tree))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
-		rb_remove(&ubi->dirty_pebs, &rbt_item->node);
+		rb_remove(&ubi->dirty_pool.tree, &rbt_item->node);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->dirty_peb_count -= 1;
+		ubi->dirty_pool.count -= 1;
 	}
 
 	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, list_item, list_next, node)
@@ -361,8 +361,8 @@ int ubi_device_check_invariants(struct ubi_device *ubi)
 	int ret = 0;
 
 	/* Count all tracked PEBs. */
-	const size_t free_actual = rbt_count_nodes(&ubi->free_pebs);
-	const size_t dirty_actual = rbt_count_nodes(&ubi->dirty_pebs);
+	const size_t free_actual = rbt_count_nodes(&ubi->free_pool.tree);
+	const size_t dirty_actual = rbt_count_nodes(&ubi->dirty_pool.tree);
 
 	size_t bad_actual = 0;
 	struct ubi_list_item *bad_entry = NULL;
@@ -391,14 +391,14 @@ int ubi_device_check_invariants(struct ubi_device *ubi)
 		reserved_sum += vol->cfg.leb_count;
 	}
 
-	if (free_actual != ubi->free_peb_count) {
-		LOG_ERR("Invariant: free_peb_count=%zu actual=%zu", ubi->free_peb_count,
+	if (free_actual != ubi->free_pool.count) {
+		LOG_ERR("Invariant: free_peb_count=%zu actual=%zu", ubi->free_pool.count,
 			free_actual);
 		ret = -EIO;
 	}
 
-	if (dirty_actual != ubi->dirty_peb_count) {
-		LOG_ERR("Invariant: dirty_peb_count=%zu actual=%zu", ubi->dirty_peb_count,
+	if (dirty_actual != ubi->dirty_pool.count) {
+		LOG_ERR("Invariant: dirty_peb_count=%zu actual=%zu", ubi->dirty_pool.count,
 			dirty_actual);
 		ret = -EIO;
 	}

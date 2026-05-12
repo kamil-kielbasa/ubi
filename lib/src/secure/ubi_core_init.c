@@ -262,13 +262,13 @@ static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 
 	for (size_t peb = UBI_DEV_HDR_NR_OF_RES_PEBS; peb < nr_of_pebs; peb++) {
 		ret = ubi_secure_ec_hdr_write(&ubi_dev->flash, cfg, peb, &ec_hdr, write_kv,
-					      ubi_dev->next_ec_counter);
+					      ubi_dev->aead.next_ec);
 		if (ret != 0) {
 			LOG_ERR("Secure EC header write failure at PEB %zu", peb);
 			return ret;
 		}
 
-		ubi_dev->next_ec_counter += 1;
+		ubi_dev->aead.next_ec += 1;
 	}
 
 	return 0;
@@ -411,12 +411,12 @@ static int scan_classify_vid_region(struct ubi_device *dev, size_t pnum,
 	item->value.pnum = pnum;
 
 	if (leb_erased) {
-		rb_insert(&dev->free_pebs, &item->node);
-		dev->free_peb_count += 1;
+		rb_insert(&dev->free_pool.tree, &item->node);
+		dev->free_pool.count += 1;
 	} else {
 		LOG_WRN("PEB %zu: erased VID but non-erased LEB prefix — dirty", pnum);
-		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &item->node);
+		dev->dirty_pool.count += 1;
 	}
 
 	/* clang-format off */
@@ -460,8 +460,8 @@ static int scan_classify_orphan(struct ubi_device *dev, size_t pnum,
 
 	item->key = ec_hdr->ec;
 	item->value.pnum = pnum;
-	rb_insert(&dev->dirty_pebs, &item->node);
-	dev->dirty_peb_count += 1;
+	rb_insert(&dev->dirty_pool.tree, &item->node);
+	dev->dirty_pool.count += 1;
 
 	return SCAN_PEB_HANDLED;
 }
@@ -520,8 +520,8 @@ static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_
 
 			item->key = ec_hdr->ec;
 			item->value.pnum = pnum;
-			rb_insert(&dev->dirty_pebs, &item->node);
-			dev->dirty_peb_count += 1;
+			rb_insert(&dev->dirty_pool.tree, &item->node);
+			dev->dirty_pool.count += 1;
 			/* clang-format off */
 			return SCAN_PEB_HANDLED;
 
@@ -537,8 +537,8 @@ replace_anchor: {
 
 	old_item->key = (ret == 0) ? old_ec.ec : ec_hdr->ec;
 	old_item->value.pnum = vol->anchor_pnum;
-	rb_insert(&dev->dirty_pebs, &old_item->node);
-	dev->dirty_peb_count += 1;
+	rb_insert(&dev->dirty_pool.tree, &old_item->node);
+	dev->dirty_pool.count += 1;
 }
 		}
 
@@ -563,8 +563,8 @@ replace_anchor: {
 	if (vid_hdr->lnum >= vol->cfg.leb_count) {
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
-		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &item->node);
+		dev->dirty_pool.count += 1;
 		return SCAN_PEB_HANDLED;
 	}
 
@@ -644,16 +644,16 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 		/* Current PEB is older — discard to dirty pool. */
 		item->key = ec_hdr->ec;
 		item->value.pnum = pnum;
-		rb_insert(&dev->dirty_pebs, &item->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &item->node);
+		dev->dirty_pool.count += 1;
 	} else {
 		/* Current PEB is newer — replace the existing mapping. */
 		rb_remove(&vol->eba_tbl, &existing->node);
 		vol->eba_tbl_count -= 1;
 
 		existing->key = exist_ec.ec;
-		rb_insert(&dev->dirty_pebs, &existing->node);
-		dev->dirty_peb_count += 1;
+		rb_insert(&dev->dirty_pool.tree, &existing->node);
+		dev->dirty_pool.count += 1;
 
 		item->key = vid_hdr->lnum;
 		item->value.pnum = pnum;
@@ -685,8 +685,8 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 		ubi_secure_key_refcount_inc(ubi_dev, ec_ctx.key_version);
 
 		/* Track max EC-domain AEAD counter for nonce monotonicity. */
-		if (ec_ctx.aead_counter >= ubi_dev->next_ec_counter) {
-			ubi_dev->next_ec_counter = ec_ctx.aead_counter + 1;
+		if (ec_ctx.aead_counter >= ubi_dev->aead.next_ec) {
+			ubi_dev->aead.next_ec = ec_ctx.aead_counter + 1;
 		}
 
 		/* Check if VID region is erased — classifies free/dirty. */
@@ -731,8 +731,8 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 		/* Track max VID counter for write-active key version. */
 		if (vid_ctx.key_version ==
 		    ubi_dev->crypto_cfg->policy.requested_write_key_version) {
-			if (vid_ctx.vid_counter >= ubi_dev->next_vid_counter) {
-				ubi_dev->next_vid_counter = vid_ctx.vid_counter + 1;
+			if (vid_ctx.vid_counter >= ubi_dev->aead.next_vid) {
+				ubi_dev->aead.next_vid = vid_ctx.vid_counter + 1;
 			}
 		}
 
@@ -817,14 +817,14 @@ static int secure_format(const struct ubi_flash_desc *flash,
 	/* Commit encrypted reserved PEBs. */
 	ret = ubi_secure_res_peb_commit(flash, crypto_cfg, &dev_hdr, &dev_meta, NULL, 0,
 					crypto_cfg->policy.requested_write_key_version,
-					ubi_dev->next_dev_hdr_counter);
+					ubi_dev->aead.next_res_peb);
 	if (ret != 0 && ret != -EROFS) {
 		LOG_ERR("Secure format commit failure");
 		return ret;
 	}
 
 	/* Advance dev_hdr counter: 1 for dev_hdr + 0 vol headers. */
-	ubi_dev->next_dev_hdr_counter += 1;
+	ubi_dev->aead.next_res_peb += 1;
 
 	/* Populate ubi_device fields from formatted state. */
 	ubi_dev->vol_id_watermark = 0;
@@ -913,14 +913,14 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 	/* Populate device state from authenticated headers. */
 	ubi_dev->vol_id_watermark = scan.dev_hdr.vol_id_watermark;
 	ubi_dev->read_only_degraded = (scan.auth_count < UBI_SECURE_RES_PEB_NR_ACTIVE);
-	ubi_dev->next_vid_counter = scan.dev_meta.vid_next_counter_floor;
+	ubi_dev->aead.next_vid = scan.dev_meta.vid_next_counter_floor;
 
 	/* Recover reserved-PEB AEAD counter from the canonical device header prefix.
 	 * The last commit used counter values [c, c+1, .., c+vol_count].
 	 * Next available = c + 1 + vol_count. */
 	const uint64_t dev_hdr_counter = ubi_secure_decode_counter48(scan.dev_prefix.counter);
 
-	ubi_dev->next_dev_hdr_counter = dev_hdr_counter + 1 + scan.dev_hdr.vol_count;
+	ubi_dev->aead.next_res_peb = dev_hdr_counter + 1 + scan.dev_hdr.vol_count;
 
 	*out_device_revision = scan.dev_hdr.revision;
 
@@ -946,15 +946,15 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 
 		ret = ubi_secure_res_peb_commit(flash, crypto_cfg, &upd_hdr, &upd_meta, vol_hdrs,
 						scan.dev_hdr.vol_count, new_kv,
-						ubi_dev->next_dev_hdr_counter);
+						ubi_dev->aead.next_res_peb);
 		if (ret == -EROFS) {
 			LOG_WRN("Reserved PEB bank degraded during key upgrade");
 			ubi_dev->read_only_degraded = true;
 			/* At least one bank succeeded — treat as upgraded. */
-			ubi_dev->next_dev_hdr_counter += 1 + scan.dev_hdr.vol_count;
+			ubi_dev->aead.next_res_peb += 1 + scan.dev_hdr.vol_count;
 			*out_device_revision = upd_hdr.revision;
 			ubi_dev->reserved_key_version = new_kv;
-			ubi_dev->next_vid_counter = 0;
+			ubi_dev->aead.next_vid = 0;
 			ubi_secure_reserved_refcount_inc(ubi_dev, new_kv,
 							 UBI_DEV_HDR_NR_OF_RES_PEBS,
 							 scan.dev_hdr.vol_count);
@@ -965,10 +965,10 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 			ubi_secure_reserved_refcount_inc(ubi_dev, scan.dev_prefix.key_version,
 							 scan.auth_count, scan.dev_hdr.vol_count);
 		} else {
-			ubi_dev->next_dev_hdr_counter += 1 + scan.dev_hdr.vol_count;
+			ubi_dev->aead.next_res_peb += 1 + scan.dev_hdr.vol_count;
 			*out_device_revision = upd_hdr.revision;
 			ubi_dev->reserved_key_version = new_kv;
-			ubi_dev->next_vid_counter = 0;
+			ubi_dev->aead.next_vid = 0;
 			ubi_secure_reserved_refcount_inc(ubi_dev, new_kv,
 							 UBI_DEV_HDR_NR_OF_RES_PEBS,
 							 scan.dev_hdr.vol_count);
@@ -1057,8 +1057,8 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	ubi_dev->mode = UBI_MODE_SECURE;
 	ubi_dev->ops = ubi_secure_backend();
 	ubi_dev->crypto_cfg = crypto_cfg;
-	ubi_dev->free_pebs.lessthan_fn = ubi_cache_cmp;
-	ubi_dev->dirty_pebs.lessthan_fn = ubi_cache_cmp;
+	ubi_dev->free_pool.tree.lessthan_fn = ubi_cache_cmp;
+	ubi_dev->dirty_pool.tree.lessthan_fn = ubi_cache_cmp;
 	sys_slist_init(&ubi_dev->bad_pebs);
 	ubi_dev->vols.lessthan_fn = ubi_cache_cmp;
 
@@ -1236,7 +1236,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 		goto exit;
 	}
 
-	ubi_dev->cached_device_revision = device_revision;
+	ubi_dev->freshness.cached_device_revision = device_revision;
 
 	/* Compute average erase counter. */
 	init_compute_ec_average(ubi_dev, nr_of_pebs);
@@ -1269,7 +1269,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 		{
 			struct ubi_volume *vol = vol_entry->value.vol;
 
-			if (vol->anchor_pnum == SIZE_MAX && ubi_dev->free_peb_count > 0) {
+			if (vol->anchor_pnum == SIZE_MAX && ubi_dev->free_pool.count > 0) {
 				LOG_WRN("Volume %u missing anchor — re-creating", vol->vol_id);
 				ret = ubi_secure_anchor_create(ubi_dev, vol);
 				if (ret != 0) {

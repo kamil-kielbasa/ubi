@@ -159,17 +159,17 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	}
 
 	ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
-					     ubi->next_vid_counter + 1, write_kv, 0);
+					     ubi->aead.next_vid + 1, write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("VID-domain budget rejected write: vol_id=%d lnum=%zu", vol->vol_id, lnum);
 		return ret;
 	}
 
-	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
+	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pool.tree);
 	struct ubi_rbt_item *new_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
 
-	rb_remove(&ubi->free_pebs, &new_node->node);
-	ubi->free_peb_count -= 1;
+	rb_remove(&ubi->free_pool.tree, &new_node->node);
+	ubi->free_pool.count -= 1;
 
 	/* Read authentic EC context from the free PEB (needed for chained AAD). */
 	struct ubi_ec_hdr ec_hdr = { 0 };
@@ -240,7 +240,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	/* Step 2: Write VID header — this is the commit point.
 	 * VID counter = global vid_next, independent of per-LEB counter. */
-	const uint64_t vid_counter = ubi->next_vid_counter;
+	const uint64_t vid_counter = ubi->aead.next_vid;
 
 	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, new_node->value.pnum, &ec_ctx,
 				       &vid_hdr, &vid_meta, write_kv, vid_counter);
@@ -251,7 +251,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 		return ret;
 	}
 
-	ubi->next_vid_counter = vid_counter + 1;
+	ubi->aead.next_vid = vid_counter + 1;
 
 	/* Track VID+LEB objects for key-version refcount. */
 	ubi_secure_key_refcount_inc(ubi, write_kv);
@@ -261,7 +261,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 				   vid_meta.leb_total_auth_bytes);
 
 	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
-					ubi->next_vid_counter, write_kv, 0);
+					ubi->aead.next_vid, write_kv, 0);
 
 	*out_new_node = new_node;
 	return 0;
@@ -287,8 +287,8 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 		vol->eba_tbl_count -= 1;
 
 		old_entry->key = (ec_ret == 0) ? old_ec.ec : 0;
-		rb_insert(&ubi->dirty_pebs, &old_entry->node);
-		ubi->dirty_peb_count += 1;
+		rb_insert(&ubi->dirty_pool.tree, &old_entry->node);
+		ubi->dirty_pool.count += 1;
 	}
 
 	new_node->key = lnum;
@@ -337,7 +337,7 @@ int ubi_secure_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const 
 	/* Preserve emergency free-PEB reserve. */
 	ubi_secure_anchor_try_refill_reserve(ubi);
 
-	if (ubi->free_peb_count == 0) {
+	if (ubi->free_pool.count == 0) {
 		LOG_ERR("Lack of free PEBs");
 		ret = -ENOSPC;
 		goto exit;
@@ -516,7 +516,7 @@ int ubi_secure_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 	/* Preserve emergency free-PEB reserve. */
 	ubi_secure_anchor_try_refill_reserve(ubi);
 
-	if (ubi->free_peb_count == 0) {
+	if (ubi->free_pool.count == 0) {
 		LOG_ERR("Lack of free PEBs");
 		ret = -ENOSPC;
 		goto exit;
@@ -598,8 +598,8 @@ int ubi_secure_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	vol->eba_tbl_count -= 1;
 
 	entry->key = ec_hdr.ec;
-	rb_insert(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count += 1;
+	rb_insert(&ubi->dirty_pool.tree, &entry->node);
+	ubi->dirty_pool.count += 1;
 
 	ret = 0;
 

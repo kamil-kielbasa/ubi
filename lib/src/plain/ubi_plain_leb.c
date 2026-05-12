@@ -100,11 +100,11 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	__ASSERT_NO_MSG(out_new_node);
 	__ASSERT_NO_MSG((buf && len > 0) || (!buf && len == 0));
 
-	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pebs);
+	struct rbnode *min_rbnode = rb_get_min(&ubi->free_pool.tree);
 	struct ubi_rbt_item *new_node = CONTAINER_OF(min_rbnode, struct ubi_rbt_item, node);
 
-	rb_remove(&ubi->free_pebs, &new_node->node);
-	ubi->free_peb_count -= 1;
+	rb_remove(&ubi->free_pool.tree, &new_node->node);
+	ubi->free_pool.count -= 1;
 
 	/* Step 1: Prepare VID header in RAM (not yet written to flash). */
 	struct ubi_vid_hdr vid_hdr = { 0 };
@@ -160,8 +160,8 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 		vol->eba_tbl_count -= 1;
 
 		old_entry->key = (ec_ret == 0) ? old_ec.ec : 0;
-		rb_insert(&ubi->dirty_pebs, &old_entry->node);
-		ubi->dirty_peb_count += 1;
+		rb_insert(&ubi->dirty_pool.tree, &old_entry->node);
+		ubi->dirty_pool.count += 1;
 	}
 
 	new_node->key = lnum;
@@ -208,7 +208,7 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 		return -EACCES;
 	}
 
-	if (ubi->free_peb_count == 0) {
+	if (ubi->free_pool.count == 0) {
 		LOG_ERR("Lack of free PEBs");
 		return -ENOSPC;
 	}
@@ -329,7 +329,7 @@ int ubi_plain_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum)
 		goto exit;
 	}
 
-	if (ubi->free_peb_count == 0) {
+	if (ubi->free_pool.count == 0) {
 		LOG_ERR("Lack of free PEBs");
 		ret = -ENOSPC;
 		goto exit;
@@ -392,8 +392,8 @@ int ubi_plain_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	vol->eba_tbl_count -= 1;
 
 	entry->key = ec_hdr.ec;
-	rb_insert(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count += 1;
+	rb_insert(&ubi->dirty_pool.tree, &entry->node);
+	ubi->dirty_pool.count += 1;
 
 exit:
 	k_mutex_unlock(&ubi->mutex);

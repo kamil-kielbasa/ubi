@@ -130,6 +130,19 @@ config UBI_CRYPTO_FRESHNESS_SYNC_DELTA
 	  callbacks. 0 means sync after every commit. Higher values reduce
 	  callback frequency at the cost of a larger rollback window.
 
+config UBI_CRYPTO_SYNC_FRESHNESS_VERIFY
+	bool "Verify freshness via check_freshness after each successful sync"
+	default n
+	help
+	  When y, every successful sync_freshness callback is followed by
+	  an immediate check_freshness round-trip against the same snapshot
+	  the application was asked to persist. If check_freshness then
+	  reports REJECT, a ROLLBACK_POLICY_MISMATCH event is emitted -- it
+	  catches the case where the application acknowledged the sync but
+	  silently failed to durably persist it. Adds one callback per
+	  commit-visible mutation (modulated by SYNC_DELTA); off by default
+	  because most integrations already verify in the persistence layer.
+
 # --- Strict read-only policies ---
 
 config UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE

@@ -53,9 +53,9 @@ void ubi_secure_test_set_metadata_counters(struct ubi_device *ubi, uint64_t dev_
 	if (ubi == NULL) {
 		return;
 	}
-	ubi->next_dev_hdr_counter = dev_hdr;
-	ubi->next_ec_counter = ec;
-	ubi->next_vid_counter = vid;
+	ubi->aead.next_res_peb = dev_hdr;
+	ubi->aead.next_ec = ec;
+	ubi->aead.next_vid = vid;
 }
 
 void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_t *dev_hdr,
@@ -65,13 +65,13 @@ void ubi_secure_test_get_metadata_counters(const struct ubi_device *ubi, uint64_
 		return;
 	}
 	if (dev_hdr != NULL) {
-		*dev_hdr = ubi->next_dev_hdr_counter;
+		*dev_hdr = ubi->aead.next_res_peb;
 	}
 	if (ec != NULL) {
-		*ec = ubi->next_ec_counter;
+		*ec = ubi->aead.next_ec;
 	}
 	if (vid != NULL) {
-		*vid = ubi->next_vid_counter;
+		*vid = ubi->aead.next_vid;
 	}
 }
 

@@ -40,7 +40,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 /**
  * \brief Pre-commit budget check for the reserved-PEB area (DEVICE_HEADER + VOLUME_HEADER).
  *
- * Both domains share the same on-flash AEAD counter (next_dev_hdr_counter):
+ * Both domains share the same on-flash AEAD counter (next_res_peb_counter):
  * one commit writes 1 DEVICE_HEADER record at counter C and N VOLUME_HEADER
  * records at C+1..C+N.  Pre-checks both projected post-commit counters;
  * either crossing ROTATE_NOW_PCT triggers KEY_ROTATE_NOW + sticky
@@ -51,7 +51,7 @@ static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count);
 /**
  * \brief Post-commit budget check (SOON emit) for the reserved-PEB area.
  *
- * Caller must have already bumped ubi->next_dev_hdr_counter so that it
+ * Caller must have already bumped ubi->aead.next_res_peb so that it
  * reflects the post-commit value.
  */
 static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count);
@@ -77,15 +77,14 @@ static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count)
 	const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	int ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_DEVICE_HEADER,
-						 ubi->next_dev_hdr_counter + 1, kv, 0);
+						 ubi->aead.next_res_peb + 1, kv, 0);
 	if (ret != 0) {
 		return ret;
 	}
 
 	if (vol_count > 0) {
 		ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_VOLUME_HEADER,
-						     ubi->next_dev_hdr_counter + 1 + vol_count, kv,
-						     0);
+						     ubi->aead.next_res_peb + 1 + vol_count, kv, 0);
 	}
 
 	return ret;
@@ -98,10 +97,10 @@ static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count
 	const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
 	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_DEVICE_HEADER,
-					ubi->next_dev_hdr_counter, kv, 0);
+					ubi->aead.next_res_peb, kv, 0);
 	if (vol_count > 0) {
 		ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_VOLUME_HEADER,
-						ubi->next_dev_hdr_counter, kv, 0);
+						ubi->aead.next_res_peb, kv, 0);
 	}
 }
 
@@ -152,10 +151,10 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	hdr->hdr_crc = crc32_ieee((const uint8_t *)hdr, sizeof(*hdr) - sizeof(hdr->hdr_crc));
 
 	/* Keep cached revision in sync so freshness snapshots are accurate. */
-	ubi->cached_device_revision = hdr->revision;
+	ubi->freshness.cached_device_revision = hdr->revision;
 
 	/* Snapshot vid_next_counter_floor into device metadata. */
-	meta->vid_next_counter_floor = ubi->next_vid_counter;
+	meta->vid_next_counter_floor = ubi->aead.next_vid;
 
 	/* Refresh write_active_key_version so that a key-rotation that changed
 	 * requested_write_key_version is persisted into the device metadata. */
@@ -187,8 +186,8 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	}
 
 	item->key = ec_hdr.ec;
-	rb_insert(&ubi->dirty_pebs, &item->node);
-	ubi->dirty_peb_count += 1;
+	rb_insert(&ubi->dirty_pool.tree, &item->node);
+	ubi->dirty_pool.count += 1;
 
 	return 0;
 }
@@ -325,7 +324,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	}
 
 	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
-					new_vol_count, write_kv, ubi->next_dev_hdr_counter);
+					new_vol_count, write_kv, ubi->aead.next_res_peb);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during create commit");
 		ubi->read_only_degraded = true;
@@ -342,7 +341,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	}
 
 	/* Commit succeeded — update RAM state. */
-	ubi->next_dev_hdr_counter += 1 + new_vol_count;
+	ubi->aead.next_res_peb += 1 + new_vol_count;
 
 	/* Post-commit budget check (SOON emit). */
 	reserved_commit_budget_post(ubi, new_vol_count);
@@ -493,7 +492,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	}
 
 	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
-					existing_vol_count, write_kv, ubi->next_dev_hdr_counter);
+					existing_vol_count, write_kv, ubi->aead.next_res_peb);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during resize commit");
 		ubi->read_only_degraded = true;
@@ -506,7 +505,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 	}
 
 	/* Flash commit succeeded — now safe to mutate RAM state. */
-	ubi->next_dev_hdr_counter += 1 + existing_vol_count;
+	ubi->aead.next_res_peb += 1 + existing_vol_count;
 
 	/* Post-commit budget check (SOON emit). */
 	reserved_commit_budget_post(ubi, existing_vol_count);
@@ -608,8 +607,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta,
-					new_vol_hdrs, new_count, write_kv,
-					ubi->next_dev_hdr_counter);
+					new_vol_hdrs, new_count, write_kv, ubi->aead.next_res_peb);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during remove commit");
 		ubi->read_only_degraded = true;
@@ -622,7 +620,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 	}
 
 	/* Flash commit succeeded — reclaim PEBs. */
-	ubi->next_dev_hdr_counter += 1 + new_count;
+	ubi->aead.next_res_peb += 1 + new_count;
 
 	/* Post-commit budget check (SOON emit). */
 	reserved_commit_budget_post(ubi, new_count);

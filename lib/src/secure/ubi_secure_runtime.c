@@ -73,7 +73,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	 * Reject before any flash mutation. */
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 	int ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER,
-						 ubi->next_ec_counter + 1, write_kv, 0);
+						 ubi->aead.next_ec + 1, write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("EC-domain budget rejected erase for PEB %zu", (size_t)entry->value.pnum);
 		return ret;
@@ -121,19 +121,30 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	ec_hdr.ec += 1;
 
 	ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
-				      write_kv, ubi->next_ec_counter);
+				      write_kv, ubi->aead.next_ec);
 	if (ret != 0) {
 		LOG_ERR("EC header write failure");
 		ubi_secure_event_handle_write_error(ubi, ret, entry->value.pnum);
 		goto mark_bad;
 	}
 
-	ubi->next_ec_counter += 1;
+	ubi->aead.next_ec += 1;
 
-	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER, ubi->next_ec_counter,
+	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER, ubi->aead.next_ec,
 					write_kv, 0);
 
-	/* Update key-version refcounts: old objects destroyed, new EC written. */
+	/* Update key-version refcounts: old objects destroyed, new EC written.
+	 *
+	 * A data PEB authenticated under one key-version contributes two
+	 * on-flash objects to the per-kv refcount: the VID header and the LEB
+	 * payload (they are always written and erased together, atomically,
+	 * under the same kv). The EC header is counted separately on its own
+	 * (it lives at the start of every PEB, including free ones). So when
+	 * a dirty data PEB is reclaimed we decrement the VID-side contribution
+	 * twice on purpose -- once for the VID header object and once for the
+	 * LEB payload object -- and once more for the old EC. The new EC then
+	 * inc's the write-active kv.
+	 */
 	ubi_secure_key_refcount_dec_and_check(ubi, ec_ctx.key_version);
 	if (had_vid) {
 		ubi_secure_key_refcount_dec_and_check(ubi, vid_ctx_probe.key_version);
@@ -142,14 +153,14 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	ubi_secure_key_refcount_inc(ubi, write_kv);
 
 	/* Move from dirty to free. */
-	rb_remove(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count -= 1;
+	rb_remove(&ubi->dirty_pool.tree, &entry->node);
+	ubi->dirty_pool.count -= 1;
 
 	ubi->ec_sum += 1;
 
 	entry->key = ec_hdr.ec;
-	rb_insert(&ubi->free_pebs, &entry->node);
-	ubi->free_peb_count += 1;
+	rb_insert(&ubi->free_pool.tree, &entry->node);
+	ubi->free_pool.count += 1;
 	/* clang-format off */
 	return 0;
 
@@ -158,8 +169,8 @@ mark_bad: {
 	const size_t pnum = entry->value.pnum;
 	const size_t ec = entry->key;
 
-	rb_remove(&ubi->dirty_pebs, &entry->node);
-	ubi->dirty_peb_count -= 1;
+	rb_remove(&ubi->dirty_pool.tree, &entry->node);
+	ubi->dirty_pool.count -= 1;
 
 	ubi->ec_sum -= ec;
 	ubi->ec_count -= 1;
@@ -238,8 +249,8 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 
 			free_item->key = ec_avg;
 			free_item->value.pnum = recovered_pnum;
-			rb_insert(&ubi->free_pebs, &free_item->node);
-			ubi->free_peb_count += 1;
+			rb_insert(&ubi->free_pool.tree, &free_item->node);
+			ubi->free_pool.count += 1;
 
 			ubi->ec_sum += ec_avg;
 			ubi->ec_count += 1;
@@ -272,8 +283,8 @@ int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *i
 	info->total_peb_count = ubi->total_data_peb_count;
 	info->leb_size = ubi->leb_size;
 
-	info->free_peb_count = ubi->free_peb_count;
-	info->dirty_peb_count = ubi->dirty_peb_count;
+	info->free_peb_count = ubi->free_pool.count;
+	info->dirty_peb_count = ubi->dirty_pool.count;
 	info->bad_peb_count = ubi->bad_peb_count;
 	info->ec_avg = (ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0;
 
@@ -318,8 +329,8 @@ int ubi_secure_device_erase_peb(struct ubi_device *ubi)
 		goto exit;
 	}
 
-	if (ubi->dirty_peb_count > 0) {
-		struct rbnode *node = rb_get_min(&ubi->dirty_pebs);
+	if (ubi->dirty_pool.count > 0) {
+		struct rbnode *node = rb_get_min(&ubi->dirty_pool.tree);
 		struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
 
 		/* Check if dirty PEB is last writable witness.
@@ -330,7 +341,7 @@ int ubi_secure_device_erase_peb(struct ubi_device *ubi)
 		if (ret == -ENOSPC) {
 			struct ubi_rbt_item *alt = NULL;
 
-			RB_FOR_EACH_CONTAINER(&ubi->dirty_pebs, alt, node)
+			RB_FOR_EACH_CONTAINER(&ubi->dirty_pool.tree, alt, node)
 			{
 				if (alt == entry) {
 					continue;
@@ -383,7 +394,7 @@ void ubi_secure_anchor_try_refill_reserve(struct ubi_device *ubi)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	if (ubi->free_peb_count > 1 || ubi->dirty_peb_count == 0) {
+	if (ubi->free_pool.count > 1 || ubi->dirty_pool.count == 0) {
 		return;
 	}
 
@@ -392,7 +403,7 @@ void ubi_secure_anchor_try_refill_reserve(struct ubi_device *ubi)
 	 * dirty PEB through the standard witness-safe path to push
 	 * free_peb_count from 1 to 2, preserving the emergency reserve
 	 * when the upcoming write consumes a PEB. */
-	struct rbnode *node = rb_get_min(&ubi->dirty_pebs);
+	struct rbnode *node = rb_get_min(&ubi->dirty_pool.tree);
 	struct ubi_rbt_item *entry = CONTAINER_OF(node, struct ubi_rbt_item, node);
 
 	int ret = ubi_secure_anchor_rewrite_for_dirty_witness(ubi, entry->value.pnum);
@@ -401,7 +412,7 @@ void ubi_secure_anchor_try_refill_reserve(struct ubi_device *ubi)
 		/* Witness; no free PEB for anchor rewrite — try another dirty PEB. */
 		struct ubi_rbt_item *alt = NULL;
 
-		RB_FOR_EACH_CONTAINER(&ubi->dirty_pebs, alt, node)
+		RB_FOR_EACH_CONTAINER(&ubi->dirty_pool.tree, alt, node)
 		{
 			if (alt == entry) {
 				continue;
@@ -442,18 +453,18 @@ int ubi_secure_device_deinit(struct ubi_device *ubi)
 	struct ubi_list_item *list_item = NULL;
 	struct ubi_list_item *list_next = NULL;
 
-	while ((node = rb_get_min(&ubi->free_pebs))) {
+	while ((node = rb_get_min(&ubi->free_pool.tree))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
-		rb_remove(&ubi->free_pebs, &rbt_item->node);
+		rb_remove(&ubi->free_pool.tree, &rbt_item->node);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->free_peb_count -= 1;
+		ubi->free_pool.count -= 1;
 	}
 
-	while ((node = rb_get_min(&ubi->dirty_pebs))) {
+	while ((node = rb_get_min(&ubi->dirty_pool.tree))) {
 		rbt_item = CONTAINER_OF(node, struct ubi_rbt_item, node);
-		rb_remove(&ubi->dirty_pebs, &rbt_item->node);
+		rb_remove(&ubi->dirty_pool.tree, &rbt_item->node);
 		ubi_mem_leaf_free(rbt_item);
-		ubi->dirty_peb_count -= 1;
+		ubi->dirty_pool.count -= 1;
 	}
 
 	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(&ubi->bad_pebs, list_item, list_next, node)

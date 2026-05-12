@@ -94,7 +94,7 @@ struct ubi_device;
  * because they embed the counter value used at write time).
  *
  * \param[in,out] ubi      UBI device handle.
- * \param[in]     dev_hdr  New value for next_dev_hdr_counter.
+ * \param[in]     dev_hdr  New value for next_res_peb_counter.
  * \param[in]     ec       New value for next_ec_counter.
  * \param[in]     vid      New value for next_vid_counter.
  */
@@ -111,7 +111,7 @@ void ubi_secure_test_set_metadata_counters(struct ubi_device *ubi, uint64_t dev_
  * Any output pointer may be NULL to skip that field.
  *
  * \param[in]  ubi      UBI device handle.
- * \param[out] dev_hdr  Current value of next_dev_hdr_counter (or NULL).
+ * \param[out] dev_hdr  Current value of next_res_peb_counter (or NULL).
  * \param[out] ec       Current value of next_ec_counter (or NULL).
  * \param[out] vid      Current value of next_vid_counter (or NULL).
  */

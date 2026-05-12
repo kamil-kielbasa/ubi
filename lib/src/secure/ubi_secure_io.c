@@ -558,7 +558,18 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 		return ret;
 	}
 
-	/* Read ciphertext+tag. */
+	/* Read ciphertext+tag.
+	 *
+	 * The scratch buffer holds two regions back-to-back so that a single
+	 * allocation covers both the on-flash read and the decrypt destination:
+	 *
+	 *   [ ct_buf : ct_tag_size ][ pt_buf : data_size ]
+	 *
+	 * `ct_tag_size = data_size + UBI_SECURE_TAG_SIZE` (raw read from flash),
+	 * and a separate `data_size`-sized region receives the plaintext. The
+	 * AEAD primitive forbids in-place decrypt because the tag check spans
+	 * the whole ciphertext, so we need both buffers live at the same time.
+	 */
 	const size_t ct_tag_size = (size_t)data_size + UBI_SECURE_TAG_SIZE;
 	const size_t scratch_size = ct_tag_size + (size_t)data_size;
 	uint8_t *scratch = NULL;

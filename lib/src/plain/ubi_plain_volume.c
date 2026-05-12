@@ -99,8 +99,8 @@ static void reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *it
 	}
 
 	item->key = ec_hdr.ec;
-	rb_insert(&ubi->dirty_pebs, &item->node);
-	ubi->dirty_peb_count += 1;
+	rb_insert(&ubi->dirty_pool.tree, &item->node);
+	ubi->dirty_pool.count += 1;
 }
 
 /* Module interface function definitions -------------------------------------------------------- */

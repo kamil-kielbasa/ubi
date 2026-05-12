@@ -39,17 +39,17 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 		return -EINVAL;
 	}
 
-	if (ubi->free_peb_count == 0) {
+	if (ubi->free_pool.count == 0) {
 		LOG_ERR("No free PEB for anchor allocation");
 		return -ENOSPC;
 	}
 
 	/* 1. Take a free PEB. */
-	struct rbnode *min_node = rb_get_min(&ubi->free_pebs);
+	struct rbnode *min_node = rb_get_min(&ubi->free_pool.tree);
 	struct ubi_rbt_item *item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
 
-	rb_remove(&ubi->free_pebs, &item->node);
-	ubi->free_peb_count -= 1;
+	rb_remove(&ubi->free_pool.tree, &item->node);
+	ubi->free_pool.count -= 1;
 
 	const size_t pnum = item->value.pnum;
 
@@ -98,7 +98,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 
 	/* 5. Write VID header — commit point.
 	 *    Use global VID counter for this key version. */
-	const uint64_t vid_counter = ubi->next_vid_counter;
+	const uint64_t vid_counter = ubi->aead.next_vid;
 
 	if (vid_counter > UBI_SECURE_COUNTER_MAX) {
 		LOG_ERR("VID counter overflow");
@@ -120,7 +120,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 		goto mark_bad;
 	}
 
-	ubi->next_vid_counter = vid_counter + 1;
+	ubi->aead.next_vid = vid_counter + 1;
 
 	/* 6. Success — track in volume. The item is not inserted into any tree;
 	 *    anchor PEBs are tracked via vol->anchor_pnum, not via EBA or free/dirty. */
@@ -221,16 +221,16 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 
 	/* 4. Dirty PEB is the sole on-flash witness of the counter floor.
 	 *    Rewrite the anchor to a fresh PEB before allowing the erase. */
-	if (ubi->free_peb_count == 0) {
+	if (ubi->free_pool.count == 0) {
 		LOG_ERR("No free PEB for anchor rewrite -- erase deferred");
 		return -ENOSPC;
 	}
 
-	struct rbnode *min_node = rb_get_min(&ubi->free_pebs);
+	struct rbnode *min_node = rb_get_min(&ubi->free_pool.tree);
 	struct ubi_rbt_item *new_item = CONTAINER_OF(min_node, struct ubi_rbt_item, node);
 
-	rb_remove(&ubi->free_pebs, &new_item->node);
-	ubi->free_peb_count -= 1;
+	rb_remove(&ubi->free_pool.tree, &new_item->node);
+	ubi->free_pool.count -= 1;
 
 	const size_t new_pnum = new_item->value.pnum;
 
@@ -279,7 +279,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	}
 
 	/* Write VID header -- commit point. */
-	const uint64_t vid_counter = ubi->next_vid_counter;
+	const uint64_t vid_counter = ubi->aead.next_vid;
 
 	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
 				       &new_vid, &new_meta, write_kv, vid_counter);
@@ -288,7 +288,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 		goto rewrite_bad;
 	}
 
-	ubi->next_vid_counter = vid_counter + 1;
+	ubi->aead.next_vid = vid_counter + 1;
 
 	/* Old anchor PEB is now stale -- retire to dirty pool. */
 	const size_t old_anchor_pnum = vol->anchor_pnum;
@@ -317,8 +317,8 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	old_item->key = (old_ec_ret == 0) ?
 				old_anchor_ec.ec :
 				((ubi->ec_count > 0) ? (ubi->ec_sum / ubi->ec_count) : 0);
-	rb_insert(&ubi->dirty_pebs, &old_item->node);
-	ubi->dirty_peb_count += 1;
+	rb_insert(&ubi->dirty_pool.tree, &old_item->node);
+	ubi->dirty_pool.count += 1;
 
 	/* clang-format off */
 	return 0;

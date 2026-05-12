@@ -75,7 +75,7 @@ BUILD_ASSERT(VID_AUTH_BYTES == 101, "VID per-record AAD+plaintext drift");
  *
  * Each metadata domain has its own base.  DEVICE_HEADER and VOLUME_HEADER
  * are tracked separately even though they share the on-flash AEAD counter
- * (next_dev_hdr_counter): they use distinct HKDF child keys and the
+ * (next_res_peb_counter): they use distinct HKDF child keys and the
  * VOLUME_HEADER per-record AAD is larger, so the VOL bytes-budget fills
  * faster than the DEV one.
  *
@@ -194,13 +194,13 @@ static uint64_t metadata_domain_base(const struct ubi_device *ubi, enum ubi_secu
 
 	switch (domain) {
 	case UBI_SECURE_DOMAIN_DEVICE_HEADER:
-		return ubi->budget_base_dev;
+		return ubi->budget_bases.dev;
 	case UBI_SECURE_DOMAIN_VOLUME_HEADER:
-		return ubi->budget_base_vol;
+		return ubi->budget_bases.vol;
 	case UBI_SECURE_DOMAIN_ERASE_COUNTER:
-		return ubi->budget_base_ec;
+		return ubi->budget_bases.ec;
 	case UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER:
-		return ubi->budget_base_vid;
+		return ubi->budget_bases.vid;
 	default:
 		__ASSERT(false, "Invalid metadata budget domain %d", (int)domain);
 		return 0;
@@ -335,14 +335,14 @@ void ubi_secure_budget_bases_init(struct ubi_device *ubi, bool rotation_happened
 		 * new HKDF child keys so the per-domain budget restarts.
 		 * Bases capture the current global counter values so
 		 * subsequent (current - base) yields invocations under the
-		 * new kv only.  DEV and VOL share next_dev_hdr_counter on
+		 * new kv only.  DEV and VOL share next_res_peb_counter on
 		 * flash but get separate base copies so the subtraction
 		 * stays per-domain.
 		 */
-		ubi->budget_base_dev = ubi->next_dev_hdr_counter;
-		ubi->budget_base_vol = ubi->next_dev_hdr_counter;
-		ubi->budget_base_ec = ubi->next_ec_counter;
-		ubi->budget_base_vid = ubi->next_vid_counter;
+		ubi->budget_bases.dev = ubi->aead.next_res_peb;
+		ubi->budget_bases.vol = ubi->aead.next_res_peb;
+		ubi->budget_bases.ec = ubi->aead.next_ec;
+		ubi->budget_bases.vid = ubi->aead.next_vid;
 	} else {
 		/*
 		 * Same write-active kv as on flash.  The on-flash counter
@@ -350,10 +350,10 @@ void ubi_secure_budget_bases_init(struct ubi_device *ubi, bool rotation_happened
 		 * keep the bases at zero so (current - 0) reflects the full
 		 * history.
 		 */
-		ubi->budget_base_dev = 0;
-		ubi->budget_base_vol = 0;
-		ubi->budget_base_ec = 0;
-		ubi->budget_base_vid = 0;
+		ubi->budget_bases.dev = 0;
+		ubi->budget_bases.vol = 0;
+		ubi->budget_bases.ec = 0;
+		ubi->budget_bases.vid = 0;
 	}
 }
 
