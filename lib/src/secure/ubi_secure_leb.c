@@ -145,19 +145,10 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	const uint64_t projected_bytes = old_total_auth_bytes + leb_auth_bytes_this_write;
 	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
 
-	if (projected_counter > UBI_SECURE_COUNTER_MAX) {
-		LOG_ERR("LEB AEAD counter would overflow (kv=%u vol_id=%d)", (unsigned)write_kv,
-			vol->vol_id);
-		struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
-			.freshness = ubi_secure_freshness_snapshot(ubi),
-			.rotation = { .key_version = write_kv,
-				      .volume_id = (uint32_t)vol->vol_id,
-				      .usage_pct = 100 },
-		};
-		ubi_secure_emit_event(ubi, &ev);
-		return -EOVERFLOW;
-	}
+	/* 48-bit AEAD counter overflow is detected centrally inside
+	 * ubi_secure_budget_leb_pre() / ubi_secure_budget_metadata_pre()
+	 * (-EOVERFLOW + KEY_ROTATE_NOW + sticky crypto-RO).
+	 */
 
 	int ret = ubi_secure_budget_leb_pre(ubi, write_kv, (uint32_t)vol->vol_id, projected_counter,
 					    projected_bytes);

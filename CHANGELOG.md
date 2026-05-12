@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.84.0] - 2026-05-12
+
+### Changed
+
+- Secure-backend internal refactor (no behaviour, API, or on-flash format
+  change): the policy allowlist lookup and the EC/VID/LEB key-derivation paths
+  share a single helper; the flash-write fault-injection wrapper is consolidated
+  in a new `ubi_secure_flash.h` instead of being duplicated across `io.c` and
+  `reserved.c`; `UBI_SECURE_MAX_LABEL_SIZE` is derived from the actual on-flash
+  label format and bound to the domain-name strings via `BUILD_ASSERT`;
+  `ubi_secure_res_peb_scan()` builds its result on a local copy and only
+  publishes it to the caller on success; the 48-bit AEAD-counter overflow check
+  now lives inside the budget pre-checks (with `KEY_ROTATE_NOW` and sticky
+  crypto-RO), removing the redundant manual guard in
+  `leb_prepare_new_mapping()`.
+
 ## [0.83.0] - 2026-05-12
 
 ### Changed

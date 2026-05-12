@@ -120,6 +120,31 @@ static unsigned int usage_pct(uint64_t counter, uint64_t counter_budget, uint64_
 static int trip_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id);
 
 /**
+ * \brief Emit a KEY_ROTATE_NOW event with the given usage percentage and latch
+ *        the device into crypto-RO.  Shared body of \ref trip_now and
+ *        \ref trip_overflow.
+ *
+ * \param[in,out] ubi    UBI device.
+ * \param[in]     kv     Key version (carried in event).
+ * \param[in]     vol_id Volume id (carried in event; 0 if N/A).
+ * \param[in]     pct    Effective usage percentage to report in the event.
+ */
+static void emit_rotate_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id, unsigned int pct);
+
+/**
+ * \brief Emit KEY_ROTATE_NOW (usage_pct = 100), latch crypto-RO, and return
+ *        \c -EOVERFLOW.  Used when the budget pre-check observes that a
+ *        projected AEAD counter would exceed \ref UBI_SECURE_COUNTER_MAX.
+ *
+ * \param[in,out] ubi    UBI device.
+ * \param[in]     kv     Write-active key version (carried in event).
+ * \param[in]     vol_id Volume id (carried in event; 0 if N/A).
+ *
+ * \retval -EOVERFLOW Always — caller must propagate.
+ */
+static int trip_overflow(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id);
+
+/**
  * \brief Emit KEY_ROTATE_SOON or KEY_ROTATE_NOW based on \p pct.
  *
  * \param[in,out] ubi    UBI device.
@@ -211,22 +236,35 @@ static unsigned int usage_pct(uint64_t counter, uint64_t counter_budget, uint64_
 	return (counter_pct > bytes_pct) ? counter_pct : bytes_pct;
 }
 
-static int trip_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id)
+static void emit_rotate_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id, unsigned int pct)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
 	const struct ubi_crypto_event ev = {
 		.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
 		.freshness = ubi_secure_freshness_snapshot(ubi),
-		.rotation = { .key_version = kv,
-			      .volume_id = vol_id,
-			      .usage_pct = CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT },
+		.rotation = { .key_version = kv, .volume_id = vol_id, .usage_pct = pct },
 	};
 
 	ubi_secure_emit_event(ubi, &ev);
 	ubi->read_only_crypto = true;
+}
 
+static int trip_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id)
+{
+	emit_rotate_now(ubi, kv, vol_id, CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT);
 	return -ENOSPC;
+}
+
+/* Returns -EOVERFLOW after emitting KEY_ROTATE_NOW (usage_pct = 100) and
+ * latching the device into crypto-RO.  Used by the budget pre-checks below to
+ * trip the same hard-rotation behaviour as a regular budget exhaustion when a
+ * write would push the 48-bit AEAD counter past UBI_SECURE_COUNTER_MAX.
+ */
+static int trip_overflow(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id)
+{
+	emit_rotate_now(ubi, kv, vol_id, UBI_SECURE_PERCENT_BASE);
+	return -EOVERFLOW;
 }
 
 static void emit_post_event(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id, unsigned int pct)
@@ -326,6 +364,12 @@ int ubi_secure_budget_metadata_pre(struct ubi_device *ubi, enum ubi_secure_domai
 		return 0;
 	}
 
+	if (projected_counter > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("Metadata AEAD counter overflow: domain=%d kv=%u vol_id=%u", (int)domain,
+			(unsigned)kv, (unsigned)vol_id);
+		return trip_overflow(ubi, kv, vol_id);
+	}
+
 	uint64_t counter = 0;
 	uint64_t bytes = 0;
 
@@ -385,6 +429,11 @@ int ubi_secure_budget_leb_pre(struct ubi_device *ubi, uint8_t kv, uint32_t vol_i
 
 	if (ubi->crypto_cfg == NULL) {
 		return 0;
+	}
+
+	if (projected_counter > UBI_SECURE_COUNTER_MAX) {
+		LOG_ERR("LEB AEAD counter overflow: kv=%zu vol_id=%zu", (size_t)kv, (size_t)vol_id);
+		return trip_overflow(ubi, kv, vol_id);
 	}
 
 	const unsigned int pct =

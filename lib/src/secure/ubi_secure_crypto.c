@@ -10,6 +10,7 @@
 
 /* Internal headers: */
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_policy.h"
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 
@@ -29,13 +30,78 @@
 
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
-/* Domain label strings (normative — part of on-flash compatibility). */
-static const char LABEL_PREFIX[] = "UBI";
-static const char LABEL_DEVICE_HEADER[] = "DEVICE-HEADER";
-static const char LABEL_VOLUME_HEADER[] = "VOLUME-HEADER";
-static const char LABEL_ERASE_COUNTER[] = "ERASE-COUNTER";
-static const char LABEL_VOLUME_IDENTIFIER[] = "VOLUME-IDENTIFIER";
-static const char LABEL_LEB[] = "LEB";
+/* Static function declarations ----------------------------------------------------------------- */
+
+/**
+ * \brief Shared body of \ref ubi_secure_derive_domain_key and
+ *        \ref ubi_secure_derive_leb_key.
+ *
+ * Allowlist gate → fault-injection hook → root-key lookup → label build →
+ * HKDF child-key derive.
+ *
+ * \param[in]  crypto_cfg   Crypto configuration (must not be NULL).
+ * \param[in]  domain       Secure domain identifier.
+ * \param[in]  key_version  Key version for root-key lookup.
+ * \param[in]  volume_id    Volume identifier (used only for the LEB domain;
+ *                          ignored otherwise).
+ * \param[out] child_key_id Receives the derived PSA key identifier.
+ *
+ * \retval 0                  Success.
+ * \retval -UBI_SECURE_ENOKEY Key version not allowed or root lookup failed.
+ * \retval -EIO               Label build or child-key derive failed.
+ */
+static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
+				enum ubi_secure_domain domain, uint8_t key_version,
+				uint32_t volume_id, psa_key_id_t *child_key_id);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
+static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
+				enum ubi_secure_domain domain, uint8_t key_version,
+				uint32_t volume_id, psa_key_id_t *child_key_id)
+{
+	__ASSERT_NO_MSG(crypto_cfg != NULL);
+	__ASSERT_NO_MSG(child_key_id != NULL);
+
+	if (ubi_secure_policy_kv_slot(&crypto_cfg->policy, key_version) < 0) {
+		LOG_ERR("Key version %u not in allowlist (domain %d, vol %u)", key_version,
+			(int)domain, volume_id);
+		return -UBI_SECURE_ENOKEY;
+	}
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
+		LOG_WRN("get_key_id fault injected");
+		return -UBI_SECURE_ENOKEY;
+	}
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+
+	psa_key_id_t root_key_id = PSA_KEY_ID_NULL;
+	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
+
+	if (ret != 0) {
+		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
+		return -UBI_SECURE_ENOKEY;
+	}
+
+	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };
+	size_t label_len = 0;
+
+	ret = ubi_secure_build_label(domain, volume_id, label, sizeof(label), &label_len);
+	if (ret != 0) {
+		LOG_ERR("build_label failed for domain %d (vol %u): %d", (int)domain, volume_id,
+			ret);
+		return ret;
+	}
+
+	ret = ubi_secure_derive_child_key(root_key_id, label, label_len, child_key_id);
+	if (ret != 0) {
+		LOG_ERR("derive_child_key failed for domain %d (vol %u): %d", (int)domain,
+			volume_id, ret);
+	}
+
+	return ret;
+}
 
 /* Module interface function definitions -------------------------------------------------------- */
 
@@ -52,24 +118,24 @@ int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, ui
 
 	switch (domain) {
 	case UBI_SECURE_DOMAIN_DEVICE_HEADER:
-		domain_name = LABEL_DEVICE_HEADER;
-		domain_name_len = sizeof(LABEL_DEVICE_HEADER) - 1;
+		domain_name = UBI_SECURE_LABEL_DEVICE_HEADER_STR;
+		domain_name_len = sizeof(UBI_SECURE_LABEL_DEVICE_HEADER_STR) - 1;
 		break;
 	case UBI_SECURE_DOMAIN_VOLUME_HEADER:
-		domain_name = LABEL_VOLUME_HEADER;
-		domain_name_len = sizeof(LABEL_VOLUME_HEADER) - 1;
+		domain_name = UBI_SECURE_LABEL_VOLUME_HEADER_STR;
+		domain_name_len = sizeof(UBI_SECURE_LABEL_VOLUME_HEADER_STR) - 1;
 		break;
 	case UBI_SECURE_DOMAIN_ERASE_COUNTER:
-		domain_name = LABEL_ERASE_COUNTER;
-		domain_name_len = sizeof(LABEL_ERASE_COUNTER) - 1;
+		domain_name = UBI_SECURE_LABEL_ERASE_COUNTER_STR;
+		domain_name_len = sizeof(UBI_SECURE_LABEL_ERASE_COUNTER_STR) - 1;
 		break;
 	case UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER:
-		domain_name = LABEL_VOLUME_IDENTIFIER;
-		domain_name_len = sizeof(LABEL_VOLUME_IDENTIFIER) - 1;
+		domain_name = UBI_SECURE_LABEL_VOLUME_IDENTIFIER_STR;
+		domain_name_len = sizeof(UBI_SECURE_LABEL_VOLUME_IDENTIFIER_STR) - 1;
 		break;
 	case UBI_SECURE_DOMAIN_LEB:
-		domain_name = LABEL_LEB;
-		domain_name_len = sizeof(LABEL_LEB) - 1;
+		domain_name = UBI_SECURE_LABEL_LEB_STR;
+		domain_name_len = sizeof(UBI_SECURE_LABEL_LEB_STR) - 1;
 		break;
 	default:
 		LOG_ERR("Unknown secure domain: %d", (int)domain);
@@ -77,12 +143,12 @@ int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, ui
 	}
 
 	/* "UBI" || 0x00 || domain_name || 0x00 || 0x01 [|| be32(volume_id) for LEB] */
-	size_t needed = sizeof(LABEL_PREFIX) /* includes NUL → acts as 0x00 separator */
-			+ domain_name_len + 1 /* 0x00 */
-			+ 1; /* 0x01 */
+	size_t needed = UBI_SECURE_LABEL_PREFIX_BYTES /* "UBI" + trailing 0x00 separator */
+			+ domain_name_len + UBI_SECURE_LABEL_SEPARATOR_BYTES /* 0x00 */
+			+ UBI_SECURE_LABEL_VERSION_BYTES; /* 0x01 */
 
 	if (domain == UBI_SECURE_DOMAIN_LEB) {
-		needed += 4; /* be32(volume_id) */
+		needed += UBI_SECURE_LABEL_VOLUME_ID_BYTES; /* be32(volume_id) */
 	}
 
 	if (needed > label_cap) {
@@ -93,8 +159,8 @@ int ubi_secure_build_label(enum ubi_secure_domain domain, uint32_t volume_id, ui
 	size_t pos = 0;
 
 	/* "UBI" + 0x00 */
-	memcpy(&label[pos], LABEL_PREFIX, sizeof(LABEL_PREFIX) - 1);
-	pos += sizeof(LABEL_PREFIX) - 1;
+	memcpy(&label[pos], UBI_SECURE_LABEL_PREFIX_STR, sizeof(UBI_SECURE_LABEL_PREFIX_STR) - 1);
+	pos += sizeof(UBI_SECURE_LABEL_PREFIX_STR) - 1;
 	label[pos++] = 0x00;
 
 	/* domain_name + 0x00 */
@@ -295,51 +361,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
 		return -EINVAL;
 	}
 
-	/* Central allowlist gate — every key derivation must pass through here. */
-	bool kv_allowed = false;
-
-	for (size_t i = 0; i < crypto_cfg->policy.allowed_key_versions_len; i++) {
-		if (crypto_cfg->policy.allowed_key_versions[i] == key_version) {
-			kv_allowed = true;
-			break;
-		}
-	}
-
-	if (!kv_allowed) {
-		LOG_ERR("Key version %u not in allowlist (domain %d)", key_version, (int)domain);
-		return -UBI_SECURE_ENOKEY;
-	}
-
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
-		LOG_WRN("get_key_id fault injected");
-		return -UBI_SECURE_ENOKEY;
-	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
-
-	psa_key_id_t root_key_id = PSA_KEY_ID_NULL;
-	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
-
-	if (ret != 0) {
-		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
-		return -UBI_SECURE_ENOKEY;
-	}
-
-	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };
-	size_t label_len = 0;
-
-	ret = ubi_secure_build_label(domain, 0, label, sizeof(label), &label_len);
-	if (ret != 0) {
-		LOG_ERR("build_label failed for domain %d: %d", (int)domain, ret);
-		return ret;
-	}
-
-	ret = ubi_secure_derive_child_key(root_key_id, label, label_len, child_key_id);
-	if (ret != 0) {
-		LOG_ERR("derive_child_key failed for domain %d: %d", (int)domain, ret);
-	}
-
-	return ret;
+	return derive_key_via_label(crypto_cfg, domain, key_version, 0, child_key_id);
 }
 
 int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_t key_version,
@@ -350,51 +372,6 @@ int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_
 		return -EINVAL;
 	}
 
-	/* Central allowlist gate — every key derivation must pass through here. */
-	bool kv_allowed = false;
-
-	for (size_t i = 0; i < crypto_cfg->policy.allowed_key_versions_len; i++) {
-		if (crypto_cfg->policy.allowed_key_versions[i] == key_version) {
-			kv_allowed = true;
-			break;
-		}
-	}
-
-	if (!kv_allowed) {
-		LOG_ERR("Key version %u not in allowlist (LEB domain, vol %u)", key_version,
-			volume_id);
-		return -UBI_SECURE_ENOKEY;
-	}
-
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
-		LOG_WRN("get_key_id fault injected");
-		return -UBI_SECURE_ENOKEY;
-	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
-
-	psa_key_id_t root_key_id = PSA_KEY_ID_NULL;
-	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
-
-	if (ret != 0) {
-		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
-		return -UBI_SECURE_ENOKEY;
-	}
-
-	uint8_t label[UBI_SECURE_MAX_LABEL_SIZE] = { 0 };
-	size_t label_len = 0;
-
-	ret = ubi_secure_build_label(UBI_SECURE_DOMAIN_LEB, volume_id, label, sizeof(label),
-				     &label_len);
-	if (ret != 0) {
-		LOG_ERR("build_label failed for LEB domain vol %u: %d", volume_id, ret);
-		return ret;
-	}
-
-	ret = ubi_secure_derive_child_key(root_key_id, label, label_len, child_key_id);
-	if (ret != 0) {
-		LOG_ERR("derive_child_key failed for LEB domain vol %u: %d", volume_id, ret);
-	}
-
-	return ret;
+	return derive_key_via_label(crypto_cfg, UBI_SECURE_DOMAIN_LEB, key_version, volume_id,
+				    child_key_id);
 }

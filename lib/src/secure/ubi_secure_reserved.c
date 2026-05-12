@@ -11,6 +11,8 @@
 /* Internal headers: */
 #include "ubi_secure_reserved.h"
 #include "ubi_secure_crypto.h"
+#include "ubi_secure_flash.h"
+#include "ubi_secure_policy.h"
 #include "ubi_secure_ser.h"
 #include "ubi_secure_types.h"
 #include "ubi_internal.h"
@@ -34,19 +36,6 @@
 LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Static function declarations ----------------------------------------------------------------- */
-
-/**
- * \brief Write data to a flash area with optional fault injection.
- *
- * \param[in] fa     Open flash area handle.
- * \param offset     Byte offset within the flash area.
- * \param[in] data   Source buffer.
- * \param len        Number of bytes to write.
- *
- * \return 0 on success, or negative errno on failure.
- */
-static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-			      size_t len);
 
 /**
  * \brief Authenticate one reserved-PEB device-header record.
@@ -348,7 +337,10 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		return -EINVAL;
 	}
 
-	memset(scan, 0, sizeof(*scan));
+	/* Build the result on the stack and publish it to *scan only on success
+	 * so a partial scan never overwrites the caller's prior state.
+	 */
+	struct ubi_secure_res_peb_scan local = { 0 };
 
 	/* Derive the device-header child key for each key version in the allowlist.
 	 * For scan phase, we try each allowlisted version against each PEB.
@@ -379,15 +371,15 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		ret = flash_area_read(fa, offset, raw, sizeof(raw));
 		if (ret != 0) {
 			LOG_ERR("Flash read failure at reserved PEB %zu", peb);
-			scan->state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			scan->corrupt_count++;
+			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
+			local.corrupt_count++;
 			continue;
 		}
 
 		/* Check if blank. */
 		if (ubi_buf_is_erased(raw, sizeof(raw), erased_val)) {
-			scan->state[peb] = UBI_SECURE_RES_PEB_SPARE;
-			scan->spare_count++;
+			local.state[peb] = UBI_SECURE_RES_PEB_SPARE;
+			local.spare_count++;
 			continue;
 		}
 
@@ -395,31 +387,22 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		const uint32_t magic = sys_get_be32(raw);
 
 		if (magic != UBI_SECURE_PREFIX_MAGIC) {
-			scan->state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			scan->corrupt_count++;
+			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
+			local.corrupt_count++;
 			continue;
 		}
 
 		/* Extract key_version from prefix to know which key to use. */
 		const uint8_t kv = raw[UBI_SECURE_PREFIX_OFF_KEY_VERSION];
 
-		/*/* Check key_version against allowlist — an
-		 * on-flash key version absent from the allowlist is a policy
-		 * error. Treat the PEB as corrupt so the authenticated copy
-		 * (if any) still wins. */
-		bool kv_allowed = false;
-
-		for (size_t i = 0; i < crypto_cfg->policy.allowed_key_versions_len; i++) {
-			if (crypto_cfg->policy.allowed_key_versions[i] == kv) {
-				kv_allowed = true;
-				break;
-			}
-		}
-
-		if (!kv_allowed) {
+		/* Check key_version against allowlist — an on-flash key version
+		 * absent from the allowlist is a policy error. Treat the PEB as
+		 * corrupt so the authenticated copy (if any) still wins.
+		 */
+		if (ubi_secure_policy_kv_slot(&crypto_cfg->policy, kv) < 0) {
 			LOG_ERR("Key version %u at PEB %zu not in allowlist", kv, peb);
-			scan->state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			scan->corrupt_count++;
+			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
+			local.corrupt_count++;
 			continue;
 		}
 
@@ -430,8 +413,8 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 						   &child_key_id);
 		if (ret != 0) {
 			LOG_ERR("Cannot derive key for version %u on PEB %zu", kv, peb);
-			scan->state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			scan->corrupt_count++;
+			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
+			local.corrupt_count++;
 			continue;
 		}
 
@@ -444,26 +427,27 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 
 		if (ret != 0) {
 			LOG_ERR("Auth failure on reserved PEB %zu", peb);
-			scan->state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
-			scan->corrupt_count++;
+			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
+			local.corrupt_count++;
 			continue;
 		}
 
-		scan->state[peb] = UBI_SECURE_RES_PEB_AUTHENTICATED;
-		scan->auth_count++;
-		scan->revision[peb] = hdr.revision;
+		local.state[peb] = UBI_SECURE_RES_PEB_AUTHENTICATED;
+		local.auth_count++;
+		local.revision[peb] = hdr.revision;
 
 		/* Select highest revision as canonical. */
-		if (scan->auth_count == 1 || hdr.revision > highest_revision) {
+		if (local.auth_count == 1 || hdr.revision > highest_revision) {
 			highest_revision = hdr.revision;
-			scan->dev_hdr = hdr;
-			scan->dev_meta = meta;
-			scan->dev_prefix = prefix;
-			scan->canonical_peb_idx = peb;
+			local.dev_hdr = hdr;
+			local.dev_meta = meta;
+			local.dev_prefix = prefix;
+			local.canonical_peb_idx = peb;
 		}
 	}
 
 	flash_area_close(fa);
+	*scan = local;
 	return 0;
 }
 
@@ -684,7 +668,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 		}
 
 		/* Write the full content. */
-		ret = secure_flash_write(fa, peb_offset, content, content_len);
+		ret = ubi_secure_flash_write(fa, peb_offset, content, content_len);
 		if (ret != 0) {
 			LOG_ERR("Write failure on reserved PEB %zu", peb);
 			continue;
@@ -714,33 +698,3 @@ cleanup:
 	ubi_secure_destroy_key(vol_key_id);
 	return ret;
 }
-
-/* Flash write fault injection ------------------------------------------------------------------ */
-
-#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-
-static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-			      size_t len)
-{
-	__ASSERT_NO_MSG(fa != NULL);
-	__ASSERT_NO_MSG(data != NULL);
-
-	if (ubi_test_flash_write_check_fail()) {
-		LOG_WRN("Flash write fault injected at offset 0x%lx", (unsigned long)offset);
-		return -EIO;
-	}
-	return flash_area_write(fa, offset, data, len);
-}
-
-#else /* !CONFIG_UBI_TEST_FAULT_INJECTION */
-
-static int secure_flash_write(const struct flash_area *fa, off_t offset, const void *data,
-			      size_t len)
-{
-	__ASSERT_NO_MSG(fa != NULL);
-	__ASSERT_NO_MSG(data != NULL);
-
-	return flash_area_write(fa, offset, data, len);
-}
-
-#endif /* CONFIG_UBI_TEST_FAULT_INJECTION */

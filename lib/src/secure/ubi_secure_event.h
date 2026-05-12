@@ -19,6 +19,7 @@
 
 /* Internal headers: */
 #include "ubi_internal.h"
+#include "ubi_secure_policy.h"
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
 
@@ -39,30 +40,6 @@
 /* Helpers -------------------------------------------------------------------------------------- */
 
 /**
- * \brief Find the allowlist slot for a given key version.
- *
- * \param[in] ubi  UBI device (caller holds mutex).
- * \param[in] kv   Key version to look up.
- *
- * \retval >= 0     Slot index (0 .. allowed_key_versions_len - 1).
- * \retval -ENOENT  Key version not found in the allowlist.
- */
-static inline int ubi_secure_kv_slot(const struct ubi_device *ubi, uint8_t kv)
-{
-	__ASSERT_NO_MSG(ubi != NULL);
-	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
-
-	const struct ubi_crypto_policy *p = &ubi->crypto_cfg->policy;
-
-	for (size_t i = 0; i < p->allowed_key_versions_len; i++) {
-		if (p->allowed_key_versions[i] == kv) {
-			return (int)i;
-		}
-	}
-	return -ENOENT;
-}
-
-/**
  * \brief Increment PEB refcount for a key version.
  *
  * Called when a new EC header is written (format, erase-rewrite) or when
@@ -74,8 +51,9 @@ static inline int ubi_secure_kv_slot(const struct ubi_device *ubi, uint8_t kv)
 static inline void ubi_secure_key_refcount_inc(struct ubi_device *ubi, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
+	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
 
-	const int slot = ubi_secure_kv_slot(ubi, kv);
+	const int slot = ubi_secure_policy_kv_slot(&ubi->crypto_cfg->policy, kv);
 
 	if (slot >= 0) {
 		ubi->key_peb_refcount[slot]++;
@@ -169,8 +147,9 @@ static inline void ubi_secure_emit_event(struct ubi_device *ubi,
 static inline void ubi_secure_key_refcount_dec_and_check(struct ubi_device *ubi, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
+	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
 
-	const int slot = ubi_secure_kv_slot(ubi, kv);
+	const int slot = ubi_secure_policy_kv_slot(&ubi->crypto_cfg->policy, kv);
 
 	if (slot < 0) {
 		return;
@@ -426,8 +405,9 @@ static inline int ubi_secure_handle_read_error(struct ubi_device *ubi, int ret, 
 static inline bool ubi_secure_check_allowlist(struct ubi_device *ubi, uint8_t kv, uint32_t pnum)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
+	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
 
-	if (ubi_secure_kv_slot(ubi, kv) >= 0) {
+	if (ubi_secure_policy_kv_slot(&ubi->crypto_cfg->policy, kv) >= 0) {
 		return true;
 	}
 

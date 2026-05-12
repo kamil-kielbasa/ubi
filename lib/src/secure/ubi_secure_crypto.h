@@ -19,14 +19,57 @@
 /* Public headers: */
 #include <ubi_crypto.h>
 
+/* Zephyr headers: */
+#include <zephyr/sys/util.h>
+
 /* Standard library headers: */
 #include <stddef.h>
 #include <stdint.h>
 
 /* Defines -------------------------------------------------------------------------------------- */
 
-/** Maximum label buffer size for ubi_secure_build_label (longest domain: "VOLUME-IDENTIFIER"). */
-#define UBI_SECURE_MAX_LABEL_SIZE (24)
+/* Domain label strings (normative — part of on-flash compatibility).  Exposed
+ * as string macros so the MAX_LABEL_SIZE computation below and the runtime
+ * label-build code in ubi_secure_crypto.c share a single source of truth.
+ */
+#define UBI_SECURE_LABEL_PREFIX_STR "UBI"
+#define UBI_SECURE_LABEL_DEVICE_HEADER_STR "DEVICE-HEADER"
+#define UBI_SECURE_LABEL_VOLUME_HEADER_STR "VOLUME-HEADER"
+#define UBI_SECURE_LABEL_ERASE_COUNTER_STR "ERASE-COUNTER"
+#define UBI_SECURE_LABEL_VOLUME_IDENTIFIER_STR "VOLUME-IDENTIFIER"
+#define UBI_SECURE_LABEL_LEB_STR "LEB"
+
+/** Bytes contributed by the "UBI" prefix plus its trailing 0x00 separator. */
+#define UBI_SECURE_LABEL_PREFIX_BYTES (sizeof(UBI_SECURE_LABEL_PREFIX_STR))
+
+/** Bytes contributed by the 0x00 separator after the domain name. */
+#define UBI_SECURE_LABEL_SEPARATOR_BYTES (1)
+
+/** Bytes contributed by the 0x01 version byte. */
+#define UBI_SECURE_LABEL_VERSION_BYTES (1)
+
+/** Bytes contributed by the be32(volume_id) tail (LEB domain only). */
+#define UBI_SECURE_LABEL_VOLUME_ID_BYTES (4)
+
+/** Length in bytes of the longest domain name string used by build_label. */
+#define UBI_SECURE_LABEL_DOMAIN_NAME_MAX                                    \
+	MAX(sizeof(UBI_SECURE_LABEL_DEVICE_HEADER_STR) - 1,                 \
+	    MAX(sizeof(UBI_SECURE_LABEL_VOLUME_HEADER_STR) - 1,             \
+		MAX(sizeof(UBI_SECURE_LABEL_ERASE_COUNTER_STR) - 1,         \
+		    MAX(sizeof(UBI_SECURE_LABEL_VOLUME_IDENTIFIER_STR) - 1, \
+			sizeof(UBI_SECURE_LABEL_LEB_STR) - 1))))
+
+/**
+ * Maximum label buffer size for \ref ubi_secure_build_label.
+ *
+ * Derived from the actual label format
+ * ("UBI" || 0x00 || domain_name || 0x00 || 0x01 [|| be32(volume_id)])
+ * so adding a domain or renaming one cannot silently outgrow the buffer.
+ */
+#define UBI_SECURE_MAX_LABEL_SIZE                                            \
+	(UBI_SECURE_LABEL_PREFIX_BYTES + UBI_SECURE_LABEL_DOMAIN_NAME_MAX +  \
+	 UBI_SECURE_LABEL_SEPARATOR_BYTES + UBI_SECURE_LABEL_VERSION_BYTES + \
+	 UBI_SECURE_LABEL_VOLUME_ID_BYTES)
 
 /* Module interface function declarations ------------------------------------------------------- */
 
