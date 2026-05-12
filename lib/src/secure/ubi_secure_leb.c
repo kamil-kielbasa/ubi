@@ -415,7 +415,8 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
 		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum,
-					     UBI_SECURE_DOMAIN_ERASE_COUNTER, ec_ctx.key_version);
+						   UBI_SECURE_DOMAIN_ERASE_COUNTER,
+						   ec_ctx.key_version);
 		goto exit;
 	}
 
@@ -436,8 +437,8 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");
 		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum,
-					     UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
-					     vid_ctx.key_version);
+						   UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+						   vid_ctx.key_version);
 		goto exit;
 	}
 
@@ -466,8 +467,8 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 #endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
 	if (ret != 0) {
 		LOG_ERR("LEB data read failure");
-		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum, UBI_SECURE_DOMAIN_LEB,
-					     vid_ctx.key_version);
+		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum,
+						   UBI_SECURE_DOMAIN_LEB, vid_ctx.key_version);
 		goto exit;
 	}
 

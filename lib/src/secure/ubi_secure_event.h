@@ -289,7 +289,8 @@ static inline unsigned int ubi_secure_usage_pct(uint64_t value, uint64_t budget)
  * \retval 0    A crypto event was emitted for the recognized error code.
  * \retval ret  Unrecognized error code — no event emitted, original error returned.
  */
-static inline int ubi_secure_event_handle_write_error(struct ubi_device *ubi, int ret, uint32_t pnum)
+static inline int ubi_secure_event_handle_write_error(struct ubi_device *ubi, int ret,
+						      uint32_t pnum)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
@@ -338,7 +339,7 @@ static inline int ubi_secure_event_handle_write_error(struct ubi_device *ubi, in
  * \retval ret  Unrecognized error code — no event emitted, original error returned.
  */
 static inline int ubi_secure_event_handle_read_error(struct ubi_device *ubi, int ret, uint32_t pnum,
-					       uint8_t domain, uint8_t kv)
+						     uint8_t domain, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
