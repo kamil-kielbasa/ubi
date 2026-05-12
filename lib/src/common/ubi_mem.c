@@ -46,7 +46,11 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 64, "ubi_volume must be 64 bytes (secu
 BUILD_ASSERT(sizeof(struct ubi_device) == 224 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 224 bytes (secure, x86) or 228 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 236, "ubi_device must be 236 bytes (secure, ARM)");
+/* ARM size varies with CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS, k_mutex layout
+ * (Cortex-M vs Cortex-R, SMP, etc.) and tail padding, so use a generous
+ * upper bound rather than an exact match.  The bound is here to catch
+ * accidental growth, not to pin the exact byte count. */
+BUILD_ASSERT(sizeof(struct ubi_device) <= 256, "ubi_device unexpectedly grew (secure, ARM)");
 #endif
 #else /* !CONFIG_UBI_CRYPTO */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
@@ -54,7 +58,7 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
 BUILD_ASSERT(sizeof(struct ubi_device) == 132 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 132 bytes (plain, x86) or 136 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 136, "ubi_device must be 136 bytes (plain, ARM)");
+BUILD_ASSERT(sizeof(struct ubi_device) <= 144, "ubi_device unexpectedly grew (plain, ARM)");
 #endif
 #endif /* CONFIG_UBI_CRYPTO */
 
