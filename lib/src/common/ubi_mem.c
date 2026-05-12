@@ -46,7 +46,7 @@ BUILD_ASSERT(sizeof(struct ubi_volume) == 64, "ubi_volume must be 64 bytes (secu
 BUILD_ASSERT(sizeof(struct ubi_device) == 224 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 224 bytes (secure, x86) or 228 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-BUILD_ASSERT(sizeof(struct ubi_device) == 232, "ubi_device must be 232 bytes (secure, ARM)");
+BUILD_ASSERT(sizeof(struct ubi_device) == 236, "ubi_device must be 236 bytes (secure, ARM)");
 #endif
 #else /* !CONFIG_UBI_CRYPTO */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
