@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.86.0] - 2026-05-12
+
+### Changed
+
+- Secure-backend internal refactor (no behaviour, API, or on-flash format
+  change): the hidden per-volume anchor PEB -- the single PEB that carries
+  the authenticated upper bound of a volume's LEB AEAD-counter floor across
+  power loss -- is now an independent module (`ubi_secure_anchor.{h,c}`)
+  with three documented entry points: creation at volume-create time, the
+  sole-witness rewrite that must happen before a dirty PEB carrying the
+  cached counter floor may be erased, and the one-PEB reserve refill that
+  keeps a free PEB available for that rewrite. Previously these three
+  responsibilities were scattered across the volume-management and
+  device-runtime translation units (one as a public function, one as a
+  file-static helper called from two places, one as a public hook on the
+  runtime ops header), which obscured the rule that all three operations
+  share the same "rewrite-before-erase" invariant on the cached counter
+  floor. Grouping them in one unit also makes the boundary between
+  hot-path I/O (LEB read/write) and counter-floor maintenance explicit:
+  no other secure-backend unit now writes anchor PEBs.
+
+- Counter-floor erase maintenance no longer silently swallows I/O errors.
+  When `ubi_secure_try_refill_reserve()` tries to recycle a dirty PEB so
+  that the one-PEB anchor-rewrite reserve is restored from one free PEB
+  back to two, an erase failure on that PEB is now reported via
+  `LOG_WRN`. The call remains best-effort -- the caller has no actionable
+  recovery, and the next user-visible write will surface `-ENOSPC` if the
+  reserve cannot be restored -- but the failure is no longer invisible to
+  the operator: the warning carries the PEB index and the failing return
+  code so that a degraded free pool can be diagnosed from logs alone
+  instead of inferred from a downstream `-ENOSPC`.
+
+- On-flash naming for the data-PEB VID header was unified with the rest
+  of the secure header family. The AAD/plaintext size macros for this
+  domain were previously named `UBI_SECURE_DATA_VID_*` while every other
+  domain used the on-flash header name (`UBI_SECURE_DEV_HDR_*`,
+  `UBI_SECURE_VOL_HDR_*`, `UBI_SECURE_EC_HDR_*`), and the matching AAD
+  input struct followed the same odd convention
+  (`ubi_secure_data_vid_aad_input`). They are now `UBI_SECURE_VID_HDR_*`
+  and `ubi_secure_vid_hdr_aad_input`, so every secure header domain reads
+  as `<DOMAIN>_HDR` in code and the on-flash spec, the runtime budget
+  helper, and the AAD builders all use the same identifier. No size,
+  field offset, or wire-format byte changed.
+
+- `ubi_secure_ser.{h,c}` is now organized by on-flash domain. Common
+  helpers (prefix32 serialize/deserialize, counter48 encode/decode) come
+  first, then each header domain (DEV, VOL, EC, VID) groups its AAD
+  builder together with its secure-meta serialize/deserialize, then LEB
+  record and finally LEB chunk (the latter still gated by
+  `CONFIG_UBI_CRYPTO_LEB_CHUNKED`). Previously the file mixed builders,
+  meta (de)serializers and helpers in the order they had been added,
+  which made the per-domain set of operations hard to read at a glance
+  and harder still to extend. The header layout mirrors the source file
+  one-for-one, with explicit section banners and a top-of-file summary.
+  No declaration, definition, or wire-format byte changed; this is a
+  pure layout reorganization to make the per-domain authentication
+  contract self-evident from the source.
+
 ## [0.85.0] - 2026-05-12
 
 ### Changed

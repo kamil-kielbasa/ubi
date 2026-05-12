@@ -66,7 +66,7 @@ struct ubi_volume {
 	 *   - leb_prepare_new_mapping(): bump to projected post-write values BEFORE
 	 *     leb_data_write() (conservative nonce reservation: counters are a
 	 *     one-way ratchet, so a partial-write retry cannot collide);
-	 *   - maybe_rewrite_anchor_on_erase(): refreshed on anchor rewrite.
+	 *   - ubi_secure_anchor_rewrite_for_dirty_witness(): refreshed on anchor rewrite.
 	 *
 	 * Invariant (strict-monotonic counter implies unique witness):
 	 *   at any moment AT MOST ONE on-flash PEB (live or dirty) belonging to

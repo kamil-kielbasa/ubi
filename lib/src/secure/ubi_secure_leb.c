@@ -10,6 +10,7 @@
 
 /* Internal headers: */
 #include "ubi_secure_ops.h"
+#include "ubi_secure_anchor.h"
 #include "ubi_secure_budget.h"
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_event.h"

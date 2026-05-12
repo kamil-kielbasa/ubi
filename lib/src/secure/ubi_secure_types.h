@@ -142,18 +142,17 @@ static inline void ubi_secure_zeroize(void *buf, size_t len)
 /** Size of struct ubi_vid_secure_meta. */
 #define UBI_SECURE_VID_META_SIZE (16)
 
-/** Size of secure data-PEB VID on flash: prefix(32) + ciphertext(vid_hdr=32 + vid_meta=16) + tag(16). */
-#define UBI_SECURE_DATA_VID_SIZE (96)
+/** Size of secure data-PEB VID header on flash: prefix(32) + ciphertext(vid_hdr=32 + vid_meta=16) + tag(16). */
+#define UBI_SECURE_VID_HDR_SIZE (96)
 
-/** Plaintext payload for data-PEB VID: vid_hdr(32) + vid_secure_meta(16) = 48. */
-#define UBI_SECURE_DATA_VID_PLAINTEXT_SIZE \
-	(UBI_SECURE_PLAIN_VID_HDR_SIZE + UBI_SECURE_VID_META_SIZE)
+/** Plaintext payload for data-PEB VID header: vid_hdr(32) + vid_secure_meta(16) = 48. */
+#define UBI_SECURE_VID_HDR_PLAINTEXT_SIZE (UBI_SECURE_PLAIN_VID_HDR_SIZE + UBI_SECURE_VID_META_SIZE)
 
-/** Ciphertext+tag for data-PEB VID: 48 + 16 = 64. */
-#define UBI_SECURE_DATA_VID_CT_TAG_SIZE (UBI_SECURE_DATA_VID_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
+/** Ciphertext+tag for data-PEB VID header: 48 + 16 = 64. */
+#define UBI_SECURE_VID_HDR_CT_TAG_SIZE (UBI_SECURE_VID_HDR_PLAINTEXT_SIZE + UBI_SECURE_TAG_SIZE)
 
 /** Offset of secure LEB data region within a data PEB: EC(64) + VID(96) = 160. */
-#define UBI_SECURE_LEB_OFFSET (UBI_SECURE_EC_HDR_SIZE + UBI_SECURE_DATA_VID_SIZE)
+#define UBI_SECURE_LEB_OFFSET (UBI_SECURE_EC_HDR_SIZE + UBI_SECURE_VID_HDR_SIZE)
 
 /** Fixed overhead per secure LEB record: prefix(32) + tag(16) = 48. */
 #define UBI_SECURE_LEB_OVERHEAD (UBI_SECURE_PREFIX_SIZE + UBI_SECURE_TAG_SIZE)
@@ -284,12 +283,12 @@ struct ubi_secure_ec_hdr_aad_input {
 };
 
 /**
- * \brief AAD inputs bound into a secure data-PEB VID-header record.
+ * \brief AAD inputs bound into a secure data-PEB VID header-header record.
  *
  * Extends \ref ubi_secure_ec_hdr_aad_input with the authenticated EC value and
  * the parent EC-header key version.
  */
-struct ubi_secure_data_vid_aad_input {
+struct ubi_secure_vid_hdr_aad_input {
 	const uint8_t *prefix; /*!< Serialized prefix32 (UBI_SECURE_PREFIX_SIZE bytes). */
 	uint32_t peb_index; /*!< Data-PEB physical index. */
 	uint64_t flash_offset; /*!< VID-header offset from partition start. */
@@ -300,7 +299,7 @@ struct ubi_secure_data_vid_aad_input {
 /**
  * \brief AAD inputs bound into a single-tag LEB record.
  *
- * Extends \ref ubi_secure_data_vid_aad_input with the authenticated VID-header
+ * Extends \ref ubi_secure_vid_hdr_aad_input with the authenticated VID-header
  * fields (vol_id, lnum, sqnum, data_size) and the parent VID-header key
  * version.
  */
@@ -376,8 +375,8 @@ struct ubi_secure_leb_chunk_aad_input {
 #define UBI_SECURE_EC_HDR_AAD_SIZE \
 	(UBI_SECURE_PREFIX_SIZE + UBI_SECURE_AAD_PEB_IDX_SIZE + UBI_SECURE_AAD_FLASH_OFFSET_SIZE)
 
-/** AAD size for secure data-VID header: prefix + peb_idx + flash_offset + parent_ec + parent_ec_kv. */
-#define UBI_SECURE_DATA_VID_AAD_SIZE                                                               \
+/** AAD size for secure VID header: prefix + peb_idx + flash_offset + parent_ec + parent_ec_kv. */
+#define UBI_SECURE_VID_HDR_AAD_SIZE                                                                \
 	(UBI_SECURE_PREFIX_SIZE + UBI_SECURE_AAD_PEB_IDX_SIZE + UBI_SECURE_AAD_FLASH_OFFSET_SIZE + \
 	 UBI_SECURE_AAD_EC_SIZE + UBI_SECURE_AAD_KV_SIZE)
 
@@ -395,7 +394,7 @@ struct ubi_secure_leb_chunk_aad_input {
 BUILD_ASSERT(UBI_SECURE_DEV_HDR_AAD_SIZE == 44, "DEV_HDR AAD size composition drift");
 BUILD_ASSERT(UBI_SECURE_VOL_HDR_AAD_SIZE == 53, "VOL_HDR AAD size composition drift");
 BUILD_ASSERT(UBI_SECURE_EC_HDR_AAD_SIZE == 44, "EC_HDR AAD size composition drift");
-BUILD_ASSERT(UBI_SECURE_DATA_VID_AAD_SIZE == 53, "DATA_VID AAD size composition drift");
+BUILD_ASSERT(UBI_SECURE_VID_HDR_AAD_SIZE == 53, "VID_HDR AAD size composition drift");
 BUILD_ASSERT(UBI_SECURE_LEB_AAD_SIZE == 74, "LEB AAD size composition drift");
 BUILD_ASSERT(UBI_SECURE_LEB_CHUNK_AAD_SIZE == 78, "LEB chunked AAD size composition drift");
 
@@ -438,15 +437,15 @@ BUILD_ASSERT(UBI_SECURE_EC_HDR_SIZE ==
 BUILD_ASSERT(UBI_SECURE_PLAIN_EC_HDR_SIZE == sizeof(struct ubi_ec_hdr),
 	     "UBI_SECURE_PLAIN_EC_HDR_SIZE drifted from struct ubi_ec_hdr layout");
 
-/* VOLUME_IDENTIFIER domain (data-PEB VID). */
-BUILD_ASSERT(UBI_SECURE_DATA_VID_SIZE == UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_vid_hdr) +
-						 sizeof(struct ubi_vid_secure_meta) +
-						 UBI_SECURE_TAG_SIZE,
-	     "UBI_SECURE_DATA_VID_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
+/* VOLUME_IDENTIFIER domain (data-PEB VID header). */
+BUILD_ASSERT(UBI_SECURE_VID_HDR_SIZE == UBI_SECURE_PREFIX_SIZE + sizeof(struct ubi_vid_hdr) +
+						sizeof(struct ubi_vid_secure_meta) +
+						UBI_SECURE_TAG_SIZE,
+	     "UBI_SECURE_VID_HDR_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
 BUILD_ASSERT(
-	UBI_SECURE_DATA_VID_PLAINTEXT_SIZE ==
+	UBI_SECURE_VID_HDR_PLAINTEXT_SIZE ==
 		sizeof(struct ubi_vid_hdr) + sizeof(struct ubi_vid_secure_meta),
-	"UBI_SECURE_DATA_VID_PLAINTEXT_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
+	"UBI_SECURE_VID_HDR_PLAINTEXT_SIZE drifted from struct ubi_vid_hdr + ubi_vid_secure_meta");
 BUILD_ASSERT(UBI_SECURE_PLAIN_VID_HDR_SIZE == sizeof(struct ubi_vid_hdr),
 	     "UBI_SECURE_PLAIN_VID_HDR_SIZE drifted from struct ubi_vid_hdr layout");
 

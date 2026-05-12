@@ -267,7 +267,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 		return -EIO;
 	}
 
-	uint8_t raw[UBI_SECURE_DATA_VID_SIZE] = { 0 };
+	uint8_t raw[UBI_SECURE_VID_HDR_SIZE] = { 0 };
 	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
 
 	ret = flash_area_read(fa, offset, raw, sizeof(raw));
@@ -318,8 +318,8 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 	ubi_secure_build_nonce(prefix.domain, prefix.salt, prefix.counter, nonce);
 
 	/* Build AAD. */
-	uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
-	const struct ubi_secure_data_vid_aad_input aad_input = {
+	uint8_t aad[UBI_SECURE_VID_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_vid_hdr_aad_input aad_input = {
 		.prefix = raw,
 		.peb_index = (uint32_t)peb_idx,
 		.flash_offset = offset,
@@ -327,15 +327,15 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 		.parent_ec_kv = ec_ctx->key_version,
 	};
 
-	ubi_secure_build_data_vid_aad(&aad_input, aad);
+	ubi_secure_build_vid_hdr_aad(&aad_input, aad);
 
 	/* Decrypt. */
 	const uint8_t *ct = &raw[UBI_SECURE_PREFIX_SIZE];
-	uint8_t plaintext[UBI_SECURE_DATA_VID_PLAINTEXT_SIZE] = { 0 };
+	uint8_t plaintext[UBI_SECURE_VID_HDR_PLAINTEXT_SIZE] = { 0 };
 	size_t pt_len = 0;
 
 	ret = ubi_secure_aead_decrypt(child_key_id, nonce, aad, sizeof(aad), ct,
-				      UBI_SECURE_DATA_VID_CT_TAG_SIZE, plaintext, sizeof(plaintext),
+				      UBI_SECURE_VID_HDR_CT_TAG_SIZE, plaintext, sizeof(plaintext),
 				      &pt_len);
 	ubi_secure_destroy_key(child_key_id);
 
@@ -345,7 +345,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 		return -EBADMSG;
 	}
 
-	if (pt_len != UBI_SECURE_DATA_VID_PLAINTEXT_SIZE) {
+	if (pt_len != UBI_SECURE_VID_HDR_PLAINTEXT_SIZE) {
 		LOG_ERR("VID unexpected plaintext size: %zu", pt_len);
 		ubi_secure_zeroize(plaintext, sizeof(plaintext));
 		return -UBI_SECURE_EFORMAT;
@@ -412,7 +412,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 	memset(prefix.reserved, 0, sizeof(prefix.reserved));
 
 	/* Build output buffer. */
-	uint8_t out_buf[UBI_SECURE_DATA_VID_SIZE] = { 0 };
+	uint8_t out_buf[UBI_SECURE_VID_HDR_SIZE] = { 0 };
 
 	ubi_secure_prefix32_serialize(&prefix, out_buf);
 
@@ -423,8 +423,8 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 
 	/* Build AAD. */
 	const size_t offset = peb_idx * flash->erase_block_size + UBI_SECURE_EC_HDR_SIZE;
-	uint8_t aad[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
-	const struct ubi_secure_data_vid_aad_input aad_input = {
+	uint8_t aad[UBI_SECURE_VID_HDR_AAD_SIZE] = { 0 };
+	const struct ubi_secure_vid_hdr_aad_input aad_input = {
 		.prefix = out_buf,
 		.peb_index = (uint32_t)peb_idx,
 		.flash_offset = offset,
@@ -432,10 +432,10 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 		.parent_ec_kv = ec_ctx->key_version,
 	};
 
-	ubi_secure_build_data_vid_aad(&aad_input, aad);
+	ubi_secure_build_vid_hdr_aad(&aad_input, aad);
 
 	/* Build plaintext: vid_hdr + vid_secure_meta. */
-	uint8_t plaintext[UBI_SECURE_DATA_VID_PLAINTEXT_SIZE] = { 0 };
+	uint8_t plaintext[UBI_SECURE_VID_HDR_PLAINTEXT_SIZE] = { 0 };
 
 	memcpy(plaintext, vid_hdr, UBI_SECURE_PLAIN_VID_HDR_SIZE);
 	ubi_secure_vid_meta_serialize(vid_meta, &plaintext[UBI_SECURE_PLAIN_VID_HDR_SIZE]);
@@ -445,7 +445,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 
 	ret = ubi_secure_aead_encrypt(child_key_id, nonce, aad, sizeof(aad), plaintext,
 				      sizeof(plaintext), &out_buf[UBI_SECURE_PREFIX_SIZE],
-				      UBI_SECURE_DATA_VID_CT_TAG_SIZE, &ct_len);
+				      UBI_SECURE_VID_HDR_CT_TAG_SIZE, &ct_len);
 	ubi_secure_destroy_key(child_key_id);
 
 	if (ret != 0) {

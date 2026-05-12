@@ -61,7 +61,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * \brief Per-record authenticated-byte size (AAD + plaintext) for the
  *        VOLUME_IDENTIFIER metadata domain.
  */
-#define VID_AUTH_BYTES (UBI_SECURE_DATA_VID_AAD_SIZE + UBI_SECURE_DATA_VID_PLAINTEXT_SIZE)
+#define VID_AUTH_BYTES (UBI_SECURE_VID_HDR_AAD_SIZE + UBI_SECURE_VID_HDR_PLAINTEXT_SIZE)
 
 BUILD_ASSERT(DEV_AUTH_BYTES == 92, "DEV per-record AAD+plaintext drift");
 BUILD_ASSERT(VOL_AUTH_BYTES == 101, "VOL per-record AAD+plaintext drift");

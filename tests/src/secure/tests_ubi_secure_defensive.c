@@ -122,7 +122,7 @@ ZTEST(ubi_secure_defensive, test_ser_prefix32_deserialize_null)
 /**
  * \brief AAD builder functions reject NULL input pointer.
  *
- * \details Scenario: Exercise dev_hdr, vol_hdr, ec_hdr, data_vid, leb AAD builders
+ * \details Scenario: Exercise dev_hdr, vol_hdr, ec_hdr, vid_hdr, leb AAD builders
  *          with a NULL input struct pointer.
  *
  * \expect All return without crash.
@@ -141,9 +141,9 @@ ZTEST(ubi_secure_defensive, test_ser_aad_builders_null)
 
 	ubi_secure_build_ec_hdr_aad(NULL, aad_ec);
 
-	uint8_t aad_vid[UBI_SECURE_DATA_VID_AAD_SIZE] = { 0 };
+	uint8_t aad_vid[UBI_SECURE_VID_HDR_AAD_SIZE] = { 0 };
 
-	ubi_secure_build_data_vid_aad(NULL, aad_vid);
+	ubi_secure_build_vid_hdr_aad(NULL, aad_vid);
 
 	uint8_t aad_leb[UBI_SECURE_LEB_AAD_SIZE] = { 0 };
 
@@ -496,7 +496,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_magic)
 
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	uint8_t garbage[UBI_SECURE_DATA_VID_SIZE];
+	uint8_t garbage[UBI_SECURE_VID_HDR_SIZE];
 
 	memset(garbage, 0xAB, sizeof(garbage));
 
