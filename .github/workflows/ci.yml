@@ -171,7 +171,7 @@ jobs:
         if: matrix.app == 'sample' && matrix.mem == 'static'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: flash-usage-${{ matrix.board-slug }}
+          name: flash-usage-${{ matrix.board-slug }}-${{ matrix.crypto }}
           path: flash_usage.txt
           retention-days: 14
 
