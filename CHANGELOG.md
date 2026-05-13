@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.98.0] - 2026-05-12
+
+### Changed
+
+- The 2820-line `tests_ubi_secure_defensive.c` was split along its
+  existing section banners into three sibling files, each below the
+  1500-line ceiling, so each owns a coherent slice of the defensive
+  surface and can be reviewed independently:
+  - `tests_ubi_secure_defensive.c` (~870 LoC) keeps the serialisation /
+  crypto / I/O NULL guards, I/O corruption paths, init-time geometry
+  validation and scan-with-corrupted-flash cases.
+  - `tests_ubi_secure_defensive_io_hooks.c` (~980 LoC) hosts the IO
+  hook-driven fault paths (key-derivation, AEAD and flash-write
+  failure branches) plus the single-tag CCM payload guard.
+  - `tests_ubi_secure_defensive_reserved.c` (~1110 LoC) hosts the
+  reserved-PEB NULL guards, additional geometry checks, public-API
+  NULL/validation checks and 48-bit counter overflow tests.
+  Each split file registers a distinct ZTest suite
+  (`ubi_secure_defensive`, `ubi_secure_defensive_io_hooks`,
+  `ubi_secure_defensive_reserved`) so the test runner now reports the
+  three groups separately.
+
 ## [0.97.0] - 2026-05-12
 
 ### Changed
