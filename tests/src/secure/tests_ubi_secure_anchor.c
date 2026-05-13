@@ -123,7 +123,7 @@ ZTEST_SUITE(ubi_secure_anchor, NULL, ztest_suite_setup, ztest_suite_before, NULL
  *           cache_after_second_write > cache_after_drain (next write
  *           strictly advances).
  */
-ZTEST(ubi_secure_anchor, test_single_leb_unmap_erase_write_inherits_counter)
+ZTEST(ubi_secure_anchor, single_leb_unmap_erase_write_inherits_counter)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {
@@ -212,7 +212,7 @@ ZTEST(ubi_secure_anchor, test_single_leb_unmap_erase_write_inherits_counter)
  * \expect cache_after_post_churn_write > cache_peak observed across the
  *           four initial writes.
  */
-ZTEST(ubi_secure_anchor, test_multi_leb_churn_cache_strict_monotonic)
+ZTEST(ubi_secure_anchor, multi_leb_churn_cache_strict_monotonic)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {
@@ -267,7 +267,7 @@ ZTEST(ubi_secure_anchor, test_multi_leb_churn_cache_strict_monotonic)
  *           cache_post_attach > cache_pre_drain (anchor rewrite that
  *           happened during the drain is observed through cold attach).
  */
-ZTEST(ubi_secure_anchor, test_cold_attach_reseeds_cache_from_anchor)
+ZTEST(ubi_secure_anchor, cold_attach_reseeds_cache_from_anchor)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {
@@ -351,7 +351,7 @@ ZTEST(ubi_secure_anchor, test_cold_attach_reseeds_cache_from_anchor)
  *           to the free pool with no extra PEB consumed by an anchor
  *           rewrite).
  */
-ZTEST(ubi_secure_anchor, test_non_witness_erase_does_not_rewrite_anchor)
+ZTEST(ubi_secure_anchor, non_witness_erase_does_not_rewrite_anchor)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {
@@ -431,7 +431,7 @@ ZTEST(ubi_secure_anchor, test_non_witness_erase_does_not_rewrite_anchor)
  *
  * \expect ubi_leb_write() returns -EOVERFLOW.
  */
-ZTEST(ubi_secure_anchor, test_counter_saturation_rejects_with_overflow)
+ZTEST(ubi_secure_anchor, counter_saturation_rejects_with_overflow)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {
@@ -468,7 +468,7 @@ ZTEST(ubi_secure_anchor, test_counter_saturation_rejects_with_overflow)
  * \expect The cache value strictly increases between every consecutive
  *           pair of iterations.
  */
-ZTEST(ubi_secure_anchor, test_write_unmap_erase_loop_strict_monotonic)
+ZTEST(ubi_secure_anchor, write_unmap_erase_loop_strict_monotonic)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {
@@ -522,7 +522,7 @@ ZTEST(ubi_secure_anchor, test_write_unmap_erase_loop_strict_monotonic)
  *           and not greater than the cache (the cache is the strict
  *           upper bound).
  */
-ZTEST(ubi_secure_anchor, test_read_vid_meta_hook_matches_cache_and_anchor)
+ZTEST(ubi_secure_anchor, read_vid_meta_hook_matches_cache_and_anchor)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	const struct ubi_volume_config vol_cfg = {

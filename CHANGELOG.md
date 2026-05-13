@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.104.0] - 2026-05-13
+
+### Changed
+
+- Renamed every `ZTEST(<secure_suite>, test_<name>)` to
+  `ZTEST(<secure_suite>, <name>)` across `tests/src/secure/`.  ZTest
+  itself already prepends `"test_"` to the reported case name, so the
+  manual `test_` prefix on every secure test produced reports like
+  `test_test_<name>` and broke parity with the plain suite which has
+  never used the prefix.  The single mechanical pass touches 325 ZTEST
+  declarations across 28 files; no test bodies, suite identifiers,
+  helper names, includes or fixtures are modified.  References in
+  `doc/project/test_strategy.md` were rewritten from
+  `ubi_secure_<suite>::test_<name>` to `ubi_secure_<suite>::<name>`.
+  All three native_sim modes (plain / secure / chunked) pass without
+  any source-coverage change — this is a pure rename PR.
+
 ## [0.103.0] - 2026-05-13
 
 ### Changed

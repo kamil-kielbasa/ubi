@@ -71,7 +71,7 @@ mock_reject_freshness(const struct ubi_crypto_freshness *freshness, void *user_d
  *
  * \expect ubi_device_init returns 0, device handle is non-NULL.
  */
-ZTEST(ubi_secure_attach, test_format_blank_device)
+ZTEST(ubi_secure_attach, format_blank_device)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -89,7 +89,7 @@ ZTEST(ubi_secure_attach, test_format_blank_device)
  *
  * \expect Both ubi_device_init calls return 0.
  */
-ZTEST(ubi_secure_attach, test_attach_after_format)
+ZTEST(ubi_secure_attach, attach_after_format)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -115,7 +115,7 @@ ZTEST(ubi_secure_attach, test_attach_after_format)
  *
  * \expect Second ubi_device_init returns -EPROTO, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_plain_then_secure_mismatch)
+ZTEST(ubi_secure_attach, plain_then_secure_mismatch)
 {
 	struct ubi_device *ubi = NULL;
 
@@ -142,7 +142,7 @@ ZTEST(ubi_secure_attach, test_plain_then_secure_mismatch)
  *
  * \expect Second ubi_device_init returns non-zero, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_secure_then_plain_mismatch)
+ZTEST(ubi_secure_attach, secure_then_plain_mismatch)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -169,7 +169,7 @@ ZTEST(ubi_secure_attach, test_secure_then_plain_mismatch)
  *
  * \expect ubi_device_init returns -EACCES, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_freshness_reject)
+ZTEST(ubi_secure_attach, freshness_reject)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -194,7 +194,7 @@ ZTEST(ubi_secure_attach, test_freshness_reject)
  *
  * \expect ubi_device_init returns -EINVAL, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_null_callback_rejected)
+ZTEST(ubi_secure_attach, null_callback_rejected)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -212,7 +212,7 @@ ZTEST(ubi_secure_attach, test_null_callback_rejected)
  *
  * \expect ubi_device_init returns -EINVAL, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_empty_allowlist_rejected)
+ZTEST(ubi_secure_attach, empty_allowlist_rejected)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -231,7 +231,7 @@ ZTEST(ubi_secure_attach, test_empty_allowlist_rejected)
  *
  * \expect ubi_device_init returns -EINVAL, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_write_key_version_not_in_allowlist)
+ZTEST(ubi_secure_attach, write_key_version_not_in_allowlist)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -253,7 +253,7 @@ ZTEST(ubi_secure_attach, test_write_key_version_not_in_allowlist)
  *
  * \expect ubi_device_init returns -EINVAL, device handle is NULL.
  */
-ZTEST(ubi_secure_attach, test_allowlist_duplicates_rejected)
+ZTEST(ubi_secure_attach, allowlist_duplicates_rejected)
 {
 	static const uint8_t allowed_with_dup[] = { 1, 1, 2 };
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -284,7 +284,7 @@ ZTEST(ubi_secure_attach, test_allowlist_duplicates_rejected)
  * \expect First init (kv=2) succeeds; second init with kv=1 returns
  *           -EINVAL and leaves the handle NULL.
  */
-ZTEST(ubi_secure_attach, test_requested_write_kv_downgrade_rejected)
+ZTEST(ubi_secure_attach, requested_write_kv_downgrade_rejected)
 {
 	static const uint8_t allowed[] = { 1, 2 };
 

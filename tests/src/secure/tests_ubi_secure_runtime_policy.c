@@ -214,7 +214,7 @@ static void ztest_suite_after(void *ctx)
  *
  * \expect Second ubi_leb_write returns -EROFS.
  */
-ZTEST(ubi_secure_runtime_policy, test_event_enter_read_only_blocks_writes)
+ZTEST(ubi_secure_runtime_policy, event_enter_read_only_blocks_writes)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = escalating_event_cb;
@@ -256,7 +256,7 @@ ZTEST(ubi_secure_runtime_policy, test_event_enter_read_only_blocks_writes)
  *
  * \expect ubi_leb_read returns 0 with correct data.
  */
-ZTEST(ubi_secure_runtime_policy, test_reads_work_in_crypto_ro)
+ZTEST(ubi_secure_runtime_policy, reads_work_in_crypto_ro)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = escalating_event_cb;
@@ -295,7 +295,7 @@ ZTEST(ubi_secure_runtime_policy, test_reads_work_in_crypto_ro)
  *
  * \expect sync_call_count increases after write and volume_create.
  */
-ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_write)
+ZTEST(ubi_secure_runtime_policy, freshness_sync_called_on_write)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = tracking_event_cb;
@@ -332,7 +332,7 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_write)
  *
  * \expect freshness_sync_failure_count > 0 after write.
  */
-ZTEST(ubi_secure_runtime_policy, test_freshness_sync_failure_emits_event)
+ZTEST(ubi_secure_runtime_policy, freshness_sync_failure_emits_event)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = tracking_event_cb;
@@ -368,7 +368,7 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_failure_emits_event)
  *
  * \expect sync_call_count increases after erase_peb.
  */
-ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_erase)
+ZTEST(ubi_secure_runtime_policy, freshness_sync_called_on_erase)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = tracking_event_cb;
@@ -407,7 +407,7 @@ ZTEST(ubi_secure_runtime_policy, test_freshness_sync_called_on_erase)
  *
  * \expect ubi_erase_peb returns -EROFS.
  */
-ZTEST(ubi_secure_runtime_policy, test_erase_blocked_in_crypto_ro)
+ZTEST(ubi_secure_runtime_policy, erase_blocked_in_crypto_ro)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = escalating_event_cb;
@@ -444,7 +444,7 @@ ZTEST(ubi_secure_runtime_policy, test_erase_blocked_in_crypto_ro)
  *
  * \expect ubi_volume_create returns -EROFS.
  */
-ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
+ZTEST(ubi_secure_runtime_policy, volume_create_blocked_in_crypto_ro)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = escalating_event_cb;
@@ -493,7 +493,7 @@ ZTEST(ubi_secure_runtime_policy, test_volume_create_blocked_in_crypto_ro)
  *
  * \expect key_retirable_count >= 1 and key_retirable_kv == 1.
  */
-ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
+ZTEST(ubi_secure_runtime_policy, key_retirable_after_full_erase)
 {
 	/* Phase 1: Format and write with kv=1. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -590,7 +590,7 @@ ZTEST(ubi_secure_runtime_policy, test_key_retirable_after_full_erase)
  *
  * \expect ubi_leb_read returns error and allowlist_reject_count >= 1.
  */
-ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
+ZTEST(ubi_secure_runtime_policy, allowlist_reject_on_read)
 {
 	/* Phase 1: Write with kv=1 (default allowlist=[1]). */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -661,7 +661,7 @@ ZTEST(ubi_secure_runtime_policy, test_allowlist_reject_on_read)
  *
  * \expect Write returns error and key_unavailable_count >= 1.
  */
-ZTEST(ubi_secure_runtime_policy, test_missing_key_on_write)
+ZTEST(ubi_secure_runtime_policy, missing_key_on_write)
 {
 	/* Phase 1: Write with kv=1. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -719,7 +719,7 @@ ZTEST(ubi_secure_runtime_policy, test_missing_key_on_write)
  *
  * \expect ubi_device_init returns -EACCES, rollback_mismatch_count == 1.
  */
-ZTEST(ubi_secure_runtime_policy, test_rollback_policy_mismatch_event)
+ZTEST(ubi_secure_runtime_policy, rollback_policy_mismatch_event)
 {
 	/* Phase 1: Normal init and write. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -765,7 +765,7 @@ ZTEST(ubi_secure_runtime_policy, test_rollback_policy_mismatch_event)
  *
  * \expect Writes fail in read-only, succeed after reinit.
  */
-ZTEST(ubi_secure_runtime_policy, test_sticky_ro_cleared_on_reinit)
+ZTEST(ubi_secure_runtime_policy, sticky_ro_cleared_on_reinit)
 {
 	/* Init with escalating callback + delayed-failure sync. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -830,7 +830,7 @@ ZTEST(ubi_secure_runtime_policy, test_sticky_ro_cleared_on_reinit)
  *
  * \expect All reads succeed across key versions.
  */
-ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
+ZTEST(ubi_secure_runtime_policy, mixed_key_rotation_read_write)
 {
 	/* Phase 1: Write with kv=1. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -901,7 +901,7 @@ ZTEST(ubi_secure_runtime_policy, test_mixed_key_rotation_read_write)
  *
  * \expect key_retirable_count >= 1, key_retirable_kv == 1.
  */
-ZTEST(ubi_secure_runtime_policy, test_refcount_e2e_key_rotation_retirable)
+ZTEST(ubi_secure_runtime_policy, refcount_e2e_key_rotation_retirable)
 {
 	/* Phase 1: Init with kv=1. Create volume. Write / read / unmap / resize. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();

@@ -84,7 +84,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect If create returns ENOMEM, no volume exists on re-init.
  */
-ZTEST(ubi_secure_fault_injection, test_create_alloc_fail_no_persistent_volume)
+ZTEST(ubi_secure_fault_injection, create_alloc_fail_no_persistent_volume)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -120,7 +120,7 @@ ZTEST(ubi_secure_fault_injection, test_create_alloc_fail_no_persistent_volume)
  *
  * \expect Read-back matches original data.
  */
-ZTEST(ubi_secure_fault_injection, test_overwrite_preserves_old_data_on_failure)
+ZTEST(ubi_secure_fault_injection, overwrite_preserves_old_data_on_failure)
 {
 	struct ubi_device *ubi = sec_init();
 

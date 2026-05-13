@@ -91,7 +91,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_write_null_buffer)
+ZTEST(ubi_secure_error_handling_leb, leb_write_null_buffer)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -108,7 +108,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_write_null_buffer)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_write_zero_length)
+ZTEST(ubi_secure_error_handling_leb, leb_write_zero_length)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -125,7 +125,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_write_zero_length)
  *
  * \expect ubi_leb_read() returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_unmapped)
+ZTEST(ubi_secure_error_handling_leb, leb_read_unmapped)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -154,7 +154,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_unmapped)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_null_buffer)
+ZTEST(ubi_secure_error_handling_leb, leb_read_null_buffer)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -171,7 +171,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_null_buffer)
  *
  * \expect Returns 0 (idempotent no-op).
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_unmapped)
+ZTEST(ubi_secure_error_handling_leb, leb_unmap_unmapped)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -188,7 +188,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_unmapped)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_null)
+ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_null)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -205,7 +205,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_null)
+ZTEST(ubi_secure_error_handling_leb, leb_get_size_null)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -224,7 +224,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_null)
  * \expect The second write succeeds. ubi_leb_get_size() returns 5.
  *           Read-back matches the second write. dirty_peb_count equals 1.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_write_overwrite)
+ZTEST(ubi_secure_error_handling_leb, leb_write_overwrite)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -272,7 +272,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_write_overwrite)
  * \expect ubi_leb_read() succeeds. The returned bytes match bytes 4..7
  *           of the original pattern.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_with_offset)
+ZTEST(ubi_secure_error_handling_leb, leb_read_with_offset)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -289,7 +289,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_with_offset)
  *
  * \expect ubi_leb_write() returns -EACCES.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_write_out_of_range_lnum)
+ZTEST(ubi_secure_error_handling_leb, leb_write_out_of_range_lnum)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -306,7 +306,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_write_out_of_range_lnum)
  *
  * \expect ubi_leb_read() returns -EACCES.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_out_of_range_lnum)
+ZTEST(ubi_secure_error_handling_leb, leb_read_out_of_range_lnum)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -336,7 +336,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_out_of_range_lnum)
  * \expect ubi_leb_map() succeeds. The subsequent write overwrites the empty
  *           mapping. Read-back returns the written data.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_map_then_write)
+ZTEST(ubi_secure_error_handling_leb, leb_map_then_write)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -353,7 +353,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_map_then_write)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_write_no_volumes)
+ZTEST(ubi_secure_error_handling_leb, leb_write_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -370,7 +370,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_write_no_volumes)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_no_volumes)
+ZTEST(ubi_secure_error_handling_leb, leb_read_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -390,7 +390,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_no_volumes)
  *
  * \expect Returns -EACCES.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_out_of_range)
+ZTEST(ubi_secure_error_handling_leb, leb_unmap_out_of_range)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -407,7 +407,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_out_of_range)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_no_volumes)
+ZTEST(ubi_secure_error_handling_leb, leb_unmap_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -424,7 +424,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_no_volumes)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_no_volumes)
+ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -444,7 +444,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_no_volumes)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_no_volumes)
+ZTEST(ubi_secure_error_handling_leb, leb_get_size_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -461,7 +461,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_no_volumes)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_write_vol_not_found)
+ZTEST(ubi_secure_error_handling_leb, leb_write_vol_not_found)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -478,7 +478,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_write_vol_not_found)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_vol_not_found)
+ZTEST(ubi_secure_error_handling_leb, leb_read_vol_not_found)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -507,7 +507,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_vol_not_found)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_vol_not_found)
+ZTEST(ubi_secure_error_handling_leb, leb_unmap_vol_not_found)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -524,7 +524,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_vol_not_found)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_vol_not_found)
+ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_vol_not_found)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -553,7 +553,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_vol_not_found)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_vol_not_found)
+ZTEST(ubi_secure_error_handling_leb, leb_get_size_vol_not_found)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -569,7 +569,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_vol_not_found)
  *
  * \expect Returns -EACCES.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_out_of_range)
+ZTEST(ubi_secure_error_handling_leb, leb_read_out_of_range)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -598,7 +598,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_out_of_range)
  *
  * \expect Returns -EACCES.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_out_of_range)
+ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_out_of_range)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -626,7 +626,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_is_mapped_out_of_range)
  *
  * \expect Returns -EACCES.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_out_of_range)
+ZTEST(ubi_secure_error_handling_leb, leb_get_size_out_of_range)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -642,7 +642,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_out_of_range)
  *
  * \expect Both calls return 0.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_unmapped_is_idempotent)
+ZTEST(ubi_secure_error_handling_leb, leb_unmap_unmapped_is_idempotent)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -658,7 +658,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_unmapped_is_idempotent)
  *
  * \expect Second map returns 0 without consuming an extra PEB.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_map_already_mapped_is_noop)
+ZTEST(ubi_secure_error_handling_leb, leb_map_already_mapped_is_noop)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -675,7 +675,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_map_already_mapped_is_noop)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_unmapped)
+ZTEST(ubi_secure_error_handling_leb, leb_get_size_unmapped)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -691,7 +691,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_get_size_unmapped)
  *
  * \expect Read returns the correct last byte.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_last_byte_at_boundary)
+ZTEST(ubi_secure_error_handling_leb, leb_read_last_byte_at_boundary)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -707,7 +707,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_last_byte_at_boundary)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_beyond_data_size)
+ZTEST(ubi_secure_error_handling_leb, leb_read_beyond_data_size)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -723,7 +723,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_beyond_data_size)
  *
  * \expect Both unmap calls return 0.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_already_unmapped_idempotent)
+ZTEST(ubi_secure_error_handling_leb, leb_unmap_already_unmapped_idempotent)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -753,7 +753,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_unmap_already_unmapped_idempotent)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_read_beyond_data_size_returns_einval)
+ZTEST(ubi_secure_error_handling_leb, leb_read_beyond_data_size_returns_einval)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -794,7 +794,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_read_beyond_data_size_returns_einv
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_map_vol_not_found)
+ZTEST(ubi_secure_error_handling_leb, leb_map_vol_not_found)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -810,7 +810,7 @@ ZTEST(ubi_secure_error_handling_leb, test_leb_map_vol_not_found)
  *
  * \expect Returns non-zero error.
  */
-ZTEST(ubi_secure_error_handling_leb, test_leb_map_lnum_out_of_range)
+ZTEST(ubi_secure_error_handling_leb, leb_map_lnum_out_of_range)
 {
 	struct ubi_device *const ubi = sec_init();
 

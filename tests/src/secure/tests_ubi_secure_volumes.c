@@ -96,7 +96,7 @@ static void ztest_suite_before(void *ctx)
  * \expect Volume survives reboot with same type, leb_count, and zero
  *           allocated LEBs; heap fully reclaimed after each deinit.
  */
-ZTEST(ubi_secure_volumes, test_create_one_with_reboot)
+ZTEST(ubi_secure_volumes, create_one_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -166,7 +166,7 @@ ZTEST(ubi_secure_volumes, test_create_one_with_reboot)
  * \expect After removal + reboot: volume_count == 0, reserved_peb_count == 0,
  *           volume_get_info returns -ENOENT.
  */
-ZTEST(ubi_secure_volumes, test_create_remove_with_reboot)
+ZTEST(ubi_secure_volumes, create_remove_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -226,7 +226,7 @@ ZTEST(ubi_secure_volumes, test_create_remove_with_reboot)
  * \expect After resize + reboot: leb_count == 4, reserved_peb_count == 4,
  *           volume_count == 1.
  */
-ZTEST(ubi_secure_volumes, test_resize_upper_with_reboot)
+ZTEST(ubi_secure_volumes, resize_upper_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -287,7 +287,7 @@ ZTEST(ubi_secure_volumes, test_resize_upper_with_reboot)
  * \expect After reboot: volume_count == 2, both volumes report original
  *           leb_count values.
  */
-ZTEST(ubi_secure_volumes, test_create_many_with_reboot)
+ZTEST(ubi_secure_volumes, create_many_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -355,7 +355,7 @@ ZTEST(ubi_secure_volumes, test_create_many_with_reboot)
  * \expect After shrink + reboot: leb_count == 2, reserved_peb_count == 3,
  *           tail LEB PEBs recovered as dirty, volume_count == 1.
  */
-ZTEST(ubi_secure_volumes, test_shrink_with_reboot)
+ZTEST(ubi_secure_volumes, shrink_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -428,7 +428,7 @@ ZTEST(ubi_secure_volumes, test_shrink_with_reboot)
  * \expect After shrink + erase + reboot: leb_count == 2, dirty_peb_count
  *           == 0, all freed PEBs returned to free pool.
  */
-ZTEST(ubi_secure_volumes, test_shrink_erase_reboot)
+ZTEST(ubi_secure_volumes, shrink_erase_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -502,7 +502,7 @@ ZTEST(ubi_secure_volumes, test_shrink_erase_reboot)
  *           Verified indirectly: the device successfully stores and
  *           retrieves data, proving the floor was not corrupted.
  */
-ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
+ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -593,7 +593,7 @@ ZTEST(ubi_secure_volumes, test_vid_counter_floor_persists)
  * \expect New volume writes succeed after remove→create→reboot,
  *           data integrity is preserved, and no counter was reused.
  */
-ZTEST(ubi_secure_volumes, test_vid_counter_floor_remove_create_reboot)
+ZTEST(ubi_secure_volumes, vid_counter_floor_remove_create_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 

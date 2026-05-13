@@ -96,7 +96,7 @@ static void ztest_suite_before(void *ctx)
  * \expect After map: is_mapped true, size 0, free_peb_count decremented.
  *           After unmap + reboot: dirty_peb_count == 0; heap fully reclaimed.
  */
-ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
+ZTEST(ubi_secure_map, one_leb_lifecycle_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -186,7 +186,7 @@ ZTEST(ubi_secure_map, test_one_leb_lifecycle_with_reboot)
  * \expect All LEBs mapped after first cycle; all unmapped after second;
  *           dirty_peb_count == 0 after final reboot; heap balanced.
  */
-ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
+ZTEST(ubi_secure_map, all_lebs_lifecycle_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -256,7 +256,7 @@ ZTEST(ubi_secure_map, test_all_lebs_lifecycle_with_reboot)
  * \expect After unmap + reboot (no erase): LEB 0 is mapped again with
  *           original data intact.
  */
-ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
+ZTEST(ubi_secure_map, unmap_reboot_before_erase)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -322,7 +322,7 @@ ZTEST(ubi_secure_map, test_unmap_reboot_before_erase)
  *
  * \expect After unmap + erase + reboot: LEB 0 is not mapped.
  */
-ZTEST(ubi_secure_map, test_unmap_erase_reboot)
+ZTEST(ubi_secure_map, unmap_erase_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 

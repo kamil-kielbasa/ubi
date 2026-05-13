@@ -89,7 +89,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect All mutators return -EROFS. Readers return valid data.
  */
-ZTEST(ubi_secure_mutation_gate, test_write_shutdown_blocks_all_mutators)
+ZTEST(ubi_secure_mutation_gate, write_shutdown_blocks_all_mutators)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = sec_init();

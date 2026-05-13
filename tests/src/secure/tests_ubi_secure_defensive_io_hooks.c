@@ -74,7 +74,7 @@ static void ztest_suite_before(void *ctx)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_read_bad_domain)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_read_bad_domain)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -114,7 +114,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_read_bad_domain)
  *
  * \expect Returns error from key derivation.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_read_key_deriv_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_read_key_deriv_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -157,7 +157,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_read_key_deriv_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_key_deriv_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_key_deriv_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -182,7 +182,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_key_deriv_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_salt_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_salt_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -207,7 +207,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_salt_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_aead_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_aead_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -232,7 +232,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_aead_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_flash_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_flash_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -257,7 +257,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_write_flash_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_key_deriv_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_key_deriv_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -279,7 +279,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_key_deriv_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_salt_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_salt_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -302,7 +302,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_salt_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_aead_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_aead_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -325,7 +325,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_aead_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_flash_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_flash_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -348,7 +348,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_write_flash_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_key_deriv_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_key_deriv_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -371,7 +371,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_key_deriv_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_salt_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_salt_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -395,7 +395,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_salt_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_aead_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_aead_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -419,7 +419,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_aead_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_flash_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_flash_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -443,7 +443,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_flash_fail)
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_key_deriv_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_read_key_deriv_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -487,7 +487,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_key_deriv_fail)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_bad_prefix)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_read_bad_prefix)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -529,7 +529,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_bad_prefix)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_read_bad_domain)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_read_bad_domain)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -590,7 +590,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_read_bad_domain)
  *
  * \expect ubi_device_init returns a non-zero error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_init_dev_hdr_bad_wrapper_version)
+ZTEST(ubi_secure_defensive_io_hooks, init_dev_hdr_bad_wrapper_version)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -641,7 +641,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_init_dev_hdr_bad_wrapper_version)
  *
  * \expect Subsequent ubi_device_init returns a non-zero error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_init_vol_hdr_bad_wrapper_version)
+ZTEST(ubi_secure_defensive_io_hooks, init_vol_hdr_bad_wrapper_version)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -709,7 +709,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_init_vol_hdr_bad_wrapper_version)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_read_bad_wrapper_version)
+ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_read_bad_wrapper_version)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -748,7 +748,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_ec_hdr_read_bad_wrapper_version)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_read_bad_wrapper_version)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_read_bad_wrapper_version)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -805,7 +805,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_read_bad_wrapper_version)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_bad_wrapper_version)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_read_bad_wrapper_version)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -853,7 +853,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_bad_wrapper_version)
  *
  * \expect Returns -EFBIG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_payload_exceeds_ccm_limit)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_payload_exceeds_ccm_limit)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -883,7 +883,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_payload_exceeds_ccm_
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_data_size_exceeds_ccm_limit)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_read_data_size_exceeds_ccm_limit)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -904,7 +904,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_read_data_size_exceeds_ccm
  *
  * \expect Returns error.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_read_key_deriv_fail)
+ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_read_key_deriv_fail)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -963,7 +963,7 @@ ZTEST(ubi_secure_defensive_io_hooks, test_io_vid_hdr_read_key_deriv_fail)
  *
  * \expect Returns 0.
  */
-ZTEST(ubi_secure_defensive_io_hooks, test_io_leb_data_write_zero_len)
+ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_zero_len)
 {
 	static struct ubi_crypto_config cfg;
 

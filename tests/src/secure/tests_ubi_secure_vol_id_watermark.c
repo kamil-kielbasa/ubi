@@ -82,7 +82,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect Vol B gets id > id_a.
  */
-ZTEST(ubi_secure_vol_id_watermark, test_volume_id_not_reused_after_remove_same_boot)
+ZTEST(ubi_secure_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -117,7 +117,7 @@ ZTEST(ubi_secure_vol_id_watermark, test_volume_id_not_reused_after_remove_same_b
  *
  * \expect Vol B gets id > id_a.
  */
-ZTEST(ubi_secure_vol_id_watermark, test_volume_id_not_reused_after_remove_and_reinit)
+ZTEST(ubi_secure_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -156,7 +156,7 @@ ZTEST(ubi_secure_vol_id_watermark, test_volume_id_not_reused_after_remove_and_re
  *
  * \expect After reinit, new volume gets id=3, not id=1.
  */
-ZTEST(ubi_secure_vol_id_watermark, test_volume_slot_reindex_does_not_change_ids)
+ZTEST(ubi_secure_vol_id_watermark, volume_slot_reindex_does_not_change_ids)
 {
 	struct ubi_device *ubi = sec_init();
 

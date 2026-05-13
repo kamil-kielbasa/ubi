@@ -99,7 +99,7 @@ static void ztest_suite_before(void *ctx)
  *           original data readable in LEB 0, LEB 2 mapped with size 0;
  *           heap fully reclaimed after each deinit.
  */
-ZTEST(ubi_secure_mixed, test_scenario_1)
+ZTEST(ubi_secure_mixed, scenario_1)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 

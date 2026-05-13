@@ -101,7 +101,7 @@ static void ztest_suite_before(void *ctx)
  * \expect dirty_peb_count drops to 0 after erase; data written before
  *           unmap is no longer accessible; heap fully reclaimed after deinit.
  */
-ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
+ZTEST(ubi_secure_erase, fill_unmap_erase_cycle)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -208,7 +208,7 @@ ZTEST(ubi_secure_erase, test_fill_unmap_erase_cycle)
  * \expect Anchor PEB migrates at least once; free_peb_count restores
  *           every cycle; heap fully reclaimed after deinit.
  */
-ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
+ZTEST(ubi_secure_erase, anchor_participates_in_wear_leveling)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -323,7 +323,7 @@ ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
  *           stale anchor PEB recovered as dirty; full free count restored
  *           after erasing all dirty PEBs.
  */
-ZTEST(ubi_secure_erase, test_stale_anchor_rejected_after_reboot)
+ZTEST(ubi_secure_erase, stale_anchor_rejected_after_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -414,7 +414,7 @@ ZTEST(ubi_secure_erase, test_stale_anchor_rejected_after_reboot)
  * \expect Across N full reclaim cycles + reboot: volume always recognized,
  *           reserved_peb_count correct, no orphaned PEBs.
  */
-ZTEST(ubi_secure_erase, test_reclaim_preserves_continuity_witness)
+ZTEST(ubi_secure_erase, reclaim_preserves_continuity_witness)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 

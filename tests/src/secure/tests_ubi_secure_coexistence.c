@@ -133,7 +133,7 @@ static void ztest_suite_after(void *ctx)
  *    mix-up after a full deinit / reattach cycle.
  *  - Re-init order does not matter (secure first, then plain).
  */
-ZTEST(ubi_secure_coexistence, test_plain_and_secure_devices_coexist)
+ZTEST(ubi_secure_coexistence, plain_and_secure_devices_coexist)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -210,7 +210,7 @@ ZTEST(ubi_secure_coexistence, test_plain_and_secure_devices_coexist)
  * \expect Second attach to the plain partition returns -EBUSY and the duplicate handle is NULL.
  *         Second attach to the secure partition returns -EBUSY and the duplicate handle is NULL.
  */
-ZTEST(ubi_secure_coexistence, test_partition_guard_blocks_double_attach)
+ZTEST(ubi_secure_coexistence, partition_guard_blocks_double_attach)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 

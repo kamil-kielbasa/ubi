@@ -63,7 +63,7 @@ static void ztest_suite_before(void *ctx)
  *
  * \expect ubi_device_init returns 0, device handle is non-NULL.
  */
-ZTEST(ubi_secure_api, test_secure_format_on_blank)
+ZTEST(ubi_secure_api, secure_format_on_blank)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -82,7 +82,7 @@ ZTEST(ubi_secure_api, test_secure_format_on_blank)
  *
  * \expect ubi_device_init returns 0, device info shows > 0 PEBs.
  */
-ZTEST(ubi_secure_api, test_plain_init_unaffected_by_secure_types)
+ZTEST(ubi_secure_api, plain_init_unaffected_by_secure_types)
 {
 	struct ubi_device *ubi = NULL;
 
@@ -105,7 +105,7 @@ ZTEST(ubi_secure_api, test_plain_init_unaffected_by_secure_types)
  * \expect freshness is 16 bytes, event types span 0..9, verdict enums
  *           match their documented values.
  */
-ZTEST(ubi_secure_api, test_crypto_type_sizes)
+ZTEST(ubi_secure_api, crypto_type_sizes)
 {
 	zassert_equal(sizeof(struct ubi_crypto_freshness), 16,
 		      "freshness should be 16 bytes (2 x uint64_t)");
@@ -132,7 +132,7 @@ ZTEST(ubi_secure_api, test_crypto_type_sizes)
  *
  * \expect -EINVAL when either argument is NULL.
  */
-ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
+ZTEST(ubi_secure_api, get_write_active_kv_null_args)
 {
 	uint8_t kv = 0xAA;
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -154,7 +154,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_null_args)
  *          ubi_secure_key_get_active_version with the device handle and an output
  *          buffer. Deinit.
  */
-ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
+ZTEST(ubi_secure_api, get_write_active_kv_plain_mode)
 {
 	struct ubi_device *ubi = NULL;
 	uint8_t kv = 0xAA;
@@ -173,7 +173,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_plain_mode)
  *
  * \expect kv == 1 after format; kv == 2 after rotation reattach.
  */
-ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
+ZTEST(ubi_secure_api, get_write_active_kv_after_format_and_rotation)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -211,7 +211,7 @@ ZTEST(ubi_secure_api, test_get_write_active_kv_after_format_and_rotation)
  * \expect ubi_device_init returns -EINVAL when erase_block_size is below
  *           the fit threshold but above all earlier sanity bounds.
  */
-ZTEST(ubi_secure_api, test_reserved_generation_fit_guard_rejects_small_eb)
+ZTEST(ubi_secure_api, reserved_generation_fit_guard_rejects_small_eb)
 {
 	const size_t fit_threshold = 96U + (size_t)CONFIG_UBI_MAX_NR_OF_VOLUMES * 96U;
 

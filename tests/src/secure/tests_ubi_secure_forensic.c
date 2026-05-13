@@ -151,7 +151,7 @@ static void ztest_testcase_after(void *ctx)
  *
  * \expect Neither array_128 nor array_256 found anywhere in data PEB area.
  */
-ZTEST(ubi_secure_forensic, test_plaintext_data_absent_after_write)
+ZTEST(ubi_secure_forensic, plaintext_data_absent_after_write)
 {
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -194,7 +194,7 @@ ZTEST(ubi_secure_forensic, test_plaintext_data_absent_after_write)
  *
  * \expect Volume name bytes not found in data PEB area.
  */
-ZTEST(ubi_secure_forensic, test_volume_name_absent_in_data_area)
+ZTEST(ubi_secure_forensic, volume_name_absent_in_data_area)
 {
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -232,7 +232,7 @@ ZTEST(ubi_secure_forensic, test_volume_name_absent_in_data_area)
  *
  * \expect Raw key material not found on flash.
  */
-ZTEST(ubi_secure_forensic, test_key_material_absent_on_flash)
+ZTEST(ubi_secure_forensic, key_material_absent_on_flash)
 {
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -270,7 +270,7 @@ ZTEST(ubi_secure_forensic, test_key_material_absent_on_flash)
  *
  * \expect Neither old nor new plaintext found on flash after erase cycle.
  */
-ZTEST(ubi_secure_forensic, test_plaintext_absent_after_overwrite_and_erase)
+ZTEST(ubi_secure_forensic, plaintext_absent_after_overwrite_and_erase)
 {
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -324,7 +324,7 @@ ZTEST(ubi_secure_forensic, test_plaintext_absent_after_overwrite_and_erase)
  *
  * \expect array_128 IS found on flash (plain mode does not encrypt).
  */
-ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
+ZTEST(ubi_secure_forensic, plain_backend_plaintext_is_detectable)
 {
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'p', 'l', 'n', '1' },
@@ -361,7 +361,7 @@ ZTEST(ubi_secure_forensic, test_plain_backend_plaintext_is_detectable)
  *
  * \expect At least one LEB found, and tail bytes equal erased_val.
  */
-ZTEST(ubi_secure_forensic, test_leb_tail_padding_uses_erased_value)
+ZTEST(ubi_secure_forensic, leb_tail_padding_uses_erased_value)
 {
 	/* Layout constants — kept private from public test API; documented here.
 	 * LEB region starts at peb_offset + 160 (UBI_SECURE_LEB_OFFSET).

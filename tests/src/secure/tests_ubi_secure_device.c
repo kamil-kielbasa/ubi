@@ -95,7 +95,7 @@ static void ztest_suite_before(void *ctx)
  * \expect All PEBs free, zero dirty/bad/volume counts, leb_size within
  *           (0, erase_block_size), heap fully reclaimed after deinit.
  */
-ZTEST(ubi_secure_device, test_init_deinit)
+ZTEST(ubi_secure_device, init_deinit)
 {
 	/* Secure reserves extra PEBs for the reserved-PEB bank. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -136,7 +136,7 @@ ZTEST(ubi_secure_device, test_init_deinit)
  * \expect Both cycles return 0; total_peb_count, leb_size, and
  *           volume_count are identical across the reboot boundary.
  */
-ZTEST(ubi_secure_device, test_init_deinit_init)
+ZTEST(ubi_secure_device, init_deinit_init)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;

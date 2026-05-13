@@ -92,7 +92,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect Volume count is 0 after remove and after re-attach.
  */
-ZTEST(ubi_secure_coverage, test_volume_remove_basic)
+ZTEST(ubi_secure_coverage, volume_remove_basic)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -132,7 +132,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_basic)
  *
  * \expect Remove succeeds; dirty_peb_count increases.
  */
-ZTEST(ubi_secure_coverage, test_volume_remove_with_mapped_lebs)
+ZTEST(ubi_secure_coverage, volume_remove_with_mapped_lebs)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -172,7 +172,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_with_mapped_lebs)
  *
  * \expect Second volume data is intact after first volume removed.
  */
-ZTEST(ubi_secure_coverage, test_volume_remove_one_of_two)
+ZTEST(ubi_secure_coverage, volume_remove_one_of_two)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -219,7 +219,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_one_of_two)
  *
  * \expect Resize succeeds; LEB 0 readable; LEB 1 returns EACCES.
  */
-ZTEST(ubi_secure_coverage, test_volume_resize_shrink)
+ZTEST(ubi_secure_coverage, volume_resize_shrink)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -262,7 +262,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_shrink)
  *
  * \expect Resize succeeds; write and read-back of LEB 2 succeed.
  */
-ZTEST(ubi_secure_coverage, test_volume_resize_grow)
+ZTEST(ubi_secure_coverage, volume_resize_grow)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -300,7 +300,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_grow)
  *
  * \expect Volume has 1 LEB after re-attach.
  */
-ZTEST(ubi_secure_coverage, test_volume_resize_persists)
+ZTEST(ubi_secure_coverage, volume_resize_persists)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -344,7 +344,7 @@ ZTEST(ubi_secure_coverage, test_volume_resize_persists)
  *
  * \expect Both writes succeed; read-back matches second write.
  */
-ZTEST(ubi_secure_coverage, test_leb_overwrite_counter_recovery)
+ZTEST(ubi_secure_coverage, leb_overwrite_counter_recovery)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -376,7 +376,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_counter_recovery)
  *
  * \expect Third write succeeds; read-back matches last data.
  */
-ZTEST(ubi_secure_coverage, test_leb_overwrite_multiple)
+ZTEST(ubi_secure_coverage, leb_overwrite_multiple)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -415,7 +415,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_multiple)
  *
  * \expect Read-back matches second write after re-attach.
  */
-ZTEST(ubi_secure_coverage, test_leb_overwrite_persists)
+ZTEST(ubi_secure_coverage, leb_overwrite_persists)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -454,7 +454,7 @@ ZTEST(ubi_secure_coverage, test_leb_overwrite_persists)
  *
  * \expect leb_map succeeds; is_mapped returns true.
  */
-ZTEST(ubi_secure_coverage, test_leb_map)
+ZTEST(ubi_secure_coverage, leb_map)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -481,7 +481,7 @@ ZTEST(ubi_secure_coverage, test_leb_map)
  *
  * \expect After unmap, is_mapped returns false.
  */
-ZTEST(ubi_secure_coverage, test_leb_unmap)
+ZTEST(ubi_secure_coverage, leb_unmap)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -516,7 +516,7 @@ ZTEST(ubi_secure_coverage, test_leb_unmap)
  *
  * \expect leb_write returns non-zero error.
  */
-ZTEST(ubi_secure_coverage, test_flash_write_fail_on_vid)
+ZTEST(ubi_secure_coverage, flash_write_fail_on_vid)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -546,7 +546,7 @@ ZTEST(ubi_secure_coverage, test_flash_write_fail_on_vid)
  *
  * \expect erase_peb returns non-zero.
  */
-ZTEST(ubi_secure_coverage, test_flash_write_fail_on_erase_ec)
+ZTEST(ubi_secure_coverage, flash_write_fail_on_erase_ec)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -589,7 +589,7 @@ ZTEST(ubi_secure_coverage, test_flash_write_fail_on_erase_ec)
  *
  * \expect Returned size matches the written data length.
  */
-ZTEST(ubi_secure_coverage, test_leb_get_size)
+ZTEST(ubi_secure_coverage, leb_get_size)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -621,7 +621,7 @@ ZTEST(ubi_secure_coverage, test_leb_get_size)
  *
  * \expect Volume not found after re-attach.
  */
-ZTEST(ubi_secure_coverage, test_volume_remove_persists)
+ZTEST(ubi_secure_coverage, volume_remove_persists)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -666,7 +666,7 @@ ZTEST(ubi_secure_coverage, test_volume_remove_persists)
  *
  * \expect All dirty PEBs are erased; free_peb_count is restored.
  */
-ZTEST(ubi_secure_coverage, test_erase_all_dirty_pebs)
+ZTEST(ubi_secure_coverage, erase_all_dirty_pebs)
 {
 	struct ubi_device *ubi = sec_init();
 

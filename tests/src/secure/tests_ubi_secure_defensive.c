@@ -76,7 +76,7 @@ static void ztest_suite_before(void *ctx)
  *
  * \expect Returns without crash.
  */
-ZTEST(ubi_secure_defensive, test_ser_prefix32_serialize_null)
+ZTEST(ubi_secure_defensive, ser_prefix32_serialize_null)
 {
 	uint8_t buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
 
@@ -91,7 +91,7 @@ ZTEST(ubi_secure_defensive, test_ser_prefix32_serialize_null)
  *
  * \expect Returns without crash.
  */
-ZTEST(ubi_secure_defensive, test_ser_prefix32_deserialize_null)
+ZTEST(ubi_secure_defensive, ser_prefix32_deserialize_null)
 {
 	struct ubi_crypto_prefix32 prefix = { 0 };
 
@@ -110,7 +110,7 @@ ZTEST(ubi_secure_defensive, test_ser_prefix32_deserialize_null)
  *
  * \expect All return without crash.
  */
-ZTEST(ubi_secure_defensive, test_ser_aad_builders_null)
+ZTEST(ubi_secure_defensive, ser_aad_builders_null)
 {
 	uint8_t aad_dev[UBI_SECURE_DEV_HDR_AAD_SIZE] = { 0 };
 
@@ -140,7 +140,7 @@ ZTEST(ubi_secure_defensive, test_ser_aad_builders_null)
  *
  * \expect Returns without crash.
  */
-ZTEST(ubi_secure_defensive, test_ser_dev_meta_null)
+ZTEST(ubi_secure_defensive, ser_dev_meta_null)
 {
 	uint8_t buf[16] = { 0 };
 
@@ -161,7 +161,7 @@ ZTEST(ubi_secure_defensive, test_ser_dev_meta_null)
  *
  * \expect Returns without crash.
  */
-ZTEST(ubi_secure_defensive, test_ser_vid_meta_null)
+ZTEST(ubi_secure_defensive, ser_vid_meta_null)
 {
 	uint8_t buf[16] = { 0 };
 
@@ -182,7 +182,7 @@ ZTEST(ubi_secure_defensive, test_ser_vid_meta_null)
  *
  * \expect Returns without crash.
  */
-ZTEST(ubi_secure_defensive, test_ser_counter48_null)
+ZTEST(ubi_secure_defensive, ser_counter48_null)
 {
 	ubi_secure_encode_counter48(0, NULL);
 	ubi_secure_encode_counter48(UBI_SECURE_COUNTER_MAX + 1, NULL);
@@ -199,7 +199,7 @@ ZTEST(ubi_secure_defensive, test_ser_counter48_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_crypto_aead_encrypt_null)
+ZTEST(ubi_secure_defensive, crypto_aead_encrypt_null)
 {
 	uint8_t ct[32] = { 0 };
 	size_t ct_len = 0;
@@ -215,7 +215,7 @@ ZTEST(ubi_secure_defensive, test_crypto_aead_encrypt_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_crypto_aead_decrypt_null)
+ZTEST(ubi_secure_defensive, crypto_aead_decrypt_null)
 {
 	uint8_t pt[32] = { 0 };
 	size_t pt_len = 0;
@@ -231,7 +231,7 @@ ZTEST(ubi_secure_defensive, test_crypto_aead_decrypt_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_crypto_generate_salt_null)
+ZTEST(ubi_secure_defensive, crypto_generate_salt_null)
 {
 	zassert_equal(ubi_secure_generate_salt(NULL), -EINVAL);
 }
@@ -243,7 +243,7 @@ ZTEST(ubi_secure_defensive, test_crypto_generate_salt_null)
  *
  * \expect Returns without crash.
  */
-ZTEST(ubi_secure_defensive, test_crypto_build_nonce_null)
+ZTEST(ubi_secure_defensive, crypto_build_nonce_null)
 {
 	uint8_t salt[UBI_SECURE_SALT_SIZE] = { 0 };
 	uint8_t counter[UBI_SECURE_COUNTER_SIZE] = { 0 };
@@ -261,7 +261,7 @@ ZTEST(ubi_secure_defensive, test_crypto_build_nonce_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_crypto_derive_domain_key_null)
+ZTEST(ubi_secure_defensive, crypto_derive_domain_key_null)
 {
 	uint32_t kid = 0;
 
@@ -276,7 +276,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_domain_key_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_crypto_derive_leb_key_null)
+ZTEST(ubi_secure_defensive, crypto_derive_leb_key_null)
 {
 	uint32_t kid = 0;
 
@@ -292,7 +292,7 @@ ZTEST(ubi_secure_defensive, test_crypto_derive_leb_key_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_null)
+ZTEST(ubi_secure_defensive, io_ec_hdr_read_null)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -313,7 +313,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_null)
+ZTEST(ubi_secure_defensive, io_vid_hdr_read_null)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -336,7 +336,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_null)
+ZTEST(ubi_secure_defensive, io_vid_hdr_write_null)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -357,7 +357,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_write_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_leb_data_read_null)
+ZTEST(ubi_secure_defensive, io_leb_data_read_null)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -378,7 +378,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_leb_data_write_null)
+ZTEST(ubi_secure_defensive, io_leb_data_write_null)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -399,7 +399,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_write_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_null)
+ZTEST(ubi_secure_defensive, io_ec_hdr_write_null)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -419,7 +419,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_write_null)
  *
  * \expect Returns -EBADMSG.
  */
-ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_magic)
+ZTEST(ubi_secure_defensive, io_ec_hdr_read_bad_magic)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -452,7 +452,7 @@ ZTEST(ubi_secure_defensive, test_io_ec_hdr_read_bad_magic)
  *
  * \expect Returns -EBADMSG (bad magic).
  */
-ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_magic)
+ZTEST(ubi_secure_defensive, io_vid_hdr_read_bad_magic)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -503,7 +503,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_hdr_read_bad_magic)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_datasize)
+ZTEST(ubi_secure_defensive, io_leb_data_read_zero_datasize)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -522,7 +522,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_datasize)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_leb_data_read_out_of_bounds)
+ZTEST(ubi_secure_defensive, io_leb_data_read_out_of_bounds)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -543,7 +543,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_out_of_bounds)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_init_zero_write_block)
+ZTEST(ubi_secure_defensive, init_zero_write_block)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -564,7 +564,7 @@ ZTEST(ubi_secure_defensive, test_init_zero_write_block)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_init_zero_erase_block)
+ZTEST(ubi_secure_defensive, init_zero_erase_block)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -585,7 +585,7 @@ ZTEST(ubi_secure_defensive, test_init_zero_erase_block)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_init_oversized_write_block)
+ZTEST(ubi_secure_defensive, init_oversized_write_block)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -613,7 +613,7 @@ ZTEST(ubi_secure_defensive, test_init_oversized_write_block)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_init_erase_block_too_small)
+ZTEST(ubi_secure_defensive, init_erase_block_too_small)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -640,7 +640,7 @@ ZTEST(ubi_secure_defensive, test_init_erase_block_too_small)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_init_bad_write_key_version)
+ZTEST(ubi_secure_defensive, init_bad_write_key_version)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -664,7 +664,7 @@ ZTEST(ubi_secure_defensive, test_init_bad_write_key_version)
  *
  * \expect Re-init succeeds; bad_peb_count > 0.
  */
-ZTEST(ubi_secure_defensive, test_scan_corrupt_ec_marks_bad)
+ZTEST(ubi_secure_defensive, scan_corrupt_ec_marks_bad)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -716,7 +716,7 @@ ZTEST(ubi_secure_defensive, test_scan_corrupt_ec_marks_bad)
  *
  * \expect Re-init succeeds; dirty_peb_count > 0.
  */
-ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
+ZTEST(ubi_secure_defensive, scan_erased_vid_dirty_leb)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -772,7 +772,7 @@ ZTEST(ubi_secure_defensive, test_scan_erased_vid_dirty_leb)
  *
  * \expect Re-init succeeds; no volumes; dirty pebs present.
  */
-ZTEST(ubi_secure_defensive, test_scan_orphan_classification)
+ZTEST(ubi_secure_defensive, scan_orphan_classification)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -820,7 +820,7 @@ ZTEST(ubi_secure_defensive, test_scan_orphan_classification)
  *
  * \expect Returns 0.
  */
-ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_len_zero_data)
+ZTEST(ubi_secure_defensive, io_leb_data_read_zero_len_zero_data)
 {
 	static struct ubi_crypto_config cfg;
 
@@ -840,7 +840,7 @@ ZTEST(ubi_secure_defensive, test_io_leb_data_read_zero_len_zero_data)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_vid_region_is_erased_null)
+ZTEST(ubi_secure_defensive, io_vid_region_is_erased_null)
 {
 	bool erased = false;
 
@@ -855,7 +855,7 @@ ZTEST(ubi_secure_defensive, test_io_vid_region_is_erased_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_defensive, test_io_leb_prefix_is_erased_null)
+ZTEST(ubi_secure_defensive, io_leb_prefix_is_erased_null)
 {
 	bool erased = false;
 

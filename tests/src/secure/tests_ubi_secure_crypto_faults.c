@@ -105,7 +105,7 @@ static struct ubi_device *sec_init_with_vol(const char *name, int *vol_id)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_leb_write)
+ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_on_leb_write)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("aew", &vol_id);
@@ -126,7 +126,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_leb_write)
  *
  * \expect Read-back matches original data after failed overwrite.
  */
-ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_preserves_old_data)
+ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_preserves_old_data)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("aep", &vol_id);
@@ -156,7 +156,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_preserves_old_data)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_leb_write_after_create)
+ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_on_leb_write_after_create)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("aecw", &vol_id);
@@ -179,7 +179,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_leb_write_after_create
  *
  * \expect leb_read returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_aead_decrypt_fail_on_leb_read)
+ZTEST(ubi_secure_crypto_faults, aead_decrypt_fail_on_leb_read)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("adr", &vol_id);
@@ -205,7 +205,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_decrypt_fail_on_leb_read)
  *
  * \expect Re-attach succeeds; subsequent read of the LEB fails.
  */
-ZTEST(ubi_secure_crypto_faults, test_aead_decrypt_fail_on_reattach_read)
+ZTEST(ubi_secure_crypto_faults, aead_decrypt_fail_on_reattach_read)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("adr2", &vol_id);
@@ -239,7 +239,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_decrypt_fail_on_reattach_read)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_leb_write)
+ZTEST(ubi_secure_crypto_faults, rng_fail_on_leb_write)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("rng", &vol_id);
@@ -260,7 +260,7 @@ ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_leb_write)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_leb_write_after_create)
+ZTEST(ubi_secure_crypto_faults, rng_fail_on_leb_write_after_create)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("rngw", &vol_id);
@@ -283,7 +283,7 @@ ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_leb_write_after_create)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_hkdf_fail_on_leb_write)
+ZTEST(ubi_secure_crypto_faults, hkdf_fail_on_leb_write)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("hkdf", &vol_id);
@@ -303,7 +303,7 @@ ZTEST(ubi_secure_crypto_faults, test_hkdf_fail_on_leb_write)
  *
  * \expect leb_read returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_hkdf_fail_on_leb_read)
+ZTEST(ubi_secure_crypto_faults, hkdf_fail_on_leb_read)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("hkdr", &vol_id);
@@ -330,7 +330,7 @@ ZTEST(ubi_secure_crypto_faults, test_hkdf_fail_on_leb_read)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_write)
+ZTEST(ubi_secure_crypto_faults, get_key_id_fail_on_leb_write)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("gkw", &vol_id);
@@ -350,7 +350,7 @@ ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_write)
  *
  * \expect leb_read returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_read)
+ZTEST(ubi_secure_crypto_faults, get_key_id_fail_on_leb_read)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("gkr", &vol_id);
@@ -375,7 +375,7 @@ ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_read)
  *
  * \expect leb_write returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_write_after_create)
+ZTEST(ubi_secure_crypto_faults, get_key_id_fail_on_leb_write_after_create)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("gkcw", &vol_id);
@@ -398,7 +398,7 @@ ZTEST(ubi_secure_crypto_faults, test_get_key_id_fail_on_leb_write_after_create)
  *
  * \expect device_init returns -EACCES.
  */
-ZTEST(ubi_secure_crypto_faults, test_freshness_reject_on_init)
+ZTEST(ubi_secure_crypto_faults, freshness_reject_on_init)
 {
 	/* First: format the flash by init+deinit. */
 	struct ubi_device *ubi = sec_init();
@@ -430,7 +430,7 @@ ZTEST(ubi_secure_crypto_faults, test_freshness_reject_on_init)
  *
  * \expect Write succeeds (sync failure is non-fatal by default).
  */
-ZTEST(ubi_secure_crypto_faults, test_freshness_sync_fail_on_write)
+ZTEST(ubi_secure_crypto_faults, freshness_sync_fail_on_write)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("fsf", &vol_id);
@@ -451,7 +451,7 @@ ZTEST(ubi_secure_crypto_faults, test_freshness_sync_fail_on_write)
  *
  * \expect volume_create succeeds (sync failure is non-fatal by default).
  */
-ZTEST(ubi_secure_crypto_faults, test_freshness_sync_fail_on_volume_create)
+ZTEST(ubi_secure_crypto_faults, freshness_sync_fail_on_volume_create)
 {
 	struct ubi_device *ubi = sec_init();
 
@@ -478,7 +478,7 @@ ZTEST(ubi_secure_crypto_faults, test_freshness_sync_fail_on_volume_create)
  *
  * \expect First write fails, second write succeeds, data reads back correctly.
  */
-ZTEST(ubi_secure_crypto_faults, test_device_recovers_after_crypto_fault)
+ZTEST(ubi_secure_crypto_faults, device_recovers_after_crypto_fault)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("rcv", &vol_id);
@@ -512,7 +512,7 @@ ZTEST(ubi_secure_crypto_faults, test_device_recovers_after_crypto_fault)
  *
  * \expect erase_peb returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_erase)
+ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_on_erase)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("aeb", &vol_id);
@@ -546,7 +546,7 @@ ZTEST(ubi_secure_crypto_faults, test_aead_encrypt_fail_on_erase)
  *
  * \expect erase_peb returns a non-zero error code.
  */
-ZTEST(ubi_secure_crypto_faults, test_rng_fail_on_erase)
+ZTEST(ubi_secure_crypto_faults, rng_fail_on_erase)
 {
 	int vol_id = -1;
 	struct ubi_device *ubi = sec_init_with_vol("rne", &vol_id);

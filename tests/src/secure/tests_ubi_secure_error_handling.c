@@ -90,7 +90,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling, test_init_null_mtd)
+ZTEST(ubi_secure_error_handling, init_null_mtd)
 {
 	static struct ubi_crypto_config cfg;
 	cfg = ubi_test_mock_crypto_config();
@@ -106,7 +106,7 @@ ZTEST(ubi_secure_error_handling, test_init_null_mtd)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling, test_init_null_ubi)
+ZTEST(ubi_secure_error_handling, init_null_ubi)
 {
 	static struct ubi_crypto_config cfg;
 	cfg = ubi_test_mock_crypto_config();
@@ -121,7 +121,7 @@ ZTEST(ubi_secure_error_handling, test_init_null_ubi)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling, test_deinit_null)
+ZTEST(ubi_secure_error_handling, deinit_null)
 {
 	zassert_equal(-EINVAL, ubi_device_deinit(NULL));
 }
@@ -133,7 +133,7 @@ ZTEST(ubi_secure_error_handling, test_deinit_null)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling, test_get_info_null_device)
+ZTEST(ubi_secure_error_handling, get_info_null_device)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -150,7 +150,7 @@ ZTEST(ubi_secure_error_handling, test_get_info_null_device)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling, test_get_info_null_info)
+ZTEST(ubi_secure_error_handling, get_info_null_info)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -166,7 +166,7 @@ ZTEST(ubi_secure_error_handling, test_get_info_null_info)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling, test_erase_peb_null)
+ZTEST(ubi_secure_error_handling, erase_peb_null)
 {
 	zassert_equal(-EINVAL, ubi_device_erase_peb(NULL));
 }

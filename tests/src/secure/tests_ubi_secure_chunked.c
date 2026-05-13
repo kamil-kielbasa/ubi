@@ -127,7 +127,7 @@ static void ztest_suite_before(void *ctx)
  *
  * \expect leb_size > 0 and leb_size < (erase_block_size - 208).
  */
-ZTEST(ubi_secure_chunked, test_geometry_leb_size)
+ZTEST(ubi_secure_chunked, geometry_leb_size)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	struct ubi_device *ubi = NULL;
@@ -158,7 +158,7 @@ ZTEST(ubi_secure_chunked, test_geometry_leb_size)
  *
  * \expect Data matches after read; leb_get_size returns correct size.
  */
-ZTEST(ubi_secure_chunked, test_single_chunk_write_read)
+ZTEST(ubi_secure_chunked, single_chunk_write_read)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -201,7 +201,7 @@ ZTEST(ubi_secure_chunked, test_single_chunk_write_read)
  *
  * \expect All 1024 bytes match after read.
  */
-ZTEST(ubi_secure_chunked, test_multi_chunk_write_read)
+ZTEST(ubi_secure_chunked, multi_chunk_write_read)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -246,7 +246,7 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_write_read)
  *
  * \expect The 64-byte slice at offset 240 matches the original data.
  */
-ZTEST(ubi_secure_chunked, test_partial_read_cross_chunk)
+ZTEST(ubi_secure_chunked, partial_read_cross_chunk)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -281,7 +281,7 @@ ZTEST(ubi_secure_chunked, test_partial_read_cross_chunk)
  *
  * \expect The 32-byte slice matches.
  */
-ZTEST(ubi_secure_chunked, test_partial_read_within_chunk)
+ZTEST(ubi_secure_chunked, partial_read_within_chunk)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -316,7 +316,7 @@ ZTEST(ubi_secure_chunked, test_partial_read_within_chunk)
  *
  * \expect All 271 bytes match.
  */
-ZTEST(ubi_secure_chunked, test_partial_last_chunk)
+ZTEST(ubi_secure_chunked, partial_last_chunk)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -355,7 +355,7 @@ ZTEST(ubi_secure_chunked, test_partial_last_chunk)
  *
  * \expect Data matches after reboot; heap fully reclaimed.
  */
-ZTEST(ubi_secure_chunked, test_multi_chunk_with_reboot)
+ZTEST(ubi_secure_chunked, multi_chunk_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -414,7 +414,7 @@ ZTEST(ubi_secure_chunked, test_multi_chunk_with_reboot)
  *
  * \expect Overwritten data matches; old data is gone.
  */
-ZTEST(ubi_secure_chunked, test_overwrite_chunked)
+ZTEST(ubi_secure_chunked, overwrite_chunked)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -457,7 +457,7 @@ ZTEST(ubi_secure_chunked, test_overwrite_chunked)
  *
  * \expect Full read returns error; partial read of untampered chunk succeeds.
  */
-ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
+ZTEST(ubi_secure_chunked, tamper_one_chunk)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -565,7 +565,7 @@ ZTEST(ubi_secure_chunked, test_tamper_one_chunk)
  *
  * \expect leb_is_mapped returns true; leb_get_size returns 0.
  */
-ZTEST(ubi_secure_chunked, test_zero_length_map)
+ZTEST(ubi_secure_chunked, zero_length_map)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -607,7 +607,7 @@ ZTEST(ubi_secure_chunked, test_zero_length_map)
  *
  * \expect ubi_device_init returns a negative error code.
  */
-ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
+ZTEST(ubi_secure_chunked, geometry_reject_tiny_erase_block)
 {
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -660,7 +660,7 @@ ZTEST(ubi_secure_chunked, test_geometry_reject_tiny_erase_block)
  *           event with `usage_pct=100`; original payload still readable;
  *           free-PEB count unchanged.
  */
-ZTEST(ubi_secure_chunked, test_chunked_write_overflow_rejected)
+ZTEST(ubi_secure_chunked, chunked_write_overflow_rejected)
 {
 	struct chunked_overflow_state evt_state = { 0 };
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();

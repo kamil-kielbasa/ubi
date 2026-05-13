@@ -97,7 +97,7 @@ static void ztest_suite_before(void *ctx)
  * \expect Data in LEB 2 matches original after reboot; leb_get_size
  *           returns 128; heap fully reclaimed after each deinit.
  */
-ZTEST(ubi_secure_write_read, test_one_leb_with_reboot)
+ZTEST(ubi_secure_write_read, one_leb_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -165,7 +165,7 @@ ZTEST(ubi_secure_write_read, test_one_leb_with_reboot)
  *
  * \expect Each LEB reports correct size and content after reboot.
  */
-ZTEST(ubi_secure_write_read, test_many_lebs_with_reboot)
+ZTEST(ubi_secure_write_read, many_lebs_with_reboot)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -237,7 +237,7 @@ ZTEST(ubi_secure_write_read, test_many_lebs_with_reboot)
  * \expect After overwrite: leb_get_size returns 6, read returns the
  *           second payload; original data no longer present.
  */
-ZTEST(ubi_secure_write_read, test_overwrite)
+ZTEST(ubi_secure_write_read, overwrite)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 

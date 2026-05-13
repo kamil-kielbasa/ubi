@@ -133,7 +133,7 @@ static void corrupt_byte(size_t offset)
  *           succeeds with AUTH_FAILURE events fired; system must not crash;
  *           device info remains queryable if attach succeeds.
  */
-ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
+ZTEST(ubi_secure_tamper, leb_data_tamper_smoke)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = counting_event_cb;
@@ -201,7 +201,7 @@ ZTEST(ubi_secure_tamper, test_leb_data_tamper_smoke)
  *           device info is queryable. AUTH_FAILURE events are verified
  *           by the forensic scan suite.
  */
-ZTEST(ubi_secure_tamper, test_reserved_peb_tamper_smoke)
+ZTEST(ubi_secure_tamper, reserved_peb_tamper_smoke)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = counting_event_cb;

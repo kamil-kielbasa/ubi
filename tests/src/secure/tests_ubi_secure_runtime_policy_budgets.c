@@ -187,8 +187,7 @@ static void ztest_suite_after(void *ctx)
  * \expect The last resize returns -ENOSPC; rotate_now_count == 1; subsequent writes/erases
  *         return -EROFS; reads still succeed. Reinit with kv=2 allows the resize to succeed.
  */
-ZTEST(ubi_secure_runtime_policy_budgets,
-      test_reserved_metadata_budget_exhausts_blocks_until_rotation)
+ZTEST(ubi_secure_runtime_policy_budgets, reserved_metadata_budget_exhausts_blocks_until_rotation)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -281,7 +280,7 @@ ZTEST(ubi_secure_runtime_policy_budgets,
  *         rotate_now_count == 1; subsequent mutations return -EROFS. Reinit with kv=2
  *         allows erase to succeed.
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_ec_metadata_budget_exhausts_blocks_until_rotation)
+ZTEST(ubi_secure_runtime_policy_budgets, ec_metadata_budget_exhausts_blocks_until_rotation)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -377,7 +376,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_ec_metadata_budget_exhausts_blocks
  *         rotate_now_count == 1; subsequent mutations return -EROFS. Reinit with kv=2
  *         allows write to succeed.
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_vid_metadata_budget_exhausts_blocks_until_rotation)
+ZTEST(ubi_secure_runtime_policy_budgets, vid_metadata_budget_exhausts_blocks_until_rotation)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -455,7 +454,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_vid_metadata_budget_exhausts_block
  * \expect rotate_soon_count >= 1 before reaching the hard threshold; rotate_now_count == 0;
  *         operations keep succeeding.
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_metadata_rotate_soon_emitted_below_now)
+ZTEST(ubi_secure_runtime_policy_budgets, metadata_rotate_soon_emitted_below_now)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -513,7 +512,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_metadata_rotate_soon_emitted_below
  * \expect VID exhaustion under kv=1 causes -ENOSPC. After reattach with kv=2 the same
  *         write succeeds; rotate_now_count is unchanged (no new events under kv=2).
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_metadata_budget_resets_on_key_rotation_reattach)
+ZTEST(ubi_secure_runtime_policy_budgets, metadata_budget_resets_on_key_rotation_reattach)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -590,7 +589,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_metadata_budget_resets_on_key_rota
  * \expect rotate_soon_count >= 1 once write/erase cycles approach the SOON threshold;
  *         rotate_now_count == 0; operations continue succeeding.
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_leb_budget_rotate_soon_emitted_below_now)
+ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_rotate_soon_emitted_below_now)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -639,7 +638,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_leb_budget_rotate_soon_emitted_bel
  * \expect After the LEB budget reaches 100 % the final write returns -ENOSPC;
  *         rotate_now_count == 1; subsequent mutations return -EROFS.
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_leb_budget_exhausts_blocks_until_rotation)
+ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_exhausts_blocks_until_rotation)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -688,7 +687,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_leb_budget_exhausts_blocks_until_r
  *
  * \expect After rotation next_vid_counter == 0 (the counter is reset on kv advance).
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_vid_floor_resets_on_rotation)
+ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_resets_on_rotation)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -749,7 +748,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_vid_floor_resets_on_rotation)
  *
  * \expect After reattach next_vid_counter >= 50 (counter persists under the same kv).
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_vid_floor_persists_within_same_kv)
+ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_persists_within_same_kv)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -794,7 +793,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_vid_floor_persists_within_same_kv)
  *
  * \expect next_vid_counter == 1 (the first write under kv=2 consumes counter value 0).
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_vid_floor_reset_writes_use_low_counters)
+ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_reset_writes_use_low_counters)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -853,7 +852,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_vid_floor_reset_writes_use_low_cou
  * \expect create returns 0 and key_retirable_count == 0; remove returns 0 and
  *         key_retirable_count == 0 (no spurious retirable event for the active kv).
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_reserved_refcount_no_spurious_key_retirable)
+ZTEST(ubi_secure_runtime_policy_budgets, reserved_refcount_no_spurious_key_retirable)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
@@ -913,7 +912,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, test_reserved_refcount_no_spurious_key_
  *  - Phase 4: write to LEB 0 with kv=2 succeeds and reads back.
  *  - Phase 5: KEY_RETIRABLE(kv=1) emitted at least once.
  */
-ZTEST(ubi_secure_runtime_policy_budgets, test_forced_rekey_with_stale_objects)
+ZTEST(ubi_secure_runtime_policy_budgets, forced_rekey_with_stale_objects)
 {
 	/* Phase 1+2: Format + write + overwrite under kv=1. */
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();

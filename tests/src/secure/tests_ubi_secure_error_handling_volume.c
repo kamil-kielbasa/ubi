@@ -91,7 +91,7 @@ static struct ubi_device *sec_init(void)
  *
  * \expect Each call returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_null_params)
+ZTEST(ubi_secure_error_handling_volume, volume_create_null_params)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -109,7 +109,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_null_params)
  * \expect Both calls succeed. The returned vol_id is identical.
  *           ubi_device_get_info() reports volume_count=1.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_idempotent)
+ZTEST(ubi_secure_error_handling_volume, volume_create_idempotent)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -126,7 +126,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_idempotent)
  *
  * \expect ubi_volume_create() returns -ENOSPC.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_no_space)
+ZTEST(ubi_secure_error_handling_volume, volume_create_no_space)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -143,7 +143,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_no_space)
  *
  * \expect ubi_volume_remove() returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_remove_nonexistent)
+ZTEST(ubi_secure_error_handling_volume, volume_remove_nonexistent)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -160,7 +160,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_remove_nonexistent)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_get_info_nonexistent)
+ZTEST(ubi_secure_error_handling_volume, volume_get_info_nonexistent)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -177,7 +177,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_get_info_nonexistent)
  *
  * \expect ubi_volume_resize() returns -ECANCELED.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_static)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_static)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -194,7 +194,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_static)
  *
  * \expect ubi_volume_resize() returns -ECANCELED.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_same_size)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_same_size)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -211,7 +211,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_same_size)
  *
  * \expect ubi_volume_resize() returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_nonexistent)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_nonexistent)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -230,7 +230,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_nonexistent)
  * \expect ubi_volume_resize() succeeds. LEBs 0..1 are readable with correct
  *           data. dirty_peb_count >= 2.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_shrink_with_mapped_lebs)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_shrink_with_mapped_lebs)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -278,7 +278,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_shrink_with_mapped_le
  *
  * \expect The new volume is created successfully. LEB 0 is not mapped.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_remove_and_recreate)
+ZTEST(ubi_secure_error_handling_volume, volume_remove_and_recreate)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -317,7 +317,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_remove_and_recreate)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_null_config)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_null_config)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -334,7 +334,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_null_config)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_no_volumes)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -351,7 +351,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_no_volumes)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_get_info_no_volumes)
+ZTEST(ubi_secure_error_handling_volume, volume_get_info_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -368,7 +368,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_get_info_no_volumes)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_remove_no_volumes)
+ZTEST(ubi_secure_error_handling_volume, volume_remove_no_volumes)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -384,7 +384,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_remove_no_volumes)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_invalid_type)
+ZTEST(ubi_secure_error_handling_volume, volume_create_invalid_type)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -400,7 +400,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_invalid_type)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_zero_lebs)
+ZTEST(ubi_secure_error_handling_volume, volume_create_zero_lebs)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -416,7 +416,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_zero_lebs)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_zero_lebs_rejected)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_zero_lebs_rejected)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -432,7 +432,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_zero_lebs_rejected)
  *
  * \expect Write and read-back succeed.
  */
-ZTEST(ubi_secure_error_handling_volume, test_static_volume_write_allowed)
+ZTEST(ubi_secure_error_handling_volume, static_volume_write_allowed)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -450,7 +450,7 @@ ZTEST(ubi_secure_error_handling_volume, test_static_volume_write_allowed)
  *
  * \expect Second call returns 0 with the same vol_id.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_duplicate_name)
+ZTEST(ubi_secure_error_handling_volume, volume_create_duplicate_name)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -481,7 +481,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_duplicate_name)
  *
  * \expect Returns -EEXIST.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_duplicate_name_different_config)
+ZTEST(ubi_secure_error_handling_volume, volume_create_duplicate_name_different_config)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -523,7 +523,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_duplicate_name_differ
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_empty_name)
+ZTEST(ubi_secure_error_handling_volume, volume_create_empty_name)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -548,7 +548,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_empty_name)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_name_no_nul)
+ZTEST(ubi_secure_error_handling_volume, volume_create_name_no_nul)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -574,7 +574,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_name_no_nul)
  *
  * \expect Create succeeds.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_name_max_valid)
+ZTEST(ubi_secure_error_handling_volume, volume_create_name_max_valid)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -591,7 +591,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_name_max_valid)
  *
  * \expect Returns -ENOSPC.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_expand_enospc)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_expand_enospc)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -609,7 +609,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_expand_enospc)
  *
  * \expect Resize succeeds. Data intact. volume_get_info reports 2.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_shrink_trim)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_shrink_trim)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -663,7 +663,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_shrink_trim)
  *
  * \expect Both succeed. vol_id identical. volume_count == 1.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_idempotent_returns_same_id)
+ZTEST(ubi_secure_error_handling_volume, volume_create_idempotent_returns_same_id)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -696,7 +696,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_idempotent_returns_sa
  *
  * \expect Returns -EEXIST.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_create_name_clash_different_config)
+ZTEST(ubi_secure_error_handling_volume, volume_create_name_clash_different_config)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -730,7 +730,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_create_name_clash_different_
  *
  * \expect Resize succeeds. Old data intact. New LEBs available.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_grow_preserves_data)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_grow_preserves_data)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -747,7 +747,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_grow_preserves_data)
  *
  * \expect Resize returns -ENOSPC. Original volume unchanged.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_grow_enospc)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_grow_enospc)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -798,7 +798,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_resize_grow_enospc)
  *
  * \expect Re-create succeeds. New volume is empty.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_remove_and_recreate_different_config)
+ZTEST(ubi_secure_error_handling_volume, volume_remove_and_recreate_different_config)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -849,7 +849,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_remove_and_recreate_differen
  *
  * \expect Config matches. alloc_lebs reflects mapped LEBs.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_get_info_detailed)
+ZTEST(ubi_secure_error_handling_volume, volume_get_info_detailed)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -865,7 +865,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_get_info_detailed)
  *
  * \expect Returns -ENOENT.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_remove_wrong_vol_id)
+ZTEST(ubi_secure_error_handling_volume, volume_remove_wrong_vol_id)
 {
 	struct ubi_device *const ubi = sec_init();
 
@@ -894,7 +894,7 @@ ZTEST(ubi_secure_error_handling_volume, test_volume_remove_wrong_vol_id)
  *
  * \expect Resize succeeds. Old data preserved. Trimmed LEBs inaccessible.
  */
-ZTEST(ubi_secure_error_handling_volume, test_volume_resize_shrink_preserves_data)
+ZTEST(ubi_secure_error_handling_volume, volume_resize_shrink_preserves_data)
 {
 	struct ubi_device *const ubi = sec_init();
 

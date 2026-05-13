@@ -248,7 +248,7 @@ static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
  *  - lnum 0 read fails.
  *  - No \c AUTH_FAILURE event is emitted (init-scan path).
  */
-ZTEST(ubi_secure_replay, test_replay_ec_record_to_other_peb_rejected)
+ZTEST(ubi_secure_replay, replay_ec_record_to_other_peb_rejected)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = counting_event_cb;
@@ -317,7 +317,7 @@ ZTEST(ubi_secure_replay, test_replay_ec_record_to_other_peb_rejected)
  *  - lnum 0 read fails.
  *  - No \c AUTH_FAILURE event is emitted (init-scan path, no read fault).
  */
-ZTEST(ubi_secure_replay, test_replay_vid_record_to_other_peb_rejected)
+ZTEST(ubi_secure_replay, replay_vid_record_to_other_peb_rejected)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = counting_event_cb;
@@ -381,7 +381,7 @@ ZTEST(ubi_secure_replay, test_replay_vid_record_to_other_peb_rejected)
  *  - lnum 0 read returns a non-zero error and raises exactly one
  *    \c AUTH_FAILURE event.
  */
-ZTEST(ubi_secure_replay, test_replay_leb_record_to_other_peb_rejected)
+ZTEST(ubi_secure_replay, replay_leb_record_to_other_peb_rejected)
 {
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 	cfg.event_cb = counting_event_cb;

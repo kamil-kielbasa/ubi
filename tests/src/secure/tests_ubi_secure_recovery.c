@@ -120,7 +120,7 @@ static void ztest_testcase_after(void *ctx)
  * \expect Second write returns error. Old data still readable.
  *           Heap fully reclaimed after deinit.
  */
-ZTEST(ubi_secure_recovery, test_interrupted_data_write_preserves_old_mapping)
+ZTEST(ubi_secure_recovery, interrupted_data_write_preserves_old_mapping)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -183,7 +183,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_preserves_old_mapping)
  *
  * \expect Second write returns error. Old data still readable.
  */
-ZTEST(ubi_secure_recovery, test_interrupted_vid_commit_preserves_old_mapping)
+ZTEST(ubi_secure_recovery, interrupted_vid_commit_preserves_old_mapping)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -238,7 +238,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_vid_commit_preserves_old_mapping)
  *
  * \expect Write returns error. LEB is not mapped after fault.
  */
-ZTEST(ubi_secure_recovery, test_interrupted_first_write_leaves_unmapped)
+ZTEST(ubi_secure_recovery, interrupted_first_write_leaves_unmapped)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -293,7 +293,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_first_write_leaves_unmapped)
  *
  * \expect After reboot: old data readable, volume intact.
  */
-ZTEST(ubi_secure_recovery, test_interrupted_data_write_survives_reboot)
+ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -367,7 +367,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_data_write_survives_reboot)
  * \expect After interrupted anchor write + reboot: volume recognized,
  *           data writable. Heap fully reclaimed after deinit.
  */
-ZTEST(ubi_secure_recovery, test_interrupted_anchor_write_preserves_continuity)
+ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -478,7 +478,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_write_preserves_continuity)
  *
  * \expect Volume count is 2 after reboot. Stale bank is ignored.
  */
-ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
+ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -577,7 +577,7 @@ ZTEST(ubi_secure_recovery, test_reserved_generation_replay_rejected)
  * \expect volume_create returns error. After reboot: device initializes
  *           successfully and is functional (can create and use new volumes).
  */
-ZTEST(ubi_secure_recovery, test_interrupted_reserved_commit_no_ghost_volume)
+ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -681,7 +681,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_reserved_commit_no_ghost_volume)
  *
  * \expect After reboot: device initializes successfully. No crash.
  */
-ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
+ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
@@ -774,7 +774,7 @@ ZTEST(ubi_secure_recovery, test_interrupted_anchor_create_during_volume_create)
  *           still readable. New writes succeed (proving anchor was re-created).
  *           Heap fully reclaimed after deinit.
  */
-ZTEST(ubi_secure_recovery, test_init_recreates_missing_anchor)
+ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
 	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
