@@ -32,6 +32,7 @@ target_sources(app PRIVATE
                src/plain/tests_ubi_fault_injection.c
                src/plain/tests_ubi_io_faults.c
                src/plain/tests_ubi_init_errors.c
+               src/plain/tests_ubi_init_errors_geometry.c
                src/plain/tests_ubi_hil_smoke.c
                src/plain/tests_ubi_concurrency.c
                src/plain/tests_ubi_erased_val.c

@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.103.0] - 2026-05-13
+
+### Changed
+
+- The 1663-line `tests_ubi_init_errors.c` was split along the natural
+  seam between scan / alloc / duplicate-LEB cases and pure geometry
+  validation cases.  The core file remains slightly below the
+  1500-line ceiling and the geometry file is now a focused
+  collection of input-validation cases:
+  - `tests_ubi_init_errors.c` (~1400 LoC) keeps the 24 scan-time and
+  alloc-failure cases: init NULL / double_init / init_after_deinit,
+  device / volume / leaf / scratch alloc failures during collect /
+  scan / validate, `out_of_bounds_leb`, `vid_read_crc`,
+  `ec_read_failure`, `semantically_invalid_vol_header`,
+  `duplicate_leb_*` (3 variants), `sqnum_monotonic_across_reinit`,
+  `erased_partition_triggers_format`, `format_ec_write_failure`,
+  `leaf_alloc_failure_bad_peb_classify`,
+  `static_backend_vol_count_overflow`,
+  `leb_index_exceeds_volume_capacity`,
+  `vid_hdr_crc_corrupt_during_scan` and
+  `crypto_cfg_without_crypto_kconfig_returns_enotsup`
+  (guarded by `#ifndef CONFIG_UBI_CRYPTO`).
+  - `tests_ubi_init_errors_geometry.c` (~380 LoC) hosts the 10
+  geometry-domain cases: 5 `geometry_*_block_size_*` and the
+  per-partition `geometry_partition_*` cases plus 3 reserved-PEB
+  validation cases (`reserved_peb_crc_corruption_detected`,
+  `reserved_peb_vol_count_exceeds_max`,
+  `one_reserved_peb_corrupt_recovers`).
+  Each split file registers a distinct ZTest suite
+  (`ubi_init_errors`, `ubi_init_errors_geometry`) so the test runner
+  now reports the two groups separately.
+
 ## [0.102.0] - 2026-05-13
 
 ### Changed
