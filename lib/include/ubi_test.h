@@ -107,12 +107,28 @@ void ubi_test_set_write_shutdown(struct ubi_device *ubi, bool shutdown);
 
 /* Fault injection API -------------------------------------------------------------------------- */
 
+/**
+ * \brief Allocator categories used by per-kind fault injection selectors.
+ *
+ * Each category corresponds to one family of `ubi_mem_*_alloc()` helpers.
+ * The numeric values are stable ABI for tests.
+ */
+enum ubi_test_alloc_kind {
+	UBI_TEST_ALLOC_DEVICE = 0,
+	UBI_TEST_ALLOC_VOLUME = 1,
+	UBI_TEST_ALLOC_LEAF = 2,
+	UBI_TEST_ALLOC_SCRATCH = 3,
+	UBI_TEST_ALLOC_DIAG = 4,
+	UBI_TEST_ALLOC_KIND_COUNT = 5,
+};
+
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 
 /**
  * \brief Reset all fault injection state.
  *
  * Must be called between test cases to ensure a clean starting state.
+ * Resets both the shared any-kind counter and every per-kind counter.
  */
 void ubi_test_fault_reset(void);
 
@@ -120,9 +136,27 @@ void ubi_test_fault_reset(void);
  * \brief Configure allocations to fail after \p n successful calls.
  *
  * Pass 0 to fail on the very next call. Pass -1 (or a very large value)
- * to disable injection. The counter is checked inside ubi_mem_*_alloc().
+ * to disable injection. The counter is checked inside ubi_mem_*_alloc()
+ * after the per-kind counter (see ubi_test_fault_set_kind_alloc_fail_after).
  */
 void ubi_test_fault_set_alloc_fail_after(int n);
+
+/**
+ * \brief Configure allocations of a specific \p kind to fail after \p n calls.
+ *
+ * Per-kind selector: only allocations of the given \p kind decrement the
+ * dedicated counter. This lets tests target one allocator family (e.g. only
+ * leaf-item allocations during a scan) without having to count unrelated
+ * allocations issued by surrounding code paths.
+ *
+ * The per-kind counter is consulted *before* the shared
+ * `ubi_test_fault_set_alloc_fail_after()` counter; if the per-kind counter
+ * fires the allocation fails immediately and the shared counter is left
+ * untouched.
+ *
+ * Pass 0 to fail the very next allocation of \p kind, -1 to disable.
+ */
+void ubi_test_fault_set_kind_alloc_fail_after(enum ubi_test_alloc_kind kind, int n);
 
 /**
  * \brief Configure flash writes to fail after \p n successful calls.
@@ -148,6 +182,12 @@ static inline void ubi_test_fault_reset(void)
 
 static inline void ubi_test_fault_set_alloc_fail_after(int n)
 {
+	(void)n;
+}
+
+static inline void ubi_test_fault_set_kind_alloc_fail_after(enum ubi_test_alloc_kind kind, int n)
+{
+	(void)kind;
 	(void)n;
 }
 

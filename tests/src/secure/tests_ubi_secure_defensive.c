@@ -865,4 +865,175 @@ ZTEST(ubi_secure_defensive, io_leb_prefix_is_erased_null)
 
 /* ===================================== Suite registration ====================================== */
 
+/**
+ * \brief `ubi_secure_aead_encrypt` rejects `aad == NULL` with non-zero `aad_len`.
+ *
+ * \details Scenario: Pass a valid nonce / ciphertext buffers but `aad = NULL`
+ *          and `aad_len = 16`.  This is the second NULL-checking branch
+ *          inside `ubi_secure_aead_encrypt` (after the nonce/ct/ct_len
+ *          guard) and is otherwise unreachable from production callers
+ *          which always pair AAD pointer + length consistently.
+ *
+ * \expect Returns `-EINVAL` without performing any PSA call.
+ *
+ * \oracle `ret == -EINVAL`.
+ *
+ * \trace `LOG_ERR("aead_encrypt: NULL aad with non-zero aad_len")` in
+ *        `lib/src/secure/ubi_secure_crypto.c`.
+ *
+ * \precondition None.
+ */
+ZTEST(ubi_secure_defensive, crypto_aead_encrypt_null_aad_with_len)
+{
+	const uint8_t nonce[UBI_SECURE_NONCE_SIZE] = { 0 };
+	uint8_t ct[32] = { 0 };
+	size_t ct_len = 0;
+
+	zassert_equal(-EINVAL, ubi_secure_aead_encrypt(0, nonce, NULL, 16, NULL, 0, ct, sizeof(ct),
+						       &ct_len));
+}
+
+/**
+ * \brief `ubi_secure_aead_decrypt` rejects `aad == NULL` with non-zero `aad_len`.
+ *
+ * \details Scenario: Mirror of `crypto_aead_encrypt_null_aad_with_len` for
+ *          the decrypt path. Same defensive branch: AAD pointer + length
+ *          must be consistent.
+ *
+ * \expect Returns `-EINVAL` without performing any PSA call.
+ *
+ * \oracle `ret == -EINVAL`.
+ *
+ * \trace `LOG_ERR("aead_decrypt: NULL aad with non-zero aad_len")` in
+ *        `lib/src/secure/ubi_secure_crypto.c`.
+ *
+ * \precondition None.
+ */
+ZTEST(ubi_secure_defensive, crypto_aead_decrypt_null_aad_with_len)
+{
+	const uint8_t nonce[UBI_SECURE_NONCE_SIZE] = { 0 };
+	uint8_t pt[32] = { 0 };
+	size_t pt_len = 0;
+
+	zassert_equal(-EINVAL, ubi_secure_aead_decrypt(0, nonce, NULL, 16, NULL, 0, pt, sizeof(pt),
+						       &pt_len));
+}
+
+/**
+ * \brief `ubi_secure_aead_encrypt` returns `-EIO` when PSA rejects the operation.
+ *
+ * \details Scenario: Call `ubi_secure_aead_encrypt` with a non-existent key
+ *          id (`PSA_KEY_ID_NULL`), valid nonce and a tiny ciphertext buffer.
+ *          PSA will return a non-success status (`PSA_ERROR_INVALID_HANDLE`
+ *          or similar) and the helper must translate it into `-EIO` and
+ *          log `"AEAD encrypt failed"`.
+ *
+ * \expect Returns `-EIO`.
+ *
+ * \oracle `ret == -EIO`.
+ *
+ * \trace `LOG_ERR("AEAD encrypt failed: %d")` branch in
+ *        `lib/src/secure/ubi_secure_crypto.c`.
+ *
+ * \precondition PSA initialised by `ubi_test_secure_suite_setup_impl`.
+ */
+ZTEST(ubi_secure_defensive, crypto_aead_encrypt_propagates_psa_error)
+{
+	const uint8_t nonce[UBI_SECURE_NONCE_SIZE] = { 0 };
+	const uint8_t pt[16] = { 0 };
+	uint8_t ct[64] = { 0 };
+	size_t ct_len = 0;
+
+	zassert_equal(-EIO, ubi_secure_aead_encrypt(PSA_KEY_ID_NULL, nonce, NULL, 0, pt, sizeof(pt),
+						    ct, sizeof(ct), &ct_len));
+}
+
+/**
+ * \brief `ubi_secure_aead_decrypt` returns `-EIO` when PSA rejects the operation.
+ *
+ * \details Scenario: Mirror of `crypto_aead_encrypt_propagates_psa_error`
+ *          for the decrypt path. PSA returns a non-success status and the
+ *          helper must surface it as `-EIO`.
+ *
+ * \expect Returns `-EIO`.
+ *
+ * \oracle `ret == -EIO`.
+ *
+ * \trace `LOG_ERR("AEAD decrypt failed: %d")` branch in
+ *        `lib/src/secure/ubi_secure_crypto.c`.
+ *
+ * \precondition PSA initialised by `ubi_test_secure_suite_setup_impl`.
+ */
+ZTEST(ubi_secure_defensive, crypto_aead_decrypt_propagates_psa_error)
+{
+	const uint8_t nonce[UBI_SECURE_NONCE_SIZE] = { 0 };
+	const uint8_t ct[32] = { 0 };
+	uint8_t pt[64] = { 0 };
+	size_t pt_len = 0;
+
+	zassert_equal(-EIO, ubi_secure_aead_decrypt(PSA_KEY_ID_NULL, nonce, NULL, 0, ct, sizeof(ct),
+						    pt, sizeof(pt), &pt_len));
+}
+
+/**
+ * \brief `ubi_secure_leb_data_read` rejects `buf == NULL` with non-zero `len`.
+ *
+ * \details Scenario: Provide a valid `vid_ctx` (non-NULL `vid_hdr` with
+ *          `data_size = 4`) and pass `buf = NULL` with `len = 4`.  This
+ *          trips the second NULL guard inside `ubi_secure_leb_data_read`
+ *          (after the flash/cfg/vid_ctx checks), which is otherwise
+ *          unreachable from public callers that always pair buffer pointer
+ *          and length consistently.
+ *
+ * \expect Returns `-EINVAL` without performing any flash I/O.
+ *
+ * \oracle `ret == -EINVAL`.
+ *
+ * \trace `LOG_ERR("leb_data_read: NULL buf with len %zu")` in
+ *        `lib/src/secure/ubi_secure_io.c`.
+ *
+ * \precondition None.
+ */
+ZTEST(ubi_secure_defensive, io_leb_data_read_null_buf_with_len)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	struct ubi_vid_hdr vid = { .data_size = 4 };
+	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
+
+	zassert_equal(-EINVAL, ubi_secure_leb_data_read(&flash, &cfg, 3, &vid_ctx, 0, NULL, 4));
+}
+
+/**
+ * \brief `ubi_secure_leb_data_write` rejects `buf == NULL` with non-zero `len`.
+ *
+ * \details Scenario: Provide a valid `ec_ctx` and `vid_hdr`, pass `buf = NULL`
+ *          with `len = 4`.  This trips the second NULL guard inside
+ *          `ubi_secure_leb_data_write` (after the flash/cfg/ec_ctx/vid_hdr
+ *          checks), which is otherwise unreachable from public callers.
+ *
+ * \expect Returns `-EINVAL` without performing any flash I/O.
+ *
+ * \oracle `ret == -EINVAL`.
+ *
+ * \trace `LOG_ERR("leb_data_write: NULL buf with len %zu")` in
+ *        `lib/src/secure/ubi_secure_io.c`.
+ *
+ * \precondition None.
+ */
+ZTEST(ubi_secure_defensive, io_leb_data_write_null_buf_with_len)
+{
+	static struct ubi_crypto_config cfg;
+
+	cfg = ubi_test_mock_crypto_config();
+
+	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
+	struct ubi_vid_hdr vid = { 0 };
+
+	zassert_equal(-EINVAL,
+		      ubi_secure_leb_data_write(&flash, &cfg, 3, &ec_ctx, &vid, 0, NULL, 4, 0, 0));
+}
+
 ZTEST_SUITE(ubi_secure_defensive, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

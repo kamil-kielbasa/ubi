@@ -37,7 +37,8 @@ target_sources(app PRIVATE
                src/plain/tests_ubi_concurrency.c
                src/plain/tests_ubi_erased_val.c
                src/plain/tests_ubi_mutation_gate.c
-               src/plain/tests_ubi_vol_id_watermark.c)
+               src/plain/tests_ubi_vol_id_watermark.c
+               src/plain/tests_ubi_io_defensive.c)
 
 if(CONFIG_FLASH_SIMULATOR)
     target_sources(app PRIVATE src/plain/tests_ubi_stress.c
@@ -47,6 +48,7 @@ endif()
 
 target_include_directories(app PRIVATE src/common)
 target_include_directories(app PRIVATE src/secure)
+target_include_directories(app PRIVATE ../lib/src/plain)
 
 target_sources(app PRIVATE src/common/arrays.c)
 

@@ -229,3 +229,102 @@ ZTEST(ubi_fault_injection, invariants_hold_after_resize_shrink)
 	ztest_test_skip();
 #endif
 }
+
+/**
+ * \brief Per-kind allocator fault selector targets one allocator family in isolation.
+ *
+ * \details Scenario: Init a plain device.  Arm the per-kind selector with
+ *          `ubi_test_fault_set_kind_alloc_fail_after(UBI_TEST_ALLOC_VOLUME, 0)`
+ *          so the very next `ubi_mem_volume_alloc()` returns `-ENOMEM`.  Call
+ *          `ubi_volume_create` — its first allocation is the volume slot, so
+ *          it must fail with `-ENOMEM`.  Disarm the per-kind counter, reset
+ *          fault state, and confirm a follow-up create succeeds end-to-end.
+ *
+ * \expect First create returns `-ENOMEM`; follow-up create returns 0;
+ *         `ubi_device_check_invariants` returns 0 throughout.
+ *
+ * \oracle `create_first == -ENOMEM`, `create_second == 0`,
+ *         `check_invariants == 0`.
+ *
+ * \trace `ubi_test_fault_set_kind_alloc_fail_after()` and per-kind branch in
+ *        `fault_should_fail()` (lib/src/common/ubi_mem.c).
+ *
+ * \precondition `CONFIG_UBI_TEST_FAULT_INJECTION` + `CONFIG_UBI_TEST_API_ENABLE`.
+ */
+ZTEST(ubi_fault_injection, kind_selector_volume_alloc_only)
+{
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
+
+	const struct ubi_volume_config cfg_first = {
+		.name = "kvol1",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int vol_id_first = -1;
+
+	ubi_test_fault_set_kind_alloc_fail_after(UBI_TEST_ALLOC_VOLUME, 0);
+	const int ret_first = ubi_volume_create(ubi, &cfg_first, &vol_id_first);
+	zassert_equal(-ENOMEM, ret_first, "expected -ENOMEM from per-kind volume alloc, got %d",
+		      ret_first);
+	zassert_ok(ubi_device_check_invariants(ubi));
+
+	ubi_test_fault_set_kind_alloc_fail_after(UBI_TEST_ALLOC_VOLUME, -1);
+	ubi_test_fault_reset();
+
+	const struct ubi_volume_config cfg_second = {
+		.name = "kvol2",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int vol_id_second = -1;
+	zassert_ok(ubi_volume_create(ubi, &cfg_second, &vol_id_second));
+
+	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
+}
+
+/**
+ * \brief Per-kind allocator selector with out-of-range `kind` is a safe no-op.
+ *
+ * \details Scenario: Init a plain device.  Call
+ *          `ubi_test_fault_set_kind_alloc_fail_after()` with a `kind` value
+ *          equal to `UBI_TEST_ALLOC_KIND_COUNT` (one past the last valid
+ *          enumerator) and again with `(enum ubi_test_alloc_kind)-1`.  Both
+ *          calls must early-return without writing past the per-kind counter
+ *          array and without enabling injection.  Verify by performing a
+ *          regular `ubi_volume_create` afterwards which must succeed.
+ *
+ * \expect Both bad-kind calls are no-ops; subsequent `ubi_volume_create` returns 0.
+ *
+ * \oracle `create == 0`, `check_invariants == 0`.
+ *
+ * \trace Out-of-range `kind` guard in `ubi_test_fault_set_kind_alloc_fail_after()`
+ *        (lib/src/common/ubi_mem.c).
+ *
+ * \precondition `CONFIG_UBI_TEST_FAULT_INJECTION` + `CONFIG_UBI_TEST_API_ENABLE`.
+ */
+ZTEST(ubi_fault_injection, kind_selector_out_of_range_is_noop)
+{
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
+	struct ubi_device *ubi = ubi_test_init_device(&flash);
+
+	ubi_test_fault_set_kind_alloc_fail_after(UBI_TEST_ALLOC_KIND_COUNT, 0);
+	ubi_test_fault_set_kind_alloc_fail_after((enum ubi_test_alloc_kind) - 1, 0);
+
+	const struct ubi_volume_config cfg = {
+		.name = "noopv",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int vol_id = -1;
+	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
+	zassert_ok(ubi_device_check_invariants(ubi));
+
+	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
+}

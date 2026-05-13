@@ -67,10 +67,14 @@ BUILD_ASSERT(sizeof(struct ubi_device) <= 144, "ubi_device unexpectedly grew (pl
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 
 static int alloc_remaining = -1;
+static int alloc_remaining_kind[UBI_TEST_ALLOC_KIND_COUNT] = { -1, -1, -1, -1, -1 };
 
 void ubi_test_fault_reset(void)
 {
 	alloc_remaining = -1;
+	for (int i = 0; i < UBI_TEST_ALLOC_KIND_COUNT; ++i) {
+		alloc_remaining_kind[i] = -1;
+	}
 	ubi_test_fault_set_flash_write_fail_after(-1);
 	ubi_test_fault_set_flash_erase_fail_after(-1);
 }
@@ -80,14 +84,33 @@ void ubi_test_fault_set_alloc_fail_after(int n)
 	alloc_remaining = n;
 }
 
+void ubi_test_fault_set_kind_alloc_fail_after(enum ubi_test_alloc_kind kind, int n)
+{
+	if ((int)kind < 0 || (int)kind >= UBI_TEST_ALLOC_KIND_COUNT) {
+		return;
+	}
+	alloc_remaining_kind[kind] = n;
+}
+
 /**
- * \brief Check whether the next allocation should be faulted.
+ * \brief Check whether the next allocation of \p kind should be faulted.
+ *
+ * The per-kind counter is consulted first; if it is armed (>=0) it consumes
+ * this allocation and either fires or decrements.  Only when the per-kind
+ * counter is disabled (-1) does the shared `alloc_remaining` counter act.
  *
  * \retval true   The allocation should fail (return -ENOMEM).
  * \retval false  The allocation may proceed.
  */
-static inline bool fault_should_fail(void)
+static inline bool fault_should_fail(enum ubi_test_alloc_kind kind)
 {
+	if (alloc_remaining_kind[kind] == 0) {
+		return true;
+	}
+	if (alloc_remaining_kind[kind] > 0) {
+		alloc_remaining_kind[kind]--;
+		return false;
+	}
 	if (alloc_remaining == 0) {
 		return true;
 	}
@@ -147,7 +170,7 @@ int ubi_mem_device_alloc(struct ubi_device **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_DEVICE)) {
 		LOG_ERR("Device allocation fault injected");
 		return -ENOMEM;
 	}
@@ -182,7 +205,7 @@ int ubi_mem_volume_alloc(struct ubi_volume **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_VOLUME)) {
 		LOG_ERR("Volume allocation fault injected");
 		return -ENOMEM;
 	}
@@ -217,7 +240,7 @@ int ubi_mem_leaf_alloc(void **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_LEAF)) {
 		LOG_ERR("Leaf allocation fault injected");
 		return -ENOMEM;
 	}
@@ -252,7 +275,7 @@ int ubi_mem_scratch_alloc(size_t len, uint8_t **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_SCRATCH)) {
 		LOG_ERR("Scratch allocation fault injected");
 		return -ENOMEM;
 	}
@@ -294,7 +317,7 @@ int ubi_mem_diag_alloc(size_t size, void **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_DIAG)) {
 		LOG_ERR("Diagnostic allocation fault injected");
 		return -ENOMEM;
 	}
@@ -352,7 +375,7 @@ int ubi_mem_device_alloc(struct ubi_device **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_DEVICE)) {
 		LOG_ERR("Device allocation fault injected");
 		return -ENOMEM;
 	}
@@ -386,7 +409,7 @@ int ubi_mem_volume_alloc(struct ubi_volume **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_VOLUME)) {
 		LOG_ERR("Volume allocation fault injected");
 		return -ENOMEM;
 	}
@@ -420,7 +443,7 @@ int ubi_mem_leaf_alloc(void **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_LEAF)) {
 		LOG_ERR("Leaf allocation fault injected");
 		return -ENOMEM;
 	}
@@ -454,7 +477,7 @@ int ubi_mem_scratch_alloc(size_t len, uint8_t **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_SCRATCH)) {
 		LOG_ERR("Scratch allocation fault injected");
 		return -ENOMEM;
 	}
@@ -490,7 +513,7 @@ int ubi_mem_diag_alloc(size_t size, void **out)
 	}
 
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
-	if (fault_should_fail()) {
+	if (fault_should_fail(UBI_TEST_ALLOC_DIAG)) {
 		LOG_ERR("Diagnostic allocation fault injected");
 		return -ENOMEM;
 	}

@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.107.0] - 2026-05-13
+
+### Added
+
+- `tests_ubi_io_defensive.c` (new, plain backend) — 16 ZTEST cases
+  exercising defensive guards in the plain backend internal I/O API
+  that the public API never reaches at runtime: NULL-pointer and
+  out-of-range `pnum` rejection in `ubi_ec_hdr_read/write`,
+  `ubi_vid_hdr_read/write`, `ubi_leb_data_read/write`; NULL-argument
+  rejection in metadata helpers (`ubi_dev_is_mounted/mount/hdr_read`,
+  `ubi_vol_hdr_read/append/remove/update`); NULL/range rejection in
+  reserved-PEB helpers (`ubi_flash_res_peb_scan/validate/overwrite/
+  commit/read_content`) plus `ubi_flash_res_peb_find_first_active`
+  sentinel + lowest-active selection on a synthetic scan struct;
+  `ubi_dev_is_mounted == false` on an erased partition; oversize
+  `len`/`offset+len` rejection in `ubi_leb_data_read/write`; bogus
+  `partition_id` propagation through every helper that opens a flash
+  area; empty-device and `vol_count`-mismatch guards in
+  `ubi_vol_hdr_append/remove/update`.
+- `tests_ubi_secure_defensive.c` — 6 new ZTEST cases extending the
+  existing defensive sweep: AEAD encrypt/decrypt reject `aad == NULL`
+  with non-zero `aad_len` and propagate PSA errors as `-EIO`;
+  `ubi_secure_leb_data_read/write` reject `buf == NULL` with non-zero
+  `len` after the primary NULL guard.
+- `tests_ubi_fault_injection.c` (plain) and
+  `tests_ubi_secure_fault_injection.c` — 6 new ZTEST cases driving
+  the new per-allocator-kind fault selector (volume / leaf / scratch /
+  diag / device).  Validates kind selector targeting, out-of-range
+  no-op safety, and `LEB read/write` scratch-allocation faults on the
+  secure backend.
+
+### Changed
+
+- `ubi_test.h` / `ubi_mem.c` — extended the test-only fault-injection
+  API with `enum ubi_test_alloc_kind` (DEVICE / VOLUME / LEAF /
+  SCRATCH / DIAG) and `ubi_test_fault_set_kind_alloc_fail_after()`.
+  The allocator backend now consults a per-kind counter before the
+  shared `alloc_remaining` so individual call sites can be targeted
+  without disturbing other allocations.  All ten allocator entry
+  points (5 in the static backend, 5 in the dynamic backend) were
+  re-tagged with the appropriate kind.  `ubi_test_fault_reset()` now
+  also clears the per-kind counters.  No change to non-test builds
+  (`CONFIG_UBI_TEST_FAULT_INJECTION=n`); the new entry point is a
+  no-op stub there.
+
 ## [0.106.0] - 2026-05-13
 
 ### Added

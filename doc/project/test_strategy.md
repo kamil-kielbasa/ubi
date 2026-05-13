@@ -157,8 +157,9 @@ Dry-run check (mirrors the CI format-check job):
 | `ubi_error_handling` | `tests_ubi_error_handling.c` | 97 | NULL params, out-of-range, no-space, contract tests, corrupt headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
 | `ubi_boundary` | `tests_ubi_boundary.c` | 6 | Max LEB capacity, alignment, sqnum persistence | native_sim |
 | `ubi_recovery` | `tests_ubi_recovery.c` | 30 | Corruption, dual-bank, sqnum conflicts, degraded mode, multi-volume recovery, free vs. uncommitted PEB classification | native_sim |
-| `ubi_fault_injection` | `tests_ubi_fault_injection.c` | 4 | Transactional safety under allocation failures, COW overwrite, invariant checks | native_sim |
+| `ubi_fault_injection` | `tests_ubi_fault_injection.c` | 6 | Transactional safety under allocation failures, COW overwrite, invariant checks, per-kind allocator fault selector | native_sim |
 | `ubi_io_faults` | `tests_ubi_io_faults.c` | 26 | Malloc/flash-write/flash-erase fault sweeps across init, volume, and I/O paths; commit-order fault injection (VID write failure preserves old mapping) | native_sim |
+| `ubi_io_defensive` | `tests_ubi_io_defensive.c` | 16 | Plain-backend internal I/O API defensive guards: NULL/range rejection on `ubi_ec_hdr_*`, `ubi_vid_hdr_*`, `ubi_leb_data_*`; metadata helper NULL guards; reserved-PEB helper NULL/range guards plus `find_first_active` synthetic-scan oracle; `flash_area_open` failure propagation through every helper | native_sim |
 | `ubi_init_errors` | `tests_ubi_init_errors.c` | 33 | Geometry validation, partition guard, format failures, header corruption at init | native_sim |
 | `ubi_stress` | `tests_ubi_stress.c` | 4 | Full utilization, init cycling, wear leveling | native_sim (simulator only) |
 | `ubi_stress_longrun` | `tests_ubi_stress_longrun.c` | 4 | Randomized churn with reboots, multi-volume operations, persistence across reinit, EC counter equality after 500 cycles | native_sim (simulator only) |
@@ -168,7 +169,7 @@ Dry-run check (mirrors the CI format-check job):
 | `ubi_erased_val` | `tests_ubi_erased_val.c` | 6 | Erased-value helper unit tests (`ubi_buf_is_erased` with 0xFF, 0x00, mixed), `ubi_get_erased_val` integration, init regression | native_sim |
 | `ubi_mutation_gate` | `tests_ubi_mutation_gate.c` | 5 | Central mutation gate: write-shutdown blocks all mutators, degraded mode blocks reserved-metadata only, runtime PEB corruption recovered transparently, runtime degradation sets flag and blocks mutations, erase_peb recovers reserved bank and clears flag | native_sim |
 | `ubi_vol_id_watermark` | `tests_ubi_vol_id_watermark.c` | 4 | Persistent vol_id high-watermark: same-boot reuse prevention, cross-reboot persistence, slot re-indexing stability, overflow fail-closed | native_sim |
-| **Total (plain)** | | **251** | | |
+| **Total (plain)** | | **269** | | |
 
 ### Secure Backend Parity Tests
 
@@ -192,13 +193,13 @@ All secure tests require `CONFIG_UBI_CRYPTO=y` and run with a PSA-imported test 
 | `ubi_secure_chunked` | `tests_ubi_secure_chunked.c` | 12 | Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback, 48-bit AEAD counter overflow rejection (requires `CONFIG_UBI_CRYPTO_LEB_CHUNKED=y`) | native_sim |
 | `ubi_secure_forensic` | `tests_ubi_secure_forensic.c` | 6 | Portable forensic scan: plaintext data absence, volume name absence, key material absence, post-overwrite+erase absence, negative test validates scanner on plain backend, magic-prefix sweep | native_sim |
 | `ubi_secure_error_handling` | `tests_ubi_secure_error_handling.c` | 74 | Secure-side parity for plain `ubi_error_handling`: NULL/out-of-range params, no-space, contract tests, corrupt EC/VID auth headers, reserved PEB corruption, degraded recovery, LEB edge cases | native_sim |
-| `ubi_secure_fault_injection` | `tests_ubi_secure_fault_injection.c` | 2 | Transactional safety on secure backend under malloc/flash faults during create/write (requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`) | native_sim |
+| `ubi_secure_fault_injection` | `tests_ubi_secure_fault_injection.c` | 6 | Transactional safety on secure backend under malloc/flash faults during create/write; per-kind allocator fault selector and SCRATCH-allocation faults on `leb_read/write` (requires `CONFIG_UBI_TEST_FAULT_INJECTION=y`) | native_sim |
 | `ubi_secure_mutation_gate` | `tests_ubi_secure_mutation_gate.c` | 1 | Central mutation gate sanity on secure backend (write-shutdown blocks mutators with `-EROFS`) | native_sim |
 | `ubi_secure_vol_id_watermark` | `tests_ubi_secure_vol_id_watermark.c` | 3 | Persistent vol_id high-watermark on secure backend (parity with plain `ubi_vol_id_watermark`) | native_sim |
 | `ubi_secure_coverage` | `tests_ubi_secure_coverage.c` | 16 | Branch-coverage-driven secure-path tests: dirty PEB accounting, LEB overwrite recovery and persistence, leb_get_size, map/unmap lifecycle, volume-remove variants, flash-write fault on EC/VID, erase-all-dirty | native_sim |
 | `ubi_secure_crypto_faults` | `tests_ubi_secure_crypto_faults.c` | 18 | Crypto primitive fault hooks (AEAD encrypt/decrypt fail, RNG fail, HKDF fail) inserted via `ubi_secure_test_hook_set` exercise error propagation on init/write/read paths (requires `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION=y`) | native_sim |
 | `ubi_secure_defensive` | `tests_ubi_secure_defensive.c` | 109 | Defensive header-shape validation: `bad_wrapper_version`, `exceeds_ccm_limit`, malformed prefix/AAD/tag fields across EC/VID/LEB records | native_sim |
-| **Total (secure)** | | **311** | | |
+| **Total (secure)** | | **321** | | |
 
 > Counts above are for the `secure` build (`CONFIG_UBI_CRYPTO=y`,
 > `CONFIG_UBI_CRYPTO_LEB_CHUNKED=n`).  The `chunked` build adds the
