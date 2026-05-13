@@ -322,6 +322,15 @@ ZTEST(ubi_secure_erase, anchor_participates_in_wear_leveling)
  * \expect After migration + reboot: only the newest anchor is live;
  *           stale anchor PEB recovered as dirty; full free count restored
  *           after erasing all dirty PEBs.
+ *
+ * \oracle After draining every dirty PEB post-reboot, `info.free_peb_count`
+ *         equals the pre-write baseline and `info.volume_count == 1` —
+ *         no stale anchor lingers in the reserved or bad pool.
+ *
+ * \trace §11.6 stale anchor rejection; §20 reboot recovery.
+ *
+ * \precondition 1-LEB static volume `"/stal"` on a freshly formatted secure
+ *               partition.
  */
 ZTEST(ubi_secure_erase, stale_anchor_rejected_after_reboot)
 {

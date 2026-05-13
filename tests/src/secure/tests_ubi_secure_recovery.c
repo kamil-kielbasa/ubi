@@ -366,6 +366,15 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
  *
  * \expect After interrupted anchor write + reboot: volume recognized,
  *           data writable. Heap fully reclaimed after deinit.
+ *
+ * \oracle Post-reboot `ubi_volume_get_info(vol_id)` returns 0; a fresh write
+ *         and read-back round-trip succeeds bit-exact; `memory_check`
+ *         confirms the heap returned to baseline after deinit.
+ *
+ * \trace §11.6 / §20 interrupted anchor rewrite.
+ *
+ * \precondition `CONFIG_UBI_TEST_FAULT_INJECTION` + `CONFIG_UBI_TEST_API_ENABLE`;
+ *               flash-write fault-injection hook available.
  */
 ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 {
@@ -773,6 +782,15 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
  * \expect Device initializes successfully. Volume is recognized and data is
  *           still readable. New writes succeed (proving anchor was re-created).
  *           Heap fully reclaimed after deinit.
+ *
+ * \oracle Re-init returns 0; the orphaned volume's `ubi_leb_read` round-trip
+ *         matches the pre-erase payload (`zassert_mem_equal`); a follow-up
+ *         write returns 0 and survives a second reboot.
+ *
+ * \trace §11.6 anchor recreation on missing anchor PEB.
+ *
+ * \precondition `CONFIG_UBI_TEST_FAULT_INJECTION` + `CONFIG_UBI_TEST_API_ENABLE`;
+ *               raw flash reachable for direct PEB erase via the test hook.
  */
 ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 {

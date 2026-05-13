@@ -501,6 +501,15 @@ ZTEST(ubi_secure_volumes, shrink_erase_reboot)
  *           VID counter values from the previous volume's lifetime.
  *           Verified indirectly: the device successfully stores and
  *           retrieves data, proving the floor was not corrupted.
+ *
+ * \oracle After the second reboot, `ubi_leb_read(vol_id2, 0)` returns 0
+ *         and the read-back equals `data2 = {0xEE, 0xFF}` bit-exact
+ *         (`zassert_mem_equal`); zero-volume snapshot in step 3 reports
+ *         `info.volume_count == 0` and `info.reserved_peb_count == 0`.
+ *
+ * \trace §9.8.5 vid_next_counter_floor.
+ *
+ * \precondition Single static volume `"/vcf"`; no other volumes on flash.
  */
 ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
 {
@@ -592,6 +601,15 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
  *
  * \expect New volume writes succeed after remove→create→reboot,
  *           data integrity is preserved, and no counter was reused.
+ *
+ * \oracle Every cycle's `ubi_leb_write` returns 0 and the post-reboot
+ *         `ubi_leb_read` matches the per-cycle payload bit-exact;
+ *         `info.volume_count` tracks the latest create/remove
+ *         without the floor regressing.
+ *
+ * \trace §9.8.5 vid_next_counter_floor.
+ *
+ * \precondition Freshly formatted secure partition.
  */
 ZTEST(ubi_secure_volumes, vid_counter_floor_remove_create_reboot)
 {

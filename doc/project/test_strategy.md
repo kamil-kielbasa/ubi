@@ -102,11 +102,33 @@ python3 scripts/scan_flash.py flash.bin
 
 ### Test description check
 
-Verify every `ZTEST()` has `\brief`, `\details`, `\expected`:
+Every `ZTEST()` must carry the three required Doxygen tags `\brief`,
+`\details`, `\expected` in the docblock immediately preceding it.  Three
+additional tags are *optional* and reported only as warnings:
+
+| Tag             | Status   | Purpose                                                                          |
+|-----------------|----------|----------------------------------------------------------------------------------|
+| `\brief`        | required | One-line summary of what the test verifies.                                      |
+| `\details`      | required | Step-by-step scenario, including the relevant configuration / fixture state.     |
+| `\expected`     | required | Pass/fail criteria phrased as observable behaviour.                              |
+| `\oracle`       | optional | The numeric / observational oracle that proves the test (e.g. `mem_equal`, counter monotonicity, exact return code). |
+| `\trace`        | optional | Back-link to a spec section or requirement id (e.g. `§9.8.5`).                    |
+| `\precondition` | optional | Non-obvious environmental setup the test relies on (Kconfig, fault hooks, geometry). |
+
+Run the checker as part of the local pre-push loop:
 
 ```sh
+# Default — fail only if a required tag is missing; report optional gaps as warnings.
 python3 scripts/check_test_descriptions.py tests/src/
+
+# Strict mode — also fail if any of the three optional tags is missing.
+python3 scripts/check_test_descriptions.py tests/src/ --strict
 ```
+
+The optional tags should be added to new and modified tests; existing
+tests that predate the template are not retro-fitted in a single sweep.
+The warning channel exists so the pattern can be adopted incrementally
+without blocking unrelated changes.
 
 ### Code formatting
 
@@ -463,7 +485,8 @@ The corresponding normative behaviour is specified in
 | `shrink → reboot` (before erase)           | `ubi_secure_volumes::shrink_with_reboot`                                                                                                                         |
 | `shrink → erase → reboot`                  | `ubi_secure_volumes::shrink_erase_reboot`                                                                                                                        |
 | `remove all volumes → reboot → create`     | `ubi_secure_volumes::vid_counter_floor_remove_create_reboot`                                                                                                     |
-| Anchor migration during erase              | `ubi_secure_erase::anchor_participates_in_wear_leveling`, `ubi_secure_erase::reclaim_preserves_continuity_witness`                                          |
+| Anchor migration during erase              | `ubi_secure_erase::anchor_participates_in_wear_leveling`, `ubi_secure_erase::reclaim_preserves_continuity_witness`, `ubi_secure_erase::stale_anchor_rejected_after_reboot`, `ubi_secure_recovery::interrupted_anchor_write_preserves_continuity` |
+| Per-volume LEB floor continuity at runtime | `ubi_secure_volumes::vid_counter_floor_persists`, `ubi_secure_volumes::vid_counter_floor_remove_create_reboot`, `ubi_secure_coverage::leb_overwrite_counter_recovery` |
 | Stale anchor after reboot                  | `ubi_secure_erase::stale_anchor_rejected_after_reboot`, `ubi_secure_recovery::init_recreates_missing_anchor`                                                |
 | Emergency reserve refill                   | `ubi_secure_erase::fill_unmap_erase_cycle`                                                                                                                       |
 | Dual-bank reserved metadata recovery       | `ubi_secure_recovery::interrupted_reserved_commit_no_ghost_volume`, `ubi_secure_recovery::reserved_generation_replay_rejected`, `ubi_secure_tamper::reserved_peb_tamper_smoke` |

@@ -343,6 +343,14 @@ ZTEST(ubi_secure_coverage, volume_resize_persists)
  *          leb_commit_mapping_swap (old PEB → dirty pool).
  *
  * \expect Both writes succeed; read-back matches second write.
+ *
+ * \oracle Both writes return 0 and the read-back of LEB 0 equals the
+ *         second-write payload bit-exact (`zassert_mem_equal`).
+ *
+ * \trace `leb_recover_old_counters` + `leb_commit_mapping_swap` path.
+ *
+ * \precondition Dynamic volume `"ovwr"` with 2 LEBs on a freshly formatted
+ *               secure device; no fault injection active.
  */
 ZTEST(ubi_secure_coverage, leb_overwrite_counter_recovery)
 {

@@ -180,6 +180,16 @@ ZTEST_SUITE(ubi_secure_concurrency, NULL, ztest_suite_setup, ztest_suite_before,
  * \expect All API calls return 0; every read of every LEB matches its expected
  *         pattern across all `CONCURRENT_READERS_NUM_THREADS *
  *         CONCURRENT_READERS_ITERATIONS` reads; deinit returns 0.
+ *
+ * \oracle Across the full 4×100 = 400 authenticated reads, every per-thread
+ *         `zassert_mem_equal(buf, lebs_payload[thread_id], 4)` holds and
+ *         no API call returns `< 0`.
+ *
+ * \trace Plain parity → `tests_ubi_concurrency::concurrent_readers`.
+ *
+ * \precondition `CONFIG_FLASH_SIMULATOR` + `CONFIG_UBI_CRYPTO` +
+ *               `CONFIG_MULTITHREADING`; four reader stacks of
+ *               `THREAD_STACK_SIZE` bytes each.
  */
 ZTEST(ubi_secure_concurrency, concurrent_readers)
 {
@@ -240,6 +250,18 @@ ZTEST(ubi_secure_concurrency, concurrent_readers)
  * \expect All threads complete without assertion; every reader iteration's
  *         `ubi_leb_read` of the stable LEB returns 0 and matches the expected
  *         payload bit-exact; deinit returns 0.
+ *
+ * \oracle Across `READER_WRITER_NUM_READERS * READER_WRITER_READER_ITERATIONS`
+ *         (2×100 = 200) reads of the stable LEB every
+ *         `zassert_mem_equal(buf, stable_payload, 4)` holds while the writer
+ *         completes `READER_WRITER_WRITER_ITERATIONS` mutation cycles in
+ *         parallel.
+ *
+ * \trace Plain parity → `tests_ubi_concurrency::reader_writer_interleave`.
+ *
+ * \precondition `CONFIG_FLASH_SIMULATOR` + `CONFIG_UBI_CRYPTO` +
+ *               `CONFIG_MULTITHREADING`; per-device mutex serialises
+ *               mutators with reader VID lookups.
  */
 ZTEST(ubi_secure_concurrency, reader_writer_interleave)
 {

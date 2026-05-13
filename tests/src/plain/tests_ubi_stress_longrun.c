@@ -83,6 +83,16 @@ ZTEST_SUITE(ubi_stress_longrun, NULL, ztest_suite_setup, ztest_testcase_before,
  *          erase dirty PEBs, check invariants, remove the volume, deinit.
  *
  * \expect All 50 cycles complete; reads match writes; invariants pass; no memory leaks.
+ *
+ * \oracle Every API call returns 0 across the 50 cycles; per-cycle
+ *         `memcmp(rbuf, wbuf, 32) == 0` for each of the three LEBs;
+ *         when `CONFIG_UBI_TEST_API_ENABLE` is on, the per-cycle
+ *         invariant check passes.
+ *
+ * \trace Randomized stress longrun.
+ *
+ * \precondition Simulator-only (`CONFIG_FLASH_SIMULATOR`); deterministic
+ *               pattern via `memset` (seeded RNG churn deferred).
  */
 ZTEST(ubi_stress_longrun, randomized_churn_with_reboots)
 {

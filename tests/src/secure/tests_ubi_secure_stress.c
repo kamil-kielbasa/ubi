@@ -99,6 +99,16 @@ ZTEST_SUITE(ubi_secure_stress, NULL, ztest_suite_setup, ztest_suite_before, NULL
  * \expect Every write / read round-trip succeeds with matching data; the heap
  *         `free_bytes` after `ubi_device_deinit()` is exactly equal to the pre-init
  *         baseline, confirming no leak across all `STRESS_CYCLES` iterations.
+ *
+ * \oracle `mem_after.free_bytes == mem_before.free_bytes` after deinit;
+ *         every per-cycle `zassert_mem_equal(rdata, wdata, 4)` for both
+ *         LEB 0 and LEB 1 holds across all `STRESS_CYCLES` iterations.
+ *
+ * \trace Plain parity → `tests_ubi_stress`.
+ *
+ * \precondition `CONFIG_SYS_HEAP_RUNTIME_STATS` enabled; `STRESS_CYCLES`
+ *               kept below the metadata-counter rotate-NOW threshold so
+ *               the run is a stress test, not a budget exhaustion test.
  */
 ZTEST(ubi_secure_stress, repeated_write_erase_cycles)
 {
@@ -160,6 +170,15 @@ ZTEST(ubi_secure_stress, repeated_write_erase_cycles)
  *
  * \expect `info.free_peb_count == baseline` after every cycle; `info.dirty_peb_count
  *         == 0` after every cycle.  No accounting drift across all iterations.
+ *
+ * \oracle After every reclamation pass, `info.free_peb_count == baseline`
+ *         and `info.dirty_peb_count == 0`; equality must hold for all
+ *         `STRESS_CYCLES` iterations without drift.
+ *
+ * \trace PEB accounting parity; plain parity → `tests_ubi_stress`.
+ *
+ * \precondition 1-LEB static volume `"acct"` on a freshly formatted secure
+ *               partition.
  */
 ZTEST(ubi_secure_stress, peb_accounting_stable_across_cycles)
 {

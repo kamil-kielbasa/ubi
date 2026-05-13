@@ -132,6 +132,15 @@ static void corrupt_byte(size_t offset)
  * \expect Re-attach either fails (corruption detected during scan) or
  *           succeeds with AUTH_FAILURE events fired; system must not crash;
  *           device info remains queryable if attach succeeds.
+ *
+ * \oracle Either `ubi_device_init` returns `!= 0`, OR it returns 0 and the
+ *         counting event callback observes `auth_failure_count > 0`; in
+ *         neither branch is a crash, hang, or undefined return permitted.
+ *
+ * \trace Tamper detection smoke; deeper coverage in `ubi_secure_forensic`.
+ *
+ * \precondition Event callback installed via
+ *               `cfg.event_cb = counting_event_cb`.
  */
 ZTEST(ubi_secure_tamper, leb_data_tamper_smoke)
 {

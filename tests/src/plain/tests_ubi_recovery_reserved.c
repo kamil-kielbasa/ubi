@@ -711,6 +711,16 @@ ZTEST(ubi_recovery_reserved, degraded_mode_blocks_mutations)
  *          be intact.
  *
  * \expect Init succeeds. All 3 volumes readable with correct data.
+ *
+ * \oracle After re-init, all three volume IDs resolve via
+ *         `ubi_volume_get_info`, and a per-volume `ubi_leb_read` of
+ *         LEB 0 matches the originally written payload bit-exact
+ *         (`zassert_mem_equal`).
+ *
+ * \trace Reserved-bank recovery.
+ *
+ * \precondition Three static volumes `mvr1`, `mvr2`, `mvr3`; raw flash
+ *               write access to corrupt PEB 1's reserved bank.
  */
 ZTEST(ubi_recovery_reserved, multi_volume_recovery_from_corrupt_bank)
 {

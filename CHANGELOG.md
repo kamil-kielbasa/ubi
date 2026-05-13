@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.106.0] - 2026-05-13
+
+### Added
+
+- Extended Doxygen test-docblock template.  In addition to the existing
+  required `\brief / \details / \expected` triple, three optional tags
+  are now recognised by `scripts/check_test_descriptions.py`:
+  - `\oracle`       — the numeric / observational oracle that proves
+    the test (e.g. `mem_equal` against an expected payload, exact
+    return code, counter monotonicity).
+  - `\trace`        — back-link to a spec section, requirement id,
+    or PR (e.g. `§9.8.5`).
+  - `\precondition` — non-obvious environmental setup the test
+    depends on (Kconfig flags, fault hooks, geometry overlay).
+  Optional tags are reported as warnings on stderr by default; the
+  new `--strict` mode promotes them to errors.  The full template is
+  applied to the tests strengthened in the recent oracle and secure
+  parity rounds; the pattern can be adopted incrementally for the
+  rest of the suite without blocking unrelated changes.  Documented
+  in `doc/project/test_strategy.md` and `doc/project/contributing.md`.
+- The checker also accepts `\expect` as a synonym of `\expected` so
+  that legacy docblocks using the shorter form are no longer
+  reported as missing the required pass/fail criterion.
+
+### Changed
+
+- `doc/project/test_strategy.md` — added the
+  *Per-volume LEB floor continuity at runtime* row to the
+  *Recovery scenario → ZTEST coverage* table and extended the
+  *Anchor migration during erase* row with the stale-anchor and
+  interrupted-anchor-write tests so the secure traceability matrix
+  reflects every test exercised by the recent oracle and secure
+  parity rounds.
+
 ## [0.105.0] - 2026-05-13
 
 ### Added

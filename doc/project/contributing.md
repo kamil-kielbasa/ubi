@@ -154,4 +154,6 @@ Any change that affects the following **must** include a documentation update:
 - [ ] CHANGELOG entry added under `[Unreleased]`
 - [ ] No new compiler warnings (`-Werror -Wextra -Wshadow`)
 - [ ] Secure tests include `\brief`, `\details`, `\expected` docblocks
+      (and, where applicable, the optional `\oracle`, `\trace`,
+      `\precondition` tags — see [Test Strategy](/project/test_strategy.md))
 - [ ] Forensic scan passes on secure flash image (`scripts/scan_flash.py`)
