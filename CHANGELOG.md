@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.105.0] - 2026-05-13
+
+### Added
+
+- `tests_ubi_secure_concurrency.c` — mirrors the plain-mode
+  `concurrent_readers` and `reader_writer_interleave` cases for the
+  secure backend.  Validates that the per-device mutex serialises
+  authenticated metadata reads and AEAD-protected write / unmap /
+  erase cycles so concurrent callers never observe a torn AEAD state
+  or a stale cached counter.  Built under `CONFIG_FLASH_SIMULATOR`.
+- `tests_ubi_secure_stress.c` — adds two stress-parity cases for the
+  secure backend, kept conservatively below the metadata-counter
+  rotate-NOW threshold so the suite stays a pure stress run instead of
+  a budget-exhaustion run:
+  - `repeated_write_erase_cycles` — 20 write / read / unmap / drain
+  cycles on a 2-LEB static volume; asserts no heap leak via
+  `sys_heap_runtime_stats_get()` snapshots taken around the entire run.
+  - `peb_accounting_stable_across_cycles` — captures the post-create
+  free-PEB count as a baseline and asserts that every write / unmap /
+  drain-until-empty cycle returns `info.dirty_peb_count == 0` and
+  `info.free_peb_count == baseline`, so secure anchor migration never
+  leaks a PEB into a third class.
+  The plain `wear_leveling_distribution` oracle was intentionally not
+  ported because the secure backend does not expose
+  `ubi_device_get_peb_ec()` — the per-PEB EC counter is part of an
+  authenticated reserved-area record reachable only via a hook.  Both
+  files reuse `ubi_test_secure_suite_setup_impl()` /
+  `ubi_test_secure_before_impl()` / `ubi_test_secure_init()` so they
+  carry no fixture boilerplate of their own.  Built under
+  `CONFIG_FLASH_SIMULATOR`.
+
 ## [0.104.0] - 2026-05-13
 
 ### Changed

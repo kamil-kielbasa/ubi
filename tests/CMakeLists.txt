@@ -79,6 +79,10 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_defensive_reserved.c
                                src/secure/tests_ubi_secure_replay.c
                                src/secure/tests_ubi_secure_anchor.c)
+    if(CONFIG_FLASH_SIMULATOR)
+        target_sources(app PRIVATE src/secure/tests_ubi_secure_concurrency.c
+                                   src/secure/tests_ubi_secure_stress.c)
+    endif()
     # Coexistence test requires a second flash partition labelled
     # `ubi_partition_2` in the active devicetree (provided by native_sim
     # overlays, absent on HW boards).
