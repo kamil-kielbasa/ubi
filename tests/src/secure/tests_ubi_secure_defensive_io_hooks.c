@@ -669,28 +669,37 @@ ZTEST(ubi_secure_defensive_io_hooks, init_vol_hdr_bad_wrapper_version)
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
 	/* Patch the wrapper_version byte in the vol_hdr prefix on every
-	 * reserved-PEB copy.  We rewrite the full 32-byte prefix so that
-	 * only the wrapper_version byte transitions 1 -> 0 (NOR-safe);
-	 * all other bytes are programmed to their existing values. */
-	for (size_t i = 0; i < CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
-		const size_t vol_prefix_offset =
-			i * flash.erase_block_size + UBI_SECURE_DEV_HDR_SIZE;
-		uint8_t prefix_buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
+	 * reserved-PEB copy.  The flash device underneath may be ECC-protected
+	 * (e.g. STM32U5) and therefore reject any in-place re-program of an
+	 * already-written word, even when only 1 -> 0 transitions are needed.
+	 * Use an erase-block-granular read / erase / write cycle so the test
+	 * works on both the simulator and real NOR/NVMC flash. */
+	const size_t ebs = flash.erase_block_size;
+	uint8_t *block_buf = k_malloc(ebs);
 
-		zassert_ok(flash_area_read(fa, vol_prefix_offset, prefix_buf, sizeof(prefix_buf)));
+	zassert_not_null(block_buf);
+
+	for (size_t i = 0; i < CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS; i++) {
+		const size_t block_offset = i * ebs;
+		const size_t prefix_in_block = UBI_SECURE_DEV_HDR_SIZE;
+
+		zassert_ok(flash_area_read(fa, block_offset, block_buf, ebs));
 
 		struct ubi_crypto_prefix32 prefix = { 0 };
 
-		ubi_secure_prefix32_deserialize(prefix_buf, &prefix);
+		ubi_secure_prefix32_deserialize(&block_buf[prefix_in_block], &prefix);
 		zassert_equal(prefix.wrapper_version, UBI_SECURE_WRAPPER_VERSION);
 		zassert_equal(prefix.domain, UBI_SECURE_DOMAIN_VOLUME_HEADER);
 
-		/* Force unsupported wrapper_version (1 -> 0 transition). */
+		/* Force unsupported wrapper_version. */
 		prefix.wrapper_version = 0;
-		ubi_secure_prefix32_serialize(&prefix, prefix_buf);
+		ubi_secure_prefix32_serialize(&prefix, &block_buf[prefix_in_block]);
 
-		zassert_ok(flash_area_write(fa, vol_prefix_offset, prefix_buf, sizeof(prefix_buf)));
+		zassert_ok(flash_area_erase(fa, block_offset, ebs));
+		zassert_ok(flash_area_write(fa, block_offset, block_buf, ebs));
 	}
+
+	k_free(block_buf);
 	flash_area_close(fa);
 
 	zassert_not_equal(ubi_device_init(&flash, &cfg, &ubi), 0,
