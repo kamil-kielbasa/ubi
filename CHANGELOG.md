@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.102.0] - 2026-05-13
+
+### Changed
+
+- The 1785-line `tests_ubi_secure_error_handling.c` was split into
+  three sibling files along the public API surface (mirroring the
+  earlier plain-mode split); each file is now well below the 1500-line
+  ceiling:
+  - `tests_ubi_secure_error_handling.c` (~175 LoC) keeps the 6 device-
+  wide cases (`test_init_null_mtd`, `test_init_null_ubi`,
+  `test_deinit_null`, `test_get_info_null_device`,
+  `test_get_info_null_info`, `test_erase_peb_null`).
+  - `tests_ubi_secure_error_handling_volume.c` (~945 LoC) hosts the 33
+  volume-API cases (create / remove / get_info / resize and the
+  `test_static_volume_must_be_filled` boundary case).
+  - `tests_ubi_secure_error_handling_leb.c` (~835 LoC) hosts the 35
+  LEB-API cases (write / read / map / unmap / is_mapped / get_size).
+  Each split file registers a distinct ZTest suite
+  (`ubi_secure_error_handling`, `ubi_secure_error_handling_volume`,
+  `ubi_secure_error_handling_leb`) so the test runner now reports the
+  three groups separately.
+
 ## [0.101.0] - 2026-05-13
 
 ### Changed

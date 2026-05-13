@@ -66,6 +66,8 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_recovery.c
                                src/secure/tests_ubi_secure_forensic.c
                                src/secure/tests_ubi_secure_error_handling.c
+                               src/secure/tests_ubi_secure_error_handling_volume.c
+                               src/secure/tests_ubi_secure_error_handling_leb.c
                                src/secure/tests_ubi_secure_fault_injection.c
                                src/secure/tests_ubi_secure_mutation_gate.c
                                src/secure/tests_ubi_secure_vol_id_watermark.c
