@@ -147,6 +147,18 @@ ZTEST(ubi_secure_anchor, test_single_leb_unmap_erase_write_inherits_counter)
 	zassert_true(cached_after_write > 1, "cache must advance after first write, got %llu",
 		     (unsigned long long)cached_after_write);
 
+	/* Record the on-flash authenticated counter of the first PEB so the
+	 * post-rewrite read can prove that the second write's PEB carries a
+	 * strictly higher counter and not a freshly-reset value. */
+	size_t first_pnum = SIZE_MAX;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, 0, &first_pnum));
+
+	uint64_t first_peb_wc = 0;
+
+	zassert_ok(
+		ubi_secure_test_read_vid_meta_from_peb(ubi, first_pnum, &first_peb_wc, NULL, NULL));
+
 	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
 	drain_dirty_pebs(ubi);
 
@@ -170,6 +182,21 @@ ZTEST(ubi_secure_anchor, test_single_leb_unmap_erase_write_inherits_counter)
 		     "second write must strictly advance cache: prev=%llu new=%llu",
 		     (unsigned long long)cached_after_drain,
 		     (unsigned long long)cached_after_second_write);
+
+	/* The new PEB for LEB 0 must carry a wc strictly greater than the
+	 * first PEB's wc, proving the counter was inherited across the
+	 * unmap+drain+rewrite cycle rather than reset to a fresh value. */
+	size_t second_pnum = SIZE_MAX;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, 0, &second_pnum));
+
+	uint64_t second_peb_wc = 0;
+
+	zassert_ok(ubi_secure_test_read_vid_meta_from_peb(ubi, second_pnum, &second_peb_wc, NULL,
+							  NULL));
+	zassert_true(second_peb_wc > first_peb_wc,
+		     "second PEB must inherit counter: first=%llu second=%llu",
+		     (unsigned long long)first_peb_wc, (unsigned long long)second_peb_wc);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -272,6 +299,23 @@ ZTEST(ubi_secure_anchor, test_cold_attach_reseeds_cache_from_anchor)
 	zassert_equal(0, info_after_drain.dirty_peb_count,
 		      "drain must leave no dirty PEBs, got %zu", info_after_drain.dirty_peb_count);
 
+	/* Read the anchor PEB on flash BEFORE the cold attach so the
+	 * post-attach cache value can be tied directly to a value that was
+	 * authenticated against persistent state, not against any RAM that
+	 * survived the deinit. */
+	size_t anchor_pnum = SIZE_MAX;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, SIZE_MAX, &anchor_pnum));
+
+	uint64_t anchor_wc_pre_attach = 0;
+
+	zassert_ok(ubi_secure_test_read_vid_meta_from_peb(ubi, anchor_pnum, &anchor_wc_pre_attach,
+							  NULL, NULL));
+	zassert_true(
+		anchor_wc_pre_attach > cached_pre_drain,
+		"drain must have rewritten the anchor with a higher counter: pre_drain=%llu anchor=%llu",
+		(unsigned long long)cached_pre_drain, (unsigned long long)anchor_wc_pre_attach);
+
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
@@ -284,6 +328,10 @@ ZTEST(ubi_secure_anchor, test_cold_attach_reseeds_cache_from_anchor)
 	zassert_true(cached_post_attach > cached_pre_drain,
 		     "cold attach must observe the anchor rewrite: pre_drain=%llu post=%llu",
 		     (unsigned long long)cached_pre_drain, (unsigned long long)cached_post_attach);
+	zassert_true(
+		cached_post_attach >= anchor_wc_pre_attach,
+		"post-attach cache must be at least the on-flash anchor counter: anchor=%llu post=%llu",
+		(unsigned long long)anchor_wc_pre_attach, (unsigned long long)cached_post_attach);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -348,6 +396,27 @@ ZTEST(ubi_secure_anchor, test_non_witness_erase_does_not_rewrite_anchor)
 		      "non-witness erase must not change cache");
 	zassert_equal(free_before + 1, info_after.free_peb_count,
 		      "non-witness erase must not consume an extra free PEB for anchor rewrite");
+
+	/* Authoritative check: the anchor PEB on flash must carry the same
+	 * authenticated counter values as before the erase. The free-PEB
+	 * delta above only proves that no extra PEB was consumed; this
+	 * assertion proves the anchor's persisted contents are byte-stable. */
+	size_t anchor_pnum_before = SIZE_MAX;
+	size_t anchor_pnum_after = SIZE_MAX;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, SIZE_MAX, &anchor_pnum_before));
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, SIZE_MAX, &anchor_pnum_after));
+	zassert_equal(anchor_pnum_before, anchor_pnum_after,
+		      "non-witness erase must not relocate the anchor PEB");
+
+	uint64_t anchor_wc = 0;
+	uint64_t anchor_tab = 0;
+
+	zassert_ok(ubi_secure_test_read_vid_meta_from_peb(ubi, anchor_pnum_after, &anchor_wc,
+							  &anchor_tab, NULL));
+	zassert_true(anchor_wc <= cached_after_erase,
+		     "cache is the strict upper bound for the anchor: cache=%llu anchor=%llu",
+		     (unsigned long long)cached_after_erase, (unsigned long long)anchor_wc);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }

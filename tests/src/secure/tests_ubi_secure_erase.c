@@ -17,6 +17,10 @@
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#include "ubi_secure_test_hooks.h"
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+
 #include <psa/crypto.h>
 
 #include <zephyr/ztest.h>
@@ -230,10 +234,20 @@ ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
 
 	zassert_true(initial_free >= 3, "Need at least 3 free PEBs for this test");
 
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	size_t anchor_pnum_initial = SIZE_MAX;
+
+	zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, SIZE_MAX, &anchor_pnum_initial));
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+
 	/* 2. Repeat write-overwrite-unmap-erase cycles. */
 	const size_t N_CYCLES = 4;
 	size_t total_erases = 0;
 	size_t first_cycle_erases = 0;
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	size_t anchor_pnum_after_first = SIZE_MAX;
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	for (size_t c = 0; c < N_CYCLES; c++) {
 		/* Two writes: counter 0→1→2.  After unmap, the PEB with
@@ -256,6 +270,10 @@ ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
 
 		if (c == 0) {
 			first_cycle_erases = cycle_erases;
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+			zassert_ok(ubi_secure_test_get_peb_for_lnum(ubi, vol_id, SIZE_MAX,
+								    &anchor_pnum_after_first));
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 		}
 
 		/* All PEBs accounted for after full erase. */
@@ -273,6 +291,16 @@ ZTEST(ubi_secure_erase, test_anchor_participates_in_wear_leveling)
 	zassert_true(total_erases > 2 * N_CYCLES,
 		     "Total erases %zu must exceed %zu (proves anchor migration)", total_erases,
 		     2 * N_CYCLES);
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+	/* Direct proof of migration: the anchor PEB number must have changed
+	 * after the first cycle. The existing erase-count assertion above
+	 * permits further migrations in later cycles (total > 2 * N_CYCLES)
+	 * so we deliberately do not assert that the anchor stays pinned. */
+	zassert_not_equal(anchor_pnum_initial, anchor_pnum_after_first,
+			  "first cycle must relocate the anchor PEB: initial=%zu after=%zu",
+			  anchor_pnum_initial, anchor_pnum_after_first);
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
 
 	/* 3. Deinit. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));

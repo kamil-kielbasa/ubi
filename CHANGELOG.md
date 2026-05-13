@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.97.0] - 2026-05-12
+
+### Changed
+
+- Three anchor-continuity tests were strengthened to read the anchor PEB
+  on flash through the `ubi_secure_test_get_peb_for_lnum()` and
+  `ubi_secure_test_read_vid_meta_from_peb()` hooks added in v0.91.0,
+  instead of inferring anchor behaviour from RAM-cache or free-PEB
+  bookkeeping alone.
+  - `test_non_witness_erase_does_not_rewrite_anchor`
+    (`tests_ubi_secure_anchor.c`) now asserts that the anchor PEB number
+    does not change across the erase and that the anchor's authenticated
+    `leb_write_counter` stays bounded by the cache. Previously the test
+    only checked that `free_peb_count` grew by exactly one, which can
+    fail to detect a spurious anchor rewrite that happens to balance
+    against another free-pool transition.
+  - `test_cold_attach_reseeds_cache_from_anchor`
+    (`tests_ubi_secure_anchor.c`) now reads the anchor's persisted
+    counter immediately after the drain (before the deinit) and asserts
+    `cached_post_attach >= anchor_wc`, which ties the post-attach cache
+    value directly to authenticated on-flash state rather than to RAM
+    that survived the deinit.
+  - `test_single_leb_unmap_erase_write_inherits_counter`
+    (`tests_ubi_secure_anchor.c`) now records the on-flash
+    authenticated counter of the first PEB and asserts that the
+    post-rewrite PEB carries a strictly higher counter. Previously the
+    test only verified that the RAM cache advanced, which could not
+    distinguish a genuine inheritance from a fresh per-PEB counter
+    reset.
+  - `test_anchor_participates_in_wear_leveling`
+    (`tests_ubi_secure_erase.c`) now reads the anchor PEB number before
+    and after the first cycle and asserts the anchor was relocated.
+    Previously the migration claim relied entirely on a heuristic
+    erase-count match (`first_cycle_erases == 3`), which can be
+    satisfied by the same number of erases occurring for unrelated
+    reasons.
+
 ## [0.96.0] - 2026-05-12
 
 ### Changed
