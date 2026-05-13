@@ -518,7 +518,7 @@ ZTEST(ubi_volumes, create_one_with_resize_upper_with_reboot)
 				 strnlen(read_vol_cfg.name, UBI_VOLUME_NAME_MAX_LEN)));
 	zassert_equal(0, read_alloc_lebs);
 
-	/* 9. Deinitialize device */
+	/* 12. Deinitialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 
 	erase_counters_check(ubi, exp_ec_avr);

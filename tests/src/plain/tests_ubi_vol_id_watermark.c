@@ -46,7 +46,13 @@
 /* Static variables and constants --------------------------------------------------------------- */
 
 static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
+/** \brief Per-test fixture: holds the UBI device handle so the
+ *         teardown hook can deinit on assertion failures. */
+struct ubi_vol_id_watermark_fixture {
+	struct ubi_device *ubi;
+};
+
+static struct ubi_vol_id_watermark_fixture g_fixture;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
@@ -59,26 +65,27 @@ static void ztest_testcase_teardown(void *ctx);
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);
-	return NULL;
+	g_fixture.ubi = NULL;
+	return &g_fixture;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
-	(void)ctx;
+	struct ubi_vol_id_watermark_fixture *fixture = ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	ubi_test_erase_partition();
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	(void)ctx;
+	struct ubi_vol_id_watermark_fixture *fixture = ctx;
 	ubi_test_fault_reset();
 
-	if (g_ubi) {
-		(void)ubi_device_deinit(g_ubi);
-		g_ubi = NULL;
+	if (fixture->ubi) {
+		(void)ubi_device_deinit(fixture->ubi);
+		fixture->ubi = NULL;
 	}
 }
 
@@ -94,10 +101,10 @@ ZTEST_SUITE(ubi_vol_id_watermark, NULL, ztest_suite_setup, ztest_testcase_before
  *
  * \expect Vol B gets id=1, not 0.
  */
-ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
+ZTEST_F(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
 {
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg_a = {
 		.name = "vol_a",
@@ -119,7 +126,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
 	zassert_ok(ubi_volume_create(ubi, &cfg_b, &id_b));
 	zassert_true(id_b > id_a, "vol_id must not be reused (got %d, prev %d)", id_b, id_a);
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -132,10 +139,10 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
  * \expect Vol B gets id=1 because the watermark is persisted in the device
  *         header.
  */
-ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
+ZTEST_F(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 {
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg_a = {
 		.name = "vol_a",
@@ -148,12 +155,12 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 
 	zassert_ok(ubi_volume_remove(ubi, id_a));
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Reinit from flash (simulated reboot). */
 	ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg_b = {
 		.name = "vol_b",
@@ -164,7 +171,7 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 	zassert_ok(ubi_volume_create(ubi, &cfg_b, &id_b));
 	zassert_true(id_b > id_a, "vol_id must survive reboot (got %d, prev %d)", id_b, id_a);
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -176,10 +183,10 @@ ZTEST(ubi_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
  * \expect Remaining volumes keep their original vol_ids (0 and 2). After
  *         reinit, a new volume gets id=3 (not 1).
  */
-ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume_ids)
+ZTEST_F(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume_ids)
 {
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg0 = {
 		.name = "vol_0",
@@ -220,11 +227,11 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
 
 	/* Verify after reinit. */
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	zassert_ok(ubi_volume_get_info(ubi, id0, &read_cfg, &alloc));
 	zassert_equal(0, strncmp("vol_0", read_cfg.name, strlen("vol_0")));
@@ -242,7 +249,7 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
 	zassert_ok(ubi_volume_create(ubi, &cfg3, &id3));
 	zassert_equal(3, id3);
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -253,10 +260,10 @@ ZTEST(ubi_vol_id_watermark, volume_slot_reindex_does_not_change_remaining_volume
  *
  * \expect volume_create returns -ENOSPC. Device state is unchanged.
  */
-ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
+ZTEST_F(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 {
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Write vol_id_watermark = UINT32_MAX directly into the reserved PEB. */
 	const struct flash_area *fa = NULL;
@@ -284,11 +291,11 @@ ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 
 	/* Reinit to pick up the patched header. */
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* volume_create must fail. */
 	const struct ubi_volume_config cfg = {
@@ -305,6 +312,6 @@ ZTEST(ubi_vol_id_watermark, volume_id_overflow_fails_closed)
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(0, info.volume_count);
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }

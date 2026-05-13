@@ -47,7 +47,13 @@
 /* Static variables and constants --------------------------------------------------------------- */
 
 static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
+/** \brief Per-test fixture: holds the UBI device handle so the
+ *         teardown hook can deinit on assertion failures. */
+struct ubi_mutation_gate_fixture {
+	struct ubi_device *ubi;
+};
+
+static struct ubi_mutation_gate_fixture g_fixture;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
@@ -60,29 +66,30 @@ static void ztest_testcase_teardown(void *ctx);
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);
-	return NULL;
+	g_fixture.ubi = NULL;
+	return &g_fixture;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
-	(void)ctx;
+	struct ubi_mutation_gate_fixture *fixture = ctx;
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	ubi_test_erase_partition();
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	(void)ctx;
+	struct ubi_mutation_gate_fixture *fixture = ctx;
 	ubi_test_fault_reset();
 
-	if (g_ubi) {
+	if (fixture->ubi) {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
-		ubi_test_set_write_shutdown(g_ubi, false);
+		ubi_test_set_write_shutdown(fixture->ubi, false);
 #endif
-		(void)ubi_device_deinit(g_ubi);
-		g_ubi = NULL;
+		(void)ubi_device_deinit(fixture->ubi);
+		fixture->ubi = NULL;
 	}
 }
 
@@ -100,11 +107,11 @@ ZTEST_SUITE(ubi_mutation_gate, NULL, ztest_suite_setup, ztest_testcase_before,
  *
  * \expect  All mutators return -EROFS. All readers return 0 or valid data.
  */
-ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
+ZTEST_F(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Create a volume and write data so we can test read paths too. */
 	const struct ubi_volume_config cfg = {
@@ -129,7 +136,7 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 	/* Enable global write shutdown. */
 	ubi_test_set_write_shutdown(ubi, true);
 
-	/* Reserved metadata mutators ------------------------------------------------------------------- */
+	/* Reserved metadata mutators. */
 
 	const struct ubi_volume_config new_cfg = {
 		.name = "blocked",
@@ -198,7 +205,7 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
 
 	zassert_ok(ubi_device_check_invariants(ubi));
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();
@@ -215,12 +222,12 @@ ZTEST(ubi_mutation_gate, write_shutdown_blocks_all_mutators)
  *
  * \expect  volume_create/resize/remove return -EROFS in degraded mode.
  */
-ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
+ZTEST_F(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 {
 	/* Normal init with a volume. */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "degvol",
@@ -231,7 +238,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Corrupt both reserved PEB CRCs so init sees 0 active PEBs initially,
 	 * but recovery from scratch_alloc path may still succeed on the simulator.
@@ -263,14 +270,14 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 		return;
 	}
 
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 
 	if (!info.read_only_degraded) {
 		/* Recovery succeeded — can't test degraded mode on this simulator. */
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 		zassert_ok(ubi_device_deinit(ubi));
 		ztest_test_skip();
 		return;
@@ -297,7 +304,7 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
 	zassert_equal(-EROFS, ubi_volume_resize(ubi, vol_id, &resize_cfg),
 		      "volume_resize must return -EROFS in degraded mode");
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -315,10 +322,10 @@ ZTEST(ubi_mutation_gate, degraded_mode_blocks_reserved_metadata_only)
  * \expect  Volume created successfully. Device info reports read_only_degraded
  *          as false (recovery repaired the corrupt PEB).
  */
-ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
+ZTEST_F(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
 {
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Create a first volume so the reserved PEBs contain real data. */
 	const struct ubi_volume_config cfg1 = {
@@ -361,7 +368,7 @@ ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
 
 	zassert_ok(ubi_device_check_invariants(ubi));
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -379,11 +386,11 @@ ZTEST(ubi_mutation_gate, runtime_corrupt_peb_recovered_transparently)
  *          as true. All subsequent mutations return -EROFS. Read operations
  *          still work.
  */
-ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
+ZTEST_F(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Create a volume so reserved PEBs contain real data. */
 	const struct ubi_volume_config cfg1 = {
@@ -460,7 +467,7 @@ ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
 	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, 0, &is_mapped));
 	zassert_true(is_mapped);
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();
@@ -479,11 +486,11 @@ ZTEST(ubi_mutation_gate, runtime_degradation_sets_flag_and_blocks_mutations)
  *
  * \expect  After erase_peb, read_only_degraded is false. volume_create works.
  */
-ZTEST(ubi_mutation_gate, erase_peb_recovers_reserved_bank)
+ZTEST_F(ubi_mutation_gate, erase_peb_recovers_reserved_bank)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Create a volume so reserved PEBs contain real data. */
 	const struct ubi_volume_config cfg1 = {
@@ -548,7 +555,7 @@ ZTEST(ubi_mutation_gate, erase_peb_recovers_reserved_bank)
 
 	zassert_ok(ubi_device_check_invariants(ubi));
 
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();

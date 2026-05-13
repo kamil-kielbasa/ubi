@@ -42,31 +42,42 @@
 
 /* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi = NULL;
+
+/** \brief Per-test fixture: holds the UBI device handle so the
+ *         teardown hook can deinit on assertion failures, preventing a
+ *         leaked partition guard from breaking subsequent tests. */
+struct ubi_erased_val_fixture {
+	struct ubi_device *ubi;
+};
+
+static struct ubi_erased_val_fixture g_fixture;
 
 /* Static function definitions ------------------------------------------------------------------ */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);
-	return NULL;
+	g_fixture.ubi = NULL;
+	return &g_fixture;
 }
 
 static void ztest_testcase_before(void *ctx)
 {
-	(void)ctx;
+	struct ubi_erased_val_fixture *fixture = ctx;
+
 	ubi_test_partition_force_release_all();
 	ubi_test_fault_reset();
 	ubi_test_erase_partition();
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	(void)ctx;
+	struct ubi_erased_val_fixture *fixture = ctx;
+
 	ubi_test_fault_reset();
-	if (g_ubi) {
-		ubi_device_deinit(g_ubi);
-		g_ubi = NULL;
+	if (fixture->ubi != NULL) {
+		(void)ubi_device_deinit(fixture->ubi);
+		fixture->ubi = NULL;
 	}
 }
 
@@ -170,12 +181,12 @@ ZTEST(ubi_erased_val, test_get_erased_val_returns_flash_value)
  *
  * \expect free_peb_count == total_peb_count; dirty_peb_count == 0; bad_peb_count == 0.
  */
-ZTEST(ubi_erased_val, test_init_classifies_erased_pebs_as_free)
+ZTEST_F(ubi_erased_val, test_init_classifies_erased_pebs_as_free)
 {
-	g_ubi = ubi_test_init_device(&flash);
+	fixture->ubi = ubi_test_init_device(&flash);
 
 	struct ubi_device_info info = { 0 };
-	zassert_ok(ubi_device_get_info(g_ubi, &info));
+	zassert_ok(ubi_device_get_info(fixture->ubi, &info));
 
 	/* Fresh device: all data PEBs should be free. */
 	zassert_equal(info.free_peb_count, info.total_peb_count,
@@ -183,6 +194,6 @@ ZTEST(ubi_erased_val, test_init_classifies_erased_pebs_as_free)
 	zassert_equal(info.dirty_peb_count, 0, "No dirty PEBs expected after fresh init");
 	zassert_equal(info.bad_peb_count, 0, "No bad PEBs expected after fresh init");
 
-	zassert_ok(ubi_device_deinit(g_ubi));
-	g_ubi = NULL;
+	zassert_ok(ubi_device_deinit(fixture->ubi));
+	fixture->ubi = NULL;
 }

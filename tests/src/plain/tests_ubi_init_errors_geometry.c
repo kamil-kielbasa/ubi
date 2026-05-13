@@ -81,7 +81,13 @@ static struct ubi_flash_desc flash = { 0 };
 /* Module-level device pointer for teardown safety.
  * Tests that call ubi_device_init() store the handle here so teardown
  * can deinit if the test fails mid-way (prevents partition guard leak). */
-static struct ubi_device *g_ubi = NULL;
+/** \brief Per-test fixture: holds the UBI device handle so the
+ *         teardown hook can deinit on assertion failures. */
+struct ubi_init_errors_geometry_fixture {
+	struct ubi_device *ubi;
+};
+
+static struct ubi_init_errors_geometry_fixture g_fixture;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
@@ -96,7 +102,8 @@ static void ztest_testcase_teardown(void *ctx);
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);
-	return NULL;
+	g_fixture.ubi = NULL;
+	return &g_fixture;
 }
 
 static void ztest_suite_after(void *ctx)
@@ -106,19 +113,19 @@ static void ztest_suite_after(void *ctx)
 
 static void ztest_testcase_before(void *ctx)
 {
-	(void)ctx;
-	g_ubi = NULL;
+	struct ubi_init_errors_geometry_fixture *fixture = ctx;
+	fixture->ubi = NULL;
 	ubi_test_fault_reset();
 	ubi_test_erase_partition();
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	(void)ctx;
+	struct ubi_init_errors_geometry_fixture *fixture = ctx;
 	ubi_test_fault_reset();
-	if (g_ubi != NULL) {
-		(void)ubi_device_deinit(g_ubi);
-		g_ubi = NULL;
+	if (fixture->ubi != NULL) {
+		(void)ubi_device_deinit(fixture->ubi);
+		fixture->ubi = NULL;
 	}
 }
 
@@ -134,7 +141,7 @@ ZTEST_SUITE(ubi_init_errors_geometry, NULL, ztest_suite_setup, ztest_testcase_be
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_erase_block_size_zero)
+ZTEST_F(ubi_init_errors_geometry, geometry_erase_block_size_zero)
 {
 	struct ubi_flash_desc bad_flash = flash;
 	bad_flash.erase_block_size = 0;
@@ -151,7 +158,7 @@ ZTEST(ubi_init_errors_geometry, geometry_erase_block_size_zero)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_write_block_size_zero)
+ZTEST_F(ubi_init_errors_geometry, geometry_write_block_size_zero)
 {
 	struct ubi_flash_desc bad_flash = flash;
 	bad_flash.write_block_size = 0;
@@ -168,7 +175,7 @@ ZTEST(ubi_init_errors_geometry, geometry_write_block_size_zero)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_ebs_not_multiple_of_wbs)
+ZTEST_F(ubi_init_errors_geometry, geometry_ebs_not_multiple_of_wbs)
 {
 	struct ubi_flash_desc bad_flash = flash;
 	bad_flash.write_block_size = 3;
@@ -185,7 +192,7 @@ ZTEST(ubi_init_errors_geometry, geometry_ebs_not_multiple_of_wbs)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_wbs_exceeds_alignment)
+ZTEST_F(ubi_init_errors_geometry, geometry_wbs_exceeds_alignment)
 {
 	struct ubi_flash_desc bad_flash = flash;
 	bad_flash.write_block_size = 32;
@@ -202,7 +209,7 @@ ZTEST(ubi_init_errors_geometry, geometry_wbs_exceeds_alignment)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_ebs_too_small_for_headers)
+ZTEST_F(ubi_init_errors_geometry, geometry_ebs_too_small_for_headers)
 {
 	struct ubi_flash_desc bad_flash = flash;
 	bad_flash.erase_block_size = 16;
@@ -220,13 +227,13 @@ ZTEST(ubi_init_errors_geometry, geometry_ebs_too_small_for_headers)
  *
  * \expect Init succeeds in degraded mode. read_only_degraded is true.
  */
-ZTEST(ubi_init_errors_geometry, reserved_peb_crc_corruption_detected)
+ZTEST_F(ubi_init_errors_geometry, reserved_peb_crc_corruption_detected)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
@@ -258,13 +265,13 @@ ZTEST(ubi_init_errors_geometry, reserved_peb_crc_corruption_detected)
  *
  * \expect Init fails with error.
  */
-ZTEST(ubi_init_errors_geometry, reserved_peb_vol_count_exceeds_max)
+ZTEST_F(ubi_init_errors_geometry, reserved_peb_vol_count_exceeds_max)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
@@ -287,9 +294,9 @@ ZTEST(ubi_init_errors_geometry, reserved_peb_vol_count_exceeds_max)
 	 * the patched indexes are tolerated by the scan, so init recovers and
 	 * the device is usable. */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -299,13 +306,13 @@ ZTEST(ubi_init_errors_geometry, reserved_peb_vol_count_exceeds_max)
  *
  * \expect Init succeeds. Device may enter degraded mode depending on implementation.
  */
-ZTEST(ubi_init_errors_geometry, one_reserved_peb_corrupt_recovers)
+ZTEST_F(ubi_init_errors_geometry, one_reserved_peb_corrupt_recovers)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
@@ -322,7 +329,7 @@ ZTEST(ubi_init_errors_geometry, one_reserved_peb_corrupt_recovers)
 	 * promotes the healthy bank and rewrites the broken one. Init must
 	 * succeed and the device must come up out of degraded read-only mode. */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -330,7 +337,7 @@ ZTEST(ubi_init_errors_geometry, one_reserved_peb_corrupt_recovers)
 		      "Reserved-PEB recovery must clear the degraded read-only flag");
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -343,7 +350,7 @@ ZTEST(ubi_init_errors_geometry, one_reserved_peb_corrupt_recovers)
  *
  * \expect ubi_device_init() returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_partition_not_multiple_of_ebs)
+ZTEST_F(ubi_init_errors_geometry, geometry_partition_not_multiple_of_ebs)
 {
 	struct ubi_flash_desc bad_flash = flash;
 	/* Set erase block size to something that doesn't divide the partition */
@@ -352,9 +359,9 @@ ZTEST(ubi_init_errors_geometry, geometry_partition_not_multiple_of_ebs)
 	struct ubi_device *ubi = NULL;
 	int ret = ubi_device_init(&bad_flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
-		g_ubi = ubi;
+		fixture->ubi = ubi;
 		(void)ubi_device_deinit(ubi);
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 	}
 	zassert_not_equal(ret, 0, "Init should fail with misaligned erase block size");
 }
@@ -366,7 +373,7 @@ ZTEST(ubi_init_errors_geometry, geometry_partition_not_multiple_of_ebs)
  *
  * \expect ubi_device_init() returns -EINVAL.
  */
-ZTEST(ubi_init_errors_geometry, geometry_partition_too_small)
+ZTEST_F(ubi_init_errors_geometry, geometry_partition_too_small)
 {
 	/* Use a huge erase block size that results in nr_of_pebs <= NR_OF_RES_PEBS */
 	struct ubi_flash_desc bad_flash = flash;
@@ -380,9 +387,9 @@ ZTEST(ubi_init_errors_geometry, geometry_partition_too_small)
 	struct ubi_device *ubi = NULL;
 	int ret = ubi_device_init(&bad_flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
-		g_ubi = ubi;
+		fixture->ubi = ubi;
 		(void)ubi_device_deinit(ubi);
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 	}
 	zassert_not_equal(ret, 0, "Init should fail with partition too small");
 }

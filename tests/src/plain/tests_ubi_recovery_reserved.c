@@ -3,7 +3,16 @@
  *
  * \author  Kamil Kielbasa
  *
- * \brief   Tests for UBI init-time corruption recovery and PEB classification.
+ * \brief   Tests for the redundant reserved-PEB recovery path.
+ *
+ *          Each test corrupts one (or both) of the reserved PEBs that hold
+ *          the device header and per-volume table, then exercises
+ *          `ubi_device_init()` and verifies that the surviving copy is
+ *          promoted, the corrupted bank is rewritten, volume metadata is
+ *          preserved, and the device returns to a non-degraded read/write
+ *          state. Tests covering the unrecoverable case (both banks
+ *          corrupt) verify that init refuses with a deterministic error
+ *          and leaves no live handle behind.
  *
  *
  * \copyright Copyright (c) 2025
@@ -118,17 +127,6 @@ static void ztest_testcase_teardown(void *ctx)
 }
 
 /**
- * \brief Write a valid EC header to a PEB via raw flash write.
- */
-/**
- * \brief Write a valid VID header to a PEB via raw flash write.
- */
-/* Module interface function definitions -------------------------------------------------------- */
-
-ZTEST_SUITE(ubi_recovery_reserved, NULL, ztest_suite_setup, ztest_testcase_before,
-	    ztest_testcase_teardown, ztest_suite_after);
-
-/**
  * \brief Corrupt a reserved PEB by erasing it and writing garbage.
  */
 static void corrupt_reserved_peb(const struct flash_area *fa, size_t peb_idx,
@@ -160,6 +158,11 @@ static void verify_reserved_peb_valid(const struct flash_area *fa, size_t peb_id
 	const uint32_t calc_crc = crc32_ieee(hdr_buf, DEV_HDR_SIZE - sizeof(uint32_t));
 	zassert_equal(calc_crc, stored_crc, "PEB %zu: CRC mismatch", peb_idx);
 }
+
+/* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_recovery_reserved, NULL, ztest_suite_setup, ztest_testcase_before,
+	    ztest_testcase_teardown, ztest_suite_after);
 
 /**
  * \brief Verify init recovers from a corrupt device header on PEB 0.
@@ -656,8 +659,43 @@ ZTEST(ubi_recovery_reserved, vol_resize_recovers_degraded_bank)
  * \expect Init succeeds with degraded flag. write/create operations that require
  *         reserved PEB mutation return -EROFS.
  */
+/**
+ * \brief Verify that degraded read-only mode (one reserved PEB lost,
+ *        recovery write blocked) refuses metadata mutations with -EROFS
+ *        while still allowing reads.
+ *
+ * \details Scenario: Format the partition cleanly, create a static volume,
+ *          write a payload to LEB 0 and deinit. Erase reserved PEB 1
+ *          on raw flash so only the bank in PEB 0 remains active. Arm a
+ *          flash-erase fault (`ubi_test_fault_set_flash_erase_fail_after(0)`)
+ *          so the very first erase performed during the next
+ *          `ubi_device_init()` — the recovery erase that would re-stamp
+ *          PEB 1 from the canonical content in PEB 0 — fails. Per
+ *          `ubi_flash_res_peb_validate()` this leaves the device with
+ *          exactly one active reserved PEB and surfaces `-EROFS` to
+ *          `ubi_dev_hdr_read()`, which `ubi_plain_device_init()`
+ *          translates into `read_only_degraded = true`.
+ *
+ *          The read path is exercised first (degraded mode does not
+ *          block reads) and then a reserved-PEB mutation
+ *          (`ubi_volume_create`) is attempted while the recovery fault
+ *          is still active — the commit retries recovery, fails again
+ *          on the erase fault, and surfaces `-EROFS` to the caller.
+ *          Note: once the fault is cleared, the runtime opportunistically
+ *          retries recovery on the next operation and clears the
+ *          degraded flag, so the test asserts the gated behaviour while
+ *          the fault is still in effect.
+ *
+ * \expect `ubi_device_get_info().read_only_degraded == true`; LEB read
+ *         returns the original payload bit-exact; `ubi_volume_create`
+ *         returns `-EROFS`; final deinit returns 0.
+ *
+ * \oracle Concrete `-EROFS` from the mutator + `read_only_degraded`
+ *         flag + bit-exact read-back.
+ */
 ZTEST(ubi_recovery_reserved, degraded_mode_blocks_mutations)
 {
+#if defined(CONFIG_UBI_TEST_FAULT_INJECTION)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
 
@@ -674,19 +712,45 @@ ZTEST(ubi_recovery_reserved, degraded_mode_blocks_mutations)
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
-	/* Re-init to verify data is there */
+	/* Lose one reserved PEB and block the recovery rewrite, so init
+	 * settles into degraded read-only mode (1 active reserved PEB,
+	 * recovery failed). The fault stays armed for the duration of
+	 * the test so the runtime cannot opportunistically clear the
+	 * degraded flag during the mutation attempt below. */
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	zassert_ok(flash_area_erase(fa, 1 * flash.erase_block_size, flash.erase_block_size));
+	flash_area_close(fa);
+
+	ubi_test_fault_set_flash_erase_fail_after(0);
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
+
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	zassert_false(info.read_only_degraded, "Should not be degraded initially");
+	zassert_true(
+		info.read_only_degraded,
+		"Device must be in degraded read-only mode after the recovery erase was blocked");
 
-	/* Read-only verification: LEBs should be readable even while the device
-	 * was initialized with all PEBs healthy. */
+	/* Read path still works in degraded mode. */
 	uint8_t rdata[2] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rdata, sizeof(rdata)));
 	zassert_mem_equal(rdata, data, sizeof(data));
 
+	/* Reserved-PEB mutation must be refused with -EROFS while the
+	 * recovery erase is still failing. */
+	const struct ubi_volume_config new_cfg = {
+		.name = "degvol2",
+		.type = UBI_VOLUME_TYPE_DYNAMIC,
+		.leb_count = 1,
+	};
+	int new_vol_id = -1;
+	zassert_equal(-EROFS, ubi_volume_create(ubi, &new_cfg, &new_vol_id));
+
+	ubi_test_fault_reset();
 	zassert_ok(ubi_device_deinit(ubi));
+#else
+	ztest_test_skip();
+#endif
 }
 
 /**

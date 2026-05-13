@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.110.0] - 2026-05-13
+
+### Changed
+
+- Test review pass C (round 2 of the cleanup campaign across
+  `tests/src/plain`):
+  - `tests_ubi_volumes.c`: corrected duplicated step number `9.` to
+    `12.` in `volume_create_resize_persist_after_reinit`.
+  - `tests_ubi_mutation_gate.c`: shortened the over-long
+    `Reserved metadata mutators` divider comment.
+  - `tests_ubi_recovery_reserved.c`: expanded the file-level `\brief`
+    to a multi-paragraph description of the recovery contract; moved
+    the `corrupt_reserved_peb` and `verify_reserved_peb_valid` static
+    helpers to before `ZTEST_SUITE` (per the layout convention
+    introduced in PR-A) and removed the orphan Doxygen blocks left
+    behind by the move; rewrote `degraded_mode_blocks_mutations` so
+    the test actually enters degraded read-only mode (erase one
+    reserved PEB on raw flash, arm `flash_erase_fail_after(0)` so the
+    recovery erase fails during reinit) and asserts
+    `ubi_device_get_info().read_only_degraded == true`,
+    bit-exact read-back, and `ubi_volume_create` returning `-EROFS`
+    while the fault is still armed.
+  - `tests_ubi_io_faults.c`: renamed 16 cryptic 7-character volume
+    names to descriptive ones (`wfvol1`/`wfvol2` →
+    `wfault_vol1`/`wfault_vol2`; `mapvol` → `map_unmap_vol`;
+    `tortv`/`tortec` → `torture_vol`/`torture_ec_vol`; `exhaust` →
+    `wretry_exh_vol`; `ecfail` → `ec_wfault_vol`;
+    `failcrt`/`failcrt2` → `vcreate_flt1`/`vcreate_flt2`; `deinvol`
+    → `deinit_flt_vol`; `invfault` → `invariant_vol`; `scrtch` →
+    `scratch_vol`; `rmscr`/`rscr` → `vrm_scratch`/`vrsz_scratch`;
+    `initvol`/`orphvol`/`dupvol` → `init_sweep_vol`/
+    `orph_sweep_vol`/`dup_sweep_vol`; `rmvol1`/`rmvol2` →
+    `rm_sweep_vol1`/`rm_sweep_vol2`; `eraseflt` → `erase_flt_vol`).
+    Replaced three `(void)<call>;` patterns with deterministic `-EIO`
+    asserts in `ec_write_failure_during_erase_peb`,
+    `ec_write_failure_during_torture`, and
+    `invariants_hold_after_write_fault_and_recovery`. Strengthened
+    `vol_create_scratch_alloc_fails_in_create`,
+    `vol_remove_scratch_alloc_fails_in_remove`, and
+    `vol_resize_scratch_alloc_fails_in_update` from
+    `zassert_not_equal(ret, 0, ...)` to deterministic
+    `zassert_equal(-ENOMEM, ret, ...)`. Strengthened the six
+    `init_alloc_failure_sweep_*` tests so each iteration's `ret` is
+    constrained to `{0, -ENOMEM}` and the suite asserts at least one
+    iteration must hit `-ENOMEM` (rejects regressions where the
+    injector silently no-ops). Renamed and rewrote
+    `erase_peb_flash_erase_failure_moves_to_bad` →
+    `erase_peb_flash_erase_failure_recycles_dirty_peb` to match the
+    actually observed behaviour: `-EIO`, `dirty_peb_count` decreases
+    by exactly 1, `free_peb_count` increases by exactly 1, and
+    `bad_peb_count` does not change.
+  - `tests_ubi_io_faults.c`, `tests_ubi_init_errors_geometry.c`,
+    `tests_ubi_mutation_gate.c`, `tests_ubi_vol_id_watermark.c`,
+    `tests_ubi_erased_val.c`: replaced the `static struct ubi_device
+    *g_ubi` pattern with the `ZTEST_F` per-suite fixture pattern
+    (already proven in PR-B for `tests_ubi_init_errors.c`). Each
+    suite now declares a `<suite>_fixture { struct ubi_device *ubi;
+    }` struct, every `ZTEST` becomes `ZTEST_F`, all `g_ubi` callers
+    use `fixture->ubi`, and the testcase-teardown hook deinits the
+    device on assertion failures via the fixture handle.
+
 ## [0.109.0] - 2026-05-13
 
 ### Changed
