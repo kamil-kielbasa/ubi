@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.99.0] - 2026-05-13
+
+### Changed
+
+- The 2854-line `tests_ubi_error_handling.c` was split along its
+  natural API surface into three sibling files, each below the
+  1500-line ceiling.  The 97 cases are partitioned by the public API
+  they exercise so a regression points at one cohesive surface:
+  - `tests_ubi_error_handling.c` (~615 LoC) keeps the 15 device-wide
+  lifecycle cases: `ubi_device_init` / `_deinit` / `_get_info` /
+  `_erase_peb`, EC-page corruption / read-failure / write-failure
+  fault paths, orphan-PEB and `get_peb_ec_with_corrupt_peb`
+  scenarios, the `degraded_peb_recovery_succeeds` invariants check
+  and the `write_retry_*` failure-path coverage.
+  - `tests_ubi_error_handling_volume.c` (~1380 LoC) hosts the 42
+  volume-API cases (`volume_create`, `volume_remove`,
+  `volume_get_info`, `volume_resize` and their shrink-with-mapped-LEBs
+  / remove-and-recreate variants).
+  - `tests_ubi_error_handling_leb.c` (~1080 LoC) hosts the 40 LEB-API
+  cases (`leb_write`, `leb_read`, `leb_map`, `leb_unmap`,
+  `leb_is_mapped`, `leb_get_size`).
+  Each split file registers a distinct ZTest suite
+  (`ubi_error_handling`, `ubi_error_handling_volume`,
+  `ubi_error_handling_leb`) so the test runner now reports the three
+  groups separately.
+
 ## [0.98.0] - 2026-05-12
 
 ### Changed

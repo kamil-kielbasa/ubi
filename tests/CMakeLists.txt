@@ -24,6 +24,8 @@ target_sources(app PRIVATE
                src/plain/tests_ubi_erase.c
                src/plain/tests_ubi_mixed.c
                src/plain/tests_ubi_error_handling.c
+               src/plain/tests_ubi_error_handling_leb.c
+               src/plain/tests_ubi_error_handling_volume.c
                src/plain/tests_ubi_boundary.c
                src/plain/tests_ubi_recovery.c
                src/plain/tests_ubi_fault_injection.c
