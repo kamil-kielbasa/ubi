@@ -97,10 +97,10 @@ ZTEST_SUITE(ubi_boundary, NULL, ztest_suite_setup, ztest_testcase_before, ztest_
 /**
  * \brief Verify that writing exactly the maximum LEB data capacity succeeds.
  *
- * \details Scenario: Create a dynamic volume with 2 LEBs. Calculate the maximum
- *          writable data per LEB (erase_block_size - EC_HDR - VID_HDR = 8144 bytes
- *          on 8 KB erase blocks). Fill a buffer with a 0xAB pattern of exactly that
- *          size and write it to LEB 0.
+ * \details Scenario: Create a dynamic volume with 2 LEBs. Query the
+ *          maximum writable data per LEB via `ubi_device_get_info()`
+ *          (`info.leb_size`). Fill a buffer with a 0xAB pattern of
+ *          exactly that size and write it to LEB 0.
  *
  * \expect The write succeeds. The stored size equals the maximum data capacity.
  *         Reading back the full LEB returns identical data byte-for-byte.
@@ -118,7 +118,9 @@ ZTEST(ubi_boundary, write_max_leb_data)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	const size_t max_data = flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	const size_t max_data = info.leb_size;
 	uint8_t *wbuf = k_malloc(max_data);
 	zassert_not_null(wbuf);
 	memset(wbuf, 0xAB, max_data);
@@ -174,7 +176,9 @@ ZTEST(ubi_boundary, write_exceeds_leb_capacity)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	const size_t max_data = flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	const size_t max_data = info.leb_size;
 	uint8_t *wbuf = k_malloc(max_data + 1);
 	zassert_not_null(wbuf);
 	memset(wbuf, 0xCD, max_data + 1);

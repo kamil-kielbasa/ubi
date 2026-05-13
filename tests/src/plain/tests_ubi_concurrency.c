@@ -41,6 +41,8 @@ struct reader_ctx {
 	struct ubi_device *ubi; /*!< UBI device under test. */
 	volatile bool *stop; /*!< Cooperative stop flag. */
 	int vol_id; /*!< Volume identifier used for read operations. */
+	const uint8_t *expected; /*!< Expected payload bytes for LEB 0. */
+	size_t expected_len; /*!< Length of \c expected in bytes. */
 };
 
 /** \brief Per-thread context shared between a writer thread and the test driver. */
@@ -104,6 +106,10 @@ static void reader_entry(void *p1, void *p2, void *p3)
 	(void)p2;
 	(void)p3;
 
+	uint8_t buf[16] = { 0 };
+
+	zassert_true(ctx->expected_len <= sizeof(buf));
+
 	for (int i = 0; i < READER_ITERATIONS && !(*ctx->stop); i++) {
 		struct ubi_device_info info = { 0 };
 		int ret = ubi_device_get_info(ctx->ubi, &info);
@@ -114,9 +120,17 @@ static void reader_entry(void *p1, void *p2, void *p3)
 		ret = ubi_volume_get_info(ctx->ubi, ctx->vol_id, &vol_cfg, &alloc_lebs);
 		zassert_ok(ret);
 
-		bool mapped = false;
-		ret = ubi_leb_is_mapped(ctx->ubi, ctx->vol_id, 0, &mapped);
+		/* Real read against the published API. The writer in
+		 * `reader_writer_interleave` may have unmapped the LEB
+		 * between this read and the previous one, so a transient
+		 * `-ENOENT` is tolerated; any other status is a bug. */
+		memset(buf, 0, sizeof(buf));
+		ret = ubi_leb_read(ctx->ubi, ctx->vol_id, 0, 0, buf, ctx->expected_len);
+		if (ret == -ENOENT) {
+			continue;
+		}
 		zassert_ok(ret);
+		zassert_mem_equal(buf, ctx->expected, ctx->expected_len);
 	}
 }
 
@@ -173,6 +187,8 @@ ZTEST(ubi_concurrency, concurrent_readers)
 		rctx[i].ubi = ubi;
 		rctx[i].stop = &stop;
 		rctx[i].vol_id = vol_id;
+		rctx[i].expected = data;
+		rctx[i].expected_len = sizeof(data);
 
 		k_thread_create(&reader_threads[i], reader_stacks[i], THREAD_STACK_SIZE,
 				reader_entry, &rctx[i], NULL, NULL, K_PRIO_PREEMPT(10), 0,
@@ -218,6 +234,8 @@ ZTEST(ubi_concurrency, reader_writer_interleave)
 		rctx[i].ubi = ubi;
 		rctx[i].stop = &stop;
 		rctx[i].vol_id = vol_id;
+		rctx[i].expected = data;
+		rctx[i].expected_len = sizeof(data);
 
 		k_thread_create(&reader_threads[i], reader_stacks[i], THREAD_STACK_SIZE,
 				reader_entry, &rctx[i], NULL, NULL, K_PRIO_PREEMPT(10), 0,
@@ -240,13 +258,27 @@ ZTEST(ubi_concurrency, reader_writer_interleave)
 }
 
 /**
- * \brief Start threads, signal stop, join, then deinit — clean shutdown.
+ * \brief Reader thread cleanly observes stop flag and `ubi_device_deinit()`
+ *        joins safely once all worker threads have quiesced.
  *
- * \details Scenario: Initialize device, create dynamic volume "dqvol" with 2 LEBs, spawn
- *          1 reader thread running READER_ITERATIONS. Sleep 10 ms, set stop flag, join the
- *          reader thread, then deinit.
+ * \details Scenario: Initialize device, create dynamic volume `"dqvol"` with
+ *          2 LEBs, write a small payload to LEB 0 so reader reads succeed.
+ *          Spawn one reader thread running `READER_ITERATIONS` iterations
+ *          of `ubi_device_get_info` / `ubi_volume_get_info` / `ubi_leb_read`.
+ *          Sleep 10 ms to let the reader make progress, set the stop flag,
+ *          join the reader thread, then call `ubi_device_deinit`.
  *
- * \expect Thread exits cleanly; deinit returns 0 after quiescence.
+ *          The test demonstrates the documented shutdown contract: the
+ *          driver does not block deinit on its own, but a caller that has
+ *          spawned worker threads using a UBI handle is responsible for
+ *          quiescing them before deinit.  After `k_thread_join` returns,
+ *          no thread is inside the UBI critical section, so deinit is
+ *          guaranteed safe.
+ *
+ * \expect Reader thread exits before timeout; `ubi_device_deinit` returns 0.
+ *
+ * \oracle `k_thread_join == 0`; `ubi_device_deinit == 0`; no zassert
+ *         inside `reader_entry` ever fires.
  */
 ZTEST(ubi_concurrency, deinit_after_quiescence)
 {
@@ -260,11 +292,16 @@ ZTEST(ubi_concurrency, deinit_after_quiescence)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
+	const uint8_t data[] = { 0x42, 0x43 };
+	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
+
 	volatile bool stop = false;
 	struct reader_ctx rctx;
 	rctx.ubi = ubi;
 	rctx.stop = &stop;
 	rctx.vol_id = vol_id;
+	rctx.expected = data;
+	rctx.expected_len = sizeof(data);
 
 	k_thread_create(&reader_threads[0], reader_stacks[0], THREAD_STACK_SIZE, reader_entry,
 			&rctx, NULL, NULL, K_PRIO_PREEMPT(10), 0, K_NO_WAIT);

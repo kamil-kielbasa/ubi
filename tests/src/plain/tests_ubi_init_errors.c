@@ -18,6 +18,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
+#include "ubi_plain_io.h" /* struct ubi_dev_hdr */
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
@@ -48,6 +49,8 @@
 #define VOL_HDR_MAGIC (0x55424926U)
 #define VOL_HDR_SIZE (48U)
 #define NR_OF_RES_PEBS (2U)
+#define READ_BACK_LEN \
+	(1U) /*!< Length of the 1-byte read-back buffer used by re-init / scan tests. */
 
 /* Module types and type definitiones ----------------------------------------------------------- */
 
@@ -78,10 +81,14 @@ struct raw_vid_hdr {
 
 static struct ubi_flash_desc flash = { 0 };
 
-/* Module-level device pointer for teardown safety.
- * Tests that call ubi_device_init() store the handle here so teardown
- * can deinit if the test fails mid-way (prevents partition guard leak). */
-static struct ubi_device *g_ubi = NULL;
+/** \brief Per-test fixture: holds the UBI device handle so the teardown
+ *         hook can deinit on assertion failures, preventing a leaked
+ *         partition guard from breaking subsequent tests in the suite. */
+struct ubi_init_errors_fixture {
+	struct ubi_device *ubi;
+};
+
+static struct ubi_init_errors_fixture g_fixture;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
@@ -101,7 +108,8 @@ static void raw_write_vid_hdr(const struct flash_area *fa, size_t pnum, size_t e
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);
-	return NULL;
+	g_fixture.ubi = NULL;
+	return &g_fixture;
 }
 
 static void ztest_suite_after(void *ctx)
@@ -111,19 +119,19 @@ static void ztest_suite_after(void *ctx)
 
 static void ztest_testcase_before(void *ctx)
 {
-	(void)ctx;
-	g_ubi = NULL;
+	struct ubi_init_errors_fixture *fixture = ctx;
+	fixture->ubi = NULL;
 	ubi_test_fault_reset();
 	ubi_test_erase_partition();
 }
 
 static void ztest_testcase_teardown(void *ctx)
 {
-	(void)ctx;
+	struct ubi_init_errors_fixture *fixture = ctx;
 	ubi_test_fault_reset();
-	if (g_ubi != NULL) {
-		(void)ubi_device_deinit(g_ubi);
-		g_ubi = NULL;
+	if (fixture->ubi != NULL) {
+		(void)ubi_device_deinit(fixture->ubi);
+		fixture->ubi = NULL;
 	}
 }
 
@@ -174,7 +182,7 @@ ZTEST_SUITE(ubi_init_errors, NULL, ztest_suite_setup, ztest_testcase_before,
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors, init_null_mtd)
+ZTEST_F(ubi_init_errors, init_null_mtd)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_equal(-EINVAL, ubi_device_init(NULL, NULL, &ubi));
@@ -188,7 +196,7 @@ ZTEST(ubi_init_errors, init_null_mtd)
  *
  * \expect Returns -EINVAL.
  */
-ZTEST(ubi_init_errors, init_null_ubi)
+ZTEST_F(ubi_init_errors, init_null_ubi)
 {
 	zassert_equal(-EINVAL, ubi_device_init(&flash, NULL, NULL));
 }
@@ -201,11 +209,11 @@ ZTEST(ubi_init_errors, init_null_ubi)
  *
  * \expect Second init returns -EBUSY. First handle still valid.
  */
-ZTEST(ubi_init_errors, double_init_returns_ebusy)
+ZTEST_F(ubi_init_errors, double_init_returns_ebusy)
 {
 	struct ubi_device *ubi1 = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi1));
-	g_ubi = ubi1;
+	fixture->ubi = ubi1;
 
 	struct ubi_device *ubi2 = NULL;
 	int ret = ubi_device_init(&flash, NULL, &ubi2);
@@ -213,7 +221,7 @@ ZTEST(ubi_init_errors, double_init_returns_ebusy)
 	zassert_is_null(ubi2, "Second handle should be NULL");
 
 	zassert_ok(ubi_device_deinit(ubi1));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -223,11 +231,11 @@ ZTEST(ubi_init_errors, double_init_returns_ebusy)
  *
  * \expect Second init succeeds. Data from first session is preserved.
  */
-ZTEST(ubi_init_errors, init_after_deinit_succeeds)
+ZTEST_F(ubi_init_errors, init_after_deinit_succeeds)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "reinit",
@@ -240,18 +248,18 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
 	const uint8_t data[] = { 0xAA };
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Re-init should succeed */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
-	uint8_t rb[1] = { 0 };
+	uint8_t rb[READ_BACK_LEN] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rb, sizeof(rb)));
 	zassert_equal(0xAA, rb[0]);
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -261,7 +269,7 @@ ZTEST(ubi_init_errors, init_after_deinit_succeeds)
  *
  * \expect Init returns -ENOMEM. ubi pointer is NULL.
  */
-ZTEST(ubi_init_errors, device_alloc_failure_during_init)
+ZTEST_F(ubi_init_errors, device_alloc_failure_during_init)
 {
 	/* Fail on the very first allocation (device struct) */
 	ubi_test_fault_set_alloc_fail_after(0);
@@ -275,9 +283,9 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
 
 	/* Verify partition was released (can init again) */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -289,11 +297,11 @@ ZTEST(ubi_init_errors, device_alloc_failure_during_init)
  *
  * \expect Init returns error. Clean re-init possible with faults disabled.
  */
-ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
+ZTEST_F(ubi_init_errors, volume_alloc_failure_during_collect)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "allocvol",
@@ -303,7 +311,7 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	/* Re-init with volume alloc failure. The device alloc (1st) succeeds,
@@ -318,12 +326,12 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
 
 	/* Clean re-init should work */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(1, info.volume_count, "Volume should still exist on flash");
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -333,11 +341,11 @@ ZTEST(ubi_init_errors, volume_alloc_failure_during_collect)
  *
  * \expect Init fails. Volume struct is freed. Clean re-init possible.
  */
-ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
+ZTEST_F(ubi_init_errors, leaf_alloc_failure_during_collect)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "leafvol",
@@ -347,7 +355,7 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	/* Fail on the 3rd allocation (device=ok, volume=ok, leaf=fail) */
@@ -361,9 +369,9 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
 
 	/* Clean re-init should work */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -374,13 +382,13 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_collect)
  *
  * \expect Init fails safely. Clean re-init possible.
  */
-ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
+ZTEST_F(ubi_init_errors, leaf_alloc_failure_during_scan)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	/* The init sequence allocates: device(1), then for each PEB during scan
@@ -393,18 +401,18 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
 	if (ret != 0) {
 		zassert_is_null(ubi);
 	} else {
-		g_ubi = ubi;
+		fixture->ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 	}
 
 	ubi_test_fault_reset();
 
 	/* Clean re-init should always work */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -417,11 +425,11 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_during_scan)
  *
  * \expect dirty_peb_count includes the out-of-bounds LEB.
  */
-ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
+ZTEST_F(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "oobvol",
@@ -434,7 +442,7 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 	const uint8_t data[] = { 0xAA };
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	/* Find a free PEB and inject a VID with lnum=5 (out of bounds for leb_count=1) */
@@ -469,19 +477,19 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
 	flash_area_close(fa);
 
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_true(info.dirty_peb_count >= 1, "OOB LEB should be classified as dirty");
 
 	/* Original LEB 0 data should be intact */
-	uint8_t rb[1] = { 0 };
+	uint8_t rb[READ_BACK_LEN] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rb, sizeof(rb)));
 	zassert_equal(0xAA, rb[0]);
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -494,13 +502,13 @@ ZTEST(ubi_init_errors, out_of_bounds_leb_injected_dirty)
  *
  * \expect bad_peb_count >= 1.
  */
-ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
+ZTEST_F(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	const struct flash_area *fa = NULL;
@@ -531,7 +539,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 	flash_area_close(fa);
 
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -539,7 +547,7 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
 		     "PEB with valid EC + corrupt VID CRC should be classified as bad");
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -551,11 +559,11 @@ ZTEST(ubi_init_errors, vid_read_crc_failure_after_nonempty_check)
  *
  * \expect After erase_peb: dirty_peb_count decreases, bad_peb_count increases.
  */
-ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
+ZTEST_F(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "ecread",
@@ -609,12 +617,6 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 		/* To be safe, only corrupt PEBs that are likely dirty (old mapping) */
 	}
 
-	/* Simpler approach: just corrupt all EC headers on data PEBs except the ones
-	 * we need. Since erase_peb reads the EC of the dirty PEB first, corrupting
-	 * enough PEBs will eventually hit the dirty one. */
-	/* Actually, let's use a different approach: use the erase_peb_no_dirty test
-	 * pattern. Write → unmap → corrupt EC → erase_peb should fail EC read. */
-
 	flash_area_close(fa);
 
 	/* Use unmap instead to have better control */
@@ -635,7 +637,7 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
 		     "Erase should process dirty PEBs");
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -648,11 +650,11 @@ ZTEST(ubi_init_errors, ec_read_failure_during_erase_moves_to_bad)
  *
  * \expect Init fails because the vol header is semantically invalid.
  */
-ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
+ZTEST_F(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "badtype",
@@ -662,7 +664,7 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	/* Corrupt the vol header on both reserved PEBs: set vol_type to 0xFF */
@@ -699,9 +701,9 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
 	/* Init should fail because vol_type 0xFF is semantically invalid */
 	int ret = ubi_device_init(&flash, NULL, &ubi);
 	if (ret == 0 && ubi != NULL) {
-		g_ubi = ubi;
+		fixture->ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 	}
 	zassert_is_null(ubi, "Init should fail with invalid vol_type");
 }
@@ -715,11 +717,11 @@ ZTEST(ubi_init_errors, semantically_invalid_vol_header_fails_init)
  *
  * \expect The higher-sqnum mapping replaces the old one. Old PEB becomes dirty.
  */
-ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
+ZTEST_F(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "dupwin",
@@ -740,7 +742,7 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 	}
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 	ubi = NULL;
 
 	/* Inject a duplicate LEB 0 with very high sqnum */
@@ -784,7 +786,7 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 
 	/* Re-init: higher sqnum should win */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_true(info.dirty_peb_count >= 1, "Lower-sqnum PEB should be dirty");
@@ -794,7 +796,7 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
 	zassert_mem_equal(rb, new_data, sizeof(new_data), "Higher-sqnum data should be readable");
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -805,12 +807,12 @@ ZTEST(ubi_init_errors, duplicate_leb_higher_sqnum_wins)
  *
  * \expect Global sqnum continues incrementing across reboots.
  */
-ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
+ZTEST_F(ubi_init_errors, sqnum_monotonic_across_reinit)
 {
 #if defined(CONFIG_UBI_TEST_API_ENABLE)
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const struct ubi_volume_config cfg = {
 		.name = "sqnum",
@@ -824,24 +826,59 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, d1, sizeof(d1)));
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Re-init */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	const uint8_t d2[] = { 0x22 };
 	zassert_ok(ubi_leb_write(ubi, vol_id, 1, d2, sizeof(d2)));
 
 	/* Read both LEBs and verify data */
-	uint8_t rb[1];
-	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rb, 1));
+	uint8_t rb[READ_BACK_LEN];
+	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, rb, ARRAY_SIZE(rb)));
 	zassert_equal(0x11, rb[0]);
-	zassert_ok(ubi_leb_read(ubi, vol_id, 1, 0, rb, 1));
+	zassert_ok(ubi_leb_read(ubi, vol_id, 1, 0, rb, ARRAY_SIZE(rb)));
 	zassert_equal(0x22, rb[0]);
 
+	/* Strict-monotonicity oracle: scan flash for the two VID headers
+	 * belonging to (vol_id, lnum=0) and (vol_id, lnum=1) and compare
+	 * their sqnum fields. The post-reinit write to LEB 1 must carry a
+	 * sequence number strictly greater than the pre-reinit write to LEB 0. */
+	uint64_t sq_leb0 = 0;
+	uint64_t sq_leb1 = 0;
+	bool found_leb0 = false;
+	bool found_leb1 = false;
+
+	const struct flash_area *fa = NULL;
+	zassert_ok(flash_area_open(flash.partition_id, &fa));
+	const size_t nr_pebs = fa->fa_size / flash.erase_block_size;
+	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
+		struct raw_vid_hdr vid;
+		zassert_ok(flash_area_read(fa, pnum * flash.erase_block_size + EC_HDR_SIZE, &vid,
+					   sizeof(vid)));
+		if (vid.magic != VID_HDR_MAGIC || vid.vol_id != (uint32_t)vol_id) {
+			continue;
+		}
+		if (vid.lnum == 0 && !found_leb0) {
+			sq_leb0 = vid.sqnum;
+			found_leb0 = true;
+		} else if (vid.lnum == 1 && !found_leb1) {
+			sq_leb1 = vid.sqnum;
+			found_leb1 = true;
+		}
+	}
+	flash_area_close(fa);
+
+	zassert_true(found_leb0 && found_leb1, "Both VID headers must be on flash");
+	zassert_true(
+		sq_leb1 > sq_leb0,
+		"Global sqnum must be strictly monotonic across reinit (sq_leb1=%llu > sq_leb0=%llu)",
+		(unsigned long long)sq_leb1, (unsigned long long)sq_leb0);
+
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 #else
 	ztest_test_skip();
 #endif
@@ -854,13 +891,13 @@ ZTEST(ubi_init_errors, sqnum_monotonic_across_reinit)
  *
  * \expect Init returns -ENOMEM. Clean re-init possible with faults disabled.
  */
-ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
+ZTEST_F(ubi_init_errors, scratch_alloc_failure_during_validate)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
@@ -878,9 +915,9 @@ ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
 	ubi_test_fault_reset();
 
 	if (ubi != NULL) {
-		g_ubi = ubi;
+		fixture->ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 	}
 }
 
@@ -891,19 +928,19 @@ ZTEST(ubi_init_errors, scratch_alloc_failure_during_validate)
  *
  * \expect Init succeeds. No volumes exist. free_peb_count > 0.
  */
-ZTEST(ubi_init_errors, erased_partition_triggers_format)
+ZTEST_F(ubi_init_errors, erased_partition_triggers_format)
 {
 	/* Partition is already erased by testcase_before - just init */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(0, info.volume_count, "Fresh format should have no volumes");
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -913,7 +950,7 @@ ZTEST(ubi_init_errors, erased_partition_triggers_format)
  *
  * \expect Init fails with -EIO. Clean re-init possible with faults disabled.
  */
-ZTEST(ubi_init_errors, format_ec_write_failure)
+ZTEST_F(ubi_init_errors, format_ec_write_failure)
 {
 	ubi_test_erase_partition();
 
@@ -923,11 +960,16 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
 	int ret = ubi_device_init(&flash, NULL, &ubi);
 	ubi_test_fault_reset();
 
-	if (ret == 0 && ubi != NULL) {
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	}
+	/* Persistent flash-write fault during the format path must propagate
+	 * as `-EIO` and leave the caller's handle NULL. */
+	zassert_equal(-EIO, ret);
+	zassert_is_null(ubi);
+
+	/* Clean re-init succeeds once the fault is cleared. */
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
+	fixture->ubi = ubi;
+	zassert_ok(ubi_device_deinit(ubi));
+	fixture->ubi = NULL;
 }
 
 /**
@@ -937,13 +979,13 @@ ZTEST(ubi_init_errors, format_ec_write_failure)
  *
  * \expect Init returns -ENOMEM. Clean re-init possible.
  */
-ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
+ZTEST_F(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 {
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
@@ -961,17 +1003,16 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
 	int ret = ubi_device_init(&flash, NULL, &ubi);
 	ubi_test_fault_reset();
 
-	if (ret == 0 && ubi != NULL) {
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	}
+	/* Allocation fault while building the bad-PEB classification leaf must
+	 * surface as `-ENOMEM` and leave no device handle. */
+	zassert_equal(-ENOMEM, ret);
+	zassert_is_null(ubi);
 
 	ubi_test_erase_partition();
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -985,31 +1026,21 @@ ZTEST(ubi_init_errors, leaf_alloc_failure_bad_peb_classify)
  *
  * \expect Init fails because the volume metadata is inconsistent.
  */
-ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
+ZTEST_F(ubi_init_errors, static_backend_vol_count_overflow)
 {
 	/* First, do a normal init + deinit to format the partition */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Now patch the device header on both reserved PEBs to have
 	 * vol_count = CONFIG_UBI_MAX_NR_OF_VOLUMES + 1 (which is 11). */
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	struct {
-		uint32_t magic;
-		uint8_t version;
-		uint8_t padding[3];
-		uint32_t offset;
-		uint32_t size;
-		uint32_t revision;
-		uint32_t vol_count;
-		uint32_t padding_2;
-		uint32_t hdr_crc;
-	} dev_hdr = { 0 };
+	struct ubi_dev_hdr dev_hdr = { 0 };
 
 	zassert_ok(flash_area_read(fa, 0, &dev_hdr, sizeof(dev_hdr)));
 	zassert_equal(dev_hdr.magic, DEV_HDR_MAGIC);
@@ -1040,9 +1071,9 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
 		/* If init somehow succeeded (e.g. the PEBs were classified
 		 * as corrupt and the device was re-formatted), that's still
 		 * acceptable. */
-		g_ubi = ubi;
+		fixture->ubi = ubi;
 		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
+		fixture->ubi = NULL;
 	}
 	/* Either way, the code path through the static backend check (or
 	 * the semantic validation) was exercised. */
@@ -1058,12 +1089,12 @@ ZTEST(ubi_init_errors, static_backend_vol_count_overflow)
  *
  * \expect The out-of-bounds LEB is classified as dirty. Init succeeds.
  */
-ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
+ZTEST_F(ubi_init_errors, leb_index_exceeds_volume_capacity)
 {
 	/* Format and create a volume with leb_count = 1 */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
 	snprintf(cfg.name, sizeof(cfg.name), "small");
@@ -1076,7 +1107,7 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Now manually write a second PEB with the same vol_id but lnum = 5
 	 * (exceeding the volume's leb_count of 1). */
@@ -1110,7 +1141,7 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 
 	/* Reinit — scan should classify the out-of-range PEB as dirty */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Device should still work — the out-of-range PEB was moved to dirty */
 	struct ubi_device_info info = { 0 };
@@ -1118,25 +1149,43 @@ ZTEST(ubi_init_errors, leb_index_exceeds_volume_capacity)
 	zassert_equal(info.volume_count, 1);
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
- * \brief Duplicate LEB where existing PEB has corrupt EC header.
+ * \brief Duplicate LEB resolution: newer sqnum wins, older mapping goes to the
+ *        dirty pool.
  *
- * On scan, when a duplicate LEB is found and the existing PEB's EC header
- * cannot be read, the existing PEB is moved to bad list and the new PEB wins.
+ * \details Scenario: After a clean format and write to LEB 0, deinit the device.
+ *          Locate the PEB that holds the active mapping for `(vol_id, lnum=0)`
+ *          and a separate free PEB. Inject a *valid* EC + VID header on the
+ *          free PEB that claims the same `(vol_id, lnum)` with a strictly
+ *          larger sqnum. Reinit the device.
  *
- * \details Scenario: Create a volume, write to LEB 0. Deinit. Inject a duplicate VID header for the same LEB on another PEB. Corrupt the EC header of the existing mapped PEB. Re-init.
+ *          During scan both PEBs pass EC + VID validation, so the second one
+ *          encountered triggers `resolve_duplicate_leb()` along the
+ *          sqnum-compare branch (the EC-re-read failure branch is not
+ *          exercised here \u2014 it would require a flash-read fault
+ *          injection helper that is not part of the public test API).
  *
- * \expect Init succeeds. The PEB with corrupt EC is handled (classified as bad or dirty).
+ *          The original implementation of this test corrupted the existing
+ *          PEB's EC, which actually caused that PEB to be classified as bad
+ *          *before* `resolve_duplicate_leb()` could ever run. The test name
+ *          and intent are now aligned with what the code path can deterministically
+ *          reach on this platform.
+ *
+ * \expect Init succeeds. The newer-sqnum PEB wins the mapping; the older PEB
+ *         is reclassified into the dirty pool. No PEB ends up in the bad pool.
+ *
+ * \oracle `ubi_device_init == 0`; `dirty_peb_count` increases by exactly 1
+ *         relative to a clean reinit; `bad_peb_count == 0`.
  */
-ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
+ZTEST_F(ubi_init_errors, duplicate_leb_newer_sqnum_wins)
 {
 	/* Format and create a volume, write to LEB 0 */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
 	snprintf(cfg.name, sizeof(cfg.name), "dupvol");
@@ -1148,16 +1197,17 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
-	/* Find the PEB that has LEB 0 mapped and corrupt its EC header.
-	 * Then write a duplicate LEB 0 on another free PEB with higher sqnum. */
+	/* Locate the mapped PEB for (vol_id, lnum=0) and a free PEB. */
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
 	const size_t nr_pebs = fa->fa_size / flash.erase_block_size;
 
 	size_t mapped_peb = 0;
+	bool mapped_found = false;
 	size_t free_peb = 0;
+	bool free_found = false;
 
 	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
 		struct raw_vid_hdr vid = { 0 };
@@ -1165,11 +1215,11 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 					   sizeof(vid)));
 		if (vid.magic == VID_HDR_MAGIC && vid.vol_id == (uint32_t)vol_id && vid.lnum == 0) {
 			mapped_peb = pnum;
+			mapped_found = true;
 		}
 	}
-	zassert_true(mapped_peb >= NR_OF_RES_PEBS, "Could not find mapped PEB");
+	zassert_true(mapped_found, "Could not find mapped PEB");
 
-	/* Find a free PEB */
 	for (size_t pnum = NR_OF_RES_PEBS; pnum < nr_pebs; ++pnum) {
 		if (pnum == mapped_peb) {
 			continue;
@@ -1186,50 +1236,35 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
 		}
 		if (all_ff) {
 			free_peb = pnum;
+			free_found = true;
 			break;
 		}
 	}
-	zassert_true(free_peb >= NR_OF_RES_PEBS, "No free PEB found");
+	zassert_true(free_found, "No free PEB found");
 
-	/* Write duplicate LEB 0 with higher sqnum on the free PEB */
+	/* Stamp the free PEB with a valid EC + VID claiming (vol_id, lnum=0)
+	 * with a strictly greater sqnum than anything written so far. */
+	zassert_ok(flash_area_erase(fa, free_peb * flash.erase_block_size, flash.erase_block_size));
+	raw_write_ec_hdr(fa, free_peb, flash.erase_block_size, 0);
 	raw_write_vid_hdr(fa, free_peb, flash.erase_block_size, 0, (uint32_t)vol_id, 999999, 32);
-
-	/* Now corrupt the EC header of the original mapped PEB */
-	zassert_ok(
-		flash_area_erase(fa, mapped_peb * flash.erase_block_size, flash.erase_block_size));
-	uint8_t garbage_ec[EC_HDR_SIZE] = { 0xDE, 0xAD, 0xBE, 0xEF };
-	zassert_ok(flash_area_write(fa, mapped_peb * flash.erase_block_size, garbage_ec,
-				    sizeof(garbage_ec)));
 
 	flash_area_close(fa);
 
-	/* Reinit — resolve_duplicate_leb should detect EC read failure on existing PEB,
-	 * move it to bad list, and the new (higher sqnum) PEB should win.
-	 * But wait: the mapped_peb's EC is now corrupt, so validate_ec_header
-	 * will classify it as bad BEFORE reaching resolve_duplicate_leb.
-	 * The duplicate will only trigger if both PEBs survive the EC check.
-	 *
-	 * To get a true duplicate scenario with corrupt EC on the *existing*
-	 * mapping, we need both PEBs to have valid EC but the SECOND pass
-	 * through resolve_duplicate_leb to attempt reading the existing PEB's
-	 * EC — which it does via ubi_ec_hdr_read. However, the EC was already
-	 * validated during scan, so it won't fail.
-	 *
-	 * Actually: resolve_duplicate_leb reads the existing PEB's EC again
-	 * independently. If between the initial
-	 * scan and the duplicate resolution the EC was corrupted... that's
-	 * not realistic on real flash.
-	 *
-	 * For now, this test still covers the scan path where a PEB with
-	 * garbage EC is classified as bad, and the free PEB with valid
-	 * VID header for the same volume is classified normally. */
-	int ret = ubi_device_init(&flash, NULL, &ubi);
+	/* Reinit \u2014 both PEBs survive EC+VID validation, so the second one
+	 * encountered triggers resolve_duplicate_leb. The newer-sqnum PEB
+	 * wins; the older one is moved to the dirty pool. */
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
+	fixture->ubi = ubi;
 
-	if (ret == 0 && ubi != NULL) {
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	}
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_true(info.dirty_peb_count >= 1,
+		     "Loser of duplicate-LEB resolution must land in the dirty pool");
+	zassert_equal(0u, info.bad_peb_count,
+		      "Both candidate PEBs had valid EC+VID; neither must be classified as bad");
+
+	zassert_ok(ubi_device_deinit(ubi));
+	fixture->ubi = NULL;
 }
 
 /**
@@ -1242,12 +1277,12 @@ ZTEST(ubi_init_errors, duplicate_leb_existing_ec_corrupt)
  *
  * \expect Init succeeds. The lower-sqnum PEB is discarded to dirty.
  */
-ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
+ZTEST_F(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 {
 	/* Format and create a volume, write to LEB 0 */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
 	snprintf(cfg.name, sizeof(cfg.name), "dup2vol");
@@ -1259,7 +1294,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Find the mapped PEB and a free PEB */
 	const struct flash_area *fa = NULL;
@@ -1311,7 +1346,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 
 	/* Reinit — the older PEB should be discarded to dirty pool */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 
 	/* Verify the volume is intact and data matches */
 	uint8_t readback[32] = { 0 };
@@ -1319,7 +1354,7 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
 	zassert_mem_equal(readback, data, sizeof(data));
 
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 /**
@@ -1329,14 +1364,14 @@ ZTEST(ubi_init_errors, duplicate_leb_new_lower_sqnum_discarded)
  *
  * \expect The PEB with corrupt VID CRC is classified as bad. Init succeeds.
  */
-ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
+ZTEST_F(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 {
 	/* Normal init to format */
 	struct ubi_device *ubi = NULL;
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 
 	/* Find a free PEB and write a VID header with intentionally bad CRC.
 	 * The VID area will not be all-0xFF (so it's not classified as free),
@@ -1376,9 +1411,15 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 
 	/* Reinit — scan should classify the PEB with bad VID CRC as bad */
 	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
-	g_ubi = ubi;
+	fixture->ubi = ubi;
+
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_true(info.bad_peb_count >= 1,
+		     "PEB with VID CRC corruption must be classified as bad");
+
 	zassert_ok(ubi_device_deinit(ubi));
-	g_ubi = NULL;
+	fixture->ubi = NULL;
 }
 
 #ifndef CONFIG_UBI_CRYPTO
@@ -1393,7 +1434,7 @@ ZTEST(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
  *
  * \expect ubi_device_init returns -ENOTSUP, device handle is NULL.
  */
-ZTEST(ubi_init_errors, crypto_cfg_without_crypto_kconfig_returns_enotsup)
+ZTEST_F(ubi_init_errors, crypto_cfg_without_crypto_kconfig_returns_enotsup)
 {
 	/* Minimal crypto_cfg — content is irrelevant: the dispatcher rejects
 	 * before any field is read because CONFIG_UBI_CRYPTO is not selected. */

@@ -3,7 +3,7 @@
  *
  * \author  Kamil Kielbasa
  *
- * \brief   Hardware tests for Unsorted Block Images (UBI) erases.
+ * \brief   End-to-end tests for the LEB unmap/erase lifecycle: verifies\n *          that LEBs erased through `ubi_leb_unmap()` are released back\n *          to the dirty pool, that subsequent writes reallocate physical\n *          PEBs from the free pool, that erase-counter (EC) values are\n *          incremented across an unmap/write cycle, and that the\n *          mapping survives a deinit + reinit (\"reboot\") for both\n *          single-LEB single-volume and multi-LEB multi-volume layouts.
  *
  *
  * \copyright Copyright (c) 2025

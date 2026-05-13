@@ -3,7 +3,11 @@
  *
  * \author Kamil Kielbasa
  *
- * \brief   Tests for erased-value abstraction helpers (Task C).
+ * \brief   Tests for the erased-value abstraction helpers used by the
+ *          plain backend to detect blank PEBs and bytes (\c 0xFF on NOR,
+ *          \c 0x00 on inverted-erase media). Covers helper return values
+ *          on aligned/unaligned and edge-sized buffers, and end-to-end
+ *          classification of fully-erased vs. partially-written PEBs.
  *
  * \copyright Copyright (c) 2026
  */

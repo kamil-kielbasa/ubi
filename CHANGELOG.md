@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.109.0] - 2026-05-13
+
+### Changed
+
+- Test review pass B (semantic per-file fixes across plain + secure):
+  - `tests_ubi_boundary.c`: `write_max_leb_data` and
+    `write_exceeds_leb_capacity` now derive `max_data` from
+    `ubi_device_get_info().leb_size` instead of hand-computed
+    `flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE`.
+  - `tests_ubi_concurrency.c`: `reader_entry` now performs a real
+    `ubi_leb_read` and verifies the payload against an expected buffer
+    (tolerating transient `-ENOENT` from concurrent writers); the three
+    callers (`concurrent_readers`, `reader_writer_interleave`,
+    `deinit_after_quiescence`) wire `expected`/`expected_len` through the
+    fixture; `deinit_after_quiescence` writes a payload before spawning
+    the reader thread and gained full Doxygen `\details`/`\expect`/
+    `\oracle`.
+  - `tests_ubi_erase.c`, `tests_ubi_erased_val.c`,
+    `tests_ubi_vol_id_watermark.c`: stripped “Task X” annotations and
+    rewrote `\brief` lines to describe the actual contracts.
+  - `tests_ubi_error_handling.c`: replaced `zassert_not_equal(0, ret, ...)`
+    in `write_retry_exhausted` with the deterministic `-EIO`; both `(void)ret;`
+    sites in the `erase_peb_*` tests now assert the concrete error code
+    (`-EBADMSG` / `-EIO`) plus the bad/dirty pool side-effects; the
+    anonymous on-flash `dev_hdr` struct in
+    `orphan_peb_classified_as_dirty_on_reinit` was replaced with the real
+    `struct ubi_dev_hdr`; `degraded_peb_recovery_succeeds` now asserts
+    `info.read_only_degraded == false` after recovery; the orphan test
+    asserts `dirty_peb_count >= 1`.
+  - `tests_ubi_error_handling_leb.c`: `leb_unmap_corrupt_ec_header`
+    asserts `-EBADMSG` instead of dropping the return value.
+  - `tests_ubi_error_handling_volume.c`: the three
+    `volume_create/remove/resize_with_corrupt_reserved_peb` tests now
+    assert the concrete `-EIO`; `volume_resize_shrink_corrupt_peb_reclaim`
+    asserts success plus a non-decreasing bad-PEB count;
+    `volume_remove_with_corrupt_mapped_peb_reclaim` asserts
+    `zassert_ok(...)`; `volume_remove_reindex_corrupt_vol_hdr` asserts
+    `-EIO`.
+  - `tests_ubi_fault_injection.c` and
+    `tests_ubi_secure_fault_injection.c`: renamed cryptic volume names
+    `"fivol"`/`"cowvol"`/`"invvol"` to descriptive
+    `"fault_inj_vol"`/`"crypto_oom_vol"`/`"invariant_vol"`.
+  - `tests_ubi_init_errors.c`: refactored the module-level `g_ubi`
+    teardown-safety guard into a proper Zephyr `ZTEST_F` fixture
+    (`struct ubi_init_errors_fixture { struct ubi_device *ubi; }`);
+    converted all suite tests from `ZTEST` to `ZTEST_F` and replaced
+    `g_ubi` with `fixture->ubi`. Replaced the anonymous on-flash
+    `dev_hdr` struct in `static_backend_vol_count_overflow` with
+    `struct ubi_dev_hdr`. Replaced `uint8_t rb[1]` with a named
+    `READ_BACK_LEN` constant + `ARRAY_SIZE(rb)`. Removed stale
+    “Simpler approach…” / “Actually, let's use…” planning comments.
+    `format_ec_write_failure` and
+    `leaf_alloc_failure_bad_peb_classify` now assert the deterministic
+    `-EIO` / `-ENOMEM` and `NULL` device handle.
+    `vid_hdr_crc_corrupt_during_scan` asserts `bad_peb_count >= 1`.
+    `sqnum_monotonic_across_reinit` now reads both VID headers off flash
+    and asserts strict monotonicity of `sqnum`. The misleadingly named
+    `duplicate_leb_existing_ec_corrupt` was rewritten as
+    `duplicate_leb_newer_sqnum_wins`, exercising the realistic
+    sqnum-compare branch of `resolve_duplicate_leb()` with both
+    candidate PEBs holding valid EC + VID headers and asserting
+    `dirty_peb_count >= 1` and `bad_peb_count == 0`.
+  - `tests_ubi_init_errors_geometry.c`: collapsed the tolerant
+    `if (ret == 0) ... else ...` branches in
+    `reserved_peb_crc_corruption_detected` (→ `-EIO` + NULL handle),
+    `reserved_peb_vol_count_exceeds_max` (→ success on native_sim),
+    and `one_reserved_peb_corrupt_recovers` (→ success +
+    `read_only_degraded == false`) into deterministic single-outcome
+    assertions.
+
 ## [0.108.0] - 2026-05-13
 
 ### Changed

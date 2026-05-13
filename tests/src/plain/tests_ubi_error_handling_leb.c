@@ -955,10 +955,14 @@ ZTEST(ubi_error_handling_leb, leb_unmap_corrupt_ec_header)
 	}
 	flash_area_close(fa);
 
-	/* Unmap should detect EC read failure */
-	int ret = ubi_leb_unmap(ubi, vol_id, 0);
-	/* The unmap may fail or succeed (depends on error handling) */
-	(void)ret;
+	/* Unmap traverses all data PEBs to find the one mapping (vol_id, lnum=0).
+	 * The corrupted EC header makes one PEB unreadable; the unmap propagates
+	 * the I/O failure rather than silently skipping the bad block. */
+	/* Unmap traverses all data PEBs to find the one mapping (vol_id, lnum=0).
+	 * The corrupted EC header makes one PEB unreadable; the unmap propagates
+	 * the EC integrity failure as `-EBADMSG` rather than silently skipping
+	 * the bad block. */
+	zassert_equal(-EBADMSG, ubi_leb_unmap(ubi, vol_id, 0));
 
 	zassert_ok(ubi_device_deinit(ubi));
 }

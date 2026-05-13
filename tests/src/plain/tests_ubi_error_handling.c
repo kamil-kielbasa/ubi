@@ -16,6 +16,7 @@
 #include <ubi.h>
 #include <ubi_test.h>
 #include "ubi_api_contract.h"
+#include "ubi_plain_io.h" /* struct ubi_dev_hdr / UBI_DEV_HDR_MAGIC */
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
@@ -260,7 +261,9 @@ ZTEST(ubi_error_handling, write_retry_exhausted)
 	int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 	ubi_test_fault_reset();
 
-	zassert_not_equal(0, ret, "Write should fail with persistent fault");
+	zassert_equal(
+		-EIO, ret,
+		"Persistent flash-write fault must surface as -EIO after retries are exhausted");
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
@@ -371,10 +374,17 @@ ZTEST(ubi_error_handling, erase_peb_ec_corrupt_moves_to_bad)
 	}
 	flash_area_close(fa);
 
-	/* erase_peb should detect the corrupt EC and move PEB to bad list */
-	int ret = ubi_device_erase_peb(ubi);
-	/* Result may be 0 or error - we don't assert, we just exercise the path */
-	(void)ret;
+	/* Corrupted EC header is reported as `-EBADMSG` (CRC integrity failure).
+	 * On this code path the driver returns the integrity error to the
+	 * caller without reclassifying the PEB into the bad pool, so we assert
+	 * the deterministic error code and that the dirty pool does not grow. */
+	struct ubi_device_info before = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &before));
+	zassert_equal(-EBADMSG, ubi_device_erase_peb(ubi));
+	struct ubi_device_info after = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &after));
+	zassert_true(after.dirty_peb_count <= before.dirty_peb_count,
+		     "Dirty pool must not grow on a failed erase_peb");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -409,12 +419,19 @@ ZTEST(ubi_error_handling, erase_peb_ec_write_fail_after_erase)
 	 * We want the write to fail. */
 	ubi_test_fault_set_flash_write_fail_after(0);
 
+	struct ubi_device_info before = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &before));
+
 	int ret = ubi_device_erase_peb(ubi);
 	ubi_test_fault_reset();
 
-	/* The erase_peb should fail and move the PEB to bad list */
-	/* Don't assert specific return — just exercise the path */
-	(void)ret;
+	/* Persistent write-fault on the EC re-write surfaces as `-EIO`; the
+	 * affected PEB is moved to the bad pool. */
+	zassert_equal(-EIO, ret);
+	struct ubi_device_info after = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &after));
+	zassert_true(after.bad_peb_count > before.bad_peb_count,
+		     "Failed EC re-write must reclassify PEB as bad");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -454,21 +471,11 @@ ZTEST(ubi_error_handling, orphan_peb_classified_as_dirty_on_reinit)
 	const struct flash_area *fa = NULL;
 	zassert_ok(flash_area_open(flash.partition_id, &fa));
 
-	struct {
-		uint32_t magic;
-		uint8_t version;
-		uint8_t padding[3];
-		uint32_t offset;
-		uint32_t size;
-		uint32_t revision;
-		uint32_t vol_count;
-		uint32_t padding_2;
-		uint32_t hdr_crc;
-	} dev_hdr = { 0 };
+	struct ubi_dev_hdr dev_hdr = { 0 };
 
 	/* Read the current device header from reserved PEB 0 */
 	zassert_ok(flash_area_read(fa, 0, &dev_hdr, sizeof(dev_hdr)));
-	zassert_equal(dev_hdr.magic, 0x55424925U);
+	zassert_equal(dev_hdr.magic, UBI_DEV_HDR_MAGIC);
 
 	/* Rewrite with vol_count = 0, bumped revision */
 	dev_hdr.vol_count = 0;
@@ -492,6 +499,8 @@ ZTEST(ubi_error_handling, orphan_peb_classified_as_dirty_on_reinit)
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(info.volume_count, 0);
+	zassert_true(info.dirty_peb_count >= 1,
+		     "Orphan PEB referencing the now-removed volume must land in the dirty pool");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -537,6 +546,13 @@ ZTEST(ubi_error_handling, degraded_peb_recovery_succeeds)
 	size_t alloc = 0;
 	zassert_ok(ubi_volume_get_info(ubi, vol_id, &info_cfg, &alloc));
 
+	/* Recovery on native_sim always succeeds, so the device must NOT be
+	 * stuck in degraded read-only mode after reinit. */
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_false(info.read_only_degraded,
+		      "Reserved-PEB recovery should clear the degraded read-only flag");
+
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -555,7 +571,7 @@ ZTEST(ubi_error_handling, check_invariants_after_bad_peb)
 
 	/* Corrupt a data PEB's EC header to make it "bad" during erase_peb */
 	struct ubi_volume_config cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
-	snprintf(cfg.name, sizeof(cfg.name), "invvol");
+	snprintf(cfg.name, sizeof(cfg.name), "invariant_vol");
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 

@@ -243,14 +243,12 @@ ZTEST(ubi_init_errors_geometry, reserved_peb_crc_corruption_detected)
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&flash, NULL, &ubi);
-	if (ret == 0 && ubi != NULL) {
-		/* UBI recovered from corruption — still valid test */
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	}
-	/* If ret != 0, init correctly rejected both corrupt PEBs */
+	/* Both reserved PEB banks have a flipped CRC trailer: header read fails
+	 * the CRC check on each bank, init must reject deterministically with
+	 * -EIO and leave the caller's handle NULL. */
+	struct ubi_device *ubi2 = NULL;
+	zassert_equal(-EIO, ubi_device_init(&flash, NULL, &ubi2));
+	zassert_is_null(ubi2);
 }
 
 /**
@@ -284,13 +282,14 @@ ZTEST(ubi_init_errors_geometry, reserved_peb_vol_count_exceeds_max)
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&flash, NULL, &ubi);
-	if (ret == 0 && ubi != NULL) {
-		/* UBI treated the high vol_count as valid — still exercises scan path */
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	}
+	/* On native_sim the static-backend semantic check accepts any vol_count
+	 * up to its own buffer capacity and the missing per-volume vol_hdrs at
+	 * the patched indexes are tolerated by the scan, so init recovers and
+	 * the device is usable. */
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
+	g_ubi = ubi;
+	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -319,16 +318,19 @@ ZTEST(ubi_init_errors_geometry, one_reserved_peb_corrupt_recovers)
 
 	flash_area_close(fa);
 
-	int ret = ubi_device_init(&flash, NULL, &ubi);
-	if (ret == 0) {
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	} else if (ret == -EROFS && ubi != NULL) {
-		g_ubi = ubi;
-		zassert_ok(ubi_device_deinit(ubi));
-		g_ubi = NULL;
-	}
+	/* One bank is corrupt, the redundant copy is intact: validate-and-recover
+	 * promotes the healthy bank and rewrites the broken one. Init must
+	 * succeed and the device must come up out of degraded read-only mode. */
+	zassert_ok(ubi_device_init(&flash, NULL, &ubi));
+	g_ubi = ubi;
+
+	struct ubi_device_info info = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &info));
+	zassert_false(info.read_only_degraded,
+		      "Reserved-PEB recovery must clear the degraded read-only flag");
+
+	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**

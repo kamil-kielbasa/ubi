@@ -1018,8 +1018,8 @@ ZTEST(ubi_error_handling_volume, volume_create_with_corrupt_reserved_peb)
 	snprintf(cfg.name, sizeof(cfg.name), "failvol");
 	int vol_id = -1;
 	int ret = ubi_volume_create(ubi, &cfg, &vol_id);
-	/* Should fail because reserved PEB validation will fail */
-	zassert_not_equal(ret, 0);
+	/* Both reserved PEB banks are unreadable: validation surfaces -EIO. */
+	zassert_equal(-EIO, ret);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1054,7 +1054,8 @@ ZTEST(ubi_error_handling_volume, volume_remove_with_corrupt_reserved_peb)
 	flash_area_close(fa);
 
 	int ret = ubi_volume_remove(ubi, vol_id);
-	zassert_not_equal(ret, 0);
+	zassert_equal(-EIO, ret,
+		      "Remove on a device with no readable reserved PEB must fail with -EIO");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1091,7 +1092,8 @@ ZTEST(ubi_error_handling_volume, volume_resize_with_corrupt_reserved_peb)
 	struct ubi_volume_config new_cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 2 };
 	snprintf(new_cfg.name, sizeof(new_cfg.name), "rsvol");
 	int ret = ubi_volume_resize(ubi, vol_id, &new_cfg);
-	zassert_not_equal(ret, 0);
+	zassert_equal(-EIO, ret,
+		      "Resize on a device with no readable reserved PEB must fail with -EIO");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1142,10 +1144,10 @@ ZTEST(ubi_error_handling_volume, volume_remove_corrupt_mapped_peb_reclaim)
 	flash_area_close(fa);
 
 	/* Remove the volume — reclaim should detect the corrupt EC header */
-	int ret = ubi_volume_remove(ubi, vol_id);
-	/* The remove should still succeed (best-effort reclaim) or fail
-	 * if the metadata write fails. Either way, the code path is exercised. */
-	(void)ret;
+	/* Reclaim is best-effort: the remove succeeds even when one of the
+	 * dirty PEBs has a corrupt EC header (the failure is logged and the
+	 * PEB is left out of the dirty pool). */
+	zassert_ok(ubi_volume_remove(ubi, vol_id));
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1204,8 +1206,16 @@ ZTEST(ubi_error_handling_volume, volume_resize_shrink_corrupt_peb_reclaim)
 	/* Shrink to 1 LEB — LEBs 1 and 2 will be reclaimed.
 	 * The corrupt PEB's EC read should fail → moves to bad. */
 	struct ubi_volume_config shrink_cfg = { .type = UBI_VOLUME_TYPE_DYNAMIC, .leb_count = 1 };
-	int ret = ubi_volume_resize(ubi, vol_id, &shrink_cfg);
-	(void)ret;
+	/* Shrink succeeds; the corrupt PEB is reclassified as bad while the
+	 * remaining LEBs stay accessible. */
+	struct ubi_device_info before = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &before));
+	zassert_ok(ubi_volume_resize(ubi, vol_id, &shrink_cfg));
+	struct ubi_device_info after = { 0 };
+	zassert_ok(ubi_device_get_info(ubi, &after));
+	zassert_true(
+		after.bad_peb_count >= before.bad_peb_count,
+		"Corrupt PEB encountered during shrink-reclaim must not be lost from accounting");
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -1270,9 +1280,9 @@ ZTEST(ubi_error_handling_volume, volume_remove_reindex_corrupt_vol_hdr)
 	 * iterates vol_idx=0 and reads the first vol_hdr which was formerly #1
 	 * (now corrupt). This triggers the read failure path. */
 	int ret = ubi_volume_remove(ubi, vol_id1);
-	/* The remove itself should succeed (flash commit is done),
-	 * but re-indexing may log errors for corrupt vol headers. */
-	(void)ret;
+	/* Re-index after the remove walks the corrupted vol_hdr area on both
+	 * reserved PEB banks; the bad-magic read surfaces as -EIO. */
+	zassert_equal(-EIO, ret);
 
 	zassert_ok(ubi_device_deinit(ubi));
 #else

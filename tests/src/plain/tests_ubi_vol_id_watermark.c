@@ -3,7 +3,7 @@
  *
  * \author Kamil Kielbasa
  *
- * \brief   Tests for the persistent vol_id high-watermark (Task E).
+ * \brief   Tests for the persistent \c vol_id high-watermark.
  *
  * Verifies that:
  *   1. vol_id is never reused after remove within the same boot.

@@ -96,7 +96,7 @@ ZTEST(ubi_fault_injection, create_alloc_fail_no_persistent_volume)
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
-		.name = "fivol",
+		.name = "fault_inj_vol",
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
@@ -134,7 +134,7 @@ ZTEST(ubi_fault_injection, overwrite_preserves_old_data_on_failure)
 	struct ubi_device *ubi = ubi_test_init_device(&flash);
 
 	const struct ubi_volume_config cfg = {
-		.name = "cowvol",
+		.name = "crypto_oom_vol",
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
@@ -168,7 +168,7 @@ ZTEST(ubi_fault_injection, invariants_hold_after_create_write_remove)
 	zassert_ok(ubi_device_check_invariants(ubi));
 
 	const struct ubi_volume_config cfg = {
-		.name = "invvol",
+		.name = "invariant_vol",
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
 		.leb_count = 2,
 	};
