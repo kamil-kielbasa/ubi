@@ -28,6 +28,7 @@ target_sources(app PRIVATE
                src/plain/tests_ubi_error_handling_volume.c
                src/plain/tests_ubi_boundary.c
                src/plain/tests_ubi_recovery.c
+               src/plain/tests_ubi_recovery_reserved.c
                src/plain/tests_ubi_fault_injection.c
                src/plain/tests_ubi_io_faults.c
                src/plain/tests_ubi_init_errors.c

@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.101.0] - 2026-05-13
+
+### Changed
+
+- The 1831-line `tests_ubi_recovery.c` was split into two sibling
+  files along the natural seam between PEB-classification scan tests
+  (which use the `raw_write_ec_hdr` / `raw_write_vid_hdr` helpers) and
+  reserved-PEB / init-recovery tests (which use the
+  `corrupt_reserved_peb` / `verify_reserved_peb_valid` helpers); each
+  file is now below the 1500-line ceiling:
+  - `tests_ubi_recovery.c` (~1080 LoC) keeps the 14 scan-time
+  classification cases: corrupt EC / VID-CRC become bad PEBs, valid
+  EC + empty VID becomes free, VID-orphan-volume becomes dirty,
+  duplicate-LEB sqnum conflict resolution and its corrupt /
+  higher-sqnum variants, `leb_exceeds_volume_count`, the
+  `corrupt_ec_with_valid_vid` and `multiple_corrupt_pebs` cases and
+  the `valid_ec_erased_vid_*` and `erase_peb_no_dirty` boundary cases.
+  - `tests_ubi_recovery_reserved.c` (~885 LoC) hosts the 16
+  reserved-area cases: `init_recovers` / `init_fails` for
+  device-header and volume-header banks, `vol_create/write/delete/
+  resize_recovers_degraded_bank`, `commit_writes_all_reserved_pebs`,
+  `format_writes_all_reserved_pebs`, `total_peb_count_excludes_
+  reserved`, `degraded_mode_blocks_mutations`,
+  `multi_volume_recovery_from_corrupt_bank`,
+  `fresh_partition_formats_spare_pebs` and
+  `reinit_after_interrupted_commit_preserves_old_data`.
+  Each split file registers a distinct ZTest suite
+  (`ubi_recovery`, `ubi_recovery_reserved`) so the test runner now
+  reports the two groups separately.
+
 ## [0.100.0] - 2026-05-13
 
 ### Changed
