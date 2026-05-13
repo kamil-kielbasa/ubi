@@ -61,6 +61,7 @@ if(CONFIG_UBI_CRYPTO)
                                src/secure/tests_ubi_secure_mixed.c
                                src/secure/tests_ubi_secure_tamper.c
                                src/secure/tests_ubi_secure_runtime_policy.c
+                               src/secure/tests_ubi_secure_runtime_policy_budgets.c
                                src/secure/tests_ubi_secure_recovery.c
                                src/secure/tests_ubi_secure_forensic.c
                                src/secure/tests_ubi_secure_error_handling.c

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.100.0] - 2026-05-13
+
+### Changed
+
+- The 2006-line `tests_ubi_secure_runtime_policy.c` was split into two
+  sibling files along the natural seam between event/policy cases and
+  budget/floor cases; each is now below the 1500-line ceiling:
+  - `tests_ubi_secure_runtime_policy.c` (~1055 LoC) keeps the 14
+  policy and event cases: ENTER_READ_ONLY escalation, freshness sync
+  callbacks, erase / volume blocked-in-RO, allowlist reject,
+  missing-key on write, rollback policy mismatch, sticky RO cleared
+  on reinit, mixed-key rotation and the end-to-end refcount /
+  KEY_RETIRABLE flow.
+  - `tests_ubi_secure_runtime_policy_budgets.c` (~1068 LoC) hosts the
+  12 budget and counter-floor cases: reserved / EC / VID metadata
+  budget exhaustion, KEY_ROTATE_SOON / KEY_ROTATE_NOW emission, LEB
+  budget exhaustion and `vid_floor` reset / persistence / forced
+  rekey scenarios.
+  Each split file registers a distinct ZTest suite
+  (`ubi_secure_runtime_policy`, `ubi_secure_runtime_policy_budgets`)
+  so the test runner now reports the two groups separately.
+
 ## [0.99.0] - 2026-05-13
 
 ### Changed
