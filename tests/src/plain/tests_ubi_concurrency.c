@@ -14,12 +14,17 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
+
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 
+/* Zephyr headers: */
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */

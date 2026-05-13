@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.108.0] - 2026-05-13
+
+### Changed
+
+- Test files cleanup (plain + secure, 55 files): stripped `\version` /
+  `\date` Doxygen tags from file headers; standardized include section
+  comments (`/* UBI headers: */`, `/* Test fixtures: */`,
+  `/* Zephyr headers: */`, `/* Standard library headers: */`); added
+  missing module/static section dividers; moved `ZTEST_SUITE(...)` macro
+  to the top of every file (right before the first `ZTEST(...)`).
+- Plain test suites now share `ubi_test_setup_mtd()` and
+  `ubi_test_erase_partition()` from `ubi_test_fixture.h` instead of
+  inlining identical DT/erase boilerplate in each `ztest_suite_setup` /
+  `ztest_testcase_before` (14 plain files; secure files were already
+  consolidated via `ubi_test_secure_*_impl`).
+
 ## [0.107.0] - 2026-05-13
 
 ### Added

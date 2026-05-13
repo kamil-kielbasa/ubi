@@ -21,26 +21,26 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
+#include "ubi_secure_test_hooks.h"
+#include "ubi_secure_types.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-#include "ubi_secure_test_hooks.h"
-#include "ubi_secure_types.h"
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
-
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 

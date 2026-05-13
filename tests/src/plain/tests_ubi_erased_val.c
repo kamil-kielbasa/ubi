@@ -10,19 +10,23 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
+#include "ubi_test_fixture.h"
+#include "ubi_test_memory.h"
+
+/* Zephyr headers: */
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <stdint.h>
 #include <string.h>
-
-#include "ubi_test_fixture.h"
-#include "ubi_test_memory.h"
 
 /* Module defines ------------------------------------------------------------------------------- */
 
@@ -63,6 +67,10 @@ static void ztest_testcase_teardown(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_erased_val, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
+	    NULL);
+
 /**
  * \brief ubi_test_buf_is_erased detects a buffer filled with 0xFF.
  *
@@ -174,6 +182,3 @@ ZTEST(ubi_erased_val, test_init_classifies_erased_pebs_as_free)
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 }
-
-ZTEST_SUITE(ubi_erased_val, NULL, ztest_suite_setup, ztest_testcase_before, ztest_testcase_teardown,
-	    NULL);

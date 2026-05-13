@@ -9,16 +9,18 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
@@ -26,6 +28,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/sys_heap.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -86,6 +89,9 @@ static void ztest_suite_before(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_mixed, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
+
 /**
  * \brief End-to-end scenario: create two volumes, write, remove one, resize
  *        the other, map LEBs, reboot, and verify everything.
@@ -199,5 +205,3 @@ ZTEST(ubi_secure_mixed, scenario_1)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	memory_check(&before_init, &after_init, &after_deinit);
 }
-
-ZTEST_SUITE(ubi_secure_mixed, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

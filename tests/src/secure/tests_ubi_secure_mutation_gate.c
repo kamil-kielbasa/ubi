@@ -12,19 +12,22 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 #include "ubi_test_memory.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -80,6 +83,10 @@ static struct ubi_device *sec_init(void)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_mutation_gate, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_testcase_teardown, NULL);
+
 /**
  * \brief Verify that write shutdown blocks all public mutators with secure
  *        backend.
@@ -161,6 +168,3 @@ ZTEST(ubi_secure_mutation_gate, write_shutdown_blocks_all_mutators)
 	ztest_test_skip();
 #endif
 }
-
-ZTEST_SUITE(ubi_secure_mutation_gate, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_testcase_teardown, NULL);

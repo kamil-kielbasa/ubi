@@ -26,19 +26,22 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_test.h>
-
 /* Internal plain backend I/O API — exposed for direct guard coverage. */
 #include "ubi_plain_io.h"
 #include "ubi_plain_flash_res_peb.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 
+/* Zephyr headers: */
 #include <zephyr/ztest.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/crc.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
@@ -50,9 +53,15 @@
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -71,6 +80,8 @@ static void ztest_testcase_before(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_io_defensive, NULL, ztest_suite_setup, ztest_testcase_before, NULL, NULL);
 
 /**
  * \brief Internal `ubi_ec_hdr_read` rejects NULL flash and out-of-range pnum.
@@ -206,8 +217,6 @@ ZTEST(ubi_io_defensive, leb_data_read_rejects_bad_args)
 	zassert_equal(-EINVAL, ubi_leb_data_read(&flash, 0, 0, buf, sizeof(buf)));
 	zassert_equal(-EINVAL, ubi_leb_data_read(&flash, SIZE_MAX, 0, buf, sizeof(buf)));
 }
-
-ZTEST_SUITE(ubi_io_defensive, NULL, ztest_suite_setup, ztest_testcase_before, NULL, NULL);
 
 /**
  * \brief Internal `ubi_leb_data_write` rejects NULL/zero-length args and bad pnum.

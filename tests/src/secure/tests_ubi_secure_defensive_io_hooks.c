@@ -12,14 +12,10 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
-
-#include "ubi_test_fixture.h"
-#include "ubi_test_secure_fixture.h"
-#include "ubi_test_memory.h"
-
 /* Internal secure headers (via target_include_directories). */
 #include "ubi_secure_crypto.h"
 #include "ubi_secure_ser.h"
@@ -28,11 +24,17 @@
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_reserved.h"
 
-#include <psa/crypto.h>
+/* Test fixtures: */
+#include "ubi_test_fixture.h"
+#include "ubi_test_secure_fixture.h"
+#include "ubi_test_memory.h"
 
+/* Zephyr headers: */
+#include <psa/crypto.h>
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -66,6 +68,8 @@ static void ztest_suite_before(void *ctx)
 	ubi_secure_test_hook_reset();
 }
 /* ================================= IO hook-based error paths ================================== */
+
+ZTEST_SUITE(ubi_secure_defensive_io_hooks, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
 
 /**
  * \brief ec_hdr_read returns error for correct magic but wrong domain.
@@ -988,5 +992,3 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_zero_len)
 }
 
 /* ===================================== Suite registration ====================================== */
-
-ZTEST_SUITE(ubi_secure_defensive_io_hooks, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

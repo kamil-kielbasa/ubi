@@ -18,15 +18,17 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
+/* Test fixtures: */
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
@@ -34,6 +36,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/sys_heap.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -108,6 +111,10 @@ static void ztest_testcase_after(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_recovery, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,
+	    NULL);
+
 /**
  * \brief Interrupted LEB data write preserves old mapping (COW).
  *
@@ -877,6 +884,3 @@ ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 	ztest_test_skip();
 #endif
 }
-
-ZTEST_SUITE(ubi_secure_recovery, NULL, ztest_suite_setup, ztest_suite_before, ztest_testcase_after,
-	    NULL);

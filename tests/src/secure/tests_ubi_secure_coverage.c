@@ -16,19 +16,22 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 #include "ubi_test_memory.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -82,6 +85,9 @@ static struct ubi_device *sec_init(void)
 }
 
 /* ======================================= Volume remove ======================================== */
+
+ZTEST_SUITE(ubi_secure_coverage, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_testcase_teardown, NULL);
 
 /**
  * \brief Volume remove succeeds and volume is gone after re-attach.
@@ -707,6 +713,3 @@ ZTEST(ubi_secure_coverage, erase_all_dirty_pebs)
 }
 
 /* ===================================== Suite registration ===================================== */
-
-ZTEST_SUITE(ubi_secure_coverage, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_testcase_teardown, NULL);

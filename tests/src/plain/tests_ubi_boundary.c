@@ -5,8 +5,6 @@
  *
  * \brief   Tests for UBI LEB boundary and capacity edge cases.
  *
- * \version 0.9
- * \date    2026-03-26
  *
  * \copyright Copyright (c) 2025
  *
@@ -14,9 +12,12 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
-/* UBI header: */
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_test.h>
+
+/* Test fixtures: */
+#include "ubi_test_fixture.h"
 
 /* Zephyr headers: */
 #include <zephyr/ztest.h>
@@ -28,6 +29,7 @@
 #include <zephyr/toolchain/common.h>
 #include <zephyr/sys/sys_heap.h>
 
+/* Standard library headers: */
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -64,19 +66,7 @@ static void ztest_testcase_teardown(void *ctx);
 
 static void *ztest_suite_setup(void)
 {
-	const struct device *flash_dev = UBI_PARTITION_DEVICE;
-	zassert_true(device_is_ready(flash_dev));
-
-	struct flash_pages_info page_info = { 0 };
-	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
-
-	const size_t write_block_size = flash_get_write_block_size(flash_dev);
-	const size_t erase_block_size = page_info.size;
-
-	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	flash.erase_block_size = erase_block_size;
-	flash.write_block_size = write_block_size;
-
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 
@@ -90,11 +80,7 @@ static void ztest_suite_after(void *ctx)
 static void ztest_testcase_before(void *ctx)
 {
 	(void)ctx;
-
-	ubi_test_partition_force_release_all();
-	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
-
-	return;
+	ubi_test_erase_partition();
 }
 
 static void ztest_testcase_teardown(void *ctx)

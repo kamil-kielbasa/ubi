@@ -18,21 +18,24 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -219,6 +222,10 @@ static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_replay, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
+	    NULL);
+
 /**
  * \brief Replay an authentic EC record from one PEB to another.
  *
@@ -427,6 +434,3 @@ ZTEST(ubi_secure_replay, replay_leb_record_to_other_peb_rejected)
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 }
-
-ZTEST_SUITE(ubi_secure_replay, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
-	    NULL);

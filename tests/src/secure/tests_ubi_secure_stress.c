@@ -24,15 +24,17 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
@@ -40,6 +42,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/sys_heap.h>
 
+/* Standard library headers: */
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -51,6 +54,10 @@
  * (write + unmap + erase) keeps every counter domain well within budget so
  * the suite never trips a key-rotation event and remains a pure stress run. */
 #define STRESS_CYCLES 20U
+
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
 

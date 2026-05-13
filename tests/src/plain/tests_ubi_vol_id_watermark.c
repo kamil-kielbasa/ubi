@@ -17,9 +17,11 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
-/* UBI header: */
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_test.h>
+
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 
 /* Zephyr headers: */
@@ -27,6 +29,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/crc.h>
 
+/* Standard library headers: */
 /* Standard headers: */
 #include <string.h>
 

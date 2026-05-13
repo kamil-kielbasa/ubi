@@ -12,18 +12,21 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -75,6 +78,10 @@ static struct ubi_device *sec_init(void)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_vol_id_watermark, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_testcase_teardown, NULL);
+
 /**
  * \brief vol_id is not reused after remove within the same boot.
  *
@@ -215,6 +222,3 @@ ZTEST(ubi_secure_vol_id_watermark, volume_slot_reindex_does_not_change_ids)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-ZTEST_SUITE(ubi_secure_vol_id_watermark, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_testcase_teardown, NULL);

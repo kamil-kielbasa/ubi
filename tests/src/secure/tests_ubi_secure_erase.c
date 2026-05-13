@@ -9,20 +9,19 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
+#include "ubi_secure_test_hooks.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-#include "ubi_secure_test_hooks.h"
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
-
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
@@ -30,6 +29,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/sys_heap.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -90,6 +90,9 @@ static void ztest_suite_before(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_erase, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
+
 /**
  * \brief Write until partition full, unmap, erase all dirty PEBs.
  *
@@ -494,5 +497,3 @@ ZTEST(ubi_secure_erase, reclaim_preserves_continuity_witness)
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-ZTEST_SUITE(ubi_secure_erase, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

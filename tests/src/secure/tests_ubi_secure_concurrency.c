@@ -16,18 +16,21 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -75,6 +78,8 @@ struct writer_ctx {
 	int vol_id; /*!< Volume identifier used for write operations. */
 	size_t writer_lnum; /*!< LEB the writer mutates. */
 };
+
+/* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
 

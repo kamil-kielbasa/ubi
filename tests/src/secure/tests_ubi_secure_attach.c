@@ -9,20 +9,23 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -62,6 +65,8 @@ mock_reject_freshness(const struct ubi_crypto_freshness *freshness, void *user_d
 	(void)user_data;
 	return UBI_CRYPTO_ROLLBACK_REJECT;
 }
+
+ZTEST_SUITE(ubi_secure_attach, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
 
 /**
  * \brief Blank flash + secure config → format succeeds.
@@ -311,5 +316,3 @@ ZTEST(ubi_secure_attach, requested_write_kv_downgrade_rejected)
 	zassert_not_null(ubi);
 	zassert_ok(ubi_device_deinit(ubi));
 }
-
-ZTEST_SUITE(ubi_secure_attach, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

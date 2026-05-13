@@ -12,24 +12,26 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
+#include "ubi_secure_test_hooks.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
-#include "ubi_secure_test_hooks.h"
-
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -205,6 +207,10 @@ static void ztest_suite_after(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_suite_after, NULL);
+
 /**
  * \brief Event callback returning ENTER_READ_ONLY blocks subsequent writes.
  *
@@ -1050,6 +1056,3 @@ ZTEST(ubi_secure_runtime_policy, refcount_e2e_key_rotation_retirable)
 	zassert_ok(ubi_leb_read(g_ubi, vol_id2, 0, 0, rdata2, sizeof(rdata2)));
 	zassert_mem_equal(rdata2, data_final, sizeof(data_final));
 }
-
-ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_suite_after, NULL);

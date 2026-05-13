@@ -14,20 +14,23 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
+#include "ubi_secure_test_hooks.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 #include "ubi_test_memory.h"
-#include "ubi_secure_test_hooks.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -97,6 +100,9 @@ static struct ubi_device *sec_init_with_vol(const char *name, int *vol_id)
 }
 
 /* ========================== AEAD encrypt fault tests ========================================= */
+
+ZTEST_SUITE(ubi_secure_crypto_faults, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_testcase_teardown, NULL);
 
 /**
  * \brief AEAD encrypt failure during leb_write returns error.
@@ -571,6 +577,3 @@ ZTEST(ubi_secure_crypto_faults, rng_fail_on_erase)
 }
 
 /* ================================ Suite registration ========================================= */
-
-ZTEST_SUITE(ubi_secure_crypto_faults, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_testcase_teardown, NULL);

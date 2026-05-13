@@ -13,22 +13,25 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -120,6 +123,10 @@ static void corrupt_byte(size_t offset)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_tamper, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
+	    NULL);
+
 /**
  * \brief Tamper with LEB data area after a secure write.
  *
@@ -234,6 +241,3 @@ ZTEST(ubi_secure_tamper, reserved_peb_tamper_smoke)
 	zassert_ok(ubi_device_deinit(g_ubi));
 	g_ubi = NULL;
 }
-
-ZTEST_SUITE(ubi_secure_tamper, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
-	    NULL);

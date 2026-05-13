@@ -7,8 +7,6 @@
  *          (flash simulator). These tests corrupt flash to create bad PEBs,
  *          then verify the torture mechanism recovers them during erase_peb().
  *
- * \version 0.13
- * \date    2026-03-28
  *
  * \copyright Copyright (c) 2025
  *
@@ -16,9 +14,12 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
-/* UBI header: */
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_test.h>
+
+/* Test fixtures: */
+#include "ubi_test_fixture.h"
 
 /* Zephyr headers: */
 #include <zephyr/ztest.h>
@@ -28,6 +29,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/crc.h>
 
+/* Standard library headers: */
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -61,19 +63,7 @@ static void ztest_testcase_teardown(void *ctx);
 
 static void *ztest_suite_setup(void)
 {
-	const struct device *flash_dev = UBI_PARTITION_DEVICE;
-	zassert_true(device_is_ready(flash_dev));
-
-	struct flash_pages_info page_info = { 0 };
-	zassert_ok(flash_get_page_info_by_offs(flash_dev, 0, &page_info));
-
-	const size_t write_block_size = flash_get_write_block_size(flash_dev);
-	const size_t erase_block_size = page_info.size;
-
-	flash.partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME);
-	flash.erase_block_size = erase_block_size;
-	flash.write_block_size = write_block_size;
-
+	ubi_test_setup_mtd(&flash);
 	return NULL;
 }
 

@@ -9,20 +9,23 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
-
 #include <psa/crypto.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -55,6 +58,9 @@ static void ztest_suite_before(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_api, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
+
 /**
  * \brief Secure init succeeds on blank flash (format-on-first-use).
  *
@@ -240,5 +246,3 @@ ZTEST(ubi_secure_api, reserved_generation_fit_guard_rejects_small_eb)
 		      small_eb, fit_threshold, ret);
 	zassert_is_null(ubi);
 }
-
-ZTEST_SUITE(ubi_secure_api, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);

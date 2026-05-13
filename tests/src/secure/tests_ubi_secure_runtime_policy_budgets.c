@@ -12,24 +12,26 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
+#include "ubi_secure_test_hooks.h"
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
-#include "ubi_secure_test_hooks.h"
-
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/kernel.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -170,6 +172,9 @@ static void ztest_suite_after(void *ctx)
 	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / 100)
 #define LEB_BUDGET_SOON_THRESHOLD \
 	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / 100)
+
+ZTEST_SUITE(ubi_secure_runtime_policy_budgets, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_suite_after, NULL);
 
 /**
  * \brief Reserved-area (DEVICE_HEADER + VOLUME_HEADER) write-budget exhaustion.
@@ -1062,6 +1067,3 @@ ZTEST(ubi_secure_runtime_policy_budgets, forced_rekey_with_stale_objects)
 	zassert_equal(ts.key_retirable_kv, 1, "Last KEY_RETIRABLE must be for kv=1, got %u",
 		      ts.key_retirable_kv);
 }
-
-ZTEST_SUITE(ubi_secure_runtime_policy_budgets, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_suite_after, NULL);

@@ -12,19 +12,22 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 #include "ubi_test_memory.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/kernel.h>
 
+/* Standard library headers: */
 #include <string.h>
 
 /* Module defines ------------------------------------------------------------------------------- */
@@ -76,6 +79,10 @@ static struct ubi_device *sec_init(void)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_fault_injection, NULL, ztest_suite_setup, ztest_suite_before,
+	    ztest_testcase_teardown, NULL);
+
 /**
  * \brief Verify that volume create with alloc failure does NOT leave a
  *        persistent volume with secure backend.
@@ -389,6 +396,3 @@ ZTEST(ubi_secure_fault_injection, leb_read_scratch_alloc_fault)
 	ztest_test_skip();
 #endif
 }
-
-ZTEST_SUITE(ubi_secure_fault_injection, NULL, ztest_suite_setup, ztest_suite_before,
-	    ztest_testcase_teardown, NULL);

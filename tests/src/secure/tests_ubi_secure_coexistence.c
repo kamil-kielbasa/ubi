@@ -21,21 +21,24 @@
 
 /* Include files -------------------------------------------------------------------------------- */
 
+/* UBI headers: */
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 
+/* Test fixtures: */
 #include "ubi_test_fixture.h"
 #include "ubi_test_secure_fixture.h"
 
+/* Zephyr headers: */
 #include <psa/crypto.h>
-
 #include <zephyr/ztest.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/flash.h>
 #include <zephyr/storage/flash_map.h>
 
+/* Standard library headers: */
 #include <errno.h>
 #include <string.h>
 
@@ -114,6 +117,10 @@ static void ztest_suite_after(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
+ZTEST_SUITE(ubi_secure_coexistence, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
+	    NULL);
+
 /**
  * \brief A plain and a secure UBI device live side by side on two partitions.
  *
@@ -231,6 +238,3 @@ ZTEST(ubi_secure_coexistence, partition_guard_blocks_double_attach)
 	zassert_ok(ubi_device_deinit(g_secure));
 	g_secure = NULL;
 }
-
-ZTEST_SUITE(ubi_secure_coexistence, NULL, ztest_suite_setup, ztest_suite_before, ztest_suite_after,
-	    NULL);
