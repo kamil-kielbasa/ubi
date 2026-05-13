@@ -86,7 +86,7 @@ void ubi_test_fault_set_alloc_fail_after(int n)
 
 void ubi_test_fault_set_kind_alloc_fail_after(enum ubi_test_alloc_kind kind, int n)
 {
-	if ((int)kind < 0 || (int)kind >= UBI_TEST_ALLOC_KIND_COUNT) {
+	if ((unsigned int)kind >= (unsigned int)UBI_TEST_ALLOC_KIND_COUNT) {
 		return;
 	}
 	alloc_remaining_kind[kind] = n;
