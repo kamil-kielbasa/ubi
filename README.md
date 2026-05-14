@@ -1,47 +1,57 @@
-# UBI on Zephyr
+# UBI for Zephyr
+
+A flash virtualization layer for Zephyr RTOS — global wear-leveling, runtime-resizable named volumes, and self-healing bad-block management on raw NOR/NAND, with an optional secure variant providing AEAD over every on-flash structure.
+
+Inspired by Linux's `drivers/mtd/ubi`, written from scratch for Zephyr's `flash_area` API and resource constraints. MIT licensed.
 
 ![CI](https://github.com/kamil-kielbasa/ubi/actions/workflows/ci.yml/badge.svg)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://kamil-kielbasa.github.io/ubi/)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://kamil-kielbasa.github.io/ubi/)
 [![codecov](https://codecov.io/gh/kamil-kielbasa/ubi/graph/badge.svg)](https://codecov.io/gh/kamil-kielbasa/ubi)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-
-UBI is a lightweight **wear-leveling and logical volume management layer** for raw flash on [Zephyr RTOS](https://www.zephyrproject.org/). It sits between application-level storage logic and the physical flash device, providing logical eraseblocks, metadata redundancy, bad block handling, and crash-safe LEB-to-PEB mapping.
-
-> **Release status: v1.0.0 (in preparation).** The library API and on-flash format are stabilising for v1.0.0. CI, coverage, and metrics badges above reflect the current `main` branch.
+[![Release](https://img.shields.io/github/v/release/kamil-kielbasa/ubi)](https://github.com/kamil-kielbasa/ubi/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
   <img src="doc/img/stack.svg" alt="UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash" width="600">
 </p>
 
-## Key Properties
+## Why this exists
 
-| Property | Value |
-|----------|-------|
-| Logical volumes | Multiple named volumes on a single flash partition |
-| Wear-leveling | Greedy min-EC strategy across all PEBs |
-| Bad block handling | Automatic detection and isolation |
-| Metadata redundancy | Dual-bank reserved PEBs (configurable 2–4 copies) |
-| Crash recovery | Sequence-number-based conflict resolution on init |
-| Dynamic volume resize | Grow and shrink volumes at runtime |
-| Authenticated encryption | Optional AES-128-CCM backend encrypting all on-flash structures ([Secure Overview](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html)) |
-| Filesystem | **No** — raw block-level I/O, not file-level |
-| Flash footprint | ~9.5 KB plain / ~29 KB secure (library only; PSA Crypto/mbedTLS provided by platform, not counted) |
-| Static RAM (BSS) | Depends on Kconfig (see [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html#memory-sizing-guide)) |
-| Runtime RAM | Proportional to PEB count + volume count (see [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html)) |
-| Thread safety | Per-device mutex; not ISR-safe |
+Zephyr's storage stack has a missing middle layer:
 
-## When to Use
+- `flash_area` is too low — raw partitions, no wear-leveling, no bad-block handling.
+- LittleFS, NVS, ZMS, FCB are too high — each bakes a specific abstraction (filesystem, key-value, circular log) and consumes raw flash directly. None provide multi-volume layout sharing one wear-leveling pool, and none scale cleanly to large external NOR/NAND with mixed write workloads.
 
-- You need **logical volumes with wear-leveling** on raw NOR/NAND flash under Zephyr.
-- You want to store firmware images, configuration blobs, or structured binary data with raw block access.
-- You are building a higher-level storage layer and need a reliable block abstraction underneath.
+UBI fills that gap. It provides multiple independent named volumes sharing one global wear-leveling pool, runtime-resizable, with bad-block handling and crash-safe metadata. Higher-level abstractions — a future UBIFS-style filesystem, an LSM-tree-based store, custom indexed databases — can build on top of UBI rather than reinventing wear-leveling each time.
 
-## When NOT to Use
+**UBI is not a filesystem.** It is a block virtualization layer. That is the point.
 
-- You need a **ready-made filesystem** — use LittleFS or FAT instead.
-- Your flash has a built-in **FTL** (eMMC, SD cards) — UBI adds no value.
-- You only need a **key-value store** — Zephyr NVS is simpler and sufficient.
-- Your device has **no flash wear concerns** (e.g., very low write frequency on high-endurance NOR).
+## What you get
+
+- **Multi-volume** — N independent named volumes per partition, created and resized at runtime.
+- **Global wear-leveling** — one wear budget across the whole device, regardless of which volume is hot.
+- **Block-level access** — direct LEB addressing, without filesystem or record overhead; suitable as a substrate for any higher-level structure (filesystems, indexed databases, encrypted vaults).
+- **Self-healing** — automatic bad-block detection, torture-test confirmation, and isolation; transparent to the application.
+- **Crash-safe metadata** — reserved PEBs for redundancy, monotonic sequence numbers, replay-safe recovery.
+- **Thread-safe** — per-device mutex; safe for use from multiple Zephyr threads.
+- **Coexistence** — multiple `ubi_device` handles per application, each on its own partition. Plain and secure devices can run side by side, e.g. a plain device on internal flash for hot configuration alongside a secure device on external NOR for firmware images and secrets.
+- **Optional `CONFIG_UBI_CRYPTO`** — full secure backend, not just bulk encryption:
+  - AEAD (AES-128-CCM via PSA Crypto) over every on-flash structure — UBI metadata, reserved PEBs, and LEB data — with location and data binding in AAD.
+  - Versioned keys with an allowlist, refcounted per physical block, with `KEY_ROTATE_SOON` / `KEY_ROTATE_NOW` / `KEY_RETIRABLE` events delivered to the application.
+  - Anti-rollback via an external freshness callback bound to the device-header revision and the VID-header global sequence number (attach-time check + post-commit sync).
+  - Sticky read-only mode on authentication failure, RNG failure, or write-budget exhaustion — reads stay available, writes are refused.
+
+## Quick comparison
+
+| Need | Reach for |
+|---|---|
+| Files and directories | LittleFS |
+| Small key-value config | NVS or ZMS |
+| Circular log of small records | FCB |
+| Multiple volumes / large external flash / mixed workloads | **UBI** |
+| Tamper-evident, rollback-detectable storage substrate | **UBI secure** |
+| Small internal flash, single workload, fixed layout forever | NVS / ZMS — UBI is overkill |
+
+Full side-by-side: [comparison page](https://kamil-kielbasa.github.io/ubi/getting_started/comparison.html).
 
 ## Quick Start
 
@@ -89,29 +99,40 @@ int main(void)
 
 Error handling is omitted for brevity. All API functions return `0` on success or a negative `errno` code on failure. See [`sample/`](sample/) for a complete buildable example.
 
+## Footprint
+
+UBI library only, Cortex-M33, `-Os`, STM32U585 (`b_u585i_iot02a`):
+
+- Plain build: ~9.5 KB flash, ~1.5 KB BSS
+- Secure build: ~28.6 KB flash, ~1.8 KB BSS
+
+PSA Crypto and mbedTLS are provided by the platform and not counted. See [Architecture — Resource profile](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) for what the secure delta pays for.
+
+## Status
+
+v1.0.0 — public API and on-flash format (plain + secure) are stable; breaking changes require a major bump.
+
+- 55 test suites, 609 tests total (270 plain + 339 secure).
+- Validated on Zephyr `native_sim` (flash simulator), STM32U585 (`b_u585i_iot02a`), and nRF5340 (`nrf5340dk`).
+- Branch-coverage uplift, a UBIFS-style filesystem, and an LSM-tree-based indexed store are roadmap items.
+
 ## Documentation
 
-Full documentation is published at **<https://kamil-kielbasa.github.io/ubi/>**. Quick links to the most-used pages:
+Full documentation: <https://kamil-kielbasa.github.io/ubi/>
 
-- [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) — 5-minute orientation, when (and when not) to use UBI.
+- [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) — 5-minute orientation.
+- [Comparison vs LittleFS / NVS / ZMS](https://kamil-kielbasa.github.io/ubi/getting_started/comparison.html)
 - [Quick Start](https://kamil-kielbasa.github.io/ubi/getting_started/quick_start.html) — build, run the sample, write your first volume.
 - [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) — STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store.
 - [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) — on-flash layout, wear-leveling, dual-bank, recovery.
-- [Secure Architecture: Overview](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
+- [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
 - [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling.
 - [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html) — normative byte-level reference.
 - [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html)
 
-## Project Quality
+## Security
 
-| Metric | Value |
-|--------|-------|
-| Test suites | 33 suites, 325 tests (251 plain + 74 secure) |
-| Line coverage | 85.0% plain / 77.3% secure (target ≥ 80%) |
-| Branch coverage | 51.8% plain / 40.7% secure (target ≥ 70%) |
-| CI | GitHub Actions — build, test, coverage, cross-compile STM32U5 + nRF5340 |
-| Primary test platform | Zephyr `native_sim` with flash simulator |
-| Hardware validation | `b_u585i_iot02a` (STM32U5), `nrf5340dk` (nRF5340) cross-compilation |
+For vulnerability reporting and the supported-version policy, see [SECURITY.md](SECURITY.md).
 
 ## License
 

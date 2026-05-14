@@ -8,10 +8,13 @@ on a single flash partition — similar to what LVM does for block devices.
 
 .. note::
 
-   **Release status: v1.0.0 (in preparation).**
-   The library API and on-flash format are stabilising for v1.0.0. CI,
+   **Release status: v1.0.0.**
+   The library API and the on-flash format (plain and secure) are
+   stable; breaking changes require a major version bump. CI,
    coverage, and metrics badges live on the
    `repository README <https://github.com/kamil-kielbasa/ubi#readme>`_.
+   See the `CHANGELOG <https://github.com/kamil-kielbasa/ubi/blob/main/CHANGELOG.md>`_
+   for the full release history.
 
 ----
 
@@ -29,6 +32,7 @@ Pick the card that matches what you came here to do.
        Understand what UBI is and whether it fits your project.
 
        * :doc:`getting_started/what_is_ubi`
+       * :doc:`getting_started/comparison`
        * :doc:`getting_started/concepts`
      - **🔧 Want to integrate?**
 

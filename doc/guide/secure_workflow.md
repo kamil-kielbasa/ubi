@@ -294,7 +294,6 @@ rotation steps in §5.2 to actually drive the refcount to zero.
   (events), 19 (lifecycle), 20 (recovery), 21 (runtime policy) for
   the normative rules behind every paragraph above.
 - {doc}`/guide/cookbook` — runnable recipes: provisioning, lazy rotation,
-  forced rotation, freshness store on Zephyr Settings (lands in
-  PR 5).
+  forced rotation, freshness store on Zephyr Settings.
 - {doc}`/project/test_strategy` § *ZTEST traceability for Secure UBI* — see
   exactly which test exercises which behaviour.
