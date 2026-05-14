@@ -170,6 +170,7 @@ ZTEST(ubi_secure_mutation_gate, write_shutdown_blocks_all_mutators)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 1, new_data, sizeof(new_data)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 #else
 	ztest_test_skip();
 #endif

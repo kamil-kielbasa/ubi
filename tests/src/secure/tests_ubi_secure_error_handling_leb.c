@@ -111,6 +111,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_null_buffer)
 	ubi_contract_leb_write_null_buffer(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_write() rejects a zero-length write.
@@ -127,6 +128,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_zero_length)
 	ubi_contract_leb_write_zero_length(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that reading from an unmapped LEB fails.
@@ -154,6 +156,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_unmapped)
 	zassert_equal(-ENOENT, ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(buf)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -171,6 +174,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_null_buffer)
 	ubi_contract_leb_read_null_buffer(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that unmapping an already-unmapped LEB is idempotent.
@@ -187,6 +191,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_unmapped)
 	ubi_contract_leb_unmap_unmapped(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_is_mapped() rejects a NULL output pointer.
@@ -203,6 +208,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_null)
 	ubi_contract_leb_is_mapped_null(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_get_size() rejects a NULL output pointer.
@@ -219,6 +225,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_null)
 	ubi_contract_leb_get_size_null(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that overwriting an existing LEB moves the old PEB to dirty.
@@ -265,6 +272,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_overwrite)
 	zassert_equal(1, info.dirty_peb_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -284,6 +292,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_with_offset)
 	ubi_contract_leb_read_with_offset(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that writing to an out-of-range LEB number is rejected.
@@ -300,6 +309,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_out_of_range_lnum)
 	ubi_contract_leb_write_out_of_range_lnum(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that reading from an out-of-range LEB number is rejected.
@@ -327,6 +337,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_out_of_range_lnum)
 	zassert_equal(-EACCES, ubi_leb_read(ubi, vol_id, 5, 0, rdata, sizeof(rdata)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -345,6 +356,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_then_write)
 	ubi_contract_leb_map_then_write(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_write() fails when no volumes exist.
@@ -361,6 +373,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_no_volumes)
 	ubi_contract_leb_write_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_read() fails when no volumes exist.
@@ -379,6 +392,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_no_volumes)
 	zassert_equal(-ENOENT, ubi_leb_read(ubi, 0, 0, 0, rdata, sizeof(rdata)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -396,6 +410,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_out_of_range)
 	ubi_contract_leb_unmap_out_of_range(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_unmap() fails when no volumes exist.
@@ -412,6 +427,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_no_volumes)
 	ubi_contract_leb_unmap_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_is_mapped() fails when no volumes exist.
@@ -430,6 +446,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_no_volumes)
 	zassert_equal(-ENOENT, ubi_leb_is_mapped(ubi, 0, 0, &mapped));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -447,6 +464,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_no_volumes)
 	ubi_contract_leb_get_size_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_write() fails when the volume does not exist.
@@ -463,6 +481,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_vol_not_found)
 	ubi_contract_leb_write_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_read() fails when the volume does not exist.
@@ -490,6 +509,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_vol_not_found)
 	zassert_equal(-ENOENT, ubi_leb_read(ubi, 999, 0, 0, rdata, sizeof(rdata)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -507,6 +527,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_vol_not_found)
 	ubi_contract_leb_unmap_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_is_mapped() fails when the volume does not exist.
@@ -534,6 +555,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_vol_not_found)
 	zassert_equal(-ENOENT, ubi_leb_is_mapped(ubi, 999, 0, &mapped));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -551,6 +573,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_vol_not_found)
 	ubi_contract_leb_get_size_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_read() rejects an out-of-range LEB number.
@@ -577,6 +600,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_out_of_range)
 	zassert_equal(-EACCES, ubi_leb_read(ubi, vol_id, 5, 0, rdata, sizeof(rdata)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -605,6 +629,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_out_of_range)
 	zassert_equal(-EACCES, ubi_leb_is_mapped(ubi, vol_id, 5, &mapped));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -621,6 +646,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_out_of_range)
 	ubi_contract_leb_get_size_out_of_range(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that unmapping an unmapped LEB twice is safe (idempotent).
@@ -636,6 +662,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_unmapped_is_idempotent)
 	ubi_contract_leb_unmap_unmapped_is_idempotent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that mapping an already-mapped LEB is a no-op.
@@ -651,6 +678,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_already_mapped_is_noop)
 	ubi_contract_leb_map_already_mapped_is_noop(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_leb_get_size() fails when the LEB is not mapped.
@@ -667,6 +695,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_unmapped)
 	ubi_contract_leb_get_size_unmapped(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify reading last byte at exact data boundary.
@@ -682,6 +711,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_last_byte_at_boundary)
 	ubi_contract_leb_read_last_byte_at_boundary(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that reading beyond data_size returns -EINVAL.
@@ -697,6 +727,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_beyond_data_size)
 	ubi_contract_leb_read_beyond_data_size(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify leb_unmap on already-unmapped LEB is idempotent (write+unmap).
@@ -725,6 +756,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_already_unmapped_idempotent)
 	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -765,6 +797,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_beyond_data_size_returns_einval)
 	zassert_mem_equal(buf, data, 32);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -781,6 +814,7 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_vol_not_found)
 	ubi_contract_leb_map_vol_not_found(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief LEB map with lnum exceeding volume capacity returns error.
@@ -810,4 +844,5 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_lnum_out_of_range)
 	zassert_not_equal(ret, 0);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }

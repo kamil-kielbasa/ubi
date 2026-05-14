@@ -118,6 +118,7 @@ ZTEST(ubi_secure_vol_id_watermark, volume_id_not_reused_after_remove_same_boot)
 
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -143,6 +144,7 @@ ZTEST(ubi_secure_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 	zassert_ok(ubi_volume_remove(ubi, id_a));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	ubi = sec_init();
 
@@ -157,6 +159,7 @@ ZTEST(ubi_secure_vol_id_watermark, volume_id_not_reused_after_remove_and_reinit)
 
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -207,6 +210,7 @@ ZTEST(ubi_secure_vol_id_watermark, volume_slot_reindex_does_not_change_ids)
 
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	ubi = sec_init();
 
@@ -224,4 +228,5 @@ ZTEST(ubi_secure_vol_id_watermark, volume_slot_reindex_does_not_change_ids)
 
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }

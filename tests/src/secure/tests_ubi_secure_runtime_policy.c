@@ -141,6 +141,7 @@ static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto
 							 void *user_data)
 {
 	(void)tracking_event_cb(event, user_data);
+
 	return UBI_CRYPTO_EVENT_ENTER_READ_ONLY;
 }
 
@@ -155,11 +156,13 @@ static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness,
 {
 	(void)freshness;
 	(void)user_data;
+
 	ts.sync_call_count++;
 
 	if (ts.sync_fail_after > 0 && ts.sync_call_count > ts.sync_fail_after) {
 		return -EIO;
 	}
+
 	return ts.sync_return_code;
 }
 
@@ -171,6 +174,7 @@ static int selective_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 	if (ts.fail_key_version != 0 && key_version == ts.fail_key_version) {
 		return -ENOENT;
 	}
+
 	*key_id_out = ubi_test_root_key_id;
 	return 0;
 }
@@ -183,6 +187,7 @@ rejecting_check_freshness(const struct ubi_crypto_freshness *freshness, void *us
 {
 	(void)freshness;
 	(void)user_data;
+
 	return UBI_CRYPTO_ROLLBACK_REJECT;
 }
 

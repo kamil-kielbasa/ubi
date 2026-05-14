@@ -153,6 +153,7 @@ ZTEST(ubi_secure_error_handling, get_info_null_device)
 	ubi_contract_get_info_null_device(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_device_get_info() rejects a NULL info buffer.
@@ -169,6 +170,7 @@ ZTEST(ubi_secure_error_handling, get_info_null_info)
 	ubi_contract_get_info_null_info(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_device_erase_peb() rejects a NULL device pointer.

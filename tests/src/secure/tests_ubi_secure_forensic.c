@@ -191,6 +191,7 @@ ZTEST(ubi_secure_forensic, plaintext_data_absent_after_write)
 
 	/* Deinit so all buffers are flushed. */
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* Forensic scan: plaintext must not appear on flash. */
 	zassert_false(flash_contains_pattern(array_128, ARRAY_SIZE(array_128)),
@@ -229,6 +230,7 @@ ZTEST(ubi_secure_forensic, volume_name_absent_in_data_area)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* The name "/SECRET" should not appear in data PEB area. */
 	const uint8_t name_pattern[] = { '/', 'S', 'E', 'C', 'R', 'E', 'T' };
@@ -266,6 +268,7 @@ ZTEST(ubi_secure_forensic, key_material_absent_on_flash)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* Root key material must never appear anywhere on flash. */
 	zassert_false(flash_contains_pattern(UBI_TEST_ROOT_KEY_MATERIAL,
@@ -319,6 +322,7 @@ ZTEST(ubi_secure_forensic, plaintext_absent_after_overwrite_and_erase)
 	}
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* Neither old nor new plaintext should be on flash. */
 	zassert_false(flash_contains_pattern(array_128, ARRAY_SIZE(array_128)),
@@ -355,6 +359,7 @@ ZTEST(ubi_secure_forensic, plain_backend_plaintext_is_detectable)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* On plain backend, plaintext MUST be on flash — validates the scanner. */
 	zassert_true(flash_contains_pattern(array_128, ARRAY_SIZE(array_128)),
@@ -414,6 +419,7 @@ ZTEST(ubi_secure_forensic, leb_tail_padding_uses_erased_value)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, small_payload, sizeof(small_payload)));
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* Scan data PEBs for the secure LEB prefix and verify tail padding. */
 	const struct flash_area *fa = NULL;

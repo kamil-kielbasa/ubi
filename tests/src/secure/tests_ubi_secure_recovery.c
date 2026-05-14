@@ -157,6 +157,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_preserves_old_mapping)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -214,6 +215,7 @@ ZTEST(ubi_secure_recovery, interrupted_vid_commit_preserves_old_mapping)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -269,6 +271,7 @@ ZTEST(ubi_secure_recovery, interrupted_first_write_leaves_unmapped)
 
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 #else
 	ztest_test_skip();
 #endif
@@ -318,6 +321,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
@@ -339,6 +343,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -435,6 +440,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
@@ -460,6 +466,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -533,6 +540,7 @@ ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
@@ -560,6 +568,7 @@ ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -630,6 +639,7 @@ ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
@@ -664,6 +674,7 @@ ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -719,6 +730,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
@@ -753,6 +765,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
@@ -814,6 +827,7 @@ ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
@@ -862,6 +876,7 @@ ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else

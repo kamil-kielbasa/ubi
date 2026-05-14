@@ -111,6 +111,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_null_params)
 	ubi_contract_volume_create_null_params(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that creating the same volume twice is idempotent.
@@ -128,6 +129,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_idempotent)
 	ubi_contract_volume_create_idempotent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that creating a volume larger than available PEBs fails.
@@ -144,6 +146,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_no_space)
 	ubi_contract_volume_create_no_space(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that removing a non-existent volume fails.
@@ -160,6 +163,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_remove_nonexistent)
 	ubi_contract_volume_remove_nonexistent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that querying info for a non-existent volume fails.
@@ -176,6 +180,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_get_info_nonexistent)
 	ubi_contract_volume_get_info_nonexistent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that resizing a static volume is rejected.
@@ -192,6 +197,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_static)
 	ubi_contract_volume_resize_static(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that resizing a volume to its current size is rejected.
@@ -208,6 +214,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_same_size)
 	ubi_contract_volume_resize_same_size(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that resizing a non-existent volume fails.
@@ -224,6 +231,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_nonexistent)
 	ubi_contract_volume_resize_nonexistent(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that shrinking a volume with mapped LEBs trims the excess.
@@ -271,6 +279,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_shrink_with_mapped_lebs)
 	zassert_true(info.dirty_peb_count >= 2);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -310,6 +319,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_remove_and_recreate)
 	zassert_false(mapped);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -327,6 +337,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_null_config)
 	ubi_contract_volume_resize_null_config(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_volume_resize() fails when no volumes exist.
@@ -343,6 +354,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_no_volumes)
 	ubi_contract_volume_resize_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_volume_get_info() fails when no volumes exist.
@@ -359,6 +371,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_get_info_no_volumes)
 	ubi_contract_volume_get_info_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_volume_remove() fails when no volumes exist.
@@ -375,6 +388,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_remove_no_volumes)
 	ubi_contract_volume_remove_no_volumes(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that creating a volume with an invalid type is rejected.
@@ -390,6 +404,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_invalid_type)
 	ubi_contract_volume_create_invalid_type(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that creating a volume with leb_count == 0 is rejected.
@@ -405,6 +420,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_zero_lebs)
 	ubi_contract_volume_create_zero_lebs(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that resizing a volume to leb_count == 0 is rejected.
@@ -420,6 +436,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_zero_lebs_rejected)
 	ubi_contract_volume_resize_zero_lebs_rejected(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that writing to a static volume is allowed.
@@ -435,6 +452,7 @@ ZTEST(ubi_secure_error_handling_volume, static_volume_write_allowed)
 	ubi_contract_static_volume_write_allowed(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that creating a volume with a duplicate name returns the
@@ -464,6 +482,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_duplicate_name)
 	zassert_equal(vol_id_1, vol_id_2);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -507,6 +526,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_duplicate_name_different_c
 	zassert_equal(-EEXIST, ubi_volume_create(ubi, &cfg3, &vol_id_3));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -530,6 +550,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_empty_name)
 	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, &vol_id));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -556,6 +577,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_name_no_nul)
 	zassert_equal(-EINVAL, ubi_volume_create(ubi, &cfg, &vol_id));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -572,6 +594,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_name_max_valid)
 	ubi_contract_volume_create_name_max_valid(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that ubi_volume_resize() fails when expanding beyond
@@ -588,6 +611,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_expand_enospc)
 	ubi_contract_volume_resize_expand_enospc(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify that volume_resize shrink preserves data on retained LEBs
@@ -642,6 +666,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_shrink_trim)
 	}
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -674,6 +699,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_idempotent_returns_same_id
 	zassert_equal(1, info.volume_count, "Only one volume should exist");
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -706,6 +732,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_create_name_clash_different_confi
 	zassert_equal(-EEXIST, ubi_volume_create(ubi, &cfg2, &vol_id2));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -723,6 +750,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_grow_preserves_data)
 	ubi_contract_volume_resize_grow_preserves_data(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Verify volume_resize grow with insufficient PEBs returns -ENOSPC.
@@ -773,6 +801,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_grow_enospc)
 	zassert_equal(1, out_cfg.leb_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -822,6 +851,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_remove_and_recreate_different_con
 	zassert_false(is_mapped, "Re-created volume should be empty");
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -839,6 +869,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_get_info_detailed)
 	ubi_contract_volume_get_info_detailed(ubi);
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 /**
  * \brief Volume remove with nonexistent vol_id returns -ENOENT.
@@ -865,6 +896,7 @@ ZTEST(ubi_secure_error_handling_volume, volume_remove_wrong_vol_id)
 	zassert_equal(ret, -ENOENT, "remove nonexistent vol_id should return -ENOENT");
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }
 
 /**
@@ -920,4 +952,5 @@ ZTEST(ubi_secure_error_handling_volume, volume_resize_shrink_preserves_data)
 	zassert_equal(-EACCES, ubi_leb_write(ubi, vol_id, 3, dummy, sizeof(dummy)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 }

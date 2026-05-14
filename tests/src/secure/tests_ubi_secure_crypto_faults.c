@@ -234,6 +234,7 @@ ZTEST(ubi_secure_crypto_faults, aead_decrypt_fail_on_reattach_read)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* Re-init — no fault on attach. */
 	ubi = sec_init();
@@ -434,6 +435,7 @@ ZTEST(ubi_secure_crypto_faults, freshness_reject_on_init)
 	struct ubi_device *ubi = sec_init();
 
 	zassert_ok(ubi_device_deinit(ubi));
+	g_ubi = NULL;
 
 	/* Now re-init with freshness rejection armed. */
 	static struct ubi_crypto_config cfg;
