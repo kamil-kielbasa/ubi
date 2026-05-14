@@ -40,11 +40,6 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-#define UBI_PARTITION_NAME ubi_partition
-#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
-#define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
-#define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
-
 /* Reserved PEBs occupy the first NR_OF_RES_PEBS slots; data PEBs follow. */
 #define NR_OF_RES_PEBS (2U)
 
@@ -59,16 +54,67 @@
 
 /* Module interface variables and constants ----------------------------------------------------- */
 
-/* Big-endian 'UBIS' magic prefix bytes (sys_put_be32(0x55424953)). */
-static const uint8_t UBIS_MAGIC_BE[4] = { 'U', 'B', 'I', 'S' };
-
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
+/* Big-endian 'UBIS' magic prefix bytes (sys_put_be32(0x55424953)). */
+static const uint8_t UBIS_MAGIC_BE[4] = { 'U', 'B', 'I', 'S' };
 
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 static size_t g_auth_failure_count;
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
+						       void *user_data);
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_suite_after(void *ctx);
+/**
+ * \brief Find data PEBs that hold an authentic VID record (i.e. mapped LEBs).
+ *
+ * \details Scans data PEBs **in ascending pnum order** and returns those
+ *          whose VID region begins with the 'UBIS' big-endian magic.
+ *          Reserved PEBs are skipped.  Combined with the secure backend's
+ *          deterministic highest-free-pnum allocation strategy, this lets
+ *          tests deduce the lnum-to-pnum mapping from write order: the
+ *          first written LEB lands on the **highest** mapped pnum, the
+ *          second on the next-lower one, and so on.  Concretely, with
+ *          two LEBs written in order (lnum 0, lnum 1), the returned
+ *          \c mapped[0] (lower pnum) holds lnum 1 and \c mapped[1]
+ *          (higher pnum) holds lnum 0.
+ *
+ * \param[out] out_pnums  Receives PEB indices (must hold at least \p max).
+ * \param[in]  max        Maximum number of indices to fill.
+ *
+ * \return Number of mapped data PEBs found (clamped to \p max).
+ */
+static size_t find_mapped_data_pebs(size_t *out_pnums, size_t max);
+/**
+ * \brief Copy a sub-region from PEB \p src_pnum into PEB \p dst_pnum (verbatim).
+ *
+ * \details Reads the entire erase block of \p dst_pnum, overlays
+ *          [\p region_off, \p region_off + \p region_len) with the
+ *          corresponding bytes from \p src_pnum, then erases and rewrites
+ *          \p dst_pnum.  Used to forge a "replay-to-other-location" attack:
+ *          PEB \p dst_pnum on flash now bears an authentic record produced
+ *          for PEB \p src_pnum, so the verifier (which derives AAD from
+ *          \p dst_pnum) must reject it.
+ */
+static void copy_region_between_pebs(size_t src_pnum, size_t dst_pnum, size_t region_off,
+				     size_t region_len);
+/**
+ * \brief Format the device, create one volume, and write two LEBs.
+ *
+ * \param[in]  cfg       Crypto config.
+ * \param[out] vol_id    Receives the created volume id.
+ * \param[in]  payload0  Payload for lnum=0.
+ * \param[in]  payload1  Payload for lnum=1.
+ * \param[in]  payload_len  Bytes per LEB payload.
+ */
+static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
+				 const uint8_t *payload0, const uint8_t *payload1,
+				 size_t payload_len);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -105,25 +151,7 @@ static void ztest_suite_after(void *ctx)
 	}
 }
 
-/**
- * \brief Find data PEBs that hold an authentic VID record (i.e. mapped LEBs).
- *
- * \details Scans data PEBs **in ascending pnum order** and returns those
- *          whose VID region begins with the 'UBIS' big-endian magic.
- *          Reserved PEBs are skipped.  Combined with the secure backend's
- *          deterministic highest-free-pnum allocation strategy, this lets
- *          tests deduce the lnum-to-pnum mapping from write order: the
- *          first written LEB lands on the **highest** mapped pnum, the
- *          second on the next-lower one, and so on.  Concretely, with
- *          two LEBs written in order (lnum 0, lnum 1), the returned
- *          \c mapped[0] (lower pnum) holds lnum 1 and \c mapped[1]
- *          (higher pnum) holds lnum 0.
- *
- * \param[out] out_pnums  Receives PEB indices (must hold at least \p max).
- * \param[in]  max        Maximum number of indices to fill.
- *
- * \return Number of mapped data PEBs found (clamped to \p max).
- */
+/** \brief Find data PEBs that hold an authentic VID record (i.e */
 static size_t find_mapped_data_pebs(size_t *out_pnums, size_t max)
 {
 	const struct device *dev = UBI_PARTITION_DEVICE;
@@ -144,17 +172,7 @@ static size_t find_mapped_data_pebs(size_t *out_pnums, size_t max)
 	return found;
 }
 
-/**
- * \brief Copy a sub-region from PEB \p src_pnum into PEB \p dst_pnum (verbatim).
- *
- * \details Reads the entire erase block of \p dst_pnum, overlays
- *          [\p region_off, \p region_off + \p region_len) with the
- *          corresponding bytes from \p src_pnum, then erases and rewrites
- *          \p dst_pnum.  Used to forge a "replay-to-other-location" attack:
- *          PEB \p dst_pnum on flash now bears an authentic record produced
- *          for PEB \p src_pnum, so the verifier (which derives AAD from
- *          \p dst_pnum) must reject it.
- */
+/** \brief Copy a sub-region from PEB \p src_pnum into PEB \p dst_pnum (verbatim) */
 static void copy_region_between_pebs(size_t src_pnum, size_t dst_pnum, size_t region_off,
 				     size_t region_len)
 {
@@ -185,15 +203,7 @@ static void copy_region_between_pebs(size_t src_pnum, size_t dst_pnum, size_t re
 	k_free(dst_block);
 }
 
-/**
- * \brief Format the device, create one volume, and write two LEBs.
- *
- * \param[in]  cfg       Crypto config.
- * \param[out] vol_id    Receives the created volume id.
- * \param[in]  payload0  Payload for lnum=0.
- * \param[in]  payload1  Payload for lnum=1.
- * \param[in]  payload_len  Bytes per LEB payload.
- */
+/** \brief Format the device, create one volume, and write two LEBs */
 static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
 				 const uint8_t *payload0, const uint8_t *payload1,
 				 size_t payload_len)

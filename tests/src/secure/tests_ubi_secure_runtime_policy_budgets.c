@@ -37,21 +37,24 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-#define UBI_PARTITION_NAME ubi_partition
-#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
-#define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
-#define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
+#define BUDGET_NOW_THRESHOLD                                                                      \
+	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / \
+	 100)
+#define BUDGET_SOON_THRESHOLD                                                                      \
+	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / \
+	 100)
+/* Headroom — how far below NOW the counter starts.  Must be small enough
+ * that the hard threshold is reached within the few free PEBs available
+ * on native_sim, yet leave room for at least one successful operation
+ * before the rejection.                                                  */
+#define BUDGET_HEADROOM 5
+
+#define LEB_BUDGET_NOW_THRESHOLD \
+	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / 100)
+#define LEB_BUDGET_SOON_THRESHOLD \
+	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / 100)
 
 /* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
-
-/* Static variables and constants --------------------------------------------------------------- */
-
-/* Static function declarations ----------------------------------------------------------------- */
-
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
 
 /** Grouped test state — zeroed by memset in suite before(). */
 struct runtime_policy_test_state {
@@ -87,13 +90,29 @@ struct runtime_policy_test_state {
 	uint8_t fail_key_version;
 };
 
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi;
+
 static struct runtime_policy_test_state ts;
 
-/* Static function definitions ------------------------------------------------------------------ */
+/* Static function declarations ----------------------------------------------------------------- */
 
 /**
  * \brief Comprehensive event tracker — returns CONTINUE.
  */
+static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
+						       void *user_data);
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_suite_after(void *ctx);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
+/** \brief Comprehensive event tracker — returns CONTINUE */
 static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
 						       void *user_data)
 {
@@ -158,23 +177,6 @@ static void ztest_suite_after(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
-
-#define BUDGET_NOW_THRESHOLD                                                                      \
-	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / \
-	 100)
-#define BUDGET_SOON_THRESHOLD                                                                      \
-	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / \
-	 100)
-/* Headroom — how far below NOW the counter starts.  Must be small enough
- * that the hard threshold is reached within the few free PEBs available
- * on native_sim, yet leave room for at least one successful operation
- * before the rejection.                                                  */
-#define BUDGET_HEADROOM 5
-
-#define LEB_BUDGET_NOW_THRESHOLD \
-	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / 100)
-#define LEB_BUDGET_SOON_THRESHOLD \
-	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / 100)
 
 ZTEST_SUITE(ubi_secure_runtime_policy_budgets, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_suite_after, NULL);
@@ -620,7 +622,11 @@ ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_rotate_soon_emitted_below_no
 		ubi_secure_test_set_metadata_counters(g_ubi, 0, 0, 0);
 
 		zassert_ok(ubi_leb_write(g_ubi, vol_id, 0, wdata, sizeof(wdata)));
-		(void)ubi_device_erase_peb(g_ubi);
+		/* Each iteration writes one LEB and then erases the previous mapped
+		 * PEB freed by the in-place overwrite.  Erase must succeed because
+		 * the LEB-domain budget has not yet hit the hard threshold and the
+		 * metadata counter was just reset. */
+		zassert_ok(ubi_device_erase_peb(g_ubi));
 
 		if (ts.rotate_soon_count >= 1) {
 			break;
@@ -673,7 +679,9 @@ ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_exhausts_blocks_until_rotati
 		if (last_ret != 0) {
 			break;
 		}
-		(void)ubi_device_erase_peb(g_ubi);
+		/* Free the mapped PEB before the next write — must succeed
+		 * while the LEB budget is still below the hard threshold. */
+		zassert_ok(ubi_device_erase_peb(g_ubi));
 	}
 
 	zassert_equal(last_ret, -ENOSPC, "Expected -ENOSPC from leb_write, got %d", last_ret);
@@ -1044,16 +1052,24 @@ ZTEST(ubi_secure_runtime_policy_budgets, forced_rekey_with_stale_objects)
 			break;
 		}
 
-		/* Force more wear-leveling cycles by alternating overwrites. */
+		/* Force more wear-leveling cycles by alternating overwrites.
+		 * Either the write succeeds (LEB budget not yet hit, churn writes
+		 * fresh data) or it returns -ENOSPC once the budget thresholds
+		 * trip — nothing else is acceptable. */
 		const uint8_t churn[] = { (uint8_t)i, 0xAA, 0x55, 0xFF };
 
-		(void)ubi_leb_write(g_ubi, vol_id, (i & 1u) ? 1 : 0, churn, sizeof(churn));
+		int churn_ret =
+			ubi_leb_write(g_ubi, vol_id, (i & 1u) ? 1 : 0, churn, sizeof(churn));
+
+		zassert_true(churn_ret == 0 || churn_ret == -ENOSPC,
+			     "churn write returned unexpected %d", churn_ret);
 	}
 
 	/* Final flush: unmap both LEBs (release their mapped PEBs into dirty
-	 * pool) then erase everything. */
-	(void)ubi_leb_unmap(g_ubi, vol_id, 0);
-	(void)ubi_leb_unmap(g_ubi, vol_id, 1);
+	 * pool) then erase everything.  Both LEBs were created by this test so
+	 * the unmaps must succeed unconditionally. */
+	zassert_ok(ubi_leb_unmap(g_ubi, vol_id, 0));
+	zassert_ok(ubi_leb_unmap(g_ubi, vol_id, 1));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(g_ubi, &info));

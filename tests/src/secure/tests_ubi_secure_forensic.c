@@ -46,11 +46,6 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-#define UBI_PARTITION_NAME ubi_partition
-#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
-#define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
-#define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
-
 /** Scan buffer size — must fit one erase block. */
 #define SCAN_BUF_SIZE 8192
 
@@ -59,6 +54,7 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi = NULL;
 

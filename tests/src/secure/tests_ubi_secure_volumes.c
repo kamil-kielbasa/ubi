@@ -13,6 +13,7 @@
 #include <ubi.h>
 #include <ubi_crypto.h>
 #include <ubi_test.h>
+#include "ubi_secure_test_hooks.h"
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
@@ -34,18 +35,11 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-#define UBI_PARTITION_NAME ubi_partition
-#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
-#define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
-#define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
-
 /* Module types and type definitiones ----------------------------------------------------------- */
 
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
-
-/* Static function declarations ----------------------------------------------------------------- */
 
 static struct ubi_flash_desc flash = { 0 };
 
@@ -56,6 +50,11 @@ extern struct sys_heap _system_heap;
 static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -525,13 +524,32 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 1, data, sizeof(data)));
 
-	/* 2. Remove the volume (zero-volume state). */
+	/* Snapshot the in-RAM next_vid (= the floor that volume_remove must
+	 * persist into the secure device header).  Must be strictly positive
+	 * — three LEB writes have already advanced it. */
+	uint64_t vid_pre_remove = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_pre_remove);
+	zassert_true(vid_pre_remove > 0,
+		     "next_vid did not advance after three LEB writes (got %llu)",
+		     (unsigned long long)vid_pre_remove);
+
+	/* 2. Remove the volume (zero-volume state).  The reserved-PEB rewrite
+	 *    triggered by volume_remove() must commit the current next_vid
+	 *    value into the device header as vid_next_counter_floor. */
 	zassert_ok(ubi_volume_remove(ubi, vol_id));
 
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(0, info.volume_count);
 	zassert_equal(0, info.reserved_peb_count);
+
+	uint64_t vid_post_remove = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_post_remove);
+	zassert_true(vid_post_remove >= vid_pre_remove,
+		     "volume_remove regressed next_vid: pre=%llu post=%llu",
+		     (unsigned long long)vid_pre_remove, (unsigned long long)vid_post_remove);
 
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
@@ -542,6 +560,16 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(0, info.volume_count);
+
+	/* The device-header floor read at attach time must be at least the
+	 * value committed before deinit — this is the actual floor
+	 * persistence oracle (no replay-counter reuse on a fresh volume). */
+	uint64_t vid_post_reboot = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_post_reboot);
+	zassert_true(vid_post_reboot >= vid_post_remove,
+		     "vid_next_counter_floor regressed across reboot: pre=%llu post=%llu",
+		     (unsigned long long)vid_post_remove, (unsigned long long)vid_post_reboot);
 
 	/* 4. Create new volume and write — must succeed with fresh counter
 	 *    above the old floor.  If the floor was lost, the new anchor and
@@ -565,11 +593,23 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
 	zassert_ok(ubi_leb_read(ubi, vol_id2, 0, 0, rdata, rsize));
 	zassert_mem_equal(rdata, data2, sizeof(data2));
 
-	/* 5. Deinit, re-init — verify persistence of new data. */
+	/* 5. Deinit, re-init — verify persistence of new data AND that the
+	 *    floor still survives a second reboot on a populated device. */
+	uint64_t vid_pre_second_reboot = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_pre_second_reboot);
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+
+	uint64_t vid_post_second_reboot = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_post_second_reboot);
+	zassert_true(vid_post_second_reboot >= vid_pre_second_reboot,
+		     "vid_next_counter_floor regressed across second reboot: pre=%llu post=%llu",
+		     (unsigned long long)vid_pre_second_reboot,
+		     (unsigned long long)vid_post_second_reboot);
 
 	memset(rdata, 0, sizeof(rdata));
 	rsize = 0;
@@ -625,6 +665,16 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_remove_create_reboot)
 	/* Overwrite to push counter further. */
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data1, sizeof(data1)));
 
+	/* Snapshot the floor before the remove — the reserved-PEB rewrite
+	 * triggered by volume_remove must commit at least this value into
+	 * the secure device header. */
+	uint64_t vid_pre_remove = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_pre_remove);
+	zassert_true(vid_pre_remove > 0,
+		     "next_vid did not advance after three LEB writes (got %llu)",
+		     (unsigned long long)vid_pre_remove);
+
 	/* 2. Remove volume A — floor preserved in device header. */
 	zassert_ok(ubi_volume_remove(ubi, vol_id));
 
@@ -648,6 +698,17 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_remove_create_reboot)
 	ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+
+	/* The device-header floor read at attach must be at least the value
+	 * we observed before remove A — proving volume_remove persisted it
+	 * and the attach scan restored it.  The fresh writes made for volume B
+	 * before the reboot may have advanced it further. */
+	uint64_t vid_post_first_reboot = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_post_first_reboot);
+	zassert_true(vid_post_first_reboot >= vid_pre_remove,
+		     "vid_next_counter_floor regressed across first reboot: pre=%llu post=%llu",
+		     (unsigned long long)vid_pre_remove, (unsigned long long)vid_post_first_reboot);
 
 	/* 5. Verify data integrity — floor was preserved across remove→create→reboot. */
 	uint8_t rdata[sizeof(data2)] = { 0 };
@@ -673,10 +734,24 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_remove_create_reboot)
 	const uint8_t data3[] = { 0xDD, 0xEE };
 
 	zassert_ok(ubi_leb_write(ubi, vol_id_c, 0, data3, sizeof(data3)));
+
+	/* Snapshot the floor before the second reboot — must again be
+	 * persisted across deinit/reinit. */
+	uint64_t vid_pre_second_reboot = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_pre_second_reboot);
 	zassert_ok(ubi_device_deinit(ubi));
 	ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
+
+	uint64_t vid_post_second_reboot = 0;
+
+	ubi_secure_test_get_metadata_counters(ubi, NULL, NULL, &vid_post_second_reboot);
+	zassert_true(vid_post_second_reboot >= vid_pre_second_reboot,
+		     "vid_next_counter_floor regressed across second reboot: pre=%llu post=%llu",
+		     (unsigned long long)vid_pre_second_reboot,
+		     (unsigned long long)vid_post_second_reboot);
 
 	memset(rdata, 0, sizeof(rdata));
 	rsize = 0;

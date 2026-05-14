@@ -18,6 +18,7 @@
 #include <ubi_test.h>
 #include "arrays.h"
 #include "ubi_secure_test_hooks.h"
+#include "ubi_secure_types.h"
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
@@ -37,21 +38,7 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-#define UBI_PARTITION_NAME ubi_partition
-#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
-#define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
-#define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
-
 /* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
-
-/* Static variables and constants --------------------------------------------------------------- */
-
-/* Static function declarations ----------------------------------------------------------------- */
-
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
 
 /** Grouped test state — zeroed by memset in suite before(). */
 struct runtime_policy_test_state {
@@ -87,13 +74,46 @@ struct runtime_policy_test_state {
 	uint8_t fail_key_version;
 };
 
+/* Module interface variables and constants ----------------------------------------------------- */
+
+/* Static variables and constants --------------------------------------------------------------- */
+
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi;
+
 static struct runtime_policy_test_state ts;
 
-/* Static function definitions ------------------------------------------------------------------ */
+/* Static function declarations ----------------------------------------------------------------- */
 
 /**
  * \brief Comprehensive event tracker — returns CONTINUE.
  */
+static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
+						       void *user_data);
+/**
+ * \brief Event tracker that escalates every event to read-only.
+ */
+static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto_event *event,
+							 void *user_data);
+/**
+ * \brief Sync freshness with configurable delayed failure.
+ *
+ * - sync_fail_after == 0 && sync_return_code == 0: always succeeds.
+ * - sync_fail_after == 0 && sync_return_code != 0: always fails.
+ * - sync_fail_after > 0: succeeds for first N calls, then returns -EIO.
+ */
+static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data);
+/**
+ * \brief Selective get_key_id — returns error for ts.fail_key_version.
+ */
+static int selective_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out);
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_suite_after(void *ctx);
+
+/* Static function definitions ------------------------------------------------------------------ */
+
+/** \brief Comprehensive event tracker — returns CONTINUE */
 static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
 						       void *user_data)
 {
@@ -134,9 +154,7 @@ static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_e
 	return UBI_CRYPTO_EVENT_CONTINUE;
 }
 
-/**
- * \brief Event tracker that escalates every event to read-only.
- */
+/** \brief Event tracker that escalates every event to read-only */
 static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto_event *event,
 							 void *user_data)
 {
@@ -145,13 +163,7 @@ static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto
 	return UBI_CRYPTO_EVENT_ENTER_READ_ONLY;
 }
 
-/**
- * \brief Sync freshness with configurable delayed failure.
- *
- * - sync_fail_after == 0 && sync_return_code == 0: always succeeds.
- * - sync_fail_after == 0 && sync_return_code != 0: always fails.
- * - sync_fail_after > 0: succeeds for first N calls, then returns -EIO.
- */
+/** \brief Sync freshness with configurable delayed failure */
 static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
 {
 	(void)freshness;
@@ -166,9 +178,7 @@ static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness,
 	return ts.sync_return_code;
 }
 
-/**
- * \brief Selective get_key_id — returns error for ts.fail_key_version.
- */
+/** \brief Selective get_key_id — returns error for ts.fail_key_version */
 static int selective_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 {
 	if (ts.fail_key_version != 0 && key_version == ts.fail_key_version) {
@@ -656,7 +666,11 @@ ZTEST(ubi_secure_runtime_policy, allowlist_reject_on_read)
 	uint8_t rdata[4] = { 0 };
 	int ret = ubi_leb_read(g_ubi, vol_id, 0, 0, rdata, sizeof(rdata));
 
-	zassert_not_equal(ret, 0, "Expected read to fail under restricted allowlist");
+	/* LEB 0 was written under kv=1 — the new init scan excluded those data
+	 * PEBs because kv=1 is no longer in the allowlist, so the LEB is
+	 * unmapped: ubi_secure_leb_read returns -ENOENT (no entry in EBA tbl). */
+	zassert_equal(ret, -ENOENT,
+		      "Expected -ENOENT (LEB unmapped after policy exclusion), got %d", ret);
 
 	/* Verify bad PEB count reflects the policy-excluded PEBs. */
 	struct ubi_device_info info = { 0 };
@@ -720,7 +734,10 @@ ZTEST(ubi_secure_runtime_policy, missing_key_on_write)
 	const uint8_t wdata2[] = { 0xCC, 0xDD };
 	int ret = ubi_leb_write(g_ubi, vol_id, 1, wdata2, sizeof(wdata2));
 
-	zassert_not_equal(ret, 0, "Expected write to fail");
+	/* selective_get_key_id rejects kv=2: derive_root_child fails with
+	 * -UBI_SECURE_ENOKEY, propagated back through the write path. */
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "Expected -UBI_SECURE_ENOKEY (get_key_id failure for kv=2), got %d", ret);
 	zassert_true(ts.key_unavailable_count >= 1, "Expected KEY_VERSION_UNAVAILABLE event");
 }
 

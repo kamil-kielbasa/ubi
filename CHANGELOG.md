@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.113.0] - 2026-05-14
+
+### Changed
+
+- Round-4 layout cleanup applied to the remaining 7 secure test
+  files (`replay`, `runtime_policy`, `runtime_policy_budgets`,
+  `tamper`, `vol_id_watermark`, `volumes`, `write_read`): static
+  variables and `struct runtime_policy_test_state` are now placed
+  in the canonical `Static variables and constants` /
+  `Module types` sections, the `BUDGET_*` / `LEB_BUDGET_*` macros
+  in the budget tests have been moved from the
+  `Module interface function definitions` block to `Module
+  defines`, and every static helper now has a forward declaration.
+- Doxygen blocks for static helpers in the round-4 secure test
+  files now sit above the forward declaration; the definition
+  carries a 1-line `\brief` only, matching the rest of the suite.
+- The duplicate `UBI_PARTITION_NAME` / `_DEVICE` / `_OFFSET` /
+  `_SIZE` `#define` block has been removed from all 27 secure test
+  files; the canonical definition lives in
+  `tests/src/secure/ubi_test_secure_fixture.h` under an `#ifndef`
+  guard, eliminating drift risk.
+- `tests_ubi_secure_runtime_policy::allowlist_reject_on_read` and
+  `missing_key_on_write` now assert the strict errno (`-ENOENT`
+  for the policy-excluded LEB read, `-UBI_SECURE_ENOKEY` for the
+  failed key-derivation write) instead of the weak
+  `zassert_not_equal(ret, 0, ...)`, catching regressions where the
+  return code drifts to a different (still non-zero) error.
+- `tests_ubi_secure_runtime_policy_budgets`: the five `(void)ubi_*`
+  cast-to-discard call sites in
+  `leb_budget_rotate_soon_emitted_below_now`,
+  `leb_budget_exhausts_blocks_until_rotation`, and
+  `mixed_key_rotation_read_write` are now `zassert_ok` /
+  `zassert_true(ret == 0 || ret == -ENOSPC, ...)` checks, so a
+  silent ENOSPC/EROFS regression in the inner loop is no longer
+  swallowed.
+- `tests_ubi_secure_tamper::leb_data_tamper_smoke` now corrupts
+  the EC header (offset 16) of every data PEB so the secure attach
+  scan can detect the tamper, then asserts a deterministic
+  `bad_peb_count >= corrupted_data_pebs` and `-ENOENT` on the
+  read of the previously-written LEB. The previous defensive
+  `if (ret != 0) { g_ubi = NULL; return; }` branch — which
+  silently accepted any attach failure — has been removed.
+- `tests_ubi_secure_volumes::vid_counter_floor_persists` and
+  `vid_counter_floor_remove_create_reboot` now read the secure
+  device-header floor directly through the
+  `ubi_secure_test_get_metadata_counters()` test hook — exposing
+  `ubi->aead.next_vid`, the same value the secure backend
+  serialises into `meta->vid_next_counter_floor` on every
+  reserved-PEB rewrite and restores at attach. The tests snapshot
+  this counter before `volume_remove`, after the remove, and across
+  each reboot, asserting the floor strictly advances at every step
+  (every operation that consumes a VID-headed PEB — `volume_remove`,
+  `volume_create`, `leb_write`, and the attach scan — must bump the
+  counter).  This replaces the previous indirect `recording_check_freshness` /
+  `freshness->global_sqnum` oracle, which only observed counters
+  that monotonically advance on every init regardless of whether
+  the floor was actually persisted.
+
 ## [0.112.0] - 2026-05-14
 
 ### Changed
