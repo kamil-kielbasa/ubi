@@ -165,7 +165,36 @@ Rules that follow from this lifecycle:
   scrub stale media state, and only tighten the allowlist after the
   refcount of the compromised version reaches zero.
 
-## 6. What's next
+## 6. Resource profile
+
+Enabling `CONFIG_UBI_CRYPTO` increases the UBI library footprint from
+roughly **9.5 KB plain** to **~28.6 KB secure** on Cortex-M33 (`-Os`,
+`b_u585i_iot02a`, library archive only — PSA Crypto and mbedTLS are
+provided by the platform and not counted). The ~19 KB delta breaks
+down into five additions:
+
+| Component | What it adds |
+|---|---|
+| **AEAD wrappers** for every record type | Per-record AAD builders (device, volume, EC, VID, LEB), nonce derivation, ciphertext + tag layout, single-tag and chunked-LEB variants. |
+| **PSA + mbedTLS hooks** | `psa_key_derivation_*` for HKDF-SHA-256 child-key derivation per domain, `psa_aead_*` for AES-128-CCM encrypt/decrypt, RNG plumbing, sensitive-buffer zeroization. |
+| **Runtime policy** | Allowlist enforcement on every read and write, write-budget tracking per domain (data + 4 metadata domains), soft / hard threshold detection, sticky read-only latch, event callback dispatch with verdict handling. |
+| **Anchor module** | Hidden per-volume anchor PEB allocation, AEAD counter floor reseed at attach (anchor + every authenticated data PEB), last-writable-witness check on dirty erase, anchor rewrite on key-version upgrade. |
+| **Freshness + key lifecycle** | `check_freshness` invocation at attach, optional `sync_freshness` after every commit-visible mutation (with optional immediate re-check), per-key-version PEB refcount, `KEY_RETIRABLE` signalling, eager reserved-PEB rewrite on rotation. |
+
+RAM cost grows modestly (~0.3 KB BSS): per-device crypto state caches
+the active write key version, the per-volume AEAD counter floor, the
+key-version refcount table, and the write-budget counters. Stack usage
+is dominated by the largest in-flight AAD plus one CCM block; secure
+LEB I/O does not require additional heap.
+
+If you cannot afford the secure delta but still need on-flash
+confidentiality for a narrow region (for example, only one volume),
+consider running two `ubi_device` handles on different partitions —
+one plain on internal flash for hot configuration, one secure on
+external NOR for the protected payload — instead of enabling crypto
+device-wide.
+
+## 7. What's next
 
 - {doc}`/guide/secure_workflow` — when to enable Secure UBI, the prerequisites
   you need in place (PSA, RNG, allowlist, freshness store), the exact

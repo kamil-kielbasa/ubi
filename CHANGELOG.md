@@ -23,14 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - First stable release. The pre-1.0 history below was rewritten from
   developer-internal change notes to user-facing entries.
 
-### Security
-
-- Pre-1.0 versions **0.79.0 and 0.80.0** contain an AEAD nonce-uniqueness
-  regression in the secure backend, fixed in 0.81.0. Users on those
-  versions must rotate keys when upgrading. See
-  [SECURITY.md](https://github.com/kamil-kielbasa/ubi/blob/main/SECURITY.md)
-  for the full procedure.
-
 ## [0.113.0] - 2026-05-14
 
 ### Changed
@@ -269,9 +261,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `leb_write_counter` at 0 under the same HKDF child key, violating
   AEAD nonce uniqueness for the affected `{key_version, volume_id}`
   pair. **Versions 0.79.0 and 0.80.0 are vulnerable; do not deploy
-  them.** See
-  [SECURITY.md](https://github.com/kamil-kielbasa/ubi/blob/main/SECURITY.md)
-  for upgrade and key-rotation guidance.
+  them.**
 
 ### Changed
 

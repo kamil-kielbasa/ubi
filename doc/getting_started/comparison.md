@@ -11,6 +11,31 @@ matches your project's shape — and, equally important, when UBI is the
 
 ---
 
+## Where UBI sits in the storage stack
+
+UBI is **not** a peer of LittleFS / NVS / ZMS. It sits one layer
+below them: it virtualises raw flash into multiple wear-leveled,
+bad-block-managed logical eraseblock volumes, and a higher-level
+abstraction can run inside any one of those volumes.
+
+```
+  +---------------------------------------------------------------+
+  |  Application                                                  |
+  +---------------------------------------------------------------+
+  |  Filesystem / KV store / database / custom binary blob        |
+  +---------------------------------------------------------------+
+  |  UBI logical eraseblock volumes                               |
+  |  (named, runtime-resizable, optionally AEAD-wrapped via PSA)  |
+  +---------------------------------------------------------------+
+  |  Zephyr flash_area                                            |
+  +---------------------------------------------------------------+
+  |  Physical flash (raw NOR / NAND, internal or external)        |
+  +---------------------------------------------------------------+
+```
+
+In the rest of this page "UBI vs LittleFS / NVS / ZMS" means "using
+UBI **instead of** that layer eating raw flash directly".
+
 ## At a glance
 
 | Feature | **UBI** | **LittleFS** | **NVS** | **ZMS** |
@@ -51,6 +76,15 @@ sample build on the `b_u585i_iot02a` board (STM32U585) — see
 - You may need **authenticated encryption of every on-flash byte** at
   some point in the product lifetime (turn `CONFIG_UBI_CRYPTO` on
   later without rewriting your storage layer).
+- You want to **mix plain and secure storage** on the same product —
+  e.g. a plain UBI device on internal flash for hot configuration
+  and a secure UBI device on external NOR for firmware images and
+  secrets, both reached through the same API.
+- You want a **substrate**, not a finished abstraction. UBI gives you
+  raw LEB read/write so a future filesystem, LSM-tree, or
+  application-specific binary format can sit on top without
+  reinventing wear-leveling, bad-block handling, or crash-safe
+  metadata.
 
 ### Pick **LittleFS** when…
 
@@ -105,6 +139,66 @@ A two-question shortcut that gets the right answer ~90 % of the time:
    - Yes → **UBI** (plain or secure).
    - No → **ZMS** for new code, **NVS** if the project is already on
      NVS.
+
+## When the gap matters most
+
+The four layers in the table above all work fine for small,
+single-purpose configuration storage on small internal flash. The
+gap that UBI exists to fill shows up when one or more of the
+following is true:
+
+- **External NOR / NAND in the megabytes-and-up range.** NVS and ZMS
+  scale by sector count and were not designed to manage hundreds of
+  eraseblocks. LittleFS scales but forces you into a filesystem
+  abstraction.
+- **Multiple independent storage regions on the same chip.** A common
+  shape: A/B firmware images, a configuration blob, a calibration
+  table, and an event log — all on one external flash. With NVS / ZMS
+  / LittleFS / FCB this means partitioning the chip and giving each
+  region its own private wear-leveling pool, which wastes endurance.
+  UBI gives all of them one global pool of physical eraseblocks and
+  lets them grow and shrink at runtime.
+- **Mixed write workloads.** A region with frequent small writes
+  next to a region that is written once per firmware update. Per-
+  region wear-leveling makes the hot region wear out first; UBI
+  spreads wear across the whole chip regardless of which volume is
+  hot.
+- **Bad-block handling.** NVS / ZMS have no answer; LittleFS treats
+  blocks as files. UBI detects, torture-tests, and isolates bad
+  blocks transparently to the layer above. Mandatory on NAND, and
+  still relevant on NOR once the device is pushed past the
+  manufacturer's guaranteed endurance window — worn cells stop
+  erasing reliably and need to be retired.
+- **Tamper-evident or rollback-detectable storage.** None of
+  LittleFS / NVS / ZMS / FCB authenticate their metadata. Secure UBI
+  AEAD-wraps every commit-visible record (data and UBI's own
+  metadata) and binds an external freshness callback to the
+  device-header revision and the VID-header global sequence number.
+
+## Encryption
+
+The other three layers do not authenticate or encrypt their on-flash
+representation. If your product needs confidentiality or integrity
+for stored data, the choices are:
+
+- **Encrypt at the application layer**, above LittleFS / NVS / ZMS.
+  You own key management, nonce uniqueness, AAD design, and
+  rollback detection — all of which are easy to get wrong, and none
+  of which protect the underlying filesystem's *own* metadata.
+- **Use Secure UBI** (`CONFIG_UBI_CRYPTO=y`). Every commit-visible
+  on-flash structure — UBI metadata, reserved PEBs, and your LEB
+  data — is wrapped in AES-128-CCM via PSA Crypto, with location
+  and identity binding in AAD, versioned keys with an allowlist, a
+  refcounted key lifecycle (`KEY_ROTATE_SOON` / `KEY_ROTATE_NOW` /
+  `KEY_RETIRABLE` events), and a sticky read-only mode on auth /
+  RNG / budget failures. Anti-rollback is delegated to an
+  application-supplied freshness callback bound to the device-header
+  revision and the VID-header global sequence number.
+
+The trade-off is footprint (~9.5 KB plain → ~28.6 KB secure on
+Cortex-M33) and the requirement to wire a PSA key provider, an
+allowlist, a freshness store, and an event callback. See
+{doc}`/architecture/secure_overview` for the breakdown.
 
 ## See also
 
