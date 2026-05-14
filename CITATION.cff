@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "UBI for Zephyr"
+abstract: >
+  A flash virtualization layer for Zephyr RTOS — global wear-leveling,
+  runtime-resizable named volumes, and self-healing bad-block management
+  on raw NOR/NAND, with an optional secure variant providing AEAD over
+  every on-flash structure.
+type: software
+authors:
+  - family-names: Kielbasa
+    given-names: Kamil
+    email: kamkie1996@gmail.com
+version: 1.0.0
+date-released: 2026-05-14
+license: MIT
+repository-code: "https://github.com/kamil-kielbasa/ubi"
+url: "https://kamil-kielbasa.github.io/ubi/"
+keywords:
+  - zephyr
+  - flash
+  - wear-leveling
+  - storage
+  - aead
+  - aes-128-ccm
+  - psa-crypto

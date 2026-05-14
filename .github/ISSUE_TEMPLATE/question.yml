@@ -1,0 +1,24 @@
+name: Question
+description: Ask a question about using UBI on Zephyr.
+title: "[question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a question, please check the [documentation](https://kamil-kielbasa.github.io/ubi/) —
+        especially the Cookbook and the Quick Start.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried
+  - type: textarea
+    id: docs_read
+    attributes:
+      label: Docs you already read (links)

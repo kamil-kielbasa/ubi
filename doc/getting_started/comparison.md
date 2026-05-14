@@ -50,7 +50,7 @@ UBI **instead of** that layer eating raw flash directly".
 | **Crash safety (user data)** | **No** — metadata only; mid-write loses the LEB | Yes — every write is atomic | Yes — record write is atomic | Yes — record write is atomic |
 | **Authenticated encryption** | **Yes**, opt-in (`CONFIG_UBI_CRYPTO`, AES-128-CCM via PSA) | No | No | No |
 | **Random-access I/O** | Yes, within a LEB | Yes (file `seek` + `read`/`write`) | Read by key | Read by key |
-| **Library footprint (Cortex-M33, `-Os`)** | ~9.5 KB plain / ~29 KB secure | ~25–35 KB depending on config | ~3–5 KB | ~4–6 KB |
+| **Library footprint (Cortex-M33, `-Os`)** | ~9.5 KB plain / ~28.6 KB secure | ~25–35 KB depending on config | ~3–5 KB | ~4–6 KB |
 | **RAM cost** | Proportional to PEB count + volume count | File table + lookahead buffer | Two-sector cache | Cache + ATE table |
 | **Tightly bound to file model** | No — block-level | Yes | No (KV) | No (KV) |
 | **Target media** | Raw NOR / NAND | Raw NOR / NAND | Raw NOR | Raw NOR |

@@ -1,0 +1,69 @@
+name: Bug report
+description: Something is broken in UBI on Zephyr.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in as much as you can.
+        For security vulnerabilities, do NOT use this form — see [SECURITY.md](../SECURITY.md).
+  - type: input
+    id: ubi_version
+    attributes:
+      label: UBI version / commit
+      description: Output of `git describe --tags` or the release tag.
+      placeholder: "v1.0.0 (or commit sha)"
+    validations:
+      required: true
+  - type: input
+    id: zephyr_version
+    attributes:
+      label: Zephyr version
+      placeholder: "v4.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - native_sim
+        - b_u585i_iot02a (STM32U585)
+        - nrf5340dk
+        - other (specify in repro steps)
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - plain (CONFIG_UBI_CRYPTO=n)
+        - secure (CONFIG_UBI_CRYPTO=y)
+    validations:
+      required: true
+  - type: textarea
+    id: kconfig
+    attributes:
+      label: Kconfig diff (optional)
+      description: Any non-default `CONFIG_UBI_*` (or related) options.
+      render: shell
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps. Link to a branch or attach a snippet if possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected vs actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      render: shell

@@ -360,10 +360,15 @@ producing 6 jobs (2 mem backends × 3 geometries).
 
 ### Targets
 
-| Metric | Target | Achieved (v0.71.0) |
-|--------|--------|--------------------|
-| Line coverage | >= 80% | 85.0% plain (1670/1964), 77.3% secure (3572/4623) |
-| Branch coverage | >= 70% | 51.8% plain (844/1628), 40.7% secure (1554/3817) |
+| Metric | Source of truth | Long-term target (post-1.0) |
+|--------|-----------------|-----------------------------|
+| Line coverage | [Codecov badge](https://codecov.io/gh/kamil-kielbasa/ubi) in the [project README](https://github.com/kamil-kielbasa/ubi#readme) | >= 80% |
+| Branch coverage | [Codecov badge](https://codecov.io/gh/kamil-kielbasa/ubi) in the [project README](https://github.com/kamil-kielbasa/ubi#readme) | >= 70% |
+
+Live coverage is reported by Codecov on every push to `main`; the
+badge in the README is the authoritative current number. The targets
+above are post-1.0 goals — branch coverage in particular is tracked
+as a roadmap item.
 
 ### Tooling
 

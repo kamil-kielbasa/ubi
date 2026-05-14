@@ -1,14 +1,14 @@
 # UBI for Zephyr
 
-A flash virtualization layer for Zephyr RTOS — global wear-leveling, runtime-resizable named volumes, and self-healing bad-block management on raw NOR/NAND, with an optional secure variant providing AEAD over every on-flash structure.
-
-Inspired by Linux's `drivers/mtd/ubi`, written from scratch for Zephyr's `flash_area` API and resource constraints. MIT licensed.
-
 ![CI](https://github.com/kamil-kielbasa/ubi/actions/workflows/ci.yml/badge.svg)
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://kamil-kielbasa.github.io/ubi/)
 [![codecov](https://codecov.io/gh/kamil-kielbasa/ubi/graph/badge.svg)](https://codecov.io/gh/kamil-kielbasa/ubi)
 [![Release](https://img.shields.io/github/v/release/kamil-kielbasa/ubi)](https://github.com/kamil-kielbasa/ubi/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A flash virtualization layer for Zephyr RTOS — global wear-leveling, runtime-resizable named volumes, and self-healing bad-block management on raw NOR/NAND, with an optional secure variant providing AEAD over every on-flash structure.
+
+Inspired by Linux's `drivers/mtd/ubi`, written from scratch for Zephyr's `flash_area` API and resource constraints. MIT licensed.
 
 <p align="center">
   <img src="doc/img/stack.svg" alt="UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash" width="600">

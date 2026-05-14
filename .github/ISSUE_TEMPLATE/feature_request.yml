@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest a new feature or enhancement.
+title: "[feat]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What are you trying to do, and why is the current API/behaviour insufficient?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API or Kconfig sketch (optional)
+      render: c
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - plain only
+        - secure only
+        - both
+        - tooling / docs / CI
+    validations:
+      required: true
