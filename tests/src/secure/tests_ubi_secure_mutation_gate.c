@@ -42,11 +42,15 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+static struct ubi_device *sec_init(void);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -150,7 +154,7 @@ ZTEST(ubi_secure_mutation_gate, write_shutdown_blocks_all_mutators)
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(1, info.volume_count);
 
-	uint8_t readback[16] = { 0 };
+	uint8_t readback[sizeof(data)] = { 0 };
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
 	zassert_mem_equal(readback, data, sizeof(data));
 
@@ -165,7 +169,6 @@ ZTEST(ubi_secure_mutation_gate, write_shutdown_blocks_all_mutators)
 	ubi_test_set_write_shutdown(ubi, false);
 	zassert_ok(ubi_leb_write(ubi, vol_id, 1, new_data, sizeof(new_data)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();

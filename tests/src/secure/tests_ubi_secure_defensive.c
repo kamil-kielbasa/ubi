@@ -608,12 +608,7 @@ ZTEST(ubi_secure_defensive, init_oversized_write_block)
 
 	const int ret = ubi_device_init(&bad_flash, &cfg, &ubi);
 
-	if (ret == 0) {
-		/* Geometry was accepted — cleanup. */
-		ubi_device_deinit(ubi);
-	} else {
-		zassert_equal(ret, -EINVAL);
-	}
+	zassert_equal(ret, -EINVAL);
 }
 
 /**

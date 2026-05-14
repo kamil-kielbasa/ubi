@@ -49,11 +49,15 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+static struct ubi_device *sec_init(void);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -106,7 +110,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_null_buffer)
 
 	ubi_contract_leb_write_null_buffer(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -123,7 +126,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_zero_length)
 
 	ubi_contract_leb_write_zero_length(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -151,7 +153,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_unmapped)
 
 	zassert_equal(-ENOENT, ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(buf)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -169,7 +170,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_null_buffer)
 
 	ubi_contract_leb_read_null_buffer(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -186,7 +186,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_unmapped)
 
 	ubi_contract_leb_unmap_unmapped(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -203,7 +202,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_null)
 
 	ubi_contract_leb_is_mapped_null(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -220,7 +218,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_null)
 
 	ubi_contract_leb_get_size_null(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -267,7 +264,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_overwrite)
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(1, info.dirty_peb_count);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -287,7 +283,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_with_offset)
 
 	ubi_contract_leb_read_with_offset(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -304,7 +299,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_out_of_range_lnum)
 
 	ubi_contract_leb_write_out_of_range_lnum(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -332,7 +326,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_out_of_range_lnum)
 
 	zassert_equal(-EACCES, ubi_leb_read(ubi, vol_id, 5, 0, rdata, sizeof(rdata)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -351,7 +344,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_then_write)
 
 	ubi_contract_leb_map_then_write(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -368,7 +360,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_no_volumes)
 
 	ubi_contract_leb_write_no_volumes(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -387,7 +378,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_no_volumes)
 
 	zassert_equal(-ENOENT, ubi_leb_read(ubi, 0, 0, 0, rdata, sizeof(rdata)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -405,7 +395,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_out_of_range)
 
 	ubi_contract_leb_unmap_out_of_range(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -422,7 +411,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_no_volumes)
 
 	ubi_contract_leb_unmap_no_volumes(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -441,7 +429,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_no_volumes)
 
 	zassert_equal(-ENOENT, ubi_leb_is_mapped(ubi, 0, 0, &mapped));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -459,7 +446,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_no_volumes)
 
 	ubi_contract_leb_get_size_no_volumes(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -476,7 +462,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_write_vol_not_found)
 
 	ubi_contract_leb_write_vol_not_found(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -504,7 +489,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_vol_not_found)
 
 	zassert_equal(-ENOENT, ubi_leb_read(ubi, 999, 0, 0, rdata, sizeof(rdata)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -522,7 +506,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_vol_not_found)
 
 	ubi_contract_leb_unmap_vol_not_found(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -550,7 +533,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_vol_not_found)
 
 	zassert_equal(-ENOENT, ubi_leb_is_mapped(ubi, 999, 0, &mapped));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -568,7 +550,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_vol_not_found)
 
 	ubi_contract_leb_get_size_vol_not_found(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -595,7 +576,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_out_of_range)
 
 	zassert_equal(-EACCES, ubi_leb_read(ubi, vol_id, 5, 0, rdata, sizeof(rdata)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -624,7 +604,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_is_mapped_out_of_range)
 
 	zassert_equal(-EACCES, ubi_leb_is_mapped(ubi, vol_id, 5, &mapped));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -641,7 +620,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_out_of_range)
 
 	ubi_contract_leb_get_size_out_of_range(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -657,7 +635,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_unmapped_is_idempotent)
 
 	ubi_contract_leb_unmap_unmapped_is_idempotent(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -673,7 +650,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_already_mapped_is_noop)
 
 	ubi_contract_leb_map_already_mapped_is_noop(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -690,7 +666,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_get_size_unmapped)
 
 	ubi_contract_leb_get_size_unmapped(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -706,7 +681,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_last_byte_at_boundary)
 
 	ubi_contract_leb_read_last_byte_at_boundary(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -722,7 +696,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_beyond_data_size)
 
 	ubi_contract_leb_read_beyond_data_size(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -751,7 +724,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_unmap_already_unmapped_idempotent)
 	zassert_false(mapped);
 	zassert_ok(ubi_leb_unmap(ubi, vol_id, 0));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -792,7 +764,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_read_beyond_data_size_returns_einval)
 	zassert_ok(ret);
 	zassert_mem_equal(buf, data, 32);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -809,7 +780,6 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_vol_not_found)
 
 	ubi_contract_leb_map_vol_not_found(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -839,6 +809,5 @@ ZTEST(ubi_secure_error_handling_leb, leb_map_lnum_out_of_range)
 	ret = ubi_leb_map(ubi, vol_id, 99);
 	zassert_not_equal(ret, 0);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }

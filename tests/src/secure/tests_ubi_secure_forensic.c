@@ -59,11 +59,17 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi = NULL;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi = NULL;
+static bool buf_contains_pattern(const uint8_t *haystack, size_t haystack_len,
+				 const uint8_t *needle, size_t needle_len);
+static bool flash_contains_pattern(const uint8_t *pattern, size_t pattern_len);
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_after(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -184,7 +190,6 @@ ZTEST(ubi_secure_forensic, plaintext_data_absent_after_write)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 1, array_256, ARRAY_SIZE(array_256)));
 
 	/* Deinit so all buffers are flushed. */
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* Forensic scan: plaintext must not appear on flash. */
@@ -223,7 +228,6 @@ ZTEST(ubi_secure_forensic, volume_name_absent_in_data_area)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* The name "/SECRET" should not appear in data PEB area. */
@@ -261,7 +265,6 @@ ZTEST(ubi_secure_forensic, key_material_absent_on_flash)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* Root key material must never appear anywhere on flash. */
@@ -315,7 +318,6 @@ ZTEST(ubi_secure_forensic, plaintext_absent_after_overwrite_and_erase)
 		zassert_ok(ubi_device_get_info(ubi, &info));
 	}
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* Neither old nor new plaintext should be on flash. */
@@ -352,7 +354,6 @@ ZTEST(ubi_secure_forensic, plain_backend_plaintext_is_detectable)
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, array_128, ARRAY_SIZE(array_128)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* On plain backend, plaintext MUST be on flash — validates the scanner. */
@@ -412,7 +413,6 @@ ZTEST(ubi_secure_forensic, leb_tail_padding_uses_erased_value)
 	g_ubi = ubi;
 	zassert_ok(ubi_volume_create(ubi, &vol_cfg, &vol_id));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, small_payload, sizeof(small_payload)));
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* Scan data PEBs for the secure LEB prefix and verify tail padding. */

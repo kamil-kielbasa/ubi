@@ -130,7 +130,6 @@ ZTEST(ubi_secure_coverage, volume_remove_basic)
 	zassert_equal(info.volume_count, 0);
 
 	/* Re-attach and verify. */
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi = sec_init();
@@ -335,7 +334,6 @@ ZTEST(ubi_secure_coverage, volume_resize_persists)
 
 	zassert_ok(ubi_volume_resize(ubi, vol_id, &new_cfg));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi = sec_init();
@@ -456,7 +454,6 @@ ZTEST(ubi_secure_coverage, leb_overwrite_persists)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data1, sizeof(data1)));
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data2, sizeof(data2)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi = sec_init();
@@ -663,7 +660,6 @@ ZTEST(ubi_secure_coverage, volume_remove_persists)
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 	zassert_ok(ubi_volume_remove(ubi, vol_id));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	ubi = sec_init();

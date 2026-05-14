@@ -23,6 +23,7 @@
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "arrays.h"
+#include "ubi_test_memory.h"
 
 /* Test fixtures: */
 #include "ubi_test_secure_fixture.h"
@@ -69,26 +70,6 @@ static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function definitions ------------------------------------------------------------------ */
-
-static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
-			 struct sys_memory_stats *ad)
-{
-	zassert_not_null(bi);
-	zassert_not_null(ai);
-	zassert_not_null(ad);
-
-	zassert_equal(bi->free_bytes, ad->free_bytes);
-	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
-
-#if defined(CONFIG_UBI_MEM_BACKEND_HEAP)
-	zassert_not_equal(ai->free_bytes, ad->free_bytes);
-	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
-#endif
-
-	memset(bi, 0, sizeof(*bi));
-	memset(ai, 0, sizeof(*ai));
-	memset(ad, 0, sizeof(*ad));
-}
 
 static void *ztest_suite_setup(void)
 {
@@ -177,7 +158,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_preserves_old_mapping)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -234,7 +215,7 @@ ZTEST(ubi_secure_recovery, interrupted_vid_commit_preserves_old_mapping)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -338,7 +319,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
@@ -359,7 +340,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -455,7 +436,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
@@ -480,7 +461,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -553,7 +534,7 @@ ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	ubi = NULL;
 
@@ -580,7 +561,7 @@ ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -650,7 +631,7 @@ ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
@@ -684,7 +665,7 @@ ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -739,7 +720,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	ubi = NULL;
 
@@ -773,7 +754,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif
@@ -834,7 +815,7 @@ ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	/* Corrupt the anchor PEB (PEB 2).
 	 * On a freshly formatted partition, anchor_create takes the first
@@ -882,7 +863,7 @@ ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 #else
 	ztest_test_skip();
 #endif

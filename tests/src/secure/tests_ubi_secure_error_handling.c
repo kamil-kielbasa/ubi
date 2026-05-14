@@ -49,11 +49,15 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+static struct ubi_device *sec_init(void);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -148,7 +152,6 @@ ZTEST(ubi_secure_error_handling, get_info_null_device)
 
 	ubi_contract_get_info_null_device(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**
@@ -165,7 +168,6 @@ ZTEST(ubi_secure_error_handling, get_info_null_info)
 
 	ubi_contract_get_info_null_info(ubi);
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 /**

@@ -18,6 +18,7 @@
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
+#include "ubi_test_memory.h"
 #include "ubi_test_secure_fixture.h"
 
 /* Zephyr headers: */
@@ -45,9 +46,6 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
-
-/* Static function declarations ----------------------------------------------------------------- */
-
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -58,27 +56,12 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+
 /* Static function definitions ------------------------------------------------------------------ */
-
-static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
-			 struct sys_memory_stats *ad)
-{
-	zassert_not_null(bi);
-	zassert_not_null(ai);
-	zassert_not_null(ad);
-
-	zassert_equal(bi->free_bytes, ad->free_bytes);
-	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
-
-#if defined(CONFIG_UBI_MEM_BACKEND_HEAP)
-	zassert_not_equal(ai->free_bytes, ad->free_bytes);
-	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
-#endif
-
-	memset(bi, 0, sizeof(*bi));
-	memset(ai, 0, sizeof(*ai));
-	memset(ad, 0, sizeof(*ad));
-}
 
 static void *ztest_suite_setup(void)
 {
@@ -164,7 +147,7 @@ ZTEST(ubi_secure_erase, fill_unmap_erase_cycle)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
@@ -197,7 +180,7 @@ ZTEST(ubi_secure_erase, fill_unmap_erase_cycle)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }
 
 /**
@@ -312,7 +295,7 @@ ZTEST(ubi_secure_erase, anchor_participates_in_wear_leveling)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }
 
 /**
@@ -384,7 +367,7 @@ ZTEST(ubi_secure_erase, stale_anchor_rejected_after_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
 	ubi = NULL;
@@ -414,7 +397,7 @@ ZTEST(ubi_secure_erase, stale_anchor_rejected_after_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }
 
 /**

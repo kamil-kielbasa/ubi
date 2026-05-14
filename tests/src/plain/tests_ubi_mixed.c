@@ -19,6 +19,7 @@
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
+#include "ubi_test_memory.h"
 
 /* Zephyr headers: */
 #include <zephyr/ztest.h>
@@ -66,8 +67,8 @@ static void ztest_suite_after(void *ctx);
 static void ztest_testcase_before(void *ctx);
 static void ztest_testcase_teardown(void *ctx);
 
-static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
-			 struct sys_memory_stats *ad);
+static void ubi_test_memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+				  struct sys_memory_stats *ad);
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec);
 
@@ -96,27 +97,6 @@ static void ztest_testcase_teardown(void *ctx)
 {
 	(void)ctx;
 	return;
-}
-
-static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
-			 struct sys_memory_stats *ad)
-{
-	zassert_not_null(bi);
-	zassert_not_null(ai);
-	zassert_not_null(ad);
-
-	zassert_equal(bi->free_bytes, ad->free_bytes);
-	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
-
-#if defined(CONFIG_UBI_MEM_BACKEND_HEAP)
-	/* Under the heap backend, init must consume heap memory. */
-	zassert_not_equal(ai->free_bytes, ad->free_bytes);
-	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
-#endif
-
-	memset(bi, 0, sizeof(*bi));
-	memset(ai, 0, sizeof(*ai));
-	memset(ad, 0, sizeof(*ad));
 }
 
 static void erase_counters_check(struct ubi_device *ubi, size_t exp_ec)
@@ -297,7 +277,7 @@ ZTEST(ubi_mixed, scenario_1)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	/* 5. Initialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
@@ -421,7 +401,7 @@ ZTEST(ubi_mixed, scenario_1)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	/* 12. Initialize device */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
@@ -469,5 +449,5 @@ ZTEST(ubi_mixed, scenario_1)
 
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
 
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }

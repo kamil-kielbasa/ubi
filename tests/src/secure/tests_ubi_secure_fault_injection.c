@@ -42,11 +42,15 @@
 /* Module interface variables and constants ----------------------------------------------------- */
 
 /* Static variables and constants --------------------------------------------------------------- */
+static struct ubi_flash_desc flash = { 0 };
+static struct ubi_device *g_ubi;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static struct ubi_flash_desc flash = { 0 };
-static struct ubi_device *g_ubi;
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+static struct ubi_device *sec_init(void);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -107,7 +111,6 @@ ZTEST(ubi_secure_fault_injection, create_alloc_fail_no_persistent_volume)
 	const int ret = ubi_volume_create(ubi, &cfg, &vol_id);
 
 	if (ret == -ENOMEM) {
-		g_ubi = NULL;
 		zassert_ok(ubi_device_deinit(ubi));
 
 		ubi = sec_init();
@@ -119,7 +122,6 @@ ZTEST(ubi_secure_fault_injection, create_alloc_fail_no_persistent_volume)
 		zassert_ok(ret);
 	}
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -149,7 +151,6 @@ ZTEST(ubi_secure_fault_injection, overwrite_preserves_old_data_on_failure)
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
 	zassert_mem_equal(readback, original, sizeof(original));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
@@ -215,7 +216,6 @@ ZTEST(ubi_secure_fault_injection, kind_selector_volume_alloc_only)
 	int vol_id_second = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg_second, &vol_id_second));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();
@@ -258,7 +258,6 @@ ZTEST(ubi_secure_fault_injection, kind_selector_out_of_range_is_noop)
 	int vol_id = -1;
 	zassert_ok(ubi_volume_create(ubi, &cfg, &vol_id));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();
@@ -328,7 +327,6 @@ ZTEST(ubi_secure_fault_injection, leb_write_scratch_alloc_fault)
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
 	zassert_mem_equal(readback, data, sizeof(data));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();
@@ -393,7 +391,6 @@ ZTEST(ubi_secure_fault_injection, leb_read_scratch_alloc_fault)
 	zassert_ok(ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback)));
 	zassert_mem_equal(readback, data, sizeof(data));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 #else
 	ztest_test_skip();

@@ -21,6 +21,7 @@
 #include "ubi_secure_types.h"
 
 /* Test fixtures: */
+#include "ubi_test_memory.h"
 #include "ubi_test_secure_fixture.h"
 
 /* Zephyr headers: */
@@ -73,8 +74,6 @@ static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
-			 struct sys_memory_stats *ad);
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
 static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_crypto_event *event,
 							       void *user_data);
@@ -83,26 +82,6 @@ static void *ztest_suite_setup(void);
 static void ztest_suite_before(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
-
-static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
-			 struct sys_memory_stats *ad)
-{
-	zassert_not_null(bi);
-	zassert_not_null(ai);
-	zassert_not_null(ad);
-
-	zassert_equal(bi->free_bytes, ad->free_bytes);
-	zassert_equal(bi->allocated_bytes, ad->allocated_bytes);
-
-#if defined(CONFIG_UBI_MEM_BACKEND_HEAP)
-	zassert_not_equal(ai->free_bytes, ad->free_bytes);
-	zassert_not_equal(ai->allocated_bytes, ad->allocated_bytes);
-#endif
-
-	memset(bi, 0, sizeof(*bi));
-	memset(ai, 0, sizeof(*ai));
-	memset(ad, 0, sizeof(*ad));
-}
 
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
 
@@ -210,7 +189,7 @@ ZTEST(ubi_secure_chunked, single_chunk_write_read)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }
 
 /**
@@ -253,7 +232,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_write_read)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }
 
 /**
@@ -404,7 +383,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 
 	/* 4. Re-init and verify persistence. */
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &before_init));
@@ -423,7 +402,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_with_reboot)
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_init));
 	zassert_ok(ubi_device_deinit(ubi));
 	zassert_ok(sys_heap_runtime_stats_get(&_system_heap, &after_deinit));
-	memory_check(&before_init, &after_init, &after_deinit);
+	ubi_test_memory_check(&before_init, &after_init, &after_deinit);
 }
 
 /**

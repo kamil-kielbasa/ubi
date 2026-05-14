@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.112.0] - 2026-05-14
+
+### Changed
+
+- Test suite memory-leak helper is now centralised in the shared
+  `tests/src/common/ubi_test_memory.h` header. Per-file copies of
+  `memory_check()` have been removed from 14 plain and secure test
+  files; all call sites now use the shared `ubi_test_memory_check()`
+  inline helper. The shared helper additionally asserts that the
+  init step actually allocates from the heap (under the heap memory
+  backend), giving a stronger guarantee than the previous per-file
+  copies.
+- Static variables (`flash`, `_system_heap`, `before_init`,
+  `after_init`, `after_deinit`, `g_ubi`) in 10 secure test files
+  (`device`, `erase`, `error_handling`, `error_handling_leb`,
+  `error_handling_volume`, `fault_injection`, `forensic`,
+  `map_unmap`, `mixed`, `mutation_gate`) are now placed under the
+  canonical `Static variables and constants` section, with explicit
+  forward declarations for every static helper under `Static
+  function declarations`.
+- Volume lifecycle in the error-injection secure tests is now
+  centralised in `ztest_testcase_teardown`. Scattered `g_ubi = NULL`
+  assignments throughout test bodies have been removed across
+  `tests_ubi_secure_{coverage, crypto_faults, error_handling,
+  error_handling_leb, error_handling_volume, fault_injection,
+  forensic, mutation_gate}.c` (~55 occurrences).
+- Forensic-leakage test volume names are now descriptive
+  (`/forensic_sec`, `/secret_vol`, `/forensic_aad`,
+  `/forensic_anc`, `/plain_coexist`, `/tail_vol`) instead of
+  cryptic `/frn1`, `/SECRET`, `/frn3`, `/frn4`, `/pln1`, `/tail`.
+- The `init_oversized_write_block` and
+  `create_alloc_fail_no_persistent_volume` tests now assert their
+  deterministic outcome (`-EINVAL` / `0` respectively) instead of
+  silently accepting either branch, catching regressions where the
+  return code drifts.
+- The mutation-gate readback buffer size is now derived via
+  `sizeof(data)` rather than a hard-coded `16`, keeping the buffer
+  in lock-step with the payload.
+
 ## [0.111.0] - 2026-05-13
 
 ### Changed

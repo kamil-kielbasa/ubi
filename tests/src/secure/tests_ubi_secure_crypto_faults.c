@@ -233,7 +233,6 @@ ZTEST(ubi_secure_crypto_faults, aead_decrypt_fail_on_reattach_read)
 
 	zassert_ok(ubi_leb_write(ubi, vol_id, 0, data, sizeof(data)));
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* Re-init — no fault on attach. */
@@ -434,7 +433,6 @@ ZTEST(ubi_secure_crypto_faults, freshness_reject_on_init)
 	/* First: format the flash by init+deinit. */
 	struct ubi_device *ubi = sec_init();
 
-	g_ubi = NULL;
 	zassert_ok(ubi_device_deinit(ubi));
 
 	/* Now re-init with freshness rejection armed. */
