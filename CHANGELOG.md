@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.111.0] - 2026-05-13
+
+### Changed
+
+- Secure-suite test sources now follow the project's 8-section file
+  layout consistently:
+  - All preprocessor `#define`s for partition geometry and per-test
+    constants live under `Module defines`.
+  - Static variables, forward declarations of static helpers and
+    static helper definitions live under their dedicated sections,
+    not under `Module interface function definitions`.
+  - Stale or duplicated `Suite registration` divider comments have
+    been removed.
+- Cryptic 4-byte volume names in the chunked secure tests
+  (`/ck0`..`/ck8`, `/ckO`) are now descriptive identifiers
+  (`single_chunk`, `multi_chunk`, `partial_cross`, `partial_within`,
+  `partial_last`, `multi_reboot`, `overwrite_chunk`, `tamper_chunk`,
+  `zero_len_map`, `overflow_rej`), making test logs easier to read.
+- Doxygen comments and `zassert` messages in the secure suite no
+  longer carry non-ASCII section-reference glyphs or internal audit
+  ticket numbers; the surrounding prose is preserved.
+- Negative-path test assertions across the secure suite and the
+  affected plain tests now compare the return value against the
+  exact expected `errno` (e.g. `-EIO`, `-EBADMSG`, `-ENOMEM`,
+  `-EINVAL`, `-UBI_SECURE_ENOKEY`, `-UBI_SECURE_ENORAND`,
+  `-EROFS`) instead of merely asserting it is non-zero, so a
+  regression that swaps one error for another is now caught.
+- Counter-related and scan-related assertions are tighter: the
+  reserved-PEB scan tests pin `corrupt_count == 1` when only one
+  PEB was tampered with, the partially-written PEB recovery test
+  asserts the PEB is reported as dirty (not "dirty or bad"), and
+  the multi-LEB churn cache test asserts the cached counter has
+  advanced past the volume's LEB count.
+- The chunked tampered-read test now requires `-EBADMSG` from
+  `ubi_leb_read()` instead of any non-zero return.
+- The crypto type-size test now pins every value of
+  `enum ubi_crypto_event_type`, `enum ubi_crypto_rollback_verdict`
+  and `enum ubi_crypto_event_verdict`, not just the endpoints.
+- The zero-length secure-write test now asserts success
+  (return value 0) explicitly instead of accepting any return.
+
 ## [0.110.0] - 2026-05-13
 
 ### Changed

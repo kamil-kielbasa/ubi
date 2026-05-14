@@ -31,20 +31,26 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -120,13 +126,23 @@ ZTEST(ubi_secure_api, crypto_type_sizes)
 	zassert_true(sizeof(struct ubi_crypto_event) > 0);
 	zassert_true(sizeof(struct ubi_crypto_config) > 0);
 
-	/* Event type enum spans 0..9 */
+	/* enum ubi_crypto_event_type — exhaustive value pinning. */
 	zassert_equal(UBI_CRYPTO_EVENT_AUTH_FAILURE, 0);
+	zassert_equal(UBI_CRYPTO_EVENT_FORMAT_VIOLATION, 1);
+	zassert_equal(UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED, 2);
+	zassert_equal(UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE, 3);
+	zassert_equal(UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH, 4);
+	zassert_equal(UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE, 5);
+	zassert_equal(UBI_CRYPTO_EVENT_RNG_FAILURE, 6);
+	zassert_equal(UBI_CRYPTO_EVENT_KEY_ROTATE_SOON, 7);
+	zassert_equal(UBI_CRYPTO_EVENT_KEY_ROTATE_NOW, 8);
 	zassert_equal(UBI_CRYPTO_EVENT_KEY_RETIRABLE, 9);
 
-	/* Verdict enums */
+	/* enum ubi_crypto_rollback_verdict — exhaustive value pinning. */
 	zassert_equal(UBI_CRYPTO_ROLLBACK_ACCEPT, 0);
 	zassert_equal(UBI_CRYPTO_ROLLBACK_REJECT, 1);
+
+	/* enum ubi_crypto_event_verdict — exhaustive value pinning. */
 	zassert_equal(UBI_CRYPTO_EVENT_CONTINUE, 0);
 	zassert_equal(UBI_CRYPTO_EVENT_ENTER_READ_ONLY, 1);
 }

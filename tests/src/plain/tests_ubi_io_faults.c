@@ -1266,7 +1266,8 @@ ZTEST_F(ubi_io_faults, get_peb_ec_diag_alloc_fault)
 	int ret = ubi_device_get_peb_ec(ubi, &peb_ec, &len);
 	ubi_test_fault_reset();
 
-	zassert_not_equal(ret, 0, "get_peb_ec should fail with diag alloc failure");
+	zassert_equal(ret, -ENOMEM,
+		      "get_peb_ec must return -ENOMEM under diag alloc failure, got %d", ret);
 	zassert_is_null(peb_ec);
 
 	fixture->ubi = NULL;

@@ -40,22 +40,26 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -70,6 +74,8 @@ static void ztest_suite_before(void *ctx)
 }
 
 /* ================================= Serialization NULL checks ================================== */
+
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_defensive, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
 
@@ -630,11 +636,9 @@ ZTEST(ubi_secure_defensive, init_erase_block_too_small)
 
 	const int ret = ubi_device_init(&bad_flash, &cfg, &ubi);
 
-	if (ret == 0) {
-		ubi_device_deinit(ubi);
-	} else {
-		zassert_equal(ret, -EINVAL);
-	}
+	zassert_equal(ret, -EINVAL, "init must reject erase_block_size=16 with -EINVAL, got %d",
+		      ret);
+	zassert_is_null(ubi, "device handle must remain NULL on -EINVAL");
 }
 
 /**
@@ -761,8 +765,9 @@ ZTEST(ubi_secure_defensive, scan_erased_vid_dirty_leb)
 	zassert_ok(ubi_device_get_info(ubi, &info_after));
 
 	/* The PEB with erased VID but non-erased LEB should be classified as dirty. */
-	zassert_true(info_after.dirty_peb_count > 0 || info_after.bad_peb_count > 0,
-		     "Partially written PEB should be dirty or bad");
+	zassert_true(info_after.dirty_peb_count > 0,
+		     "Erased-VID + written-LEB PEB must be classified dirty: dirty=%zu bad=%zu",
+		     info_after.dirty_peb_count, info_after.bad_peb_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
 }
@@ -866,8 +871,6 @@ ZTEST(ubi_secure_defensive, io_leb_prefix_is_erased_null)
 	zassert_equal(ubi_secure_leb_prefix_is_erased(NULL, 0, &erased), -EINVAL);
 	zassert_equal(ubi_secure_leb_prefix_is_erased(&flash, 0, NULL), -EINVAL);
 }
-
-/* ===================================== Suite registration ====================================== */
 
 /**
  * \brief `ubi_secure_aead_encrypt` rejects `aad == NULL` with non-zero `aad_len`.

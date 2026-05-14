@@ -10,8 +10,7 @@
  *          records) via the AEAD AAD.  Verbatim relocation of an
  *          authentic EC, VID, or LEB record from PEB A to PEB B must
  *          therefore fail authentication when the verifier rebuilds the
- *          AAD from PEB B's location.  Closes audit §10.1 #3
- *          (parent-child AAD binding test).
+ *          AAD from PEB B's location (parent-child AAD binding test).
  *
  * \copyright Copyright (c) 2026
  */
@@ -41,9 +40,6 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
@@ -59,17 +55,23 @@
 #define VID_REGION_SIZE (96U)
 #define LEB_REGION_OFFSET (EC_REGION_SIZE + VID_REGION_SIZE)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Big-endian 'UBIS' magic prefix bytes (sys_put_be32(0x55424953)). */
 static const uint8_t UBIS_MAGIC_BE[4] = { 'U', 'B', 'I', 'S' };
 
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 static size_t g_auth_failure_count;
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
 						       void *user_data)
 {

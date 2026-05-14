@@ -36,23 +36,29 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+static struct ubi_device *sec_init(void);
+
 /* Static function definitions ------------------------------------------------------------------ */
 
-/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -85,6 +91,8 @@ static struct ubi_device *sec_init(void)
 }
 
 /* ======================================= Volume remove ======================================== */
+
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_coverage, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);
@@ -549,7 +557,8 @@ ZTEST(ubi_secure_coverage, flash_write_fail_on_vid)
 	ubi_test_fault_set_flash_write_fail_after(1);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when VID flash write fails");
+	zassert_equal(ret, -EIO, "leb_write must return -EIO when VID flash write fails, got %d",
+		      ret);
 }
 
 /**
@@ -591,7 +600,8 @@ ZTEST(ubi_secure_coverage, flash_write_fail_on_erase_ec)
 	ubi_test_fault_set_flash_write_fail_after(0);
 	const int ret = ubi_device_erase_peb(ubi);
 
-	zassert_not_equal(ret, 0, "erase_peb should fail when EC flash write fails");
+	zassert_equal(ret, -EIO, "erase_peb must return -EIO when EC flash write fails, got %d",
+		      ret);
 }
 
 /* ======================================== LEB get_size ======================================== */
@@ -663,11 +673,11 @@ ZTEST(ubi_secure_coverage, volume_remove_persists)
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(info.volume_count, 0);
 
-	/* Attempting to read removed volume should fail. */
+	/* Reading a removed volume must fail with -EINVAL (volume slot freed). */
 	uint8_t readback[1] = { 0 };
 	const int ret = ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback));
 
-	zassert_not_equal(ret, 0, "Read from removed volume should fail");
+	zassert_equal(ret, -ENOENT, "read of removed volume must return -ENOENT, got %d", ret);
 }
 
 /* ==================================== Erase all dirty PEBs ==================================== */
@@ -711,5 +721,3 @@ ZTEST(ubi_secure_coverage, erase_all_dirty_pebs)
 
 	zassert_equal(info.dirty_peb_count, 0, "All dirty PEBs should be erased");
 }
-
-/* ===================================== Suite registration ===================================== */

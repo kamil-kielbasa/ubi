@@ -42,17 +42,19 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 
 /* Module-level device pointer for teardown safety. */
@@ -67,6 +69,7 @@ static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -378,7 +381,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
  *         and read-back round-trip succeeds bit-exact; `memory_check`
  *         confirms the heap returned to baseline after deinit.
  *
- * \trace §11.6 / §20 interrupted anchor rewrite.
+ * \trace interrupted anchor rewrite.
  *
  * \precondition `CONFIG_UBI_TEST_FAULT_INJECTION` + `CONFIG_UBI_TEST_API_ENABLE`;
  *               flash-write fault-injection hook available.
@@ -794,7 +797,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
  *         matches the pre-erase payload (`zassert_mem_equal`); a follow-up
  *         write returns 0 and survives a second reboot.
  *
- * \trace §11.6 anchor recreation on missing anchor PEB.
+ * \trace anchor recreation on missing anchor PEB.
  *
  * \precondition `CONFIG_UBI_TEST_FAULT_INJECTION` + `CONFIG_UBI_TEST_API_ENABLE`;
  *               raw flash reachable for direct PEB erase via the test hook.

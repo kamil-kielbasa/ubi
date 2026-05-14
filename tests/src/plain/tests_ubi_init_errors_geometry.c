@@ -363,7 +363,8 @@ ZTEST_F(ubi_init_errors_geometry, geometry_partition_not_multiple_of_ebs)
 		(void)ubi_device_deinit(ubi);
 		fixture->ubi = NULL;
 	}
-	zassert_not_equal(ret, 0, "Init should fail with misaligned erase block size");
+	zassert_equal(ret, -EINVAL,
+		      "init must reject misaligned erase block size with -EINVAL, got %d", ret);
 }
 
 /**
@@ -391,5 +392,6 @@ ZTEST_F(ubi_init_errors_geometry, geometry_partition_too_small)
 		(void)ubi_device_deinit(ubi);
 		fixture->ubi = NULL;
 	}
-	zassert_not_equal(ret, 0, "Init should fail with partition too small");
+	zassert_equal(ret, -EINVAL, "init must reject undersized partition with -EINVAL, got %d",
+		      ret);
 }

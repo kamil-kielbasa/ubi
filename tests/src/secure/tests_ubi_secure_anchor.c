@@ -234,6 +234,9 @@ ZTEST(ubi_secure_anchor, multi_leb_churn_cache_strict_monotonic)
 	uint64_t cached_peak = 0;
 
 	zassert_ok(ubi_secure_test_get_volume_cached_counter(ubi, vol_id, &cached_peak, NULL));
+	zassert_true(cached_peak > vol_cfg.leb_count,
+		     "cached peak must reflect every write: peak=%llu leb_count=%zu",
+		     (unsigned long long)cached_peak, (size_t)vol_cfg.leb_count);
 
 	for (size_t lnum = 0; lnum < vol_cfg.leb_count; lnum++) {
 		zassert_ok(ubi_leb_unmap(ubi, vol_id, lnum));

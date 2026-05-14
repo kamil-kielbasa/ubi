@@ -1430,7 +1430,7 @@ ZTEST_F(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
  * \details Scenario: Build the public dispatcher contract from `lib/src/ubi.c`: when the
  *          caller passes a non-NULL crypto_cfg but the secure backend is not
  *          compiled in, ubi_device_init() must reject with -ENOTSUP without
- *          dereferencing any callbacks. Audit §10.1 (former #6).
+ *          dereferencing any callbacks.
  *
  * \expect ubi_device_init returns -ENOTSUP, device handle is NULL.
  */

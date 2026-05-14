@@ -39,22 +39,26 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -68,6 +72,8 @@ static void ztest_suite_before(void *ctx)
 	ubi_secure_test_hook_reset();
 }
 /* ================================= IO hook-based error paths ================================== */
+
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_defensive_io_hooks, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
 
@@ -151,7 +157,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_read_key_deriv_fail)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_secure_ec_hdr_read(&flash, &cfg, 4, &ec, &ctx);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -176,7 +183,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_key_deriv_fail)
 	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -201,7 +209,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_salt_fail)
 	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
+	zassert_equal(ret, -UBI_SECURE_ENORAND,
+		      "salt-gen fault must yield -UBI_SECURE_ENORAND, got %d", ret);
 }
 
 /**
@@ -226,7 +235,7 @@ ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_aead_fail)
 	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
+	zassert_equal(ret, -EIO, "AEAD encrypt fault must yield -EIO, got %d", ret);
 }
 
 /**
@@ -251,7 +260,7 @@ ZTEST(ubi_secure_defensive_io_hooks, io_ec_hdr_write_flash_fail)
 	const int ret = ubi_secure_ec_hdr_write(&flash, &cfg, 4, &ec,
 						cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when flash write fails");
+	zassert_equal(ret, -EIO, "flash write fault must yield -EIO, got %d", ret);
 }
 
 /**
@@ -273,7 +282,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_key_deriv_fail)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta, 0, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -296,7 +306,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_salt_fail)
 	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta,
 						 cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
+	zassert_equal(ret, -UBI_SECURE_ENORAND,
+		      "salt-gen fault must yield -UBI_SECURE_ENORAND, got %d", ret);
 }
 
 /**
@@ -319,7 +330,7 @@ ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_aead_fail)
 	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta,
 						 cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
+	zassert_equal(ret, -EIO, "AEAD encrypt fault must yield -EIO, got %d", ret);
 }
 
 /**
@@ -342,7 +353,7 @@ ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_write_flash_fail)
 	const int ret = ubi_secure_vid_hdr_write(&flash, &cfg, 4, &ec_ctx, &vid, &meta,
 						 cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when flash write fails");
+	zassert_equal(ret, -EIO, "flash write fault must yield -EIO, got %d", ret);
 }
 
 /**
@@ -365,7 +376,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_key_deriv_fail)
 	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, data,
 						  sizeof(data), 0, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -389,7 +401,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_salt_fail)
 						  sizeof(data),
 						  cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
+	zassert_equal(ret, -UBI_SECURE_ENORAND,
+		      "salt-gen fault must yield -UBI_SECURE_ENORAND, got %d", ret);
 }
 
 /**
@@ -413,7 +426,7 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_aead_fail)
 						  sizeof(data),
 						  cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
+	zassert_equal(ret, -EIO, "AEAD encrypt fault must yield -EIO, got %d", ret);
 }
 
 /**
@@ -437,7 +450,7 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_flash_fail)
 						  sizeof(data),
 						  cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when flash write fails");
+	zassert_equal(ret, -EIO, "flash write fault must yield -EIO, got %d", ret);
 }
 
 /**
@@ -481,7 +494,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_read_key_deriv_fail)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_secure_leb_data_read(&flash, &cfg, 4, &vid_ctx, 0, buf, 2);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -966,7 +980,8 @@ ZTEST(ubi_secure_defensive_io_hooks, io_vid_hdr_read_key_deriv_fail)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_secure_vid_hdr_read(&flash, &cfg, 6, &ec_ctx, &vid, &meta, &vid_ctx);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -987,8 +1002,5 @@ ZTEST(ubi_secure_defensive_io_hooks, io_leb_data_write_zero_len)
 	const int ret = ubi_secure_leb_data_write(&flash, &cfg, 4, &ec_ctx, &vid, 0, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
-	/* Zero-length write should succeed or fail gracefully. */
-	(void)ret;
+	zassert_equal(ret, 0, "zero-length leb_data_write must succeed, got %d", ret);
 }
-
-/* ===================================== Suite registration ====================================== */

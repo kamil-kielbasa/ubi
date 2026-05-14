@@ -41,6 +41,7 @@
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 
 /** \brief Per-test fixture: holds the UBI device handle so the
@@ -53,6 +54,7 @@ struct ubi_erased_val_fixture {
 static struct ubi_erased_val_fixture g_fixture;
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void *ztest_suite_setup(void)
 {
 	ubi_test_setup_mtd(&flash);

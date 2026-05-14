@@ -32,21 +32,24 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);

@@ -31,20 +31,23 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -58,6 +61,7 @@ static void ztest_suite_before(void *ctx)
 }
 
 /* Module interface function definitions -------------------------------------------------------- */
+
 static enum ubi_crypto_rollback_verdict
 mock_reject_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
 {
@@ -254,7 +258,6 @@ ZTEST(ubi_secure_attach, write_key_version_not_in_allowlist)
  *          bookkeeping; a duplicate entry would waste a slot and create
  *          ambiguity in operator-visible state.  `validate_crypto_cfg`
  *          rejects duplicates with -EINVAL before any flash access.
- *          Audit §10.1 (former #7).
  *
  * \expect ubi_device_init returns -EINVAL, device handle is NULL.
  */
@@ -284,7 +287,6 @@ ZTEST(ubi_secure_attach, allowlist_duplicates_rejected)
  *          monotonic key progression — including a hard wrap-around at the
  *          uint8_t boundary (255 → 0).  `secure_attach` rejects with
  *          -EINVAL after authenticating the on-flash device header.
- *          Audit §4.5 ("Zakaz wrap-around key_version").
  *
  * \expect First init (kv=2) succeeds; second init with kv=1 returns
  *           -EINVAL and leaves the handle NULL.

@@ -2,7 +2,10 @@
  * \file    tests_ubi_secure_chunked.c
  * \author  Kamil Kielbasa
  *
- * \brief   Tests for chunked secure LEB mode (§7.8, §8.3, §12.3, §15.3).
+ * \brief   Tests for chunked secure LEB mode: encryption of LEB payloads
+ *          larger than a single PEB by splitting them into authenticated
+ *          chunks across multiple PEBs, with read/write/persist/recovery
+ *          coverage including tamper detection on individual chunks.
  *
  * \copyright Copyright (c) 2026
  */
@@ -35,17 +38,29 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+/* Counter-overflow event accounting -- per-test stack-allocated state passed
+ * through `ubi_crypto_config.user_data`. No file-scope mutable state. */
+struct chunked_overflow_state {
+	uint32_t event_count;
+	uint32_t rotate_now_count;
+	uint8_t last_rotate_kv;
+	uint32_t last_rotate_vol_id;
+	uint8_t last_rotate_usage_pct;
+};
+#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -56,7 +71,19 @@ static struct sys_memory_stats before_init = { 0 };
 static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
+			 struct sys_memory_stats *ad);
+#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_crypto_event *event,
+							       void *user_data);
+#endif
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -78,16 +105,6 @@ static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *a
 }
 
 #if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-
-/* Counter-overflow event accounting -- per-test stack-allocated state passed
- * through `ubi_crypto_config.user_data`. No file-scope mutable state. */
-struct chunked_overflow_state {
-	uint32_t event_count;
-	uint32_t rotate_now_count;
-	uint8_t last_rotate_kv;
-	uint32_t last_rotate_vol_id;
-	uint8_t last_rotate_usage_pct;
-};
 
 static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_crypto_event *event,
 							       void *user_data)
@@ -166,7 +183,7 @@ ZTEST(ubi_secure_chunked, single_chunk_write_read)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '0' },
+		.name = "single_chunk",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -209,7 +226,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_write_read)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '1' },
+		.name = "multi_chunk",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -245,7 +262,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_write_read)
  * \details Scenario: Write 1024 bytes (4 chunks), then read a 64-byte slice starting
  *          at offset 240 — this spans the boundary between chunk 0 (bytes
  *          0–255) and chunk 1 (bytes 256–511). Only chunks 0 and 1 need
- *          authentication (§12.3).
+ *          authentication.
  *
  * \expect The 64-byte slice at offset 240 matches the original data.
  */
@@ -254,7 +271,7 @@ ZTEST(ubi_secure_chunked, partial_read_cross_chunk)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '2' },
+		.name = "partial_cross",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -289,7 +306,7 @@ ZTEST(ubi_secure_chunked, partial_read_within_chunk)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '3' },
+		.name = "partial_within",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -324,7 +341,7 @@ ZTEST(ubi_secure_chunked, partial_last_chunk)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '4' },
+		.name = "partial_last",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -363,7 +380,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_with_reboot)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '5' },
+		.name = "multi_reboot",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -422,7 +439,7 @@ ZTEST(ubi_secure_chunked, overwrite_chunked)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '6' },
+		.name = "overwrite_chunk",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -456,7 +473,7 @@ ZTEST(ubi_secure_chunked, overwrite_chunked)
  *
  * \details Scenario: Write 1024 bytes (4 chunks), then corrupt one byte in chunk 2's
  *          ciphertext on flash. A full read should fail with auth error.
- *          A partial read of only chunk 0 should succeed (§12.3).
+ *          A partial read of only chunk 0 should succeed.
  *
  * \expect Full read returns error; partial read of untampered chunk succeeds.
  */
@@ -465,7 +482,7 @@ ZTEST(ubi_secure_chunked, tamper_one_chunk)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '7' },
+		.name = "tamper_chunk",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -542,11 +559,13 @@ ZTEST(ubi_secure_chunked, tamper_one_chunk)
 
 	flash_area_close(fa);
 
-	/* Full read touching chunk 2 should fail auth. */
+	/* Full read touching chunk 2 must fail with -EBADMSG (AEAD auth tag
+	 * mismatch on the tampered chunk). */
 	uint8_t rdata[ARRAY_SIZE(array_1024)] = { 0 };
 	int ret = ubi_leb_read(ubi, vol_id, 0, 0, rdata, ARRAY_SIZE(array_1024));
 
-	zassert_not_equal(ret, 0, "Full read should fail after chunk tamper");
+	zassert_equal(ret, -EBADMSG, "Full read of tampered chunk must return -EBADMSG, got %d",
+		      ret);
 
 	/* Partial read of only chunk 0 (bytes 0–127) should succeed because
 	 * chunk 0 is untampered. */
@@ -564,7 +583,7 @@ ZTEST(ubi_secure_chunked, tamper_one_chunk)
  *
  * \details Scenario: Map a LEB (zero-length write), verify it is mapped and has
  *          size 0. This exercises the single-tag zero-length fallback
- *          path in chunked mode (§7.8).
+ *          path in chunked mode.
  *
  * \expect leb_is_mapped returns true; leb_get_size returns 0.
  */
@@ -573,7 +592,7 @@ ZTEST(ubi_secure_chunked, zero_length_map)
 	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', '8' },
+		.name = "zero_len_map",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 4,
 	};
@@ -672,7 +691,7 @@ ZTEST(ubi_secure_chunked, chunked_write_overflow_rejected)
 	cfg.user_data = &evt_state;
 
 	const struct ubi_volume_config vol_cfg = {
-		.name = { '/', 'c', 'k', 'O' },
+		.name = "overflow_rej",
 		.type = UBI_VOLUME_TYPE_STATIC,
 		.leb_count = 2,
 	};

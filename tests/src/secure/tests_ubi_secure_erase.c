@@ -35,17 +35,19 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -57,6 +59,7 @@ static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -126,13 +129,13 @@ ZTEST(ubi_secure_erase, fill_unmap_erase_cycle)
 
 	struct ubi_device_info info_after_init = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info_after_init));
-	/* reserved = leb_count + 1 hidden anchor PEB per volume (§7.9). */
+	/* reserved = leb_count + 1 hidden anchor PEB per volume. */
 	zassert_equal(vol_cfg.leb_count + 1, info_after_init.reserved_peb_count);
 
 	const size_t initial_free = info_after_init.free_peb_count;
 
 	/* 2. Write repeatedly, overwriting LEB 0 to distribute PEBs
-	 *    across free/dirty.  The emergency-reserve refill (§11.5)
+	 *    across free/dirty.  The emergency-reserve refill
 	 *    may recycle dirty PEBs during overwrites, so track the
 	 *    free+dirty conservation law rather than individual counts. */
 	struct ubi_device_info info = { 0 };
@@ -168,7 +171,7 @@ ZTEST(ubi_secure_erase, fill_unmap_erase_cycle)
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
 
 	/* 5. Unmap and erase all dirty PEBs one by one.
-	 *    The anchor witness rewrite (§11.6) may recycle the old anchor
+	 *    The anchor witness rewrite may recycle the old anchor
 	 *    to dirty during the loop, so drive to dirty == 0 instead of
 	 *    counting a fixed number of iterations. */
 	zassert_ok(ubi_leb_unmap(ubi, vol_id, lnum));
@@ -330,7 +333,7 @@ ZTEST(ubi_secure_erase, anchor_participates_in_wear_leveling)
  *         equals the pre-write baseline and `info.volume_count == 1` —
  *         no stale anchor lingers in the reserved or bad pool.
  *
- * \trace §11.6 stale anchor rejection; §20 reboot recovery.
+ * \trace stale anchor rejection; reboot recovery.
  *
  * \precondition 1-LEB static volume `"/stal"` on a freshly formatted secure
  *               partition.
@@ -420,7 +423,7 @@ ZTEST(ubi_secure_erase, stale_anchor_rejected_after_reboot)
  * \details Scenario: Run a full reclaim cycle (write → unmap → erase → rewrite) over
  *          multiple iterations.  After each full cycle, verify the anchor
  *          remains valid by creating a fresh reboot and checking that the
- *          volume and its reserved PEB count are intact. This tests §11.6:
+ *          volume and its reserved PEB count are intact. This tests:
  *          reclaim with hidden-anchor preservation.
  *
  * \expect Across N full reclaim cycles + reboot: volume always recognized,

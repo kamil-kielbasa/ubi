@@ -33,17 +33,19 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -55,6 +57,7 @@ static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -127,7 +130,7 @@ ZTEST(ubi_secure_volumes, create_one_with_reboot)
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	/* reserved = leb_count + 1 hidden anchor PEB per volume (§7.9). */
+	/* reserved = leb_count + 1 hidden anchor PEB per volume. */
 	zassert_equal(info.reserved_peb_count, vol_cfg.leb_count + 1);
 	zassert_equal(1, info.volume_count);
 
@@ -275,7 +278,7 @@ ZTEST(ubi_secure_volumes, resize_upper_with_reboot)
 
 	struct ubi_device_info info = { 0 };
 	zassert_ok(ubi_device_get_info(ubi, &info));
-	/* reserved = leb_count + 1 hidden anchor PEB per volume (§7.9). */
+	/* reserved = leb_count + 1 hidden anchor PEB per volume. */
 	zassert_equal(new_vol_cfg.leb_count + 1, info.reserved_peb_count);
 	zassert_equal(1, info.volume_count);
 
@@ -323,7 +326,7 @@ ZTEST(ubi_secure_volumes, create_many_with_reboot)
 	memset(&info, 0, sizeof(info));
 	zassert_ok(ubi_device_get_info(ubi, &info));
 	zassert_equal(2, info.volume_count);
-	/* reserved = sum(leb_count) + 2 hidden anchor PEBs (§7.9). */
+	/* reserved = sum(leb_count) + 2 hidden anchor PEBs. */
 	zassert_equal(vol_cfg_1.leb_count + vol_cfg_2.leb_count + 2, info.reserved_peb_count);
 
 	zassert_ok(ubi_device_deinit(ubi));
@@ -354,7 +357,7 @@ ZTEST(ubi_secure_volumes, create_many_with_reboot)
  * \details Scenario: Create a 4-LEB dynamic volume, write data to LEBs 2 and 3,
  *          shrink to 2 LEBs, deinit, re-init and verify the shrunken
  *          leb_count persists and tail LEBs are recovered as dirty.
- *          Tests §11.7: resize commits smaller leb_count in reserved
+ *          Tests resize commits smaller leb_count in reserved
  *          metadata, so tail PEBs whose lnum is out of range become dirty
  *          after reboot even without prior erase.
  *
@@ -417,7 +420,7 @@ ZTEST(ubi_secure_volumes, shrink_with_reboot)
 	/* reserved = 2 LEBs + 1 anchor. */
 	zassert_equal(shrink_cfg.leb_count + 1, info.reserved_peb_count);
 	zassert_equal(1, info.volume_count);
-	/* Tail PEBs are recovered as dirty (§11.7). */
+	/* Tail PEBs are recovered as dirty. */
 	zassert_true(info.dirty_peb_count >= 2, "Tail PEBs should be dirty after reboot");
 
 	zassert_ok(ubi_device_deinit(ubi));
@@ -500,7 +503,7 @@ ZTEST(ubi_secure_volumes, shrink_erase_reboot)
  *          remove the volume (zero-volume state).  Deinit, re-init, create
  *          a new volume and write again.  The new write's VID counter must
  *          be above the previously committed floor — not reset to 0.
- *          Tests §9.8.5: vid_next_counter_floor is saved in the secure
+ *          Tests vid_next_counter_floor: it is saved in the secure
  *          device header during every reserved metadata rewrite.
  *
  * \expect After remove + reboot + create: new writes do not reuse
@@ -513,7 +516,7 @@ ZTEST(ubi_secure_volumes, shrink_erase_reboot)
  *         (`zassert_mem_equal`); zero-volume snapshot in step 3 reports
  *         `info.volume_count == 0` and `info.reserved_peb_count == 0`.
  *
- * \trace §9.8.5 vid_next_counter_floor.
+ * \trace vid_next_counter_floor.
  *
  * \precondition Single static volume `"/vcf"`; no other volumes on flash.
  */
@@ -613,7 +616,7 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
  *         `info.volume_count` tracks the latest create/remove
  *         without the floor regressing.
  *
- * \trace §9.8.5 vid_next_counter_floor.
+ * \trace vid_next_counter_floor.
  *
  * \precondition Freshly formatted secure partition.
  */

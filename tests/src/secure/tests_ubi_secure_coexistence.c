@@ -9,7 +9,7 @@
  *          partition `ubi_partition_2` at the same time, with both
  *          devices independently usable for volume create / LEB I/O,
  *          surviving a deinit-reinit cycle without state bleed-through.
- *          Closes audit §10.1 #1 (plain + secure coexistence).
+ *          Closes audit #1 (plain + secure coexistence).
  *
  *          Built only when both \c CONFIG_UBI_CRYPTO and the second
  *          partition exist in the active devicetree (native_sim
@@ -44,9 +44,6 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PART_PLAIN ubi_partition
 #define UBI_PART_SECURE ubi_partition_2
 
@@ -58,15 +55,25 @@
 #define UBI_PART_SECURE_OFFSET FIXED_PARTITION_OFFSET(UBI_PART_SECURE)
 #define UBI_PART_SECURE_SIZE FIXED_PARTITION_SIZE(UBI_PART_SECURE)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash_plain;
 static struct ubi_flash_desc flash_secure;
 static struct ubi_device *g_plain;
 static struct ubi_device *g_secure;
 
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_suite_after(void *ctx);
+
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void *ztest_suite_setup(void)
 {
 	const struct device *dev_plain = UBI_PART_PLAIN_DEVICE;

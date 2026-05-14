@@ -39,22 +39,26 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
+
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -68,6 +72,8 @@ static void ztest_suite_before(void *ctx)
 	ubi_secure_test_hook_reset();
 }
 /* ================================== Reserved PEB NULL checks ================================== */
+
+/* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_defensive_reserved, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
 
@@ -174,7 +180,8 @@ ZTEST(ubi_secure_defensive_reserved, res_peb_commit_key_deriv_fail)
 	const int ret = ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when key derivation fails");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "key derivation fault must yield -UBI_SECURE_ENOKEY, got %d", ret);
 }
 
 /**
@@ -202,7 +209,7 @@ ZTEST(ubi_secure_defensive_reserved, res_peb_commit_salt_fail)
 	const int ret = ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when salt gen fails");
+	zassert_equal(ret, -EROFS, "salt-gen fault during commit must yield -EROFS, got %d", ret);
 }
 
 /**
@@ -230,7 +237,8 @@ ZTEST(ubi_secure_defensive_reserved, res_peb_commit_aead_fail)
 	const int ret = ubi_secure_res_peb_commit(&flash, &cfg, &dh, &dm, NULL, 0,
 						  cfg.policy.requested_write_key_version, 0);
 
-	zassert_not_equal(ret, 0, "Should fail when AEAD encrypt fails");
+	zassert_equal(ret, -EROFS, "AEAD encrypt fault during commit must yield -EROFS, got %d",
+		      ret);
 }
 
 /**
@@ -268,7 +276,8 @@ ZTEST(ubi_secure_defensive_reserved, res_peb_scan_corrupt_peb)
 	struct ubi_secure_res_peb_scan scan = { 0 };
 
 	zassert_ok(ubi_secure_res_peb_scan(&flash, &cfg, &scan));
-	zassert_true(scan.corrupt_count > 0, "Corrupted reserved PEB should be marked corrupt");
+	zassert_equal(scan.corrupt_count, 1, "exactly one corrupted reserved PEB expected, got %u",
+		      scan.corrupt_count);
 	zassert_true(scan.auth_count > 0, "Other reserved PEBs should still authenticate");
 }
 
@@ -329,7 +338,9 @@ ZTEST(ubi_secure_defensive_reserved, res_peb_scan_key_deriv_fail)
 	/* Hook fires once — one PEB will fail derivation, others re-derive. */
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	zassert_ok(ubi_secure_res_peb_scan(&flash, &cfg, &scan));
-	zassert_true(scan.corrupt_count > 0, "One PEB should fail with key deriv error");
+	zassert_equal(scan.corrupt_count, 1,
+		      "key-derivation hook fires once: expected 1 corrupt PEB, got %u",
+		      scan.corrupt_count);
 }
 
 /**
@@ -1106,7 +1117,3 @@ ZTEST(ubi_secure_defensive_reserved, res_peb_commit_counter_overflow)
 						UBI_SECURE_COUNTER_MAX + 1),
 		      -EOVERFLOW);
 }
-
-/* ===================================== Suite registration ===================================== */
-
-/* ===================================== Suite registration ====================================== */

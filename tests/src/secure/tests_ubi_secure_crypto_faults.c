@@ -19,6 +19,7 @@
 #include <ubi_crypto.h>
 #include <ubi_test.h>
 #include "ubi_secure_test_hooks.h"
+#include "ubi_secure_types.h"
 
 /* Test fixtures: */
 #include "ubi_test_fixture.h"
@@ -35,23 +36,30 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
-/* Static function declarations ----------------------------------------------------------------- */
 static struct ubi_flash_desc flash = { 0 };
 static struct ubi_device *g_ubi;
 
+/* Static function declarations ----------------------------------------------------------------- */
+
+static void *ztest_suite_setup(void);
+static void ztest_suite_before(void *ctx);
+static void ztest_testcase_teardown(void *ctx);
+static struct ubi_device *sec_init(void);
+static struct ubi_device *sec_init_with_vol(const char *name, int *vol_id);
+
 /* Static function definitions ------------------------------------------------------------------ */
 
-/* Module interface function definitions -------------------------------------------------------- */
 static void *ztest_suite_setup(void)
 {
 	ubi_test_secure_suite_setup_impl(&flash);
@@ -101,6 +109,8 @@ static struct ubi_device *sec_init_with_vol(const char *name, int *vol_id)
 
 /* ========================== AEAD encrypt fault tests ========================================= */
 
+/* Module interface function definitions -------------------------------------------------------- */
+
 ZTEST_SUITE(ubi_secure_crypto_faults, NULL, ztest_suite_setup, ztest_suite_before,
 	    ztest_testcase_teardown, NULL);
 
@@ -121,7 +131,8 @@ ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_on_leb_write)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when AEAD encrypt is injected");
+	zassert_equal(ret, -EIO, "leb_write must return -EIO under AEAD encrypt fault, got %d",
+		      ret);
 }
 
 /**
@@ -146,7 +157,7 @@ ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_preserves_old_data)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, new_data, sizeof(new_data));
 
-	zassert_not_equal(ret, 0);
+	zassert_equal(ret, -EIO);
 
 	uint8_t readback[4] = { 0 };
 
@@ -172,8 +183,9 @@ ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_on_leb_write_after_create)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0,
-			  "leb_write should fail when AEAD encrypt is injected after create");
+	zassert_equal(ret, -EIO,
+		      "leb_write must return -EIO under AEAD encrypt fault after create, got %d",
+		      ret);
 }
 
 /* ========================== AEAD decrypt fault tests ========================================= */
@@ -199,7 +211,8 @@ ZTEST(ubi_secure_crypto_faults, aead_decrypt_fail_on_leb_read)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_DECRYPT_FAIL, true);
 	const int ret = ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback));
 
-	zassert_not_equal(ret, 0, "leb_read should fail when AEAD decrypt is injected");
+	zassert_equal(ret, -EBADMSG,
+		      "leb_read must return -EBADMSG under AEAD decrypt fault, got %d", ret);
 }
 
 /**
@@ -232,7 +245,8 @@ ZTEST(ubi_secure_crypto_faults, aead_decrypt_fail_on_reattach_read)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_DECRYPT_FAIL, true);
 	const int ret = ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback));
 
-	zassert_not_equal(ret, 0, "leb_read should fail with AEAD decrypt fault");
+	zassert_equal(ret, -EBADMSG,
+		      "leb_read must return -EBADMSG with AEAD decrypt fault, got %d", ret);
 }
 
 /* ========================== RNG fault tests ================================================== */
@@ -255,7 +269,8 @@ ZTEST(ubi_secure_crypto_faults, rng_fail_on_leb_write)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when RNG is injected");
+	zassert_equal(ret, -UBI_SECURE_ENORAND,
+		      "leb_write must return -UBI_SECURE_ENORAND under RNG fault, got %d", ret);
 }
 
 /**
@@ -276,7 +291,10 @@ ZTEST(ubi_secure_crypto_faults, rng_fail_on_leb_write_after_create)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when RNG is injected after create");
+	zassert_equal(
+		ret, -UBI_SECURE_ENORAND,
+		"leb_write must return -UBI_SECURE_ENORAND under RNG fault after create, got %d",
+		ret);
 }
 
 /* ========================== HKDF fault tests ================================================= */
@@ -299,7 +317,7 @@ ZTEST(ubi_secure_crypto_faults, hkdf_fail_on_leb_write)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_HKDF_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when HKDF is injected");
+	zassert_equal(ret, -EIO, "leb_write must return -EIO under HKDF fault, got %d", ret);
 }
 
 /**
@@ -323,7 +341,7 @@ ZTEST(ubi_secure_crypto_faults, hkdf_fail_on_leb_read)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_HKDF_FAIL, true);
 	const int ret = ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback));
 
-	zassert_not_equal(ret, 0, "leb_read should fail when HKDF is injected");
+	zassert_equal(ret, -EIO, "leb_read must return -EIO under HKDF fault, got %d", ret);
 }
 
 /* ========================== GET_KEY_ID fault tests =========================================== */
@@ -346,7 +364,9 @@ ZTEST(ubi_secure_crypto_faults, get_key_id_fail_on_leb_write)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when get_key_id is injected");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "leb_write must return -UBI_SECURE_ENOKEY under get_key_id fault, got %d",
+		      ret);
 }
 
 /**
@@ -370,7 +390,9 @@ ZTEST(ubi_secure_crypto_faults, get_key_id_fail_on_leb_read)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_leb_read(ubi, vol_id, 0, 0, readback, sizeof(readback));
 
-	zassert_not_equal(ret, 0, "leb_read should fail when get_key_id is injected");
+	zassert_equal(ret, -UBI_SECURE_ENOKEY,
+		      "leb_read must return -UBI_SECURE_ENOKEY under get_key_id fault, got %d",
+		      ret);
 }
 
 /**
@@ -391,7 +413,10 @@ ZTEST(ubi_secure_crypto_faults, get_key_id_fail_on_leb_write_after_create)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_GET_KEY_ID_FAIL, true);
 	const int ret = ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
 
-	zassert_not_equal(ret, 0, "leb_write should fail when get_key_id is injected after create");
+	zassert_equal(
+		ret, -UBI_SECURE_ENOKEY,
+		"leb_write must return -UBI_SECURE_ENOKEY under get_key_id fault after create, got %d",
+		ret);
 }
 
 /* ========================== Freshness rejection test ========================================= */
@@ -494,7 +519,7 @@ ZTEST(ubi_secure_crypto_faults, device_recovers_after_crypto_fault)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
 	const int ret1 = ubi_leb_write(ubi, vol_id, 0, data1, sizeof(data1));
 
-	zassert_not_equal(ret1, 0, "First write should fail (hook armed)");
+	zassert_equal(ret1, -EIO, "First write must return -EIO with hook armed, got %d", ret1);
 
 	/* Hook auto-disarmed. Second write should succeed. */
 	const uint8_t data2[] = { 0x33, 0x44 };
@@ -540,7 +565,7 @@ ZTEST(ubi_secure_crypto_faults, aead_encrypt_fail_on_erase)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL, true);
 	const int ret = ubi_device_erase_peb(ubi);
 
-	zassert_not_equal(ret, 0, "erase_peb should fail with AEAD encrypt fault");
+	zassert_equal(ret, -EIO, "erase_peb must return -EIO with AEAD encrypt fault, got %d", ret);
 }
 
 /**
@@ -573,7 +598,6 @@ ZTEST(ubi_secure_crypto_faults, rng_fail_on_erase)
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_RNG_FAIL, true);
 	const int ret = ubi_device_erase_peb(ubi);
 
-	zassert_not_equal(ret, 0, "erase_peb should fail with RNG fault");
+	zassert_equal(ret, -UBI_SECURE_ENORAND,
+		      "erase_peb must return -UBI_SECURE_ENORAND with RNG fault, got %d", ret);
 }
-
-/* ================================ Suite registration ========================================= */

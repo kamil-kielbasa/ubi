@@ -33,17 +33,19 @@
 
 /* Module defines ------------------------------------------------------------------------------- */
 
-/* Module types and type definitiones ----------------------------------------------------------- */
-
-/* Module interface variables and constants ----------------------------------------------------- */
 #define UBI_PARTITION_NAME ubi_partition
 #define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
 #define UBI_PARTITION_OFFSET FIXED_PARTITION_OFFSET(UBI_PARTITION_NAME)
 #define UBI_PARTITION_SIZE FIXED_PARTITION_SIZE(UBI_PARTITION_NAME)
 
+/* Module types and type definitiones ----------------------------------------------------------- */
+
+/* Module interface variables and constants ----------------------------------------------------- */
+
 /* Static variables and constants --------------------------------------------------------------- */
 
 /* Static function declarations ----------------------------------------------------------------- */
+
 static struct ubi_flash_desc flash = { 0 };
 
 #if defined(CONFIG_SYS_HEAP_RUNTIME_STATS)
@@ -55,6 +57,7 @@ static struct sys_memory_stats after_init = { 0 };
 static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function definitions ------------------------------------------------------------------ */
+
 static void memory_check(struct sys_memory_stats *bi, struct sys_memory_stats *ai,
 			 struct sys_memory_stats *ad)
 {
@@ -255,7 +258,7 @@ ZTEST(ubi_secure_map, all_lebs_lifecycle_with_reboot)
  * \details Scenario: Create a 2-LEB static volume, write data to LEB 0, then unmap
  *          LEB 0 without erasing.  Deinit, re-init — the old authenticated
  *          VID still exists on flash, so the LEB is rediscovered and the
- *          data is accessible again.  Tests §11.7: unmap is an in-memory
+ *          data is accessible again.  Tests that unmap is an in-memory
  *          transition only; until physical erase, reboot reconstructs the
  *          old mapping.
  *
@@ -306,7 +309,7 @@ ZTEST(ubi_secure_map, unmap_reboot_before_erase)
 
 	is_mapped = false;
 	zassert_ok(ubi_leb_is_mapped(ubi, vol_id, lnum, &is_mapped));
-	zassert_true(is_mapped, "LEB should be remapped after reboot (§11.7)");
+	zassert_true(is_mapped, "LEB should be remapped after reboot");
 
 	/* 5. Verify original data is intact. */
 	memset(rdata, 0, sizeof(rdata));
