@@ -8,7 +8,7 @@
 
 A flash virtualization layer for Zephyr RTOS — global wear-leveling, runtime-resizable named volumes, and self-healing bad-block management on raw NOR/NAND, with an optional secure variant providing AEAD over every on-flash structure.
 
-Inspired by Linux's `drivers/mtd/ubi`, written from scratch for Zephyr's `flash_area` API and resource constraints. MIT licensed.
+Inspired by Linux's `drivers/mtd/ubi`, written from scratch for Zephyr's `flash_area` API and resource constraints.
 
 <p align="center">
   <img src="doc/img/stack.svg" alt="UBI on Zephyr stack: Application → UBI Public API → Zephyr flash_area / PSA Crypto → Physical Flash" width="600">
@@ -21,7 +21,7 @@ Zephyr's storage stack has a missing middle layer:
 - `flash_area` is too low — raw partitions, no wear-leveling, no bad-block handling.
 - LittleFS, NVS, ZMS, FCB are too high — each bakes a specific abstraction (filesystem, key-value, circular log) and consumes raw flash directly. None provide multi-volume layout sharing one wear-leveling pool, and none scale cleanly to large external NOR/NAND with mixed write workloads.
 
-UBI fills that gap. It provides multiple independent named volumes sharing one global wear-leveling pool, runtime-resizable, with bad-block handling and crash-safe metadata. Higher-level abstractions — a future UBIFS-style filesystem, an LSM-tree-based store, custom indexed databases — can build on top of UBI rather than reinventing wear-leveling each time.
+UBI fills that gap. It provides multiple independent named and runtime-resizable volumes — sharing one global wear-leveling pool, with bad-block handling and crash-safe metadata. Higher-level abstractions — a future UBIFS-style filesystem, an LSM-tree-based store, custom indexed databases — can build on top of UBI rather than reinventing wear-leveling each time.
 
 **UBI is not a filesystem.** It is a block virtualization layer. That is the point.
 
@@ -38,11 +38,11 @@ UBI fills that gap. It provides multiple independent named volumes sharing one g
 
 ## Optional secure backend
 
-With `CONFIG_UBI_SECURE=y`, every commit-visible on-flash structure — UBI metadata, reserved PEBs, and LEB data — is wrapped in **AES-128-CCM via PSA Crypto**, with location and identity bound into the AAD. On top of bulk authenticated encryption you get:
+With `CONFIG_UBI_SECURE=y`, every commit-visible on-flash structure — **device header, volume headers, EC headers, VID headers, and LEB payloads** — is wrapped in **AES-128-CCM via PSA Crypto**, with location and identity bound into the AAD. On top of bulk authenticated encryption you get:
 
 - **Versioned keys** with an allowlist and per-block refcounting. Key-lifecycle events (`KEY_ROTATE_SOON`, `KEY_ROTATE_NOW`, `KEY_RETIRABLE`) are delivered to the application.
 - **Anti-rollback** via an application-supplied freshness callback bound to the device-header revision and the VID-header global sequence number (attach-time check + post-commit sync).
-- **Fail-closed read-only mode** on AEAD failure, RNG failure, or write-budget exhaustion. Reads remain available; writes are refused until reset.
+- **Fail-closed read-only mode** on AEAD failure, RNG failure, or write-budget exhaustion. Reads remain available; writes and erases are refused until reset.
 
 Threat model and the application contract are in [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html).
 
@@ -95,9 +95,9 @@ int main(void)
 
 Full error handling and the `flash_desc` setup (partition lookup, erase / write block sizes) are in the runnable [`sample/`](sample/). All API functions return `0` on success or a negative `errno` code on failure.
 
-## Footprint
+## Footprint (Cortex-M33)
 
-UBI library only, Cortex-M33, `-Os`, STM32U585 (`b_u585i_iot02a`):
+UBI library only, `-Os`, STM32U585 (`b_u585i_iot02a`):
 
 - Plain build: ~9.5 KB flash, ~1.5 KB BSS
 - Secure build: ~28.6 KB flash, ~1.8 KB BSS
@@ -110,15 +110,18 @@ PSA Crypto and mbedTLS are provided by the platform and not counted. See [Archit
 
 - 55 test suites, 609 tests total (270 plain + 339 secure).
 - Validated on Zephyr `native_sim` (flash simulator), STM32U585 (`b_u585i_iot02a`), and nRF5340 (`nrf5340dk`).
+- Live coverage on every push to `main` — see the [Codecov badge](https://codecov.io/gh/kamil-kielbasa/ubi) at the top.
 
 ## Documentation
 
 Full documentation: <https://kamil-kielbasa.github.io/ubi/>
 
-- **New here?** — [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) and [Comparison vs LittleFS / NVS / ZMS](https://kamil-kielbasa.github.io/ubi/getting_started/comparison.html).
-- **Want to integrate?** — [Quick Start](https://kamil-kielbasa.github.io/ubi/getting_started/quick_start.html) and the [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) (STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store).
-- **Going to production with secure?** — [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html), [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html), and the normative [On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html).
-- **Reference** — [API](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html).
+|     |     |
+| --- | --- |
+| **Start here**             | [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) · [Comparison vs LittleFS / NVS / ZMS](https://kamil-kielbasa.github.io/ubi/getting_started/comparison.html) |
+| **Integrate**              | [Quick Start](https://kamil-kielbasa.github.io/ubi/getting_started/quick_start.html) · [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) |
+| **Production with secure** | [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) · [Secure Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) · [On-Flash Format Spec](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html) |
+| **Reference**              | [API](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html) |
 
 ## Security
 
