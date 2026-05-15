@@ -7,21 +7,151 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-05-14
+## [1.0.0] - 2026-05-15
+
+First stable release. The pre-1.0 history below (0.1.0 – 0.113.0) is the
+incremental record; this entry summarises what v1.0.0 delivers as a
+whole and what stability commitments come with it.
 
 ### Stability commitment
 
-- Public API in `lib/include/ubi.h` and `lib/include/ubi_crypto.h` is now
+- Public API in `lib/include/ubi.h` and `lib/include/ubi_secure.h` is
   stable. Breaking changes require a major version bump.
-- The on-flash format (plain and secure) is frozen. Future v1.x releases
-  will read v1.0.0 partitions.
+- The on-flash format (plain and secure) is frozen. Future v1.x
+  releases will read v1.0.0 partitions.
 - The Kconfig surface (`CONFIG_UBI_*`) follows the same compatibility
   guarantee.
 
-### Notes
+### Plain backend (always built)
 
-- First stable release. The pre-1.0 history below was rewritten from
-  developer-internal change notes to user-facing entries.
+- **Device lifecycle.** Unified `ubi_device_init(flash, secure_cfg, &ubi)`
+  / `ubi_device_deinit()` with backend dispatch via an internal vtable.
+  Per-device static memory backend (`k_mem_slab`) is the default; legacy
+  heap backend is selectable via Kconfig.
+- **Volumes.** Static and dynamic types, runtime `ubi_volume_create` /
+  `_remove` / `_resize` with grow + shrink, transactional rollback on
+  failure, persistent `vol_id` high-watermark (IDs are never reused
+  across the device lifetime).
+- **LEB I/O.** `ubi_leb_map` / `_unmap` / `_read` / `_write` over the
+  Zephyr Flash Map API, with copy-on-write semantics (old mapping
+  preserved until the new PEB is fully written) and write-block-aligned
+  tail padding using the hardware-reported erase value.
+- **Wear-leveling.** Global wear budget across all PEBs of a partition;
+  monotonic erase counters with average-tracking; configurable
+  per-write retry count; bad-block torture before isolation.
+- **Crash safety.** Reserved-PEB dual bank with monotonic
+  `vid_sqnum`-based recovery; degraded mode that exposes a sticky
+  read-only flag (`read_only_degraded`) when one bank fails.
+- **Mutation gate.** A per-device read-only flag is checked before every
+  public mutator; data path, reserved-metadata path, and maintenance
+  path are gated independently.
+- **Concurrency.** Per-device mutex; multiple `ubi_device` handles per
+  application supported, each on its own partition; single-handle-per-
+  partition guard rejects double-attach.
+- **Misuse handling.** All public entry points return `-EINVAL` with a
+  diagnostic log on `NULL` arguments instead of asserting; integration
+  bugs are non-fatal in production builds.
+
+### Secure backend (`CONFIG_UBI_SECURE=y`, opt-in)
+
+- **AEAD coverage.** AES-128-CCM via PSA Crypto over **every**
+  commit-visible on-flash structure: device header, volume headers, EC
+  headers, VID headers, reserved PEBs, and LEB payloads. Block location
+  and identity are bound into the AAD, so relocating an authentic
+  record to a different PEB or replaying it under a different
+  `volume_id` / `lnum` fails MAC verification.
+- **Key hierarchy.** HKDF-SHA-256 key derivation, parent-child binding,
+  per-domain child keys, salt generation. Application supplies key
+  material through the `get_key_id` callback returning `psa_key_id_t`.
+- **Versioned keys & allowlist.** Per-PEB key-version refcount; the
+  active write-key version is authenticated on flash; allowlist is
+  enforced on both read and write before any key derivation. Key-life-
+  cycle events `KEY_ROTATE_SOON`, `KEY_ROTATE_NOW`, `KEY_RETIRABLE` are
+  delivered to the application; `KEY_RETIRABLE` fires only after the
+  last carrier of an old version is recycled.
+- **Anti-rollback.** Application-supplied `check_freshness` /
+  `sync_freshness` callbacks bound to the device-header revision and
+  the VID-header global sequence number — attach-time check plus
+  post-commit sync. Optional `CONFIG_UBI_SECURE_SYNC_FRESHNESS_VERIFY`
+  re-reads each successful sync to catch ack-but-not-persisted
+  integrations.
+- **Counter continuity.** Monotonic AEAD counters per LEB, VID, EC, and
+  device-header domain, recovered from flash at attach via a per-volume
+  hidden anchor PEB and a last-writable-witness rule on erase. 48-bit
+  counter saturation fails closed before any flash mutation.
+- **Per-domain write budgets.** Soft/hard thresholds for each metadata
+  and data domain under the active write key version; reaching the soft
+  threshold emits `KEY_ROTATE_SOON`, hard threshold emits
+  `KEY_ROTATE_NOW`, rejects the operation with `-ENOSPC`, and
+  transitions the device to read-only. Reads remain available.
+- **Sticky read-only mode.** AEAD failure, RNG failure, or write-budget
+  exhaustion escalates the device to `-EROFS`-on-write while reads
+  continue. Reset clears the flag.
+- **Chunked LEB mode.** Optional independently-authenticated 256 B –
+  64 KiB chunks for large LEBs; only touched chunks are verified on
+  partial read.
+- **Coexistence.** Plain and secure devices run side by side on
+  different partitions; plain dispatcher returns `-ENOTSUP` if a
+  non-`NULL` `secure_cfg` is passed without `CONFIG_UBI_SECURE`.
+
+### Validated targets
+
+- Zephyr `native_sim` (flash simulator) with both 4 KB and 8 KB erase-
+  block geometries, plain + secure + chunked configurations.
+- STM32U585 (`b_u585i_iot02a`) — 128 KiB UBI partition, plain + secure
+  cross-build verified on every PR.
+- nRF5340 DK (`nrf5340dk/nrf5340/cpuapp`) — 64 KiB UBI partition,
+  plain + secure cross-build verified on every PR.
+
+### Quality bar
+
+- **55 ZTEST suites, 609 tests** (270 plain + 339 secure) covering API
+  contracts, recovery, fault injection (allocation, flash I/O, crypto,
+  RNG, freshness), concurrency, stress, replay-to-other-PEB resistance,
+  forensic scanning, and budget exhaustion.
+- **Live coverage** reported by Codecov on every push to `main`.
+- **Forensic scanner** (`scripts/scan_flash.py`) verifies that no
+  plaintext data, volume names, or key material appear on flash after
+  secure writes; runs in CI.
+- **Build hygiene.** `format-check`, `forensic-scan`, and per-target
+  cross-build jobs gate every PR; warnings are errors
+  (`-Werror -Wextra -Wshadow`); test docblocks (`\brief`, `\details`,
+  `\expected`, optional `\oracle` / `\trace` / `\precondition`) are
+  checked in `--strict` mode.
+
+### Resource profile
+
+- Plain build: ~9.5 KB flash, ~1.5 KB BSS.
+- Secure build: ~28.6 KB flash, ~1.8 KB BSS.
+- Cortex-M33, `-Os`, STM32U585; UBI library archive only — PSA Crypto
+  and mbedTLS are provided by the platform and not counted.
+
+### Documentation
+
+- Sphinx site under the **Furo** theme, organised in five Diátaxis-
+  aligned sections (Getting Started, User Guide, Architecture,
+  Reference, Project), deployed to <https://kamil-kielbasa.github.io/ubi/>.
+- Topic pages: *What is UBI?*, *Comparison vs LittleFS / NVS / ZMS*,
+  *Concepts at a Glance*, *Quick Start*, *Configuration*, *Cookbook*
+  (six end-to-end recipes including STM32U5 / nRF5340 bring-up, A/B
+  firmware, periodic GC, key rotation, freshness store), *Plain UBI
+  Workflow*, *Secure UBI Workflow*, *Plain Architecture*, *Secure
+  Architecture*, *Secure On-Flash Format Specification*, *API
+  Reference*, *Kconfig Reference*, *Error Codes*, *Glossary*, *Test
+  Strategy*, *Contributing*.
+- ZTEST traceability tables in *Test Strategy* link normative
+  behaviours to their regression tests.
+
+### Community files
+
+- `SECURITY.md` (Private Vulnerability Reporting + email + 7-day
+  acknowledgement SLA).
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
+- `CITATION.cff` (CFF 1.2.0).
+- `.github/ISSUE_TEMPLATE/` — bug, feature, and question forms with a
+  security redirect to SECURITY.md.
+- `.github/pull_request_template.md` mirroring the contributing-guide
+  PR checklist.
 
 ## [0.113.0] - 2026-05-14
 

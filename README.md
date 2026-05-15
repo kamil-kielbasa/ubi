@@ -34,11 +34,17 @@ UBI fills that gap. It provides multiple independent named volumes sharing one g
 - **Crash-safe metadata** — reserved PEBs for redundancy, monotonic sequence numbers, replay-safe recovery.
 - **Thread-safe** — per-device mutex; safe for use from multiple Zephyr threads.
 - **Coexistence** — multiple `ubi_device` handles per application, each on its own partition. Plain and secure devices can run side by side, e.g. a plain device on internal flash for hot configuration alongside a secure device on external NOR for firmware images and secrets.
-- **Optional `CONFIG_UBI_SECURE`** — full secure backend, not just bulk encryption:
-  - AEAD (AES-128-CCM via PSA Crypto) over every on-flash structure — UBI metadata, reserved PEBs, and LEB data — with location and data binding in AAD.
-  - Versioned keys with an allowlist, refcounted per physical block, with `KEY_ROTATE_SOON` / `KEY_ROTATE_NOW` / `KEY_RETIRABLE` events delivered to the application.
-  - Anti-rollback via an external freshness callback bound to the device-header revision and the VID-header global sequence number (attach-time check + post-commit sync).
-  - Sticky read-only mode on authentication failure, RNG failure, or write-budget exhaustion — reads stay available, writes are refused.
+- **Optional secure backend** — opt-in via `CONFIG_UBI_SECURE`. AEAD over every on-flash byte, anti-rollback, key rotation, sticky read-only on failure. See [Optional secure backend](#optional-secure-backend) below.
+
+## Optional secure backend
+
+With `CONFIG_UBI_SECURE=y`, every commit-visible on-flash structure — UBI metadata, reserved PEBs, and LEB data — is wrapped in **AES-128-CCM via PSA Crypto**, with location and identity bound into the AAD. On top of bulk authenticated encryption you get:
+
+- **Versioned keys** with an allowlist and per-block refcounting. Key-lifecycle events (`KEY_ROTATE_SOON`, `KEY_ROTATE_NOW`, `KEY_RETIRABLE`) are delivered to the application.
+- **Anti-rollback** via an application-supplied freshness callback bound to the device-header revision and the VID-header global sequence number (attach-time check + post-commit sync).
+- **Fail-closed read-only mode** on AEAD failure, RNG failure, or write-budget exhaustion. Reads remain available; writes are refused until reset.
+
+Threat model and the application contract are in [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html).
 
 ## Quick comparison
 
@@ -57,47 +63,37 @@ Full side-by-side: [comparison page](https://kamil-kielbasa.github.io/ubi/gettin
 
 ```c
 #include <ubi.h>
-#include <zephyr/drivers/flash.h>
-#include <zephyr/storage/flash_map.h>
-
-#define UBI_PARTITION_NAME ubi_partition
-#define UBI_PARTITION_DEVICE FIXED_PARTITION_DEVICE(UBI_PARTITION_NAME)
+#include <zephyr/sys/util.h>
 
 int main(void)
 {
-    const struct device *flash_dev = UBI_PARTITION_DEVICE;
-    struct flash_pages_info page_info = { 0 };
-    flash_get_page_info_by_offs(flash_dev, 0, &page_info);
-
-    struct ubi_flash_desc flash = {
-        .partition_id = FIXED_PARTITION_ID(UBI_PARTITION_NAME),
-        .erase_block_size = page_info.size,
-        .write_block_size = flash_get_write_block_size(flash_dev),
-    };
-
     struct ubi_device *ubi = NULL;
-    ubi_device_init(&flash, NULL, &ubi);
 
-    struct ubi_volume_config cfg = {
-        .name = "my_vol",
-        .type = UBI_VOLUME_TYPE_DYNAMIC,
+    int err = ubi_device_init(&flash_desc, NULL, &ubi);
+    if (err) {
+        return err;
+    }
+
+    const struct ubi_volume_config cfg = {
+        .name      = "my_vol",
+        .type      = UBI_VOLUME_TYPE_DYNAMIC,
         .leb_count = 4,
     };
-    int vol_id;
+    int vol_id = -1;
     ubi_volume_create(ubi, &cfg, &vol_id);
 
-    const char data[] = "Hello, UBI!";
-    ubi_leb_write(ubi, vol_id, 0, data, sizeof(data));
+    const char msg[] = "Hello, UBI!";
+    ubi_leb_write(ubi, vol_id, 0, msg, sizeof(msg));
 
-    char buf[64];
-    ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(data));
+    char buf[ARRAY_SIZE(msg)] = { 0 };
+    ubi_leb_read(ubi, vol_id, 0, 0, buf, sizeof(buf));
 
     ubi_device_deinit(ubi);
     return 0;
 }
 ```
 
-Error handling is omitted for brevity. All API functions return `0` on success or a negative `errno` code on failure. See [`sample/`](sample/) for a complete buildable example.
+Full error handling and the `flash_desc` setup (partition lookup, erase / write block sizes) are in the runnable [`sample/`](sample/). All API functions return `0` on success or a negative `errno` code on failure.
 
 ## Footprint
 
@@ -110,25 +106,19 @@ PSA Crypto and mbedTLS are provided by the platform and not counted. See [Archit
 
 ## Status
 
-v1.0.0 — public API and on-flash format (plain + secure) are stable; breaking changes require a major bump.
+**v1.0.0** — public API and on-flash format (plain + secure) are stable; breaking changes require a major bump.
 
 - 55 test suites, 609 tests total (270 plain + 339 secure).
 - Validated on Zephyr `native_sim` (flash simulator), STM32U585 (`b_u585i_iot02a`), and nRF5340 (`nrf5340dk`).
-- Branch-coverage uplift, a UBIFS-style filesystem, and an LSM-tree-based indexed store are roadmap items.
 
 ## Documentation
 
 Full documentation: <https://kamil-kielbasa.github.io/ubi/>
 
-- [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) — 5-minute orientation.
-- [Comparison vs LittleFS / NVS / ZMS](https://kamil-kielbasa.github.io/ubi/getting_started/comparison.html)
-- [Quick Start](https://kamil-kielbasa.github.io/ubi/getting_started/quick_start.html) — build, run the sample, write your first volume.
-- [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) — STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store.
-- [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) — on-flash layout, wear-leveling, dual-bank, recovery.
-- [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
-- [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) — prerequisites, `secure_cfg`, callback contracts, key rotation, event handling.
-- [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html) — normative byte-level reference.
-- [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html)
+- **New here?** — [What is UBI?](https://kamil-kielbasa.github.io/ubi/getting_started/what_is_ubi.html) and [Comparison vs LittleFS / NVS / ZMS](https://kamil-kielbasa.github.io/ubi/getting_started/comparison.html).
+- **Want to integrate?** — [Quick Start](https://kamil-kielbasa.github.io/ubi/getting_started/quick_start.html) and the [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) (STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store).
+- **Going to production with secure?** — [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html), [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html), and the normative [On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html).
+- **Reference** — [API](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html).
 
 ## Security
 
@@ -140,32 +130,19 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-This project would not exist without the work of the Linux kernel
-community, and in particular the original authors and maintainers of
-the **Linux UBI subsystem**. The core idea — a thin layer over raw
-flash that provides logical volumes, wear-leveling, and crash-safe
-LEB-to-PEB mapping — is, to the author, simply brilliant. All credit
-for that concept belongs to them; this project only adapts it to a
-different environment.
+The plain UBI design — PEBs, LEBs, EC/VID headers, dual-bank reserved
+metadata, sequence-number recovery — is adapted from the **Linux UBI
+subsystem** (`drivers/mtd/ubi`). All credit for the underlying model
+belongs to its original authors and maintainers; this project ports the
+idea to Zephyr's resource constraints (smaller in-RAM footprint, no
+filesystem layer, simpler scan/recovery).
 
-UBI on Zephyr is directly inspired by Linux UBI. For Zephyr's
-resource-constrained targets the implementation had to be substantially
-simplified — fewer moving parts, a smaller in-RAM footprint, no
-filesystem layer on top — but the underlying model (PEBs, LEBs,
-EC/VID headers, dual-bank reserved metadata, sequence-number
-recovery) is the same one Linux UBI established. From the author's
-perspective this was a missing piece on Zephyr: a building block that
-**scales to large flash devices** by giving the application a
-virtualised view of flash with wear-leveling underneath.
-
-**Secure UBI** is then the author's own addition on top of that
-foundation. The motivation is straightforward: Zephyr lacks a
-storage / volume-management layer that delivers all of the above
-benefits *and* full on-disk encryption end-to-end. Secure UBI fills
-that gap by authenticating and encrypting every on-flash structure —
-device header, volume headers, EC headers, VID headers, and LEB
-payloads — through the PSA Crypto API, so the same wear-leveling
-and dual-bank guarantees apply to ciphertext rather than plaintext.
+**Secure UBI** is original work — an extension of the plain UBI concept
+where every commit-visible on-flash structure (device / volume / EC /
+VID headers and LEB payloads) is AEAD-wrapped through PSA Crypto, so
+the same wear-leveling, dual-bank, and runtime-resizable-volume
+guarantees apply to ciphertext rather than plaintext, with one set of
+on-flash invariants for both modes.
 
 ## Contact
 
