@@ -91,10 +91,6 @@ Without wear-leveling, repeatedly writing to the same logical location would exh
 +-----------------------------------------------------+
 ```
 
-The per-file implementation map (which `.c` file holds which responsibility)
-lives in {doc}`/developer_notes` — it is reference material for contributors,
-not for users of the library.
-
 ---
 
 ## On-Flash Layout
