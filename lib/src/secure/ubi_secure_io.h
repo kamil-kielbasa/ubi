@@ -18,7 +18,7 @@
 #include "ubi_plain_io.h"
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Standard library headers: */
 #include <stdbool.h>
@@ -39,7 +39,7 @@ struct ubi_flash_desc;
  * VID/LEB operations.
  *
  * \param[in]  flash         Flash partition descriptor.
- * \param[in]  crypto_cfg  Crypto configuration (for get_key_id callback).
+ * \param[in]  secure_cfg  Crypto configuration (for get_key_id callback).
  * \param      peb_idx     Physical eraseblock index.
  * \param[out] ec_hdr      Decrypted EC header.
  * \param[out] ec_ctx      Authenticated EC context (for chained AAD).
@@ -50,14 +50,14 @@ struct ubi_flash_desc;
  * \retval -EINVAL   NULL argument.
  */
 int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
-			   const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			   const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			   struct ubi_ec_hdr *ec_hdr, struct ubi_secure_ec_auth_ctx *ec_ctx);
 
 /**
  * \brief Write an encrypted secure EC header to a data PEB.
  *
  * \param[in] flash         Flash partition descriptor.
- * \param[in] crypto_cfg  Crypto configuration.
+ * \param[in] secure_cfg  Crypto configuration.
  * \param     peb_idx     Physical eraseblock index.
  * \param[in] ec_hdr      EC header to encrypt and write.
  * \param     key_version Key version for encryption.
@@ -68,7 +68,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
  * \retval -EINVAL NULL argument.
  */
 int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
-			    const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			    const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			    const struct ubi_ec_hdr *ec_hdr, uint8_t key_version, uint64_t counter);
 
 /**
@@ -78,7 +78,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
  * \p vid_ctx with the full parent context chain for chained LEB operations.
  *
  * \param[in]  flash         Flash partition descriptor.
- * \param[in]  crypto_cfg  Crypto configuration.
+ * \param[in]  secure_cfg  Crypto configuration.
  * \param      peb_idx     Physical eraseblock index.
  * \param[in]  ec_ctx      Authenticated EC context (parent chain for AAD).
  * \param[out] vid_hdr     Decrypted VID header.
@@ -91,7 +91,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
  * \retval -EINVAL   NULL argument.
  */
 int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
-			    const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			    const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			    const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			    struct ubi_vid_hdr *vid_hdr, struct ubi_vid_secure_meta *vid_meta,
 			    struct ubi_secure_vid_auth_ctx *vid_ctx);
@@ -100,7 +100,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
  * \brief Write an encrypted secure VID header to a data PEB.
  *
  * \param[in] flash         Flash partition descriptor.
- * \param[in] crypto_cfg  Crypto configuration.
+ * \param[in] secure_cfg  Crypto configuration.
  * \param     peb_idx     Physical eraseblock index.
  * \param[in] ec_ctx      Authenticated EC context (parent chain for AAD).
  * \param[in] vid_hdr     VID header to encrypt.
@@ -113,7 +113,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
  * \retval -EINVAL NULL argument.
  */
 int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
-			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			     const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			     const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			     const struct ubi_vid_hdr *vid_hdr,
 			     const struct ubi_vid_secure_meta *vid_meta, uint8_t key_version,
@@ -125,7 +125,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
  * Authenticates the full payload, then returns only the requested slice.
  *
  * \param[in]  flash         Flash partition descriptor.
- * \param[in]  crypto_cfg  Crypto configuration.
+ * \param[in]  secure_cfg  Crypto configuration.
  * \param      peb_idx     Physical eraseblock index.
  * \param[in]  vid_ctx     Authenticated VID context (full parent chain for AAD).
  * \param      offset      Byte offset within authenticated payload to return.
@@ -138,7 +138,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
  * \retval -EINVAL   NULL argument or out-of-bounds slice.
  */
 int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
-			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			     const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
 			     uint8_t *buf, size_t len);
 
@@ -146,7 +146,7 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
  * \brief Write an encrypted secure LEB record (single-tag) to a data PEB.
  *
  * \param[in] flash         Flash partition descriptor.
- * \param[in] crypto_cfg  Crypto configuration.
+ * \param[in] secure_cfg  Crypto configuration.
  * \param     peb_idx     Physical eraseblock index.
  * \param[in] ec_ctx      Authenticated EC context (for AAD).
  * \param[in] vid_hdr     VID header (for AAD fields: vol_id, lnum, sqnum, data_size).
@@ -161,12 +161,12 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
  * \retval -EINVAL NULL argument.
  */
 int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
-			      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			      const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const uint8_t *buf,
 			      size_t len, uint8_t key_version, uint64_t counter);
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 /**
  * \brief Read and authenticate a secure LEB record (chunked mode) from a data PEB.
  *
@@ -174,7 +174,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
  * For zero-length records, returns immediately without I/O.
  *
  * \param[in]  flash         Flash partition descriptor.
- * \param[in]  crypto_cfg  Crypto configuration.
+ * \param[in]  secure_cfg  Crypto configuration.
  * \param      peb_idx     Physical eraseblock index.
  * \param[in]  vid_ctx     Authenticated VID context (full parent chain for AAD).
  * \param      offset      Byte offset within authenticated payload to return.
@@ -187,7 +187,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
  * \retval -EINVAL   NULL argument or out-of-bounds slice.
  */
 int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
-				     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+				     const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 				     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
 				     uint8_t *buf, size_t len);
 
@@ -198,7 +198,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
  * writes prefix + all chunk ciphertext+tag blocks to flash.
  *
  * \param[in] flash           Flash partition descriptor.
- * \param[in] crypto_cfg    Crypto configuration.
+ * \param[in] secure_cfg    Crypto configuration.
  * \param     peb_idx       Physical eraseblock index.
  * \param[in] ec_ctx        Authenticated EC context (for AAD).
  * \param[in] vid_hdr       VID header (for AAD fields).
@@ -213,12 +213,12 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
  * \retval -EINVAL NULL argument.
  */
 int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
-				      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+				      const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 				      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 				      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv,
 				      const uint8_t *buf, size_t len, uint8_t key_version,
 				      uint64_t counter_base);
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 
 /**
  * \brief Check if the VID region of a data PEB is erased.

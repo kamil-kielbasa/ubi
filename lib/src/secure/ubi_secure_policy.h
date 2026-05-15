@@ -4,7 +4,7 @@
  * \brief   Crypto-policy helpers (allowlist lookup) shared across the secure
  *          backend.
  *
- * \details Header-only helpers that operate on \ref ubi_crypto_policy directly,
+ * \details Header-only helpers that operate on \ref ubi_secure_policy directly,
  *          so they can be used from sites that do not (yet) hold a
  *          \ref ubi_device handle (e.g. scan-time code, key derivation).
  *
@@ -19,7 +19,7 @@
 /* Include files -------------------------------------------------------------------------------- */
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Zephyr headers: */
 #include <zephyr/sys/__assert.h>
@@ -44,7 +44,7 @@
  * \retval >= 0     Slot index (0 .. allowed_key_versions_len - 1).
  * \retval -ENOENT  Key version not found in the allowlist.
  */
-static inline int ubi_secure_policy_kv_slot(const struct ubi_crypto_policy *policy, uint8_t kv)
+static inline int ubi_secure_policy_kv_slot(const struct ubi_secure_policy *policy, uint8_t kv)
 {
 	__ASSERT_NO_MSG(policy != NULL);
 

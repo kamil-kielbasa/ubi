@@ -11,7 +11,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 
 /* Test fixtures: */
@@ -86,7 +86,7 @@ ZTEST_SUITE(ubi_secure_device, NULL, ztest_suite_setup, ztest_suite_before, NULL
 ZTEST(ubi_secure_device, init_deinit)
 {
 	/* Secure reserves extra PEBs for the reserved-PEB bank. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 	struct ubi_device_info info = { 0 };
 
@@ -126,7 +126,7 @@ ZTEST(ubi_secure_device, init_deinit)
  */
 ZTEST(ubi_secure_device, init_deinit_init)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	/* First cycle: format on blank. */

@@ -19,7 +19,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 
 /* Test fixtures: */
@@ -65,7 +65,7 @@ static size_t g_auth_failure_count;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict counting_event_cb(const struct ubi_secure_event *event,
 						       void *user_data);
 static void *ztest_suite_setup(void);
 static void ztest_suite_before(void *ctx);
@@ -112,20 +112,20 @@ static void copy_region_between_pebs(size_t src_pnum, size_t dst_pnum, size_t re
  * \param[in]  payload1  Payload for lnum=1.
  * \param[in]  payload_len  Bytes per LEB payload.
  */
-static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
+static void setup_two_leb_device(struct ubi_secure_config *cfg, int *vol_id,
 				 const uint8_t *payload0, const uint8_t *payload1,
 				 size_t payload_len);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict counting_event_cb(const struct ubi_secure_event *event,
 						       void *user_data)
 {
 	(void)user_data;
-	if (event->type == UBI_CRYPTO_EVENT_AUTH_FAILURE) {
+	if (event->type == UBI_SECURE_EVENT_AUTH_FAILURE) {
 		g_auth_failure_count++;
 	}
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
 static void *ztest_suite_setup(void)
@@ -204,7 +204,7 @@ static void copy_region_between_pebs(size_t src_pnum, size_t dst_pnum, size_t re
 }
 
 /** \brief Format the device, create one volume, and write two LEBs */
-static void setup_two_leb_device(struct ubi_crypto_config *cfg, int *vol_id,
+static void setup_two_leb_device(struct ubi_secure_config *cfg, int *vol_id,
 				 const uint8_t *payload0, const uint8_t *payload1,
 				 size_t payload_len)
 {
@@ -269,7 +269,7 @@ ZTEST_SUITE(ubi_secure_replay, NULL, ztest_suite_setup, ztest_suite_before, ztes
  */
 ZTEST(ubi_secure_replay, replay_ec_record_to_other_peb_rejected)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = counting_event_cb;
 
 	const uint8_t p0[] = { 0xAA, 0xBB, 0xCC, 0xDD };
@@ -338,7 +338,7 @@ ZTEST(ubi_secure_replay, replay_ec_record_to_other_peb_rejected)
  */
 ZTEST(ubi_secure_replay, replay_vid_record_to_other_peb_rejected)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = counting_event_cb;
 
 	const uint8_t p0[] = { 0xCA, 0xFE, 0xBA, 0xBE };
@@ -402,7 +402,7 @@ ZTEST(ubi_secure_replay, replay_vid_record_to_other_peb_rejected)
  */
 ZTEST(ubi_secure_replay, replay_leb_record_to_other_peb_rejected)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = counting_event_cb;
 
 	const uint8_t p0[] = { 0x01, 0x02, 0x03, 0x04 };

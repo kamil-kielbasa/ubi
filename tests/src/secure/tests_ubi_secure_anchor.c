@@ -23,7 +23,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
@@ -59,9 +59,9 @@ static struct ubi_flash_desc flash = { 0 };
 static void *ztest_suite_setup(void);
 static void ztest_suite_before(void *ctx);
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 static void drain_dirty_pebs(struct ubi_device *ubi);
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 /* Static function definitions ------------------------------------------------------------------ */
 
@@ -76,12 +76,12 @@ static void ztest_suite_before(void *ctx)
 	(void)ctx;
 	ubi_test_partition_force_release_all();
 	zassert_ok(flash_erase(UBI_PARTITION_DEVICE, UBI_PARTITION_OFFSET, UBI_PARTITION_SIZE));
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	ubi_secure_test_set_leb_write_counter_floor(0);
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 }
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 static void drain_dirty_pebs(struct ubi_device *ubi)
 {
 	struct ubi_device_info info = { 0 };
@@ -93,13 +93,13 @@ static void drain_dirty_pebs(struct ubi_device *ubi)
 		zassert_ok(ubi_device_get_info(ubi, &info));
 	}
 }
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 /* Module interface function definitions -------------------------------------------------------- */
 
 ZTEST_SUITE(ubi_secure_anchor, NULL, ztest_suite_setup, ztest_suite_before, NULL, NULL);
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 
 /**
  * \brief Single LEB write, unmap and erase preserves and strictly advances
@@ -120,7 +120,7 @@ ZTEST_SUITE(ubi_secure_anchor, NULL, ztest_suite_setup, ztest_suite_before, NULL
  */
 ZTEST(ubi_secure_anchor, single_leb_unmap_erase_write_inherits_counter)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'a', 'n', 'c', 'h', '1' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -209,7 +209,7 @@ ZTEST(ubi_secure_anchor, single_leb_unmap_erase_write_inherits_counter)
  */
 ZTEST(ubi_secure_anchor, multi_leb_churn_cache_strict_monotonic)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'a', 'n', 'c', 'h', '2' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -267,7 +267,7 @@ ZTEST(ubi_secure_anchor, multi_leb_churn_cache_strict_monotonic)
  */
 ZTEST(ubi_secure_anchor, cold_attach_reseeds_cache_from_anchor)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'a', 'n', 'c', 'h', '3' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -351,7 +351,7 @@ ZTEST(ubi_secure_anchor, cold_attach_reseeds_cache_from_anchor)
  */
 ZTEST(ubi_secure_anchor, non_witness_erase_does_not_rewrite_anchor)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'a', 'n', 'c', 'h', '4' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -431,7 +431,7 @@ ZTEST(ubi_secure_anchor, non_witness_erase_does_not_rewrite_anchor)
  */
 ZTEST(ubi_secure_anchor, counter_saturation_rejects_with_overflow)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'a', 'n', 'c', 'h', '5' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -468,7 +468,7 @@ ZTEST(ubi_secure_anchor, counter_saturation_rejects_with_overflow)
  */
 ZTEST(ubi_secure_anchor, write_unmap_erase_loop_strict_monotonic)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'a', 'n', 'c', 'h', '6' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -522,7 +522,7 @@ ZTEST(ubi_secure_anchor, write_unmap_erase_loop_strict_monotonic)
  */
 ZTEST(ubi_secure_anchor, read_vid_meta_hook_matches_cache_and_anchor)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { 'p', 'r', 'a', 'h' },
 		.type = UBI_VOLUME_TYPE_DYNAMIC,
@@ -583,4 +583,4 @@ ZTEST(ubi_secure_anchor, read_vid_meta_hook_matches_cache_and_anchor)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */

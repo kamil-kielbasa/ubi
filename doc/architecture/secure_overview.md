@@ -167,7 +167,7 @@ Rules that follow from this lifecycle:
 
 ## 6. Resource profile
 
-Enabling `CONFIG_UBI_CRYPTO` increases the UBI library footprint from
+Enabling `CONFIG_UBI_SECURE` increases the UBI library footprint from
 roughly **9.5 KB plain** to **~28.6 KB secure** on Cortex-M33 (`-Os`,
 `b_u585i_iot02a`, library archive only — PSA Crypto and mbedTLS are
 provided by the platform and not counted). The ~19 KB delta breaks

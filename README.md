@@ -34,7 +34,7 @@ UBI fills that gap. It provides multiple independent named volumes sharing one g
 - **Crash-safe metadata** — reserved PEBs for redundancy, monotonic sequence numbers, replay-safe recovery.
 - **Thread-safe** — per-device mutex; safe for use from multiple Zephyr threads.
 - **Coexistence** — multiple `ubi_device` handles per application, each on its own partition. Plain and secure devices can run side by side, e.g. a plain device on internal flash for hot configuration alongside a secure device on external NOR for firmware images and secrets.
-- **Optional `CONFIG_UBI_CRYPTO`** — full secure backend, not just bulk encryption:
+- **Optional `CONFIG_UBI_SECURE`** — full secure backend, not just bulk encryption:
   - AEAD (AES-128-CCM via PSA Crypto) over every on-flash structure — UBI metadata, reserved PEBs, and LEB data — with location and data binding in AAD.
   - Versioned keys with an allowlist, refcounted per physical block, with `KEY_ROTATE_SOON` / `KEY_ROTATE_NOW` / `KEY_RETIRABLE` events delivered to the application.
   - Anti-rollback via an external freshness callback bound to the device-header revision and the VID-header global sequence number (attach-time check + post-commit sync).
@@ -126,7 +126,7 @@ Full documentation: <https://kamil-kielbasa.github.io/ubi/>
 - [Cookbook](https://kamil-kielbasa.github.io/ubi/guide/cookbook.html) — STM32U5 / nRF5340 setup, A/B firmware, GC loop, key rotation, freshness store.
 - [Plain Architecture](https://kamil-kielbasa.github.io/ubi/architecture/plain_architecture.html) — on-flash layout, wear-leveling, dual-bank, recovery.
 - [Secure Architecture](https://kamil-kielbasa.github.io/ubi/architecture/secure_overview.html) — what Secure UBI does, key hierarchy, threat model, application contract.
-- [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) — prerequisites, `crypto_cfg`, callback contracts, key rotation, event handling.
+- [Secure UBI Workflow](https://kamil-kielbasa.github.io/ubi/guide/secure_workflow.html) — prerequisites, `secure_cfg`, callback contracts, key rotation, event handling.
 - [Secure On-Flash Format Specification](https://kamil-kielbasa.github.io/ubi/reference/onflash_format_spec.html) — normative byte-level reference.
 - [Configuration](https://kamil-kielbasa.github.io/ubi/guide/configuration.html) · [API Reference](https://kamil-kielbasa.github.io/ubi/reference/api.html) · [Glossary](https://kamil-kielbasa.github.io/ubi/reference/glossary.html) · [Test Strategy](https://kamil-kielbasa.github.io/ubi/project/test_strategy.html) · [Contributing](https://kamil-kielbasa.github.io/ubi/project/contributing.html)
 

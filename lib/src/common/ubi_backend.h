@@ -15,7 +15,7 @@
 
 struct ubi_flash_desc;
 struct ubi_device;
-struct ubi_crypto_config;
+struct ubi_secure_config;
 struct ubi_volume_config;
 
 /* Types and type definitions ------------------------------------------------------------------- */
@@ -24,7 +24,7 @@ struct ubi_volume_config;
  * \brief Backend mode for a UBI device.
  *
  * Selected at runtime during ubi_device_init() based on the caller-supplied
- * crypto_cfg pointer.
+ * secure_cfg pointer.
  */
 enum ubi_device_mode {
 	UBI_MODE_PLAIN = 0, /**< Plain backend — CRC-only integrity. */
@@ -42,7 +42,7 @@ enum ubi_device_mode {
  */
 struct ubi_backend_ops {
 	/* Device lifecycle */
-	int (*init)(const struct ubi_flash_desc *flash, const struct ubi_crypto_config *crypto_cfg,
+	int (*init)(const struct ubi_flash_desc *flash, const struct ubi_secure_config *secure_cfg,
 		    struct ubi_device **ubi); /**< Initialize device. */
 	int (*deinit)(struct ubi_device *ubi); /**< Shut down and free resources. */
 	int (*get_info)(struct ubi_device *ubi,
@@ -76,13 +76,13 @@ struct ubi_backend_ops {
  */
 const struct ubi_backend_ops *ubi_plain_backend(void);
 
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 
 /**
  * \brief Get the secure backend operations.
  */
 const struct ubi_backend_ops *ubi_secure_backend(void);
 
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 
 #endif /* UBI_BACKEND_H */

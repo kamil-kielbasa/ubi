@@ -11,7 +11,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
@@ -89,7 +89,7 @@ ZTEST_SUITE(ubi_secure_mixed, NULL, ztest_suite_setup, ztest_suite_before, NULL,
  */
 ZTEST(ubi_secure_mixed, scenario_1)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg_1 = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },

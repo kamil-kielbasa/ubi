@@ -11,7 +11,7 @@
  *          surviving a deinit-reinit cycle without state bleed-through.
  *          Closes audit #1 (plain + secure coexistence).
  *
- *          Built only when both \c CONFIG_UBI_CRYPTO and the second
+ *          Built only when both \c CONFIG_UBI_SECURE and the second
  *          partition exist in the active devicetree (native_sim
  *          variants).  HW boards that have only the primary
  *          \c ubi_partition skip this suite.
@@ -23,7 +23,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 
 /* Test fixtures: */
@@ -132,8 +132,8 @@ ZTEST_SUITE(ubi_secure_coexistence, NULL, ztest_suite_setup, ztest_suite_before,
  * \brief A plain and a secure UBI device live side by side on two partitions.
  *
  * \details Scenario: Steps:
- *  1. Init plain backend on \c ubi_partition (crypto_cfg = NULL).
- *  2. Init secure backend on \c ubi_partition_2 (crypto_cfg != NULL).
+ *  1. Init plain backend on \c ubi_partition (secure_cfg = NULL).
+ *  2. Init secure backend on \c ubi_partition_2 (secure_cfg != NULL).
  *  3. Create one volume on each device, with distinct names.
  *  4. Write a unique payload to LEB 0 of each volume.
  *  5. Read both LEBs back and check payload integrity (no cross-talk).
@@ -149,7 +149,7 @@ ZTEST_SUITE(ubi_secure_coexistence, NULL, ztest_suite_setup, ztest_suite_before,
  */
 ZTEST(ubi_secure_coexistence, plain_and_secure_devices_coexist)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	/* Init both backends on their respective partitions. */
 	zassert_ok(ubi_device_init(&flash_plain, NULL, &g_plain),
@@ -226,7 +226,7 @@ ZTEST(ubi_secure_coexistence, plain_and_secure_devices_coexist)
  */
 ZTEST(ubi_secure_coexistence, partition_guard_blocks_double_attach)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	zassert_ok(ubi_device_init(&flash_plain, NULL, &g_plain));
 	zassert_ok(ubi_device_init(&flash_secure, &cfg, &g_secure));

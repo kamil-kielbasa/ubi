@@ -19,9 +19,9 @@
 #include "ubi_internal.h"
 #include "ubi_plain_io.h"
 #include "ubi_mem.h"
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 #include "ubi_secure_test_hooks.h"
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -100,7 +100,7 @@ static void leb_get_volume_counter_floor(const struct ubi_volume *vol, uint64_t 
 	uint64_t floor_counter = vol->cached_leb_write_counter;
 	uint64_t floor_bytes = vol->cached_leb_total_auth_bytes;
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	/* Test-only override: clamp the floor up to a configured value so tests
 	 * can drive the per-LEB AEAD counter close to UBI_SECURE_COUNTER_MAX
 	 * without performing 2^48 real chunk writes (the only way to exercise
@@ -111,7 +111,7 @@ static void leb_get_volume_counter_floor(const struct ubi_volume *vol, uint64_t 
 	if (hook != 0 && floor_counter < hook) {
 		floor_counter = hook;
 	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 	*out_write_counter = floor_counter;
 	*out_total_auth_bytes = floor_bytes;
@@ -129,22 +129,22 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	/* Pre-write budget + nonce-overflow check.
 	 * Reject BEFORE any flash mutation. */
 	/* Compute AEAD invocations and auth bytes for this write. */
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
-	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
+	const size_t chunk_size = CONFIG_UBI_SECURE_LEB_CHUNK_SIZE;
 	const uint32_t aead_invocations =
 		(len > 0) ? (uint32_t)((len + chunk_size - 1) / chunk_size) : 1;
 	const uint64_t leb_auth_bytes_this_write =
 		(len > 0) ? ((uint64_t)len +
 			     (uint64_t)aead_invocations * UBI_SECURE_LEB_CHUNK_AAD_SIZE) :
 			    (uint64_t)UBI_SECURE_LEB_AAD_SIZE;
-#else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#else /* !CONFIG_UBI_SECURE_LEB_CHUNKED */
 	const uint32_t aead_invocations = 1;
 	const uint64_t leb_auth_bytes_this_write = (uint64_t)UBI_SECURE_LEB_AAD_SIZE + len;
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 
 	const uint64_t projected_counter = old_write_counter + aead_invocations;
 	const uint64_t projected_bytes = old_total_auth_bytes + leb_auth_bytes_this_write;
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	/* 48-bit AEAD counter overflow is detected centrally inside
 	 * ubi_secure_budget_leb_pre() / ubi_secure_budget_metadata_pre()
@@ -175,7 +175,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, new_node->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, new_node->value.pnum, &ec_hdr,
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure on free PEB %zu", new_node->value.pnum);
@@ -221,15 +221,15 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	/* Step 1: Write LEB data payload first (if any). */
 	if (buf != NULL && len > 0) {
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
-		ret = ubi_secure_leb_data_write_chunked(&ubi->flash, ubi->crypto_cfg,
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
+		ret = ubi_secure_leb_data_write_chunked(&ubi->flash, ubi->secure_cfg,
 							new_node->value.pnum, &ec_ctx, &vid_hdr,
 							write_kv, buf, len, write_kv, counter_base);
-#else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
-		ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, new_node->value.pnum,
+#else /* !CONFIG_UBI_SECURE_LEB_CHUNKED */
+		ret = ubi_secure_leb_data_write(&ubi->flash, ubi->secure_cfg, new_node->value.pnum,
 						&ec_ctx, &vid_hdr, write_kv, buf, len, write_kv,
 						counter_base);
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
 			ubi_secure_event_handle_write_error(ubi, ret, new_node->value.pnum);
@@ -242,7 +242,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 	 * VID counter = global vid_next, independent of per-LEB counter. */
 	const uint64_t vid_counter = ubi->aead.next_vid;
 
-	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, new_node->value.pnum, &ec_ctx,
+	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->secure_cfg, new_node->value.pnum, &ec_ctx,
 				       &vid_hdr, &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("VID header write failure");
@@ -281,7 +281,7 @@ static void leb_commit_mapping_swap(struct ubi_device *ubi, struct ubi_volume *v
 		struct ubi_secure_ec_auth_ctx old_ec_ctx = { 0 };
 
 		const int ec_ret = ubi_secure_ec_hdr_read(
-			&ubi->flash, ubi->crypto_cfg, old_entry->value.pnum, &old_ec, &old_ec_ctx);
+			&ubi->flash, ubi->secure_cfg, old_entry->value.pnum, &old_ec, &old_ec_ctx);
 
 		rb_remove(&vol->eba_tbl, &old_entry->node);
 		vol->eba_tbl_count -= 1;
@@ -411,7 +411,7 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_hdr,
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
@@ -433,7 +433,7 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	struct ubi_vid_secure_meta vid_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_ctx,
+	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_ctx,
 				      &vid_hdr, &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");
@@ -459,13 +459,13 @@ int ubi_secure_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t 
 	}
 
 	/* Read and authenticate LEB data. */
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
-	ret = ubi_secure_leb_data_read_chunked(&ubi->flash, ubi->crypto_cfg, entry->value.pnum,
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
+	ret = ubi_secure_leb_data_read_chunked(&ubi->flash, ubi->secure_cfg, entry->value.pnum,
 					       &vid_ctx, offset, buf, len);
-#else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
-	ret = ubi_secure_leb_data_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &vid_ctx,
+#else /* !CONFIG_UBI_SECURE_LEB_CHUNKED */
+	ret = ubi_secure_leb_data_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &vid_ctx,
 				       offset, buf, len);
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 	if (ret != 0) {
 		LOG_ERR("LEB data read failure");
 		ubi_secure_event_handle_read_error(ubi, ret, entry->value.pnum,
@@ -587,7 +587,7 @@ int ubi_secure_leb_unmap(struct ubi_device *ubi, int vol_id, size_t lnum)
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_hdr,
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
@@ -680,7 +680,7 @@ int ubi_secure_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, siz
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_hdr,
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure");
@@ -691,7 +691,7 @@ int ubi_secure_leb_get_size(struct ubi_device *ubi, int vol_id, size_t lnum, siz
 	struct ubi_vid_secure_meta vid_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_ctx,
+	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_ctx,
 				      &vid_hdr, &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		LOG_ERR("VID header read failure");

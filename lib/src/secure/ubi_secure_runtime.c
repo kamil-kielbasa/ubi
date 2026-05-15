@@ -71,7 +71,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 
 	/* Each erase writes one new EC header under the active write_active_kv.
 	 * Reject before any flash mutation. */
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 	int ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_ERASE_COUNTER,
 						 ubi->aead.next_ec + 1, write_kv, 0);
 	if (ret != 0) {
@@ -82,7 +82,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_hdr,
 				     &ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC header read failure for PEB %zu", (size_t)entry->value.pnum);
@@ -95,7 +95,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 	struct ubi_secure_vid_auth_ctx vid_ctx_probe = { 0 };
 	bool had_vid = false;
 
-	if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_ctx,
+	if (ubi_secure_vid_hdr_read(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_ctx,
 				    &vid_hdr_probe, &vid_meta_probe, &vid_ctx_probe) == 0) {
 		had_vid = true;
 	}
@@ -120,7 +120,7 @@ static int erase_dirty_entry(struct ubi_device *ubi, struct ubi_rbt_item *entry)
 
 	ec_hdr.ec += 1;
 
-	ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->crypto_cfg, entry->value.pnum, &ec_hdr,
+	ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->secure_cfg, entry->value.pnum, &ec_hdr,
 				      write_kv, ubi->aead.next_ec);
 	if (ret != 0) {
 		LOG_ERR("EC header write failure");
@@ -227,9 +227,9 @@ static void torture_bad_blocks(struct ubi_device *ubi)
 			ec_hdr.ec = ec_avg;
 
 			const uint8_t write_kv =
-				ubi->crypto_cfg->policy.requested_write_key_version;
+				ubi->secure_cfg->policy.requested_write_key_version;
 
-			ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->crypto_cfg, item->pnum,
+			ret = ubi_secure_ec_hdr_write(&ubi->flash, ubi->secure_cfg, item->pnum,
 						      &ec_hdr, write_kv, 0);
 
 			if (ret != 0) {
@@ -378,7 +378,7 @@ exit:
 	 * Re-scan reserved PEBs — if all are now authenticated, clear the flag. */
 	if (ubi->read_only_degraded) {
 		struct ubi_secure_res_peb_scan rescan = { 0 };
-		const int rc = ubi_secure_res_peb_scan(&ubi->flash, ubi->crypto_cfg, &rescan);
+		const int rc = ubi_secure_res_peb_scan(&ubi->flash, ubi->secure_cfg, &rescan);
 
 		if (rc == 0 && rescan.auth_count >= UBI_SECURE_RES_PEB_NR_ACTIVE) {
 			LOG_INF("Reserved PEB bank recovered, leaving degraded mode");

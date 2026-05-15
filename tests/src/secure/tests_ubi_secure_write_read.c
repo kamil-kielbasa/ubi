@@ -11,7 +11,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
@@ -87,7 +87,7 @@ ZTEST_SUITE(ubi_secure_write_read, NULL, ztest_suite_setup, ztest_suite_before, 
  */
 ZTEST(ubi_secure_write_read, one_leb_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },
@@ -155,7 +155,7 @@ ZTEST(ubi_secure_write_read, one_leb_with_reboot)
  */
 ZTEST(ubi_secure_write_read, many_lebs_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },
@@ -227,7 +227,7 @@ ZTEST(ubi_secure_write_read, many_lebs_with_reboot)
  */
 ZTEST(ubi_secure_write_read, overwrite)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },

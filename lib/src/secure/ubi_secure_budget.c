@@ -15,7 +15,7 @@
 #include "ubi_internal.h"
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Zephyr headers: */
 #include <zephyr/logging/log.h>
@@ -248,8 +248,8 @@ static void emit_rotate_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id,
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	const struct ubi_crypto_event ev = {
-		.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+	const struct ubi_secure_event ev = {
+		.type = UBI_SECURE_EVENT_KEY_ROTATE_NOW,
 		.freshness = ubi_secure_freshness_get_snapshot(ubi),
 		.rotation = { .key_version = kv, .volume_id = vol_id, .usage_pct = pct },
 	};
@@ -260,7 +260,7 @@ static void emit_rotate_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id,
 
 static int trip_now(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id)
 {
-	emit_rotate_now(ubi, kv, vol_id, (uint8_t)CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT);
+	emit_rotate_now(ubi, kv, vol_id, (uint8_t)CONFIG_UBI_SECURE_ROTATE_NOW_PCT);
 	return -ENOSPC;
 }
 
@@ -279,11 +279,11 @@ static void emit_post_event(struct ubi_device *ubi, uint8_t kv, uint32_t vol_id,
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	const enum ubi_crypto_event_type type = (pct >= CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT) ?
-							UBI_CRYPTO_EVENT_KEY_ROTATE_NOW :
-							UBI_CRYPTO_EVENT_KEY_ROTATE_SOON;
+	const enum ubi_secure_event_type type = (pct >= CONFIG_UBI_SECURE_ROTATE_NOW_PCT) ?
+							UBI_SECURE_EVENT_KEY_ROTATE_NOW :
+							UBI_SECURE_EVENT_KEY_ROTATE_SOON;
 
-	const struct ubi_crypto_event ev = {
+	const struct ubi_secure_event ev = {
 		.type = type,
 		.freshness = ubi_secure_freshness_get_snapshot(ubi),
 		.rotation = { .key_version = kv, .volume_id = vol_id, .usage_pct = pct },
@@ -368,7 +368,7 @@ int ubi_secure_budget_metadata_pre(struct ubi_device *ubi, enum ubi_secure_domai
 		return -EINVAL;
 	}
 
-	if (ubi->crypto_cfg == NULL) {
+	if (ubi->secure_cfg == NULL) {
 		return 0;
 	}
 
@@ -383,11 +383,11 @@ int ubi_secure_budget_metadata_pre(struct ubi_device *ubi, enum ubi_secure_domai
 
 	metadata_effective(ubi, domain, projected_counter, &counter, &bytes);
 
-	const uint8_t pct = usage_pct(counter, (uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET,
+	const uint8_t pct = usage_pct(counter, (uint64_t)CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET,
 				      bytes,
-				      (uint64_t)CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET);
+				      (uint64_t)CONFIG_UBI_SECURE_METADATA_TOTAL_AUTH_BYTES_BUDGET);
 
-	if (pct < CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT) {
+	if (pct < CONFIG_UBI_SECURE_ROTATE_NOW_PCT) {
 		return 0;
 	}
 
@@ -407,7 +407,7 @@ void ubi_secure_budget_metadata_post(struct ubi_device *ubi, enum ubi_secure_dom
 		return;
 	}
 
-	if (ubi->crypto_cfg == NULL || ubi->crypto_cfg->event_cb == NULL) {
+	if (ubi->secure_cfg == NULL || ubi->secure_cfg->event_cb == NULL) {
 		return;
 	}
 
@@ -416,11 +416,11 @@ void ubi_secure_budget_metadata_post(struct ubi_device *ubi, enum ubi_secure_dom
 
 	metadata_effective(ubi, domain, post_counter, &counter, &bytes);
 
-	const uint8_t pct = usage_pct(counter, (uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET,
+	const uint8_t pct = usage_pct(counter, (uint64_t)CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET,
 				      bytes,
-				      (uint64_t)CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET);
+				      (uint64_t)CONFIG_UBI_SECURE_METADATA_TOTAL_AUTH_BYTES_BUDGET);
 
-	if (pct < CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT) {
+	if (pct < CONFIG_UBI_SECURE_ROTATE_SOON_PCT) {
 		return;
 	}
 
@@ -435,7 +435,7 @@ int ubi_secure_budget_leb_pre(struct ubi_device *ubi, uint8_t kv, uint32_t vol_i
 		return -EINVAL;
 	}
 
-	if (ubi->crypto_cfg == NULL) {
+	if (ubi->secure_cfg == NULL) {
 		return 0;
 	}
 
@@ -445,10 +445,10 @@ int ubi_secure_budget_leb_pre(struct ubi_device *ubi, uint8_t kv, uint32_t vol_i
 	}
 
 	const uint8_t pct = usage_pct(projected_counter,
-				      (uint64_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET, projected_bytes,
-				      (uint64_t)CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET);
+				      (uint64_t)CONFIG_UBI_SECURE_LEB_WRITE_BUDGET, projected_bytes,
+				      (uint64_t)CONFIG_UBI_SECURE_LEB_TOTAL_AUTH_BYTES_BUDGET);
 
-	if (pct < CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT) {
+	if (pct < CONFIG_UBI_SECURE_ROTATE_NOW_PCT) {
 		return 0;
 	}
 
@@ -465,15 +465,15 @@ void ubi_secure_budget_leb_post(struct ubi_device *ubi, uint8_t kv, uint32_t vol
 		return;
 	}
 
-	if (ubi->crypto_cfg == NULL || ubi->crypto_cfg->event_cb == NULL) {
+	if (ubi->secure_cfg == NULL || ubi->secure_cfg->event_cb == NULL) {
 		return;
 	}
 
-	const uint8_t pct = usage_pct(post_counter, (uint64_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET,
+	const uint8_t pct = usage_pct(post_counter, (uint64_t)CONFIG_UBI_SECURE_LEB_WRITE_BUDGET,
 				      post_bytes,
-				      (uint64_t)CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET);
+				      (uint64_t)CONFIG_UBI_SECURE_LEB_TOTAL_AUTH_BYTES_BUDGET);
 
-	if (pct < CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT) {
+	if (pct < CONFIG_UBI_SECURE_ROTATE_SOON_PCT) {
 		return;
 	}
 

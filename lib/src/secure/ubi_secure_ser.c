@@ -12,7 +12,7 @@
  *   4. EC   header  : AAD builder.
  *   5. VID  header  : AAD builder + secure-meta serialize/deserialize.
  *   6. LEB  record  : AAD builder.
- *   7. LEB  chunk   : AAD builder (CONFIG_UBI_CRYPTO_LEB_CHUNKED).
+ *   7. LEB  chunk   : AAD builder (CONFIG_UBI_SECURE_LEB_CHUNKED).
  *
  * \copyright Copyright (c) 2026
  */
@@ -56,7 +56,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Common helpers ------------------------------------------------------------------------------- */
 
-void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uint8_t *buf)
+void ubi_secure_prefix32_serialize(const struct ubi_secure_prefix32 *prefix, uint8_t *buf)
 {
 	if (prefix == NULL || buf == NULL) {
 		LOG_ERR("prefix32_serialize: NULL argument");
@@ -73,7 +73,7 @@ void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uin
 	memcpy(&buf[PREFIX32_OFF_RESERVED], prefix->reserved, UBI_SECURE_PREFIX_RESERVED_SIZE);
 }
 
-void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_crypto_prefix32 *prefix)
+void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_secure_prefix32 *prefix)
 {
 	if (buf == NULL || prefix == NULL) {
 		LOG_ERR("prefix32_deserialize: NULL argument");
@@ -317,7 +317,7 @@ void ubi_secure_build_leb_aad(const struct ubi_secure_leb_aad_input *input,
 
 /* LEB chunk ------------------------------------------------------------------------------------ */
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 void ubi_secure_build_leb_chunk_aad(const struct ubi_secure_leb_chunk_aad_input *input,
 				    uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE])
 {
@@ -332,4 +332,4 @@ void ubi_secure_build_leb_chunk_aad(const struct ubi_secure_leb_chunk_aad_input 
 	/* Append be32(chunk_index) at offset 74 → total 78. */
 	sys_put_be32(input->chunk_index, &aad[UBI_SECURE_LEB_AAD_SIZE]);
 }
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */

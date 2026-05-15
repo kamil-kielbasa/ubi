@@ -17,9 +17,9 @@
 #include "ubi.h"
 #include "ubi_test.h"
 
-#if defined(CONFIG_UBI_CRYPTO)
-#include <ubi_crypto.h>
-#endif /* CONFIG_UBI_CRYPTO */
+#if defined(CONFIG_UBI_SECURE)
+#include <ubi_secure.h>
+#endif /* CONFIG_UBI_SECURE */
 
 /* Internal headers: */
 #include "ubi_backend.h"
@@ -52,7 +52,7 @@ struct ubi_volume {
                                      - Key: Logical Erase Block (LEB) index
                                      - Value: Physical Erase Block (PEB) index */
 
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 	size_t anchor_pnum; /**< PEB index of hidden anchor (SIZE_MAX = none). */
 
 	/**
@@ -75,10 +75,10 @@ struct ubi_volume {
 	 */
 	uint64_t cached_leb_write_counter;
 	uint64_t cached_leb_total_auth_bytes;
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 };
 
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 /**
  * \brief MAX-merge observed VID secure metadata into the per-volume cache.
  *
@@ -97,7 +97,7 @@ static inline void ubi_volume_observe_counters(struct ubi_volume *vol, uint64_t 
 		vol->cached_leb_total_auth_bytes = leb_total_auth_bytes;
 	}
 }
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 
 /**
  * \brief PEB pool: rbtree of PEBs keyed by erase counter plus its size.
@@ -111,7 +111,7 @@ struct ubi_peb_pool {
 	size_t count; /**< Cached cardinality of \c tree. */
 };
 
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 /**
  * \brief Per-domain AEAD counter floor (RAM mirror of on-flash counters).
  *
@@ -164,7 +164,7 @@ struct ubi_secure_freshness_state {
 	uint64_t cached_device_revision; /**< Cached dev_hdr revision for snapshots. */
 	size_t mutations_since_sync; /**< Mutations since last sync_freshness call. */
 };
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 
 /**
  * \brief UBI device representation.
@@ -182,19 +182,19 @@ struct ubi_device {
 
 	bool read_only_degraded; /**< True if reserved PEB redundancy is lost. */
 
-#if defined(CONFIG_UBI_CRYPTO)
-	const struct ubi_crypto_config
-		*crypto_cfg; /**< Secure backend crypto config (NULL for plain). */
+#if defined(CONFIG_UBI_SECURE)
+	const struct ubi_secure_config
+		*secure_cfg; /**< Secure backend crypto config (NULL for plain). */
 	bool read_only_crypto; /**< Sticky crypto-initiated read-only. */
 	uint8_t reserved_key_version; /**< Key version currently used by reserved PEBs. */
-	uint32_t key_peb_refcount[CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS]; /**< Per-allowlist-slot
+	uint32_t key_peb_refcount[CONFIG_UBI_SECURE_MAX_KEY_VERSIONS]; /**< Per-allowlist-slot
 	    PEB refcount: number of on-flash objects authenticated with each key version.
 	    Includes data-PEB EC/VID/LEB objects AND reserved-PEB objects.
 	    Indexed by allowlist position, not by raw key_version value. */
 	struct ubi_secure_aead_counters aead; /**< Per-domain AEAD counter floor. */
 	struct ubi_secure_budget_bases budget_bases; /**< Per-domain budget bases. */
 	struct ubi_secure_freshness_state freshness; /**< Freshness state. */
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 
 	size_t total_data_peb_count; /**< Total usable data PEBs (cached at init). */
 	size_t leb_size; /**< Usable data size per LEB in bytes (cached at init). */
@@ -270,11 +270,11 @@ static inline int ubi_mutation_allowed(const struct ubi_device *ubi,
 	}
 #endif /* CONFIG_UBI_TEST_API_ENABLE */
 
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 	if (ubi->read_only_crypto) {
 		return -EROFS;
 	}
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 
 	if (op_class == UBI_MUT_RESERVED_METADATA && ubi->read_only_degraded) {
 		return -EROFS;
@@ -301,11 +301,11 @@ static inline size_t ubi_reserved_peb_count(struct ubi_device *ubi)
 	RB_FOR_EACH_CONTAINER(&ubi->vols, entry, node)
 	{
 		total += entry->value.vol->cfg.leb_count;
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 		if (ubi->mode == UBI_MODE_SECURE && entry->value.vol->anchor_pnum != SIZE_MAX) {
 			total += 1;
 		}
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 	}
 	return total;
 }

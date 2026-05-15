@@ -41,10 +41,10 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 /* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
-			   const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			   const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			   struct ubi_ec_hdr *ec_hdr, struct ubi_secure_ec_auth_ctx *ec_ctx)
 {
-	if (flash == NULL || crypto_cfg == NULL || ec_hdr == NULL || ec_ctx == NULL) {
+	if (flash == NULL || secure_cfg == NULL || ec_hdr == NULL || ec_ctx == NULL) {
 		LOG_ERR("ec_hdr_read: NULL argument");
 		return -EINVAL;
 	}
@@ -69,7 +69,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
 	}
 
 	/* Deserialize prefix into local — only write output on success. */
-	struct ubi_crypto_prefix32 prefix = { 0 };
+	struct ubi_secure_prefix32 prefix = { 0 };
 
 	ubi_secure_prefix32_deserialize(raw, &prefix);
 
@@ -95,7 +95,7 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
 	/* Derive EC-domain child key. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
-	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER,
+	ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER,
 					   prefix.key_version, &child_key_id);
 	if (ret != 0) {
 		LOG_ERR("EC key derivation failed at PEB %zu", peb_idx);
@@ -150,10 +150,10 @@ int ubi_secure_ec_hdr_read(const struct ubi_flash_desc *flash,
 }
 
 int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
-			    const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			    const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			    const struct ubi_ec_hdr *ec_hdr, uint8_t key_version, uint64_t counter)
 {
-	if (flash == NULL || crypto_cfg == NULL || ec_hdr == NULL) {
+	if (flash == NULL || secure_cfg == NULL || ec_hdr == NULL) {
 		LOG_ERR("ec_hdr_write: NULL argument");
 		return -EINVAL;
 	}
@@ -165,7 +165,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
 
 	/* Derive EC-domain child key. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
-	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER,
+	int ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_ERASE_COUNTER,
 					       key_version, &child_key_id);
 
 	if (ret != 0) {
@@ -174,7 +174,7 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
 	}
 
 	/* Build prefix. */
-	struct ubi_crypto_prefix32 prefix = {
+	struct ubi_secure_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
 		.wrapper_version = UBI_SECURE_WRAPPER_VERSION,
 		.domain = UBI_SECURE_DOMAIN_ERASE_COUNTER,
@@ -247,12 +247,12 @@ int ubi_secure_ec_hdr_write(const struct ubi_flash_desc *flash,
 }
 
 int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
-			    const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			    const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			    const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			    struct ubi_vid_hdr *vid_hdr, struct ubi_vid_secure_meta *vid_meta,
 			    struct ubi_secure_vid_auth_ctx *vid_ctx)
 {
-	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
+	if (flash == NULL || secure_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
 	    vid_meta == NULL || vid_ctx == NULL) {
 		LOG_ERR("vid_hdr_read: NULL argument");
 		return -EINVAL;
@@ -278,7 +278,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 	}
 
 	/* Deserialize prefix into local — only write output on success. */
-	struct ubi_crypto_prefix32 prefix = { 0 };
+	struct ubi_secure_prefix32 prefix = { 0 };
 
 	ubi_secure_prefix32_deserialize(raw, &prefix);
 
@@ -304,7 +304,7 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 	/* Derive VID-domain child key. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
-	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+	ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
 					   prefix.key_version, &child_key_id);
 	if (ret != 0) {
 		LOG_ERR("VID key derivation failed at PEB %zu", peb_idx);
@@ -364,13 +364,13 @@ int ubi_secure_vid_hdr_read(const struct ubi_flash_desc *flash,
 }
 
 int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
-			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			     const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			     const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			     const struct ubi_vid_hdr *vid_hdr,
 			     const struct ubi_vid_secure_meta *vid_meta, uint8_t key_version,
 			     uint64_t counter)
 {
-	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
+	if (flash == NULL || secure_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL ||
 	    vid_meta == NULL) {
 		LOG_ERR("vid_hdr_write: NULL argument");
 		return -EINVAL;
@@ -383,7 +383,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 
 	/* Derive VID-domain child key. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
-	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
+	int ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
 					       key_version, &child_key_id);
 
 	if (ret != 0) {
@@ -392,7 +392,7 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 	}
 
 	/* Build prefix. */
-	struct ubi_crypto_prefix32 prefix = {
+	struct ubi_secure_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
 		.wrapper_version = UBI_SECURE_WRAPPER_VERSION,
 		.domain = UBI_SECURE_DOMAIN_VOLUME_IDENTIFIER,
@@ -472,11 +472,11 @@ int ubi_secure_vid_hdr_write(const struct ubi_flash_desc *flash,
 }
 
 int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
-			     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			     const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
 			     uint8_t *buf, size_t len)
 {
-	if (flash == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
+	if (flash == NULL || secure_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
 		LOG_ERR("leb_data_read: NULL argument");
 		return -EINVAL;
 	}
@@ -530,7 +530,7 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 	}
 
 	/* Deserialize and validate prefix before any key derivation. */
-	struct ubi_crypto_prefix32 prefix = { 0 };
+	struct ubi_secure_prefix32 prefix = { 0 };
 
 	ubi_secure_prefix32_deserialize(prefix_buf, &prefix);
 
@@ -550,7 +550,7 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 	/* Derive LEB key using the prefix's authoritative key_version. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
-	ret = ubi_secure_derive_leb_key(crypto_cfg, prefix.key_version, vid_ctx->vid_hdr->vol_id,
+	ret = ubi_secure_derive_leb_key(secure_cfg, prefix.key_version, vid_ctx->vid_hdr->vol_id,
 					&child_key_id);
 	if (ret != 0) {
 		LOG_ERR("LEB key derivation failed at PEB %zu", peb_idx);
@@ -648,12 +648,12 @@ int ubi_secure_leb_data_read(const struct ubi_flash_desc *flash,
 }
 
 int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
-			      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+			      const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 			      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 			      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv, const uint8_t *buf,
 			      size_t len, uint8_t key_version, uint64_t counter)
 {
-	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
+	if (flash == NULL || secure_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
 		LOG_ERR("leb_data_write: NULL argument");
 		return -EINVAL;
 	}
@@ -672,7 +672,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	/* Derive LEB key for {key_version, volume_id}. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret =
-		ubi_secure_derive_leb_key(crypto_cfg, key_version, vid_hdr->vol_id, &child_key_id);
+		ubi_secure_derive_leb_key(secure_cfg, key_version, vid_hdr->vol_id, &child_key_id);
 
 	if (ret != 0) {
 		LOG_ERR("LEB key derivation failed for write at PEB %zu", peb_idx);
@@ -680,7 +680,7 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	}
 
 	/* Build prefix. */
-	struct ubi_crypto_prefix32 prefix = {
+	struct ubi_secure_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
 		.wrapper_version = UBI_SECURE_WRAPPER_VERSION,
 		.domain = UBI_SECURE_DOMAIN_LEB,
@@ -799,16 +799,16 @@ int ubi_secure_leb_data_write(const struct ubi_flash_desc *flash,
 	return 0;
 }
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 
 int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
-				      const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+				      const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 				      const struct ubi_secure_ec_auth_ctx *ec_ctx,
 				      const struct ubi_vid_hdr *vid_hdr, uint8_t vid_kv,
 				      const uint8_t *buf, size_t len, uint8_t key_version,
 				      uint64_t counter_base)
 {
-	if (flash == NULL || crypto_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
+	if (flash == NULL || secure_cfg == NULL || ec_ctx == NULL || vid_hdr == NULL) {
 		LOG_ERR("leb_data_write_chunked: NULL argument");
 		return -EINVAL;
 	}
@@ -821,7 +821,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 	/* Derive LEB key for {key_version, volume_id}. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 	int ret =
-		ubi_secure_derive_leb_key(crypto_cfg, key_version, vid_hdr->vol_id, &child_key_id);
+		ubi_secure_derive_leb_key(secure_cfg, key_version, vid_hdr->vol_id, &child_key_id);
 
 	if (ret != 0) {
 		LOG_ERR("LEB key derivation failed for chunked write at PEB %zu", peb_idx);
@@ -829,7 +829,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 	}
 
 	/* Build prefix with counter_base. */
-	struct ubi_crypto_prefix32 prefix = {
+	struct ubi_secure_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
 		.wrapper_version = UBI_SECURE_WRAPPER_VERSION,
 		.domain = UBI_SECURE_DOMAIN_LEB,
@@ -852,7 +852,7 @@ int ubi_secure_leb_data_write_chunked(const struct ubi_flash_desc *flash,
 	ubi_secure_prefix32_serialize(&prefix, prefix_buf);
 
 	const size_t leb_offset = peb_idx * flash->erase_block_size + UBI_SECURE_LEB_OFFSET;
-	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+	const size_t chunk_size = CONFIG_UBI_SECURE_LEB_CHUNK_SIZE;
 	const size_t chunk_count = (len + chunk_size - 1) / chunk_size;
 
 	/* Allocate per-chunk scratch buffer (largest chunk ct+tag, aligned). */
@@ -966,11 +966,11 @@ fail:
 }
 
 int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
-				     const struct ubi_crypto_config *crypto_cfg, size_t peb_idx,
+				     const struct ubi_secure_config *secure_cfg, size_t peb_idx,
 				     const struct ubi_secure_vid_auth_ctx *vid_ctx, size_t offset,
 				     uint8_t *buf, size_t len)
 {
-	if (flash == NULL || crypto_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
+	if (flash == NULL || secure_cfg == NULL || vid_ctx == NULL || vid_ctx->vid_hdr == NULL) {
 		LOG_ERR("leb_data_read_chunked: NULL argument");
 		return -EINVAL;
 	}
@@ -1019,7 +1019,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 	}
 
 	/* Deserialize and validate prefix. */
-	struct ubi_crypto_prefix32 prefix = { 0 };
+	struct ubi_secure_prefix32 prefix = { 0 };
 
 	ubi_secure_prefix32_deserialize(prefix_buf, &prefix);
 
@@ -1039,7 +1039,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 	/* Derive LEB key. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
-	ret = ubi_secure_derive_leb_key(crypto_cfg, prefix.key_version, vid_ctx->vid_hdr->vol_id,
+	ret = ubi_secure_derive_leb_key(secure_cfg, prefix.key_version, vid_ctx->vid_hdr->vol_id,
 					&child_key_id);
 	if (ret != 0) {
 		LOG_ERR("Chunked LEB key derivation failed at PEB %zu", peb_idx);
@@ -1047,7 +1047,7 @@ int ubi_secure_leb_data_read_chunked(const struct ubi_flash_desc *flash,
 		return ret;
 	}
 
-	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+	const size_t chunk_size = CONFIG_UBI_SECURE_LEB_CHUNK_SIZE;
 	const uint64_t counter_base = ubi_secure_decode_counter48(prefix.counter);
 
 	/* Determine chunk range covering [offset, offset+len). */
@@ -1155,7 +1155,7 @@ cleanup:
 	return ret;
 }
 
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 
 int ubi_secure_vid_region_is_erased(const struct ubi_flash_desc *flash, size_t peb_idx,
 				    bool *is_erased)

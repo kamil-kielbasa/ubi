@@ -18,7 +18,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 
 /* Test fixtures: */
@@ -192,7 +192,7 @@ ZTEST_SUITE(ubi_secure_concurrency, NULL, ztest_suite_setup, ztest_suite_before,
  *
  * \trace Plain parity → `tests_ubi_concurrency::concurrent_readers`.
  *
- * \precondition `CONFIG_FLASH_SIMULATOR` + `CONFIG_UBI_CRYPTO` +
+ * \precondition `CONFIG_FLASH_SIMULATOR` + `CONFIG_UBI_SECURE` +
  *               `CONFIG_MULTITHREADING`; four reader stacks of
  *               `THREAD_STACK_SIZE` bytes each.
  */
@@ -264,7 +264,7 @@ ZTEST(ubi_secure_concurrency, concurrent_readers)
  *
  * \trace Plain parity → `tests_ubi_concurrency::reader_writer_interleave`.
  *
- * \precondition `CONFIG_FLASH_SIMULATOR` + `CONFIG_UBI_CRYPTO` +
+ * \precondition `CONFIG_FLASH_SIMULATOR` + `CONFIG_UBI_SECURE` +
  *               `CONFIG_MULTITHREADING`; per-device mutex serialises
  *               mutators with reader VID lookups.
  */

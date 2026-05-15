@@ -12,7 +12,7 @@ recovery notes for the cases where "what to do" is not obvious.
 
 | Code | Returned by | Meaning | Recommended reaction |
 |------|------------|---------|---------------------|
-| `-EINVAL` | every public function | NULL pointer, bad parameter, geometry mismatch (`vol_id` does not exist as int range, `lnum` ≥ `leb_count`, `len` past end of LEB, malformed `crypto_cfg`, …) | Programmer error — fix the caller. Do not retry. |
+| `-EINVAL` | every public function | NULL pointer, bad parameter, geometry mismatch (`vol_id` does not exist as int range, `lnum` ≥ `leb_count`, `len` past end of LEB, malformed `secure_cfg`, …) | Programmer error — fix the caller. Do not retry. |
 | `-ENOENT` | `ubi_leb_*`, `ubi_volume_*`, `ubi_volume_get_info` | Volume with given `volume_id` does not exist (was never created or has been removed); LEB number out of the volume's range | Treat as "not found". Re-create the volume or skip the operation. |
 | `-EEXIST` | `ubi_volume_create` | A volume with the requested **name** already exists with a *different* configuration (type or `leb_count` differs) | Decide intent: either accept the existing config or remove + recreate. Same name + identical config returns `0` (idempotent). |
 | `-ENOSPC` | `ubi_leb_write`, `ubi_leb_map`, `ubi_volume_create`, `ubi_volume_resize`, secure budget exhaustion | No free PEB available, or `vol_id_watermark` exhausted, or per-key budget reached its hard limit | Run `ubi_device_erase_peb()` to reclaim dirty PEBs. If still `-ENOSPC`, the partition is genuinely full or (secure mode) a key rotation is required. |
@@ -23,9 +23,9 @@ recovery notes for the cases where "what to do" is not obvious.
 | `-ECANCELED` | `ubi_volume_resize` | Operation is not applicable: resize on a static volume, or `leb_count` unchanged | Not an error per se. The caller asked for a no-op. |
 | `-ENOTSUP` | `ubi_device_init` (secure mode) | A required secure-mode platform capability (PSA `AES-128-CCM`, `HKDF-SHA-256`, or CSPRNG) is not available | Adjust Kconfig: enable PSA Crypto and entropy. Secure UBI cannot be brought up without these. |
 | `-EOVERFLOW` | secure I/O paths, secure `volume_resize` | An on-flash counter (per-LEB `record_seq`, per-key `aead_invocations`, etc.) has reached its representable maximum | Trigger a key rotation; the new write-active key resets the counters. |
-| `-EFBIG` | secure LEB write | The supplied payload is larger than the secure LEB capacity (LEB size minus AEAD overhead, or chunk size when chunked layout is enabled) | Reduce the write size or enable / re-tune `CONFIG_UBI_CRYPTO_LEB_CHUNKED` and `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE`. |
-| `-EBADMSG` | secure read paths, secure attach, reserved-PEB scan | Authentication failure (AEAD tag mismatch, invalid header magic, CRC mismatch on a secure record) | Treat the affected record as untrusted. The secure backend will route the failure through the event callback (`UBI_CRYPTO_EVENT_DECRYPT_FAIL`); the application's policy decides whether to drop the LEB, latch read-only, or attempt recovery. |
-| `-EACCES` | secure attach (`ubi_device_init` with `crypto_cfg`); plain `leb_unmap` on a static volume | A freshness / policy callback rejected the attach; or an attempt was made to unmap a LEB on a static volume | Attach: investigate `check_freshness` — a rollback was reported. Unmap: forbidden by design on static volumes. |
+| `-EFBIG` | secure LEB write | The supplied payload is larger than the secure LEB capacity (LEB size minus AEAD overhead, or chunk size when chunked layout is enabled) | Reduce the write size or enable / re-tune `CONFIG_UBI_SECURE_LEB_CHUNKED` and `CONFIG_UBI_SECURE_LEB_CHUNK_SIZE`. |
+| `-EBADMSG` | secure read paths, secure attach, reserved-PEB scan | Authentication failure (AEAD tag mismatch, invalid header magic, CRC mismatch on a secure record) | Treat the affected record as untrusted. The secure backend will route the failure through the event callback (`UBI_SECURE_EVENT_DECRYPT_FAIL`); the application's policy decides whether to drop the LEB, latch read-only, or attempt recovery. |
+| `-EACCES` | secure attach (`ubi_device_init` with `secure_cfg`); plain `leb_unmap` on a static volume | A freshness / policy callback rejected the attach; or an attempt was made to unmap a LEB on a static volume | Attach: investigate `check_freshness` — a rollback was reported. Unmap: forbidden by design on static volumes. |
 
 ## Per-code notes
 
@@ -44,7 +44,7 @@ Three distinct conditions surface as `-ENOSPC`:
    the secure backend refuses further writes against a key that has
    reached its hard usage threshold. Provide a new key version via
    `get_key_id` and either bump `requested_write_key_version` in
-   `crypto_cfg` or re-attach with the rotated allowlist.
+   `secure_cfg` or re-attach with the rotated allowlist.
 
 ### `-EROFS` and self-healing
 
@@ -61,7 +61,7 @@ Degraded Mode* for the full mutation gate.
 Never treat `-EBADMSG` as something to retry. It means a record
 authentication tag did not validate — either the flash content was
 tampered with, or a key version mismatch slipped through. The secure
-backend always emits a corresponding `UBI_CRYPTO_EVENT_*` to the
+backend always emits a corresponding `UBI_SECURE_EVENT_*` to the
 application's `event_cb` before returning. Use that event (not the
 errno) as the trigger for security policy.
 
@@ -80,5 +80,5 @@ guard is set in `ubi_device_init()` and released in
 - {doc}`/architecture/secure_overview` § *Events and read-only mode* —
   how `-EBADMSG`, `-EACCES`, and the strict-RO policies interact.
 - {doc}`/guide/secure_workflow` § 4.4 — handling
-  `UBI_CRYPTO_EVENT_*` callbacks (the security counterpart to the
+  `UBI_SECURE_EVENT_*` callbacks (the security counterpart to the
   errno surface).

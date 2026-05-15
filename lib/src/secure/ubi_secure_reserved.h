@@ -18,7 +18,7 @@
 #include "ubi_plain_io.h"
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Standard library headers: */
 #include <stdbool.h>
@@ -56,7 +56,7 @@ struct ubi_secure_res_peb_scan {
 	struct ubi_dev_secure_meta dev_meta;
 
 	/** Canonical prefix from the authenticated device header. */
-	struct ubi_crypto_prefix32 dev_prefix;
+	struct ubi_secure_prefix32 dev_prefix;
 
 	/** PEB index of the canonical copy. */
 	size_t canonical_peb_idx;
@@ -75,14 +75,14 @@ struct ubi_secure_res_peb_scan {
  * as canonical.
  *
  * \param[in]  flash         Flash partition descriptor.
- * \param[in]  crypto_cfg  Crypto configuration (for get_key_id callback).
+ * \param[in]  secure_cfg  Crypto configuration (for get_key_id callback).
  * \param[out] scan        Scan result.
  *
  * \retval 0    Success.
  * \retval -EIO Flash read failure.
  */
 int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
-			    const struct ubi_crypto_config *crypto_cfg,
+			    const struct ubi_secure_config *secure_cfg,
 			    struct ubi_secure_res_peb_scan *scan);
 
 /**
@@ -92,7 +92,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
  * to the canonical device header generation.
  *
  * \param[in]  flash         Flash partition descriptor.
- * \param[in]  crypto_cfg  Crypto configuration.
+ * \param[in]  secure_cfg  Crypto configuration.
  * \param[in]  scan        Completed scan result (canonical PEB selected).
  * \param[out] vol_hdrs    Array of vol_count volume headers.
  * \param      max_vols    Capacity of vol_hdrs array.
@@ -102,7 +102,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
  * \retval -EIO        Auth failure on a volume header.
  */
 int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
-				     const struct ubi_crypto_config *crypto_cfg,
+				     const struct ubi_secure_config *secure_cfg,
 				     const struct ubi_secure_res_peb_scan *scan,
 				     struct ubi_vol_hdr *vol_hdrs, size_t max_vols);
 
@@ -113,7 +113,7 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
  * then writes them to all active + spare reserved PEBs.
  *
  * \param[in] flash         Flash partition descriptor.
- * \param[in] crypto_cfg  Crypto configuration.
+ * \param[in] secure_cfg  Crypto configuration.
  * \param[in] dev_hdr     Device header to commit.
  * \param[in] dev_meta    Secure metadata to commit.
  * \param[in] vol_hdrs    Volume headers (NULL if vol_count == 0).
@@ -126,7 +126,7 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
  * \retval -EROFS  Committed but degraded (fewer active PEBs than required).
  */
 int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
-			      const struct ubi_crypto_config *crypto_cfg,
+			      const struct ubi_secure_config *secure_cfg,
 			      const struct ubi_dev_hdr *dev_hdr,
 			      const struct ubi_dev_secure_meta *dev_meta,
 			      const struct ubi_vol_hdr *vol_hdrs, size_t vol_count,

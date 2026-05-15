@@ -80,7 +80,7 @@ The configuration is in `.clang-format` at the repository root.
 lib/
   include/
     ubi.h                    Public API (all structures and function declarations)
-    ubi_crypto.h             Secure backend public types and callbacks
+    ubi_secure.h             Secure backend public types and callbacks
     ubi_test.h               Test API (fault injection, shutdown hooks)
   src/
     ubi.c                    Unified init — dispatches to plain or secure backend

@@ -48,7 +48,7 @@ UBI **instead of** that layer eating raw flash directly".
 | **Dynamic resize** | Yes (dynamic volumes) | n/a (filesystem) | n/a | n/a |
 | **Crash safety (metadata)** | Dual-bank reserved PEBs + monotonic `vid_sqnum` | Copy-on-write, journaled | Sector-rotation atomic write | Sector-rotation atomic write |
 | **Crash safety (user data)** | **No** — metadata only; mid-write loses the LEB | Yes — every write is atomic | Yes — record write is atomic | Yes — record write is atomic |
-| **Authenticated encryption** | **Yes**, opt-in (`CONFIG_UBI_CRYPTO`, AES-128-CCM via PSA) | No | No | No |
+| **Authenticated encryption** | **Yes**, opt-in (`CONFIG_UBI_SECURE`, AES-128-CCM via PSA) | No | No | No |
 | **Random-access I/O** | Yes, within a LEB | Yes (file `seek` + `read`/`write`) | Read by key | Read by key |
 | **Library footprint (Cortex-M33, `-Os`)** | ~9.5 KB plain / ~28.6 KB secure | ~25–35 KB depending on config | ~3–5 KB | ~4–6 KB |
 | **RAM cost** | Proportional to PEB count + volume count | File table + lookahead buffer | Two-sector cache | Cache + ATE table |
@@ -74,7 +74,7 @@ sample build on the `b_u585i_iot02a` board (STM32U585) — see
 - You want a **predictable, fully static RAM cost** that you can size
   at compile time.
 - You may need **authenticated encryption of every on-flash byte** at
-  some point in the product lifetime (turn `CONFIG_UBI_CRYPTO` on
+  some point in the product lifetime (turn `CONFIG_UBI_SECURE` on
   later without rewriting your storage layer).
 - You want to **mix plain and secure storage** on the same product —
   e.g. a plain UBI device on internal flash for hot configuration
@@ -185,7 +185,7 @@ for stored data, the choices are:
   You own key management, nonce uniqueness, AAD design, and
   rollback detection — all of which are easy to get wrong, and none
   of which protect the underlying filesystem's *own* metadata.
-- **Use Secure UBI** (`CONFIG_UBI_CRYPTO=y`). Every commit-visible
+- **Use Secure UBI** (`CONFIG_UBI_SECURE=y`). Every commit-visible
   on-flash structure — UBI metadata, reserved PEBs, and your LEB
   data — is wrapped in AES-128-CCM via PSA Crypto, with location
   and identity binding in AAD, versioned keys with an allowlist, a
@@ -207,4 +207,4 @@ allowlist, a freshness store, and an event callback. See
 - {doc}`/architecture/plain_architecture` — the on-flash format and
   resource-usage numbers behind the UBI row of the table above.
 - {doc}`/architecture/secure_overview` — when authenticated encryption
-  matters and what enabling `CONFIG_UBI_CRYPTO` costs.
+  matters and what enabling `CONFIG_UBI_SECURE` costs.

@@ -11,7 +11,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 
 /* Test fixtures: */
@@ -72,7 +72,7 @@ ZTEST_SUITE(ubi_secure_api, NULL, ztest_suite_setup, ztest_suite_before, NULL, N
  */
 ZTEST(ubi_secure_api, secure_format_on_blank)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
@@ -83,9 +83,9 @@ ZTEST(ubi_secure_api, secure_format_on_blank)
 /**
  * \brief Plain init still works when secure types are included.
  *
- * \details Scenario: Initialize the plain backend (crypto_cfg == NULL) while
- *          CONFIG_UBI_CRYPTO=y is enabled in the build. Validates that
- *          including ubi_crypto.h does not break the plain code path.
+ * \details Scenario: Initialize the plain backend (secure_cfg == NULL) while
+ *          CONFIG_UBI_SECURE=y is enabled in the build. Validates that
+ *          including ubi_secure.h does not break the plain code path.
  *
  * \expect ubi_device_init returns 0, device info shows > 0 PEBs.
  */
@@ -107,39 +107,39 @@ ZTEST(ubi_secure_api, plain_init_unaffected_by_secure_types)
  * \brief Crypto type sizes and layout are sane.
  *
  * \details Scenario: Verify struct sizes, enum ranges, and verdict values for all
- *          public crypto types defined in ubi_crypto.h.
+ *          public crypto types defined in ubi_secure.h.
  *
  * \expect freshness is 16 bytes, event types span 0..9, verdict enums
  *           match their documented values.
  */
 ZTEST(ubi_secure_api, crypto_type_sizes)
 {
-	zassert_equal(sizeof(struct ubi_crypto_freshness), 16,
+	zassert_equal(sizeof(struct ubi_secure_freshness), 16,
 		      "freshness should be 16 bytes (2 x uint64_t)");
 
-	zassert_true(sizeof(struct ubi_crypto_policy) > 0);
-	zassert_true(sizeof(struct ubi_crypto_event) > 0);
-	zassert_true(sizeof(struct ubi_crypto_config) > 0);
+	zassert_true(sizeof(struct ubi_secure_policy) > 0);
+	zassert_true(sizeof(struct ubi_secure_event) > 0);
+	zassert_true(sizeof(struct ubi_secure_config) > 0);
 
-	/* enum ubi_crypto_event_type — exhaustive value pinning. */
-	zassert_equal(UBI_CRYPTO_EVENT_AUTH_FAILURE, 0);
-	zassert_equal(UBI_CRYPTO_EVENT_FORMAT_VIOLATION, 1);
-	zassert_equal(UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED, 2);
-	zassert_equal(UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE, 3);
-	zassert_equal(UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH, 4);
-	zassert_equal(UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE, 5);
-	zassert_equal(UBI_CRYPTO_EVENT_RNG_FAILURE, 6);
-	zassert_equal(UBI_CRYPTO_EVENT_KEY_ROTATE_SOON, 7);
-	zassert_equal(UBI_CRYPTO_EVENT_KEY_ROTATE_NOW, 8);
-	zassert_equal(UBI_CRYPTO_EVENT_KEY_RETIRABLE, 9);
+	/* enum ubi_secure_event_type — exhaustive value pinning. */
+	zassert_equal(UBI_SECURE_EVENT_AUTH_FAILURE, 0);
+	zassert_equal(UBI_SECURE_EVENT_FORMAT_VIOLATION, 1);
+	zassert_equal(UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED, 2);
+	zassert_equal(UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE, 3);
+	zassert_equal(UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH, 4);
+	zassert_equal(UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE, 5);
+	zassert_equal(UBI_SECURE_EVENT_RNG_FAILURE, 6);
+	zassert_equal(UBI_SECURE_EVENT_KEY_ROTATE_SOON, 7);
+	zassert_equal(UBI_SECURE_EVENT_KEY_ROTATE_NOW, 8);
+	zassert_equal(UBI_SECURE_EVENT_KEY_RETIRABLE, 9);
 
-	/* enum ubi_crypto_rollback_verdict — exhaustive value pinning. */
-	zassert_equal(UBI_CRYPTO_ROLLBACK_ACCEPT, 0);
-	zassert_equal(UBI_CRYPTO_ROLLBACK_REJECT, 1);
+	/* enum ubi_secure_rollback_verdict — exhaustive value pinning. */
+	zassert_equal(UBI_SECURE_ROLLBACK_ACCEPT, 0);
+	zassert_equal(UBI_SECURE_ROLLBACK_REJECT, 1);
 
-	/* enum ubi_crypto_event_verdict — exhaustive value pinning. */
-	zassert_equal(UBI_CRYPTO_EVENT_CONTINUE, 0);
-	zassert_equal(UBI_CRYPTO_EVENT_ENTER_READ_ONLY, 1);
+	/* enum ubi_secure_event_verdict — exhaustive value pinning. */
+	zassert_equal(UBI_SECURE_EVENT_CONTINUE, 0);
+	zassert_equal(UBI_SECURE_EVENT_ENTER_READ_ONLY, 1);
 }
 
 /**
@@ -152,7 +152,7 @@ ZTEST(ubi_secure_api, crypto_type_sizes)
 ZTEST(ubi_secure_api, get_write_active_kv_null_args)
 {
 	uint8_t kv = 0xAA;
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_equal(ubi_secure_key_get_active_version(NULL, &kv), -EINVAL);
@@ -165,9 +165,9 @@ ZTEST(ubi_secure_api, get_write_active_kv_null_args)
 /**
  * \brief get_write_active_key_version returns -ENOTSUP on plain-mode device.
  *
- * \expect -ENOTSUP when device was initialized with crypto_cfg=NULL.
+ * \expect -ENOTSUP when device was initialized with secure_cfg=NULL.
  *
- * \details Scenario: Initialize device with crypto_cfg=NULL (plain mode). Call
+ * \details Scenario: Initialize device with secure_cfg=NULL (plain mode). Call
  *          ubi_secure_key_get_active_version with the device handle and an output
  *          buffer. Deinit.
  */
@@ -192,7 +192,7 @@ ZTEST(ubi_secure_api, get_write_active_kv_plain_mode)
  */
 ZTEST(ubi_secure_api, get_write_active_kv_after_format_and_rotation)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 	uint8_t kv = 0;
 
@@ -247,7 +247,7 @@ ZTEST(ubi_secure_api, reserved_generation_fit_guard_rejects_small_eb)
 	bad_flash.erase_block_size = small_eb;
 	bad_flash.write_block_size = 4U;
 
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	const int ret = ubi_device_init(&bad_flash, &cfg, &ubi);

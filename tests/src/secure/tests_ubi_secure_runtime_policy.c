@@ -14,7 +14,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 #include "ubi_secure_test_hooks.h"
@@ -45,7 +45,7 @@ struct runtime_policy_test_state {
 	/** Number of events received by the callback. */
 	size_t event_count;
 	/** Type of the most recently received event. */
-	enum ubi_crypto_event_type last_event_type;
+	enum ubi_secure_event_type last_event_type;
 	/** Number of times sync_freshness was called. */
 	size_t sync_call_count;
 	/** Return code that counting_sync_freshness uses (0 = success). */
@@ -88,12 +88,12 @@ static struct runtime_policy_test_state ts;
 /**
  * \brief Comprehensive event tracker — returns CONTINUE.
  */
-static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict tracking_event_cb(const struct ubi_secure_event *event,
 						       void *user_data);
 /**
  * \brief Event tracker that escalates every event to read-only.
  */
-static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict escalating_event_cb(const struct ubi_secure_event *event,
 							 void *user_data);
 /**
  * \brief Sync freshness with configurable delayed failure.
@@ -102,7 +102,7 @@ static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto
  * - sync_fail_after == 0 && sync_return_code != 0: always fails.
  * - sync_fail_after > 0: succeeds for first N calls, then returns -EIO.
  */
-static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data);
+static int counting_sync_freshness(const struct ubi_secure_freshness *freshness, void *user_data);
 /**
  * \brief Selective get_key_id — returns error for ts.fail_key_version.
  */
@@ -114,7 +114,7 @@ static void ztest_suite_after(void *ctx);
 /* Static function definitions ------------------------------------------------------------------ */
 
 /** \brief Comprehensive event tracker — returns CONTINUE */
-static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict tracking_event_cb(const struct ubi_secure_event *event,
 						       void *user_data)
 {
 	(void)user_data;
@@ -122,49 +122,49 @@ static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_e
 	ts.last_event_type = event->type;
 
 	switch (event->type) {
-	case UBI_CRYPTO_EVENT_KEY_ROTATE_SOON:
+	case UBI_SECURE_EVENT_KEY_ROTATE_SOON:
 		ts.rotate_soon_count++;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_ROTATE_NOW:
+	case UBI_SECURE_EVENT_KEY_ROTATE_NOW:
 		ts.rotate_now_count++;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_RETIRABLE:
+	case UBI_SECURE_EVENT_KEY_RETIRABLE:
 		ts.key_retirable_count++;
 		ts.key_retirable_kv = event->rotation.key_version;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
+	case UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
 		ts.allowlist_reject_count++;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE:
+	case UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE:
 		ts.key_unavailable_count++;
 		break;
-	case UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH:
+	case UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH:
 		ts.rollback_mismatch_count++;
 		break;
-	case UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE:
+	case UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE:
 		ts.freshness_sync_failure_count++;
 		break;
-	case UBI_CRYPTO_EVENT_AUTH_FAILURE:
+	case UBI_SECURE_EVENT_AUTH_FAILURE:
 		ts.auth_failure_count++;
 		break;
 	default:
 		break;
 	}
 
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
 /** \brief Event tracker that escalates every event to read-only */
-static enum ubi_crypto_event_verdict escalating_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict escalating_event_cb(const struct ubi_secure_event *event,
 							 void *user_data)
 {
 	(void)tracking_event_cb(event, user_data);
 
-	return UBI_CRYPTO_EVENT_ENTER_READ_ONLY;
+	return UBI_SECURE_EVENT_ENTER_READ_ONLY;
 }
 
 /** \brief Sync freshness with configurable delayed failure */
-static int counting_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
+static int counting_sync_freshness(const struct ubi_secure_freshness *freshness, void *user_data)
 {
 	(void)freshness;
 	(void)user_data;
@@ -192,13 +192,13 @@ static int selective_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 /**
  * \brief check_freshness that always rejects (rollback detected).
  */
-static enum ubi_crypto_rollback_verdict
-rejecting_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
+static enum ubi_secure_rollback_verdict
+rejecting_check_freshness(const struct ubi_secure_freshness *freshness, void *user_data)
 {
 	(void)freshness;
 	(void)user_data;
 
-	return UBI_CRYPTO_ROLLBACK_REJECT;
+	return UBI_SECURE_ROLLBACK_REJECT;
 }
 
 static void *ztest_suite_setup(void)
@@ -240,7 +240,7 @@ ZTEST_SUITE(ubi_secure_runtime_policy, NULL, ztest_suite_setup, ztest_suite_befo
  */
 ZTEST(ubi_secure_runtime_policy, event_enter_read_only_blocks_writes)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = escalating_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -282,7 +282,7 @@ ZTEST(ubi_secure_runtime_policy, event_enter_read_only_blocks_writes)
  */
 ZTEST(ubi_secure_runtime_policy, reads_work_in_crypto_ro)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = escalating_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -321,7 +321,7 @@ ZTEST(ubi_secure_runtime_policy, reads_work_in_crypto_ro)
  */
 ZTEST(ubi_secure_runtime_policy, freshness_sync_called_on_write)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = tracking_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -358,7 +358,7 @@ ZTEST(ubi_secure_runtime_policy, freshness_sync_called_on_write)
  */
 ZTEST(ubi_secure_runtime_policy, freshness_sync_failure_emits_event)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = tracking_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -394,7 +394,7 @@ ZTEST(ubi_secure_runtime_policy, freshness_sync_failure_emits_event)
  */
 ZTEST(ubi_secure_runtime_policy, freshness_sync_called_on_erase)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = tracking_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -433,7 +433,7 @@ ZTEST(ubi_secure_runtime_policy, freshness_sync_called_on_erase)
  */
 ZTEST(ubi_secure_runtime_policy, erase_blocked_in_crypto_ro)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = escalating_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -470,7 +470,7 @@ ZTEST(ubi_secure_runtime_policy, erase_blocked_in_crypto_ro)
  */
 ZTEST(ubi_secure_runtime_policy, volume_create_blocked_in_crypto_ro)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = escalating_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
 
@@ -520,7 +520,7 @@ ZTEST(ubi_secure_runtime_policy, volume_create_blocked_in_crypto_ro)
 ZTEST(ubi_secure_runtime_policy, key_retirable_after_full_erase)
 {
 	/* Phase 1: Format and write with kv=1. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -617,7 +617,7 @@ ZTEST(ubi_secure_runtime_policy, key_retirable_after_full_erase)
 ZTEST(ubi_secure_runtime_policy, allowlist_reject_on_read)
 {
 	/* Phase 1: Write with kv=1 (default allowlist=[1]). */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -692,7 +692,7 @@ ZTEST(ubi_secure_runtime_policy, allowlist_reject_on_read)
 ZTEST(ubi_secure_runtime_policy, missing_key_on_write)
 {
 	/* Phase 1: Write with kv=1. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -753,7 +753,7 @@ ZTEST(ubi_secure_runtime_policy, missing_key_on_write)
 ZTEST(ubi_secure_runtime_policy, rollback_policy_mismatch_event)
 {
 	/* Phase 1: Normal init and write. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -799,7 +799,7 @@ ZTEST(ubi_secure_runtime_policy, rollback_policy_mismatch_event)
 ZTEST(ubi_secure_runtime_policy, sticky_ro_cleared_on_reinit)
 {
 	/* Init with escalating callback + delayed-failure sync. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = escalating_event_cb;
 	cfg.sync_freshness = counting_sync_freshness;
@@ -864,7 +864,7 @@ ZTEST(ubi_secure_runtime_policy, sticky_ro_cleared_on_reinit)
 ZTEST(ubi_secure_runtime_policy, mixed_key_rotation_read_write)
 {
 	/* Phase 1: Write with kv=1. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -935,7 +935,7 @@ ZTEST(ubi_secure_runtime_policy, mixed_key_rotation_read_write)
 ZTEST(ubi_secure_runtime_policy, refcount_e2e_key_rotation_retirable)
 {
 	/* Phase 1: Init with kv=1. Create volume. Write / read / unmap / resize. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 

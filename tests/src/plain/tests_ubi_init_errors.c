@@ -1422,27 +1422,27 @@ ZTEST_F(ubi_init_errors, vid_hdr_crc_corrupt_during_scan)
 	fixture->ubi = NULL;
 }
 
-#ifndef CONFIG_UBI_CRYPTO
-#include <ubi_crypto.h>
+#ifndef CONFIG_UBI_SECURE
+#include <ubi_secure.h>
 /**
- * \brief Verify -ENOTSUP when crypto_cfg != NULL and CONFIG_UBI_CRYPTO=n.
+ * \brief Verify -ENOTSUP when secure_cfg != NULL and CONFIG_UBI_SECURE=n.
  *
  * \details Scenario: Build the public dispatcher contract from `lib/src/ubi.c`: when the
- *          caller passes a non-NULL crypto_cfg but the secure backend is not
+ *          caller passes a non-NULL secure_cfg but the secure backend is not
  *          compiled in, ubi_device_init() must reject with -ENOTSUP without
  *          dereferencing any callbacks.
  *
  * \expect ubi_device_init returns -ENOTSUP, device handle is NULL.
  */
-ZTEST_F(ubi_init_errors, crypto_cfg_without_crypto_kconfig_returns_enotsup)
+ZTEST_F(ubi_init_errors, secure_cfg_without_crypto_kconfig_returns_enotsup)
 {
-	/* Minimal crypto_cfg — content is irrelevant: the dispatcher rejects
-	 * before any field is read because CONFIG_UBI_CRYPTO is not selected. */
-	const struct ubi_crypto_config cfg = { 0 };
+	/* Minimal secure_cfg — content is irrelevant: the dispatcher rejects
+	 * before any field is read because CONFIG_UBI_SECURE is not selected. */
+	const struct ubi_secure_config cfg = { 0 };
 
 	struct ubi_device *ubi = NULL;
 	int ret = ubi_device_init(&flash, &cfg, &ubi);
 	zassert_equal(-ENOTSUP, ret, "Expected -ENOTSUP, got %d", ret);
 	zassert_is_null(ubi);
 }
-#endif /* !CONFIG_UBI_CRYPTO */
+#endif /* !CONFIG_UBI_SECURE */

@@ -58,7 +58,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 static int dev_hdr_aead_decrypt_unpack(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				       psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
 				       struct ubi_dev_secure_meta *dev_meta,
-				       struct ubi_crypto_prefix32 *prefix);
+				       struct ubi_secure_prefix32 *prefix);
 
 /**
  * \brief Encrypt and serialize one reserved-PEB device-header record.
@@ -108,7 +108,7 @@ static int vol_hdr_pack_aead_encrypt(const struct ubi_vol_hdr *vol_hdr, psa_key_
 static int dev_hdr_aead_decrypt_unpack(const uint8_t *raw, size_t peb_idx, uint64_t flash_offset,
 				       psa_key_id_t child_key_id, struct ubi_dev_hdr *dev_hdr,
 				       struct ubi_dev_secure_meta *dev_meta,
-				       struct ubi_crypto_prefix32 *prefix)
+				       struct ubi_secure_prefix32 *prefix)
 {
 	__ASSERT_NO_MSG(raw != NULL);
 	__ASSERT_NO_MSG(dev_hdr != NULL);
@@ -189,7 +189,7 @@ static int dev_hdr_pack_aead_encrypt(const struct ubi_dev_hdr *dev_hdr,
 	__ASSERT_NO_MSG(out_buf != NULL);
 
 	/* Build prefix. */
-	struct ubi_crypto_prefix32 prefix = {
+	struct ubi_secure_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
 		.wrapper_version = UBI_SECURE_WRAPPER_VERSION,
 		.domain = UBI_SECURE_DOMAIN_DEVICE_HEADER,
@@ -251,7 +251,7 @@ static int vol_hdr_pack_aead_encrypt(const struct ubi_vol_hdr *vol_hdr, psa_key_
 	__ASSERT_NO_MSG(vol_hdr != NULL);
 	__ASSERT_NO_MSG(out_buf != NULL);
 
-	struct ubi_crypto_prefix32 prefix = {
+	struct ubi_secure_prefix32 prefix = {
 		.magic = UBI_SECURE_PREFIX_MAGIC,
 		.wrapper_version = UBI_SECURE_WRAPPER_VERSION,
 		.domain = UBI_SECURE_DOMAIN_VOLUME_HEADER,
@@ -345,10 +345,10 @@ int ubi_secure_res_peb_detect_mode(const struct ubi_flash_desc *flash, size_t pe
 }
 
 int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
-			    const struct ubi_crypto_config *crypto_cfg,
+			    const struct ubi_secure_config *secure_cfg,
 			    struct ubi_secure_res_peb_scan *scan)
 {
-	if (flash == NULL || crypto_cfg == NULL || scan == NULL) {
+	if (flash == NULL || secure_cfg == NULL || scan == NULL) {
 		LOG_ERR("res_peb_scan: NULL argument");
 		return -EINVAL;
 	}
@@ -415,7 +415,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		 * absent from the allowlist is a policy error. Treat the PEB as
 		 * corrupt so the authenticated copy (if any) still wins.
 		 */
-		if (ubi_secure_policy_kv_slot(&crypto_cfg->policy, kv) < 0) {
+		if (ubi_secure_policy_kv_slot(&secure_cfg->policy, kv) < 0) {
 			LOG_ERR("Key version %u at PEB %zu not in allowlist", kv, peb);
 			local.state[peb] = UBI_SECURE_RES_PEB_CORRUPT;
 			local.corrupt_count += 1;
@@ -425,7 +425,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 		/* Derive child key for this version. */
 		psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
 
-		ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER, kv,
+		ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER, kv,
 						   &child_key_id);
 		if (ret != 0) {
 			LOG_ERR("Cannot derive key for version %u on PEB %zu", kv, peb);
@@ -436,7 +436,7 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 
 		struct ubi_dev_hdr hdr = { 0 };
 		struct ubi_dev_secure_meta meta = { 0 };
-		struct ubi_crypto_prefix32 prefix = { 0 };
+		struct ubi_secure_prefix32 prefix = { 0 };
 
 		ret = dev_hdr_aead_decrypt_unpack(raw, peb, offset, child_key_id, &hdr, &meta,
 						  &prefix);
@@ -469,11 +469,11 @@ int ubi_secure_res_peb_scan(const struct ubi_flash_desc *flash,
 }
 
 int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
-				     const struct ubi_crypto_config *crypto_cfg,
+				     const struct ubi_secure_config *secure_cfg,
 				     const struct ubi_secure_res_peb_scan *scan,
 				     struct ubi_vol_hdr *vol_hdrs, size_t max_vols)
 {
-	if (flash == NULL || crypto_cfg == NULL || scan == NULL || vol_hdrs == NULL) {
+	if (flash == NULL || secure_cfg == NULL || scan == NULL || vol_hdrs == NULL) {
 		LOG_ERR("res_peb_read_vol_hdrs: NULL argument");
 		return -EINVAL;
 	}
@@ -489,7 +489,7 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 
 	/* Derive volume-header child key. */
 	psa_key_id_t child_key_id = PSA_KEY_ID_NULL;
-	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER,
+	int ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER,
 					       scan->dev_prefix.key_version, &child_key_id);
 	if (ret != 0) {
 		LOG_ERR("ubi_secure_derive_domain_key failed for vol hdr: %d", ret);
@@ -519,7 +519,7 @@ int ubi_secure_res_peb_read_vol_hdrs(const struct ubi_flash_desc *flash,
 		}
 
 		/* Deserialize prefix and verify. */
-		struct ubi_crypto_prefix32 prefix = { 0 };
+		struct ubi_secure_prefix32 prefix = { 0 };
 
 		ubi_secure_prefix32_deserialize(raw, &prefix);
 
@@ -585,13 +585,13 @@ cleanup:
 }
 
 int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
-			      const struct ubi_crypto_config *crypto_cfg,
+			      const struct ubi_secure_config *secure_cfg,
 			      const struct ubi_dev_hdr *dev_hdr,
 			      const struct ubi_dev_secure_meta *dev_meta,
 			      const struct ubi_vol_hdr *vol_hdrs, size_t vol_count,
 			      uint8_t key_version, uint64_t counter)
 {
-	if (flash == NULL || crypto_cfg == NULL || dev_hdr == NULL || dev_meta == NULL) {
+	if (flash == NULL || secure_cfg == NULL || dev_hdr == NULL || dev_meta == NULL) {
 		LOG_ERR("res_peb_commit: NULL argument");
 		return -EINVAL;
 	}
@@ -610,7 +610,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 	/* Derive device-header and volume-header child keys. */
 	psa_key_id_t dev_key_id = PSA_KEY_ID_NULL;
 
-	int ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER,
+	int ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_DEVICE_HEADER,
 					       key_version, &dev_key_id);
 	if (ret != 0) {
 		LOG_ERR("ubi_secure_derive_domain_key failed for dev hdr commit: %d", ret);
@@ -619,7 +619,7 @@ int ubi_secure_res_peb_commit(const struct ubi_flash_desc *flash,
 
 	psa_key_id_t vol_key_id = PSA_KEY_ID_NULL;
 
-	ret = ubi_secure_derive_domain_key(crypto_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER, key_version,
+	ret = ubi_secure_derive_domain_key(secure_cfg, UBI_SECURE_DOMAIN_VOLUME_HEADER, key_version,
 					   &vol_key_id);
 	if (ret != 0) {
 		LOG_ERR("ubi_secure_derive_domain_key failed for vol hdr commit: %d", ret);

@@ -41,9 +41,9 @@ struct ubi_device;
  * \brief Forward declaration of the UBI crypto configuration.
  *
  * When non-NULL, selects the secure backend at runtime.
- * Defined in ubi_crypto.h — plain callers need not include it.
+ * Defined in ubi_secure.h — plain callers need not include it.
  */
-struct ubi_crypto_config;
+struct ubi_secure_config;
 
 /* Types and type definitions ------------------------------------------------------------------- */
 
@@ -143,7 +143,7 @@ struct ubi_volume_config {
  *      partition must hold at least UBI_DEV_HDR_NR_OF_RES_PEBS + 1 PEBs.
  *
  * \param[in] flash 		Flash partition descriptor (caller retains ownership).
- * \param[in] crypto_cfg	Crypto configuration for secure mode, or NULL for plain.
+ * \param[in] secure_cfg	Crypto configuration for secure mode, or NULL for plain.
  *                              When non-NULL the secure backend is selected;
  *                              when NULL the plain backend is selected.
  * \param[out] ubi		Pointer to receive the UBI device handle.
@@ -157,7 +157,7 @@ struct ubi_volume_config {
  * \retval -ENOTSUP Secure backend requested but not available.
  * \retval -EIO     Unrecoverable flash I/O error.
  */
-int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_crypto_config *crypto_cfg,
+int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_secure_config *secure_cfg,
 		    struct ubi_device **ubi);
 
 /**

@@ -4,7 +4,7 @@
  * \brief   Secure backend test hooks — fault injection for crypto operations.
  *
  * \details Provides controllable failure stages for secure backend testing.
- *          Only compiled when CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION is enabled.
+ *          Only compiled when CONFIG_UBI_SECURE_TEST_FAULT_INJECTION is enabled.
  *
  * \copyright Copyright (c) 2026
  */
@@ -14,7 +14,7 @@
 #ifndef UBI_SECURE_TEST_HOOKS_H
 #define UBI_SECURE_TEST_HOOKS_H
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wcpp"
@@ -87,7 +87,7 @@ struct ubi_device;
  * Allows tests to drive any metadata-domain counter close to the
  * ROTATE_NOW threshold using only a handful of real flash operations,
  * which is necessary on geometries (e.g. native_sim) where the free-PEB
- * count is far smaller than CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET.
+ * count is far smaller than CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET.
  *
  * Each parameter sets the corresponding `next_*_counter` field on the
  * UBI device.  Subsequent metadata writes will use these values as their
@@ -217,5 +217,5 @@ int ubi_secure_test_read_vid_meta_from_peb(struct ubi_device *ubi, size_t pnum,
 					   uint64_t *write_counter, uint64_t *total_auth_bytes,
 					   uint64_t *sqnum);
 
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 #endif /* UBI_SECURE_TEST_HOOKS_H */

@@ -11,7 +11,7 @@
 /* Internal headers: */
 #include "ubi_secure_test_hooks.h"
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 
 #include "ubi_internal.h"
 #include "ubi_secure_io.h"
@@ -154,7 +154,7 @@ int ubi_secure_test_read_vid_meta_from_peb(struct ubi_device *ubi, size_t pnum,
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
+	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, pnum, &ec_hdr, &ec_ctx);
 
 	if (ret != 0) {
 		return ret;
@@ -164,7 +164,7 @@ int ubi_secure_test_read_vid_meta_from_peb(struct ubi_device *ubi, size_t pnum,
 	struct ubi_vid_secure_meta vid_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->secure_cfg, pnum, &ec_ctx, &vid_hdr,
 				      &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		return ret;
@@ -182,4 +182,4 @@ int ubi_secure_test_read_vid_meta_from_peb(struct ubi_device *ubi, size_t pnum,
 	return 0;
 }
 
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */

@@ -9,7 +9,7 @@ retirement.
 and recovery rules, see {doc}`/reference/onflash_format_spec`.
 
 **After reading this:** You will know exactly what to put in your
-`crypto_cfg`, what each callback must do, and how to drive a key
+`secure_cfg`, what each callback must do, and how to drive a key
 rotation end-to-end without losing data or spuriously retiring keys.
 
 ---
@@ -46,7 +46,7 @@ are in place:
 
 | Prerequisite | Where it lives | How to verify |
 |--------------|---------------|---------------|
-| `CONFIG_UBI_CRYPTO=y` | Kconfig | Build picks up the secure backend |
+| `CONFIG_UBI_SECURE=y` | Kconfig | Build picks up the secure backend |
 | PSA Crypto with `AES-128-CCM` and `HKDF-SHA-256` | Kconfig (`CONFIG_PSA_*`) | `psa_aead_*` and `psa_key_derivation_*` link |
 | Platform CSPRNG | Kconfig (`CONFIG_ENTROPY_*`) | `psa_generate_random()` succeeds at boot |
 | Device-unique root key (≥ 256-bit) provisioned as a PSA key | Provisioning tool / secure element | `psa_get_key_attributes()` returns the expected lifetime / type |
@@ -55,14 +55,14 @@ are in place:
 | Freshness store (NVRAM / Zephyr Settings / TEE-backed counter) | Application code | Survives reboot and is itself integrity-protected |
 | Event callback wired to your security policy | Application code | Logs / escalates / triggers rotation as appropriate |
 
-## 3. Setting up `crypto_cfg`
+## 3. Setting up `secure_cfg`
 
 Secure UBI is selected at runtime by passing a non-`NULL`
-`crypto_cfg` to `ubi_device_init()`. The exact fields are documented
+`secure_cfg` to `ubi_device_init()`. The exact fields are documented
 in {doc}`/reference/api`; the contract for **each** field is:
 
 ```c
-struct ubi_crypto_cfg cfg = {
+struct ubi_secure_cfg cfg = {
     /* Versioned root keys (4.1) */
     .get_key_id           = my_get_key_id,
     .get_key_id_user_ctx  = &my_ctx,
@@ -138,12 +138,12 @@ int  sync_freshness (const struct ubi_freshness_descriptor *d, void *ctx);
 
 **Contract for `sync_freshness`** (optional; called after each
 commit-visible mutation, throttled by
-`CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`):
+`CONFIG_UBI_SECURE_FRESHNESS_SYNC_DELTA`):
 
 - Persist the new `(device_revision, global_sqnum)` to your trusted
   store before returning.
 - A non-zero return triggers `FRESHNESS_SYNC_FAILURE` and — when
-  `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y` — sticky
+  `CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y` — sticky
   read-only.
 
 If `sync_freshness` is omitted, freshness updates only happen the
@@ -151,12 +151,12 @@ next time `check_freshness` is called (i.e., the next attach).
 
 ### 4.4 Event callback
 
-**Signature.** `enum ubi_crypto_event_verdict event_cb(enum ubi_crypto_event ev, const struct ubi_crypto_event_info *info, void *ctx)`.
+**Signature.** `enum ubi_secure_event_verdict event_cb(enum ubi_secure_event ev, const struct ubi_secure_event_info *info, void *ctx)`.
 
 **Contract:**
 
-- Always return either `UBI_CRYPTO_EVENT_CONTINUE` or
-  `UBI_CRYPTO_EVENT_ENTER_READ_ONLY`.
+- Always return either `UBI_SECURE_EVENT_CONTINUE` or
+  `UBI_SECURE_EVENT_ENTER_READ_ONLY`.
 - Returning `ENTER_READ_ONLY` is **sticky** for the rest of the
   attach session — only `ubi_device_deinit` clears it.
 - Your verdict cannot override mandatory rejections that Secure UBI
@@ -221,47 +221,47 @@ hitting `KEY_ROTATE_NOW` will reject further writes until you rotate.
 A minimal but correct event handler:
 
 ```c
-static enum ubi_crypto_event_verdict
-my_event_cb(enum ubi_crypto_event ev,
-            const struct ubi_crypto_event_info *info,
+static enum ubi_secure_event_verdict
+my_event_cb(enum ubi_secure_event ev,
+            const struct ubi_secure_event_info *info,
             void *ctx)
 {
     switch (ev) {
-    case UBI_CRYPTO_EVENT_AUTH_FAILURE:
-    case UBI_CRYPTO_EVENT_FORMAT_VIOLATION:
-    case UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH:
+    case UBI_SECURE_EVENT_AUTH_FAILURE:
+    case UBI_SECURE_EVENT_FORMAT_VIOLATION:
+    case UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH:
         /* Tamper-suspected. Lock down. */
         log_security(ev, info);
-        return UBI_CRYPTO_EVENT_ENTER_READ_ONLY;
+        return UBI_SECURE_EVENT_ENTER_READ_ONLY;
 
-    case UBI_CRYPTO_EVENT_RNG_FAILURE:
-    case UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE:
+    case UBI_SECURE_EVENT_RNG_FAILURE:
+    case UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE:
         /* Operational failure. Stop writing until next attach. */
         log_warn(ev, info);
-        return UBI_CRYPTO_EVENT_ENTER_READ_ONLY;
+        return UBI_SECURE_EVENT_ENTER_READ_ONLY;
 
-    case UBI_CRYPTO_EVENT_KEY_ROTATE_SOON:
+    case UBI_SECURE_EVENT_KEY_ROTATE_SOON:
         /* Schedule rotation work; keep running. */
         schedule_key_rotation(info);
-        return UBI_CRYPTO_EVENT_CONTINUE;
+        return UBI_SECURE_EVENT_CONTINUE;
 
-    case UBI_CRYPTO_EVENT_KEY_ROTATE_NOW:
+    case UBI_SECURE_EVENT_KEY_ROTATE_NOW:
         /* Try one more time to rotate before the next write. */
         kick_key_rotation_now(info);
-        return UBI_CRYPTO_EVENT_CONTINUE;
+        return UBI_SECURE_EVENT_CONTINUE;
 
-    case UBI_CRYPTO_EVENT_KEY_RETIRABLE:
+    case UBI_SECURE_EVENT_KEY_RETIRABLE:
         /* Safe to destroy the corresponding PSA key now. */
         purge_psa_key(info->key_version);
-        return UBI_CRYPTO_EVENT_CONTINUE;
+        return UBI_SECURE_EVENT_CONTINUE;
 
-    case UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
-    case UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE:
+    case UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
+    case UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE:
         /* Likely a downgrade or provisioning gap. */
         log_warn(ev, info);
-        return UBI_CRYPTO_EVENT_ENTER_READ_ONLY;
+        return UBI_SECURE_EVENT_ENTER_READ_ONLY;
     }
-    return UBI_CRYPTO_EVENT_CONTINUE;
+    return UBI_SECURE_EVENT_CONTINUE;
 }
 ```
 

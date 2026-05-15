@@ -39,7 +39,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * Allowlist gate → fault-injection hook → root-key lookup → label build →
  * HKDF child-key derive.
  *
- * \param[in]  crypto_cfg   Crypto configuration (must not be NULL).
+ * \param[in]  secure_cfg   Crypto configuration (must not be NULL).
  * \param[in]  domain       Secure domain identifier.
  * \param[in]  key_version  Key version for root-key lookup.
  * \param[in]  volume_id    Volume identifier (used only for the LEB domain;
@@ -50,7 +50,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
  * \retval -UBI_SECURE_ENOKEY Key version not allowed or root lookup failed.
  * \retval -EIO               Label build or child-key derive failed.
  */
-static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
+static int derive_key_via_label(const struct ubi_secure_config *secure_cfg,
 				enum ubi_secure_domain domain, uint8_t key_version,
 				uint32_t volume_id, psa_key_id_t *child_key_id);
 
@@ -72,28 +72,28 @@ static int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-static int derive_key_via_label(const struct ubi_crypto_config *crypto_cfg,
+static int derive_key_via_label(const struct ubi_secure_config *secure_cfg,
 				enum ubi_secure_domain domain, uint8_t key_version,
 				uint32_t volume_id, psa_key_id_t *child_key_id)
 {
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
+	__ASSERT_NO_MSG(secure_cfg != NULL);
 	__ASSERT_NO_MSG(child_key_id != NULL);
 
-	if (ubi_secure_policy_kv_slot(&crypto_cfg->policy, key_version) < 0) {
+	if (ubi_secure_policy_kv_slot(&secure_cfg->policy, key_version) < 0) {
 		LOG_ERR("Key version %u not in allowlist (domain %d, vol %u)", key_version,
 			(int)domain, volume_id);
 		return -UBI_SECURE_ENOKEY;
 	}
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_GET_KEY_ID_FAIL)) {
 		LOG_WRN("get_key_id fault injected");
 		return -UBI_SECURE_ENOKEY;
 	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 	psa_key_id_t root_key_id = PSA_KEY_ID_NULL;
-	int ret = crypto_cfg->get_key_id(key_version, &root_key_id);
+	int ret = secure_cfg->get_key_id(key_version, &root_key_id);
 
 	if (ret != 0) {
 		LOG_ERR("get_key_id failed for version %u: %d", key_version, ret);
@@ -213,12 +213,12 @@ static int ubi_secure_derive_child_key(psa_key_id_t root_key_id, const uint8_t *
 	psa_status_t status = PSA_ERROR_GENERIC_ERROR;
 	psa_key_derivation_operation_t op = PSA_KEY_DERIVATION_OPERATION_INIT;
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_HKDF_FAIL)) {
 		LOG_WRN("HKDF fault injected");
 		return -EIO;
 	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 	status = psa_key_derivation_setup(&op, PSA_ALG_HKDF(PSA_ALG_SHA_256));
 	if (status != PSA_SUCCESS) {
@@ -296,12 +296,12 @@ int ubi_secure_aead_encrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_
 		return -EINVAL;
 	}
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_AEAD_ENCRYPT_FAIL)) {
 		LOG_WRN("AEAD encrypt fault injected");
 		return -EIO;
 	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 	const psa_status_t status = psa_aead_encrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len, plaintext,
@@ -330,12 +330,12 @@ int ubi_secure_aead_decrypt(psa_key_id_t key_id, const uint8_t nonce[UBI_SECURE_
 		return -EINVAL;
 	}
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_AEAD_DECRYPT_FAIL)) {
 		LOG_WRN("AEAD decrypt fault injected");
 		return -EIO;
 	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 	const psa_status_t status = psa_aead_decrypt(key_id, PSA_ALG_CCM, nonce,
 						     UBI_SECURE_NONCE_SIZE, aad, aad_len,
@@ -356,12 +356,12 @@ int ubi_secure_generate_salt(uint8_t salt[UBI_SECURE_SALT_SIZE])
 		return -EINVAL;
 	}
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	if (ubi_secure_test_hook_check(UBI_SECURE_HOOK_RNG_FAIL)) {
 		LOG_WRN("RNG fault injected");
 		return -UBI_SECURE_ENORAND;
 	}
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 	const psa_status_t status = psa_generate_random(salt, UBI_SECURE_SALT_SIZE);
 
@@ -394,26 +394,26 @@ void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_S
 	__ASSERT_NO_MSG(pos == UBI_SECURE_NONCE_SIZE);
 }
 
-int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
+int ubi_secure_derive_domain_key(const struct ubi_secure_config *secure_cfg,
 				 enum ubi_secure_domain domain, uint8_t key_version,
 				 psa_key_id_t *child_key_id)
 {
-	if (crypto_cfg == NULL || child_key_id == NULL) {
+	if (secure_cfg == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_domain_key: NULL argument");
 		return -EINVAL;
 	}
 
-	return derive_key_via_label(crypto_cfg, domain, key_version, 0, child_key_id);
+	return derive_key_via_label(secure_cfg, domain, key_version, 0, child_key_id);
 }
 
-int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_t key_version,
+int ubi_secure_derive_leb_key(const struct ubi_secure_config *secure_cfg, uint8_t key_version,
 			      uint32_t volume_id, psa_key_id_t *child_key_id)
 {
-	if (crypto_cfg == NULL || child_key_id == NULL) {
+	if (secure_cfg == NULL || child_key_id == NULL) {
 		LOG_ERR("derive_leb_key: NULL argument");
 		return -EINVAL;
 	}
 
-	return derive_key_via_label(crypto_cfg, UBI_SECURE_DOMAIN_LEB, key_version, volume_id,
+	return derive_key_via_label(secure_cfg, UBI_SECURE_DOMAIN_LEB, key_version, volume_id,
 				    child_key_id);
 }

@@ -31,7 +31,7 @@
 
 /* UBI public headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* PSA Crypto: */
 #include <psa/crypto.h>
@@ -110,16 +110,16 @@ static int sample_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out);
  *
  * \details Production must compare \p freshness against a trusted
  *          reference (anti-rollback counter in secure storage) and
- *          return \c UBI_CRYPTO_ROLLBACK_REJECT on a regression.  The
+ *          return \c UBI_SECURE_ROLLBACK_REJECT on a regression.  The
  *          sample has no trusted reference and unconditionally accepts.
  *
  * \param[in] freshness  Current on-flash freshness descriptor.
- * \param[in] user_data  Opaque pointer from \c ubi_crypto_config (unused).
+ * \param[in] user_data  Opaque pointer from \c ubi_secure_config (unused).
  *
- * \return \c UBI_CRYPTO_ROLLBACK_ACCEPT.
+ * \return \c UBI_SECURE_ROLLBACK_ACCEPT.
  */
-static enum ubi_crypto_rollback_verdict
-sample_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_data);
+static enum ubi_secure_rollback_verdict
+sample_check_freshness(const struct ubi_secure_freshness *freshness, void *user_data);
 
 /**
  * \brief \c sync_freshness callback: persist the freshness snapshot.
@@ -127,15 +127,15 @@ sample_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_
  * \details Production must atomically persist \p freshness to the
  *          trusted reference used by \ref sample_check_freshness, and
  *          return a non-zero errno on failure (which causes the secure
- *          backend to emit \c UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE).
+ *          backend to emit \c UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE).
  *          The sample is a no-op.
  *
  * \param[in] freshness  Freshness snapshot to persist (unused).
- * \param[in] user_data  Opaque pointer from \c ubi_crypto_config (unused).
+ * \param[in] user_data  Opaque pointer from \c ubi_secure_config (unused).
  *
  * \retval 0  Always.
  */
-static int sample_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data);
+static int sample_sync_freshness(const struct ubi_secure_freshness *freshness, void *user_data);
 
 /**
  * \brief \c event_cb callback: log every security-relevant event.
@@ -151,21 +151,21 @@ static int sample_sync_freshness(const struct ubi_crypto_freshness *freshness, v
  *          The sample only logs and continues.
  *
  * \param[in] event      Event payload from the secure backend.
- * \param[in] user_data  Opaque pointer from \c ubi_crypto_config (unused).
+ * \param[in] user_data  Opaque pointer from \c ubi_secure_config (unused).
  *
- * \return \c UBI_CRYPTO_EVENT_CONTINUE.
+ * \return \c UBI_SECURE_EVENT_CONTINUE.
  */
-static enum ubi_crypto_event_verdict sample_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict sample_event_cb(const struct ubi_secure_event *event,
 						     void *user_data);
 
 /**
- * \brief Stringify a \c ubi_crypto_event_type for logging.
+ * \brief Stringify a \c ubi_secure_event_type for logging.
  *
  * \param[in] type  Event type to stringify.
  *
  * \return Static string literal; \c "UNKNOWN" for unrecognised values.
  */
-static const char *event_type_str(enum ubi_crypto_event_type type);
+static const char *event_type_str(enum ubi_secure_event_type type);
 
 #if defined(CONFIG_FLASH_SIMULATOR)
 /**
@@ -224,54 +224,54 @@ static int sample_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 	return 0;
 }
 
-static enum ubi_crypto_rollback_verdict
-sample_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
+static enum ubi_secure_rollback_verdict
+sample_check_freshness(const struct ubi_secure_freshness *freshness, void *user_data)
 {
 	ARG_UNUSED(user_data);
 
 	LOG_INF("[ubi-secure] check_freshness: dev_rev=%llu sqnum=%llu -> ACCEPT",
 		(unsigned long long)freshness->device_revision,
 		(unsigned long long)freshness->global_sqnum);
-	return UBI_CRYPTO_ROLLBACK_ACCEPT;
+	return UBI_SECURE_ROLLBACK_ACCEPT;
 }
 
-static int sample_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
+static int sample_sync_freshness(const struct ubi_secure_freshness *freshness, void *user_data)
 {
 	ARG_UNUSED(freshness);
 	ARG_UNUSED(user_data);
 	return 0;
 }
 
-static enum ubi_crypto_event_verdict sample_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict sample_event_cb(const struct ubi_secure_event *event,
 						     void *user_data)
 {
 	ARG_UNUSED(user_data);
 	LOG_INF("[ubi-secure] event: %s", event_type_str(event->type));
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
-static const char *event_type_str(enum ubi_crypto_event_type type)
+static const char *event_type_str(enum ubi_secure_event_type type)
 {
 	switch (type) {
-	case UBI_CRYPTO_EVENT_AUTH_FAILURE:
+	case UBI_SECURE_EVENT_AUTH_FAILURE:
 		return "AUTH_FAILURE";
-	case UBI_CRYPTO_EVENT_FORMAT_VIOLATION:
+	case UBI_SECURE_EVENT_FORMAT_VIOLATION:
 		return "FORMAT_VIOLATION";
-	case UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
+	case UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
 		return "KEY_VERSION_NOT_ALLOWLISTED";
-	case UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE:
+	case UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE:
 		return "KEY_VERSION_UNAVAILABLE";
-	case UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH:
+	case UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH:
 		return "ROLLBACK_POLICY_MISMATCH";
-	case UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE:
+	case UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE:
 		return "FRESHNESS_SYNC_FAILURE";
-	case UBI_CRYPTO_EVENT_RNG_FAILURE:
+	case UBI_SECURE_EVENT_RNG_FAILURE:
 		return "RNG_FAILURE";
-	case UBI_CRYPTO_EVENT_KEY_ROTATE_SOON:
+	case UBI_SECURE_EVENT_KEY_ROTATE_SOON:
 		return "KEY_ROTATE_SOON";
-	case UBI_CRYPTO_EVENT_KEY_ROTATE_NOW:
+	case UBI_SECURE_EVENT_KEY_ROTATE_NOW:
 		return "KEY_ROTATE_NOW";
-	case UBI_CRYPTO_EVENT_KEY_RETIRABLE:
+	case UBI_SECURE_EVENT_KEY_RETIRABLE:
 		return "KEY_RETIRABLE";
 	default:
 		return "UNKNOWN";
@@ -332,7 +332,7 @@ int main(void)
 	}
 #endif
 
-	const struct ubi_crypto_config crypto_cfg = {
+	const struct ubi_secure_config secure_cfg = {
 		.policy = {
 			.requested_write_key_version = SAMPLE_WRITE_KEY_VERSION,
 			.allowed_key_versions = sample_allowed_key_versions,
@@ -347,7 +347,7 @@ int main(void)
 
 	struct ubi_device *ubi = NULL;
 
-	ret = ubi_device_init(&flash, &crypto_cfg, &ubi);
+	ret = ubi_device_init(&flash, &secure_cfg, &ubi);
 	if (ret != 0) {
 		LOG_ERR("UBI secure initialization failure: %d", ret);
 		goto destroy_key;

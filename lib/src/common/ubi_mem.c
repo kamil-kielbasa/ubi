@@ -40,19 +40,19 @@ BUILD_ASSERT(sizeof(union ubi_leaf_item) == 16, "ubi_leaf_item must be 16 bytes"
 #else
 #define UBI_DEVICE_TEST_API_BYTES 0
 #endif
-#if defined(CONFIG_UBI_CRYPTO)
+#if defined(CONFIG_UBI_SECURE)
 BUILD_ASSERT(sizeof(struct ubi_volume) == 64, "ubi_volume must be 64 bytes (secure)");
 #if defined(CONFIG_X86) || defined(CONFIG_ARCH_POSIX)
 BUILD_ASSERT(sizeof(struct ubi_device) == 224 + UBI_DEVICE_TEST_API_BYTES,
 	     "ubi_device must be 224 bytes (secure, x86) or 228 bytes with TEST_API");
 #elif defined(CONFIG_ARM)
-/* ARM size varies with CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS, k_mutex layout
+/* ARM size varies with CONFIG_UBI_SECURE_MAX_KEY_VERSIONS, k_mutex layout
  * (Cortex-M vs Cortex-R, SMP, etc.) and tail padding, so use a generous
  * upper bound rather than an exact match.  The bound is here to catch
  * accidental growth, not to pin the exact byte count. */
 BUILD_ASSERT(sizeof(struct ubi_device) <= 256, "ubi_device unexpectedly grew (secure, ARM)");
 #endif
-#else /* !CONFIG_UBI_CRYPTO */
+#else /* !CONFIG_UBI_SECURE */
 BUILD_ASSERT(sizeof(struct ubi_volume) == 44, "ubi_volume must be 44 bytes");
 #if defined(CONFIG_X86) || defined(CONFIG_ARCH_POSIX)
 BUILD_ASSERT(sizeof(struct ubi_device) == 132 + UBI_DEVICE_TEST_API_BYTES,
@@ -60,7 +60,7 @@ BUILD_ASSERT(sizeof(struct ubi_device) == 132 + UBI_DEVICE_TEST_API_BYTES,
 #elif defined(CONFIG_ARM)
 BUILD_ASSERT(sizeof(struct ubi_device) <= 144, "ubi_device unexpectedly grew (plain, ARM)");
 #endif
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 
 /* Fault injection support ---------------------------------------------------------------------- */
 
@@ -140,16 +140,16 @@ static inline bool fault_should_fail(enum ubi_test_alloc_kind kind)
 #define UBI_MEM_SCRATCH_BASE_SIZE \
 	(UBI_DEV_HDR_SIZE + (CONFIG_UBI_MAX_NR_OF_VOLUMES * UBI_VOL_HDR_SIZE))
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 /* Chunked LEB read needs: ct(chunk_size + 16 tag) + pt(chunk_size). */
-#define UBI_MEM_SCRATCH_CHUNKED_SIZE (2 * CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE + 16)
+#define UBI_MEM_SCRATCH_CHUNKED_SIZE (2 * CONFIG_UBI_SECURE_LEB_CHUNK_SIZE + 16)
 #define UBI_MEM_SCRATCH_SIZE                                          \
 	((UBI_MEM_SCRATCH_BASE_SIZE > UBI_MEM_SCRATCH_CHUNKED_SIZE) ? \
 		 UBI_MEM_SCRATCH_BASE_SIZE :                          \
 		 UBI_MEM_SCRATCH_CHUNKED_SIZE)
-#else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#else /* !CONFIG_UBI_SECURE_LEB_CHUNKED */
 #define UBI_MEM_SCRATCH_SIZE UBI_MEM_SCRATCH_BASE_SIZE
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 #define UBI_MEM_SLAB_ALIGN 4
 
 K_MEM_SLAB_DEFINE_STATIC(device_slab, sizeof(struct ubi_device), UBI_MEM_DEVICE_POOL_COUNT,

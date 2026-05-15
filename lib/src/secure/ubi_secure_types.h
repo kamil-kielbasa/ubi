@@ -185,7 +185,7 @@ enum ubi_secure_domain {
  *
  * All multi-byte integers serialized in big-endian.
  */
-struct ubi_crypto_prefix32 {
+struct ubi_secure_prefix32 {
 	uint32_t magic; /*!< UBI_SECURE_PREFIX_MAGIC */
 	uint8_t wrapper_version; /*!< UBI_SECURE_WRAPPER_VERSION */
 	uint8_t domain; /*!< enum ubi_secure_domain */
@@ -195,7 +195,7 @@ struct ubi_crypto_prefix32 {
 	uint8_t counter[UBI_SECURE_COUNTER_SIZE]; /*!< Monotonic AEAD counter */
 	uint8_t reserved[UBI_SECURE_PREFIX_RESERVED_SIZE]; /*!< Reserved, not used */
 };
-BUILD_ASSERT(sizeof(struct ubi_crypto_prefix32) == UBI_SECURE_PREFIX_SIZE);
+BUILD_ASSERT(sizeof(struct ubi_secure_prefix32) == UBI_SECURE_PREFIX_SIZE);
 
 /**
  * \brief Secure device-header crypto metadata (encrypted alongside dev_hdr).
@@ -319,7 +319,7 @@ struct ubi_secure_leb_aad_input {
 	uint8_t parent_vid_kv; /*!< Authenticated VID-header key_version. */
 };
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 /**
  * \brief AAD inputs bound into one chunk of a chunked LEB record.
  *
@@ -329,7 +329,7 @@ struct ubi_secure_leb_chunk_aad_input {
 	struct ubi_secure_leb_aad_input leb; /*!< Single-tag LEB AAD inputs. */
 	uint32_t chunk_index; /*!< Zero-based chunk index within the record. */
 };
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 
 /* AAD sizes ------------------------------------------------------------------------------------ */
 

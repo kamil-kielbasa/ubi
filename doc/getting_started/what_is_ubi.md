@@ -63,7 +63,7 @@ UBI fills this gap as a **thin, low-overhead volume manager**.
 - **Static or heap memory backend** — runtime RAM can be fully determined
   at compile time.
 - Optional **authenticated encryption** of all on-flash structures
-  (`CONFIG_UBI_CRYPTO`, AES-128-CCM via PSA Crypto). See
+  (`CONFIG_UBI_SECURE`, AES-128-CCM via PSA Crypto). See
   {doc}`/architecture/secure_overview` for the developer-facing summary.
 
 ## Non-goals
@@ -75,7 +75,7 @@ UBI intentionally does **not** provide:
 | Filesystem (files, directories, POSIX API) | UBI is a block-level volume manager. Use LittleFS or FAT on top if you need a filesystem. |
 | FTL replacement for eMMC / SD | Managed flash has its own translation layer. UBI adds no value. |
 | Power-loss atomicity for user data | UBI protects metadata (dual-bank + sqnum). User-data writes are not journaled — a power loss mid-write may leave a LEB partially written. |
-| Per-record authenticated encryption (in plain mode) | Available as an opt-in via `CONFIG_UBI_CRYPTO`. |
+| Per-record authenticated encryption (in plain mode) | Available as an opt-in via `CONFIG_UBI_SECURE`. |
 
 ## When to use UBI
 

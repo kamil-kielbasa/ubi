@@ -17,7 +17,7 @@
 #include "ubi_secure_types.h"
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Zephyr headers: */
 #include <zephyr/sys/util.h>
@@ -160,7 +160,7 @@ void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_S
  * Performs: get_key_id(key_version) → root, build_label(domain, 0) → label,
  *          derive_child_key(root, label) → child_key_id.
  *
- * \param[in]  crypto_cfg   Crypto configuration (for get_key_id callback).
+ * \param[in]  secure_cfg   Crypto configuration (for get_key_id callback).
  * \param      domain       Secure domain identifier (must not be LEB).
  * \param      key_version  Key version for root key lookup.
  * \param[out] child_key_id Receives the derived PSA key identifier.
@@ -168,7 +168,7 @@ void ubi_secure_build_nonce(uint8_t domain, const uint8_t salt[UBI_SECURE_SALT_S
  * \retval 0    Success.
  * \retval -EIO Key derivation failure.
  */
-int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
+int ubi_secure_derive_domain_key(const struct ubi_secure_config *secure_cfg,
 				 enum ubi_secure_domain domain, uint8_t key_version,
 				 psa_key_id_t *child_key_id);
 
@@ -178,7 +178,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
  * Performs: get_key_id(key_version) → root, build_label(LEB, volume_id) → label,
  *          derive_child_key(root, label) → child_key_id.
  *
- * \param[in]  crypto_cfg   Crypto configuration (for get_key_id callback).
+ * \param[in]  secure_cfg   Crypto configuration (for get_key_id callback).
  * \param      key_version  Key version for root key lookup.
  * \param      volume_id    Volume identifier for per-volume keying.
  * \param[out] child_key_id Receives the derived PSA key identifier.
@@ -186,7 +186,7 @@ int ubi_secure_derive_domain_key(const struct ubi_crypto_config *crypto_cfg,
  * \retval 0    Success.
  * \retval -EIO Key derivation failure.
  */
-int ubi_secure_derive_leb_key(const struct ubi_crypto_config *crypto_cfg, uint8_t key_version,
+int ubi_secure_derive_leb_key(const struct ubi_secure_config *secure_cfg, uint8_t key_version,
 			      uint32_t volume_id, psa_key_id_t *child_key_id);
 
 #endif /* UBI_SECURE_CRYPTO_H */

@@ -39,8 +39,8 @@ body:
     attributes:
       label: Backend
       options:
-        - plain (CONFIG_UBI_CRYPTO=n)
-        - secure (CONFIG_UBI_CRYPTO=y)
+        - plain (CONFIG_UBI_SECURE=n)
+        - secure (CONFIG_UBI_SECURE=y)
     validations:
       required: true
   - type: textarea

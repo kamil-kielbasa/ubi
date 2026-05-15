@@ -25,11 +25,11 @@
 /* Forward declarations for opaque internal types referenced by the ops below. */
 struct ubi_volume;
 struct ubi_flash_desc;
-struct ubi_crypto_config;
+struct ubi_secure_config;
 
 /* ubi_core_init.c */
 int ubi_secure_device_init(const struct ubi_flash_desc *flash,
-			   const struct ubi_crypto_config *crypto_cfg, struct ubi_device **ubi);
+			   const struct ubi_secure_config *secure_cfg, struct ubi_device **ubi);
 
 /* ubi_secure_runtime.c */
 int ubi_secure_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info);

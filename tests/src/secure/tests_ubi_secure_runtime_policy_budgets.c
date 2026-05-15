@@ -14,7 +14,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 #include "ubi_secure_test_hooks.h"
@@ -38,10 +38,10 @@
 /* Module defines ------------------------------------------------------------------------------- */
 
 #define BUDGET_NOW_THRESHOLD                                                                      \
-	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / \
+	((uint64_t)CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET * CONFIG_UBI_SECURE_ROTATE_NOW_PCT / \
 	 100)
 #define BUDGET_SOON_THRESHOLD                                                                      \
-	((uint64_t)CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / \
+	((uint64_t)CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET * CONFIG_UBI_SECURE_ROTATE_SOON_PCT / \
 	 100)
 /* Headroom — how far below NOW the counter starts.  Must be small enough
  * that the hard threshold is reached within the few free PEBs available
@@ -50,9 +50,9 @@
 #define BUDGET_HEADROOM 5
 
 #define LEB_BUDGET_NOW_THRESHOLD \
-	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT / 100)
+	((size_t)CONFIG_UBI_SECURE_LEB_WRITE_BUDGET * CONFIG_UBI_SECURE_ROTATE_NOW_PCT / 100)
 #define LEB_BUDGET_SOON_THRESHOLD \
-	((size_t)CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET * CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT / 100)
+	((size_t)CONFIG_UBI_SECURE_LEB_WRITE_BUDGET * CONFIG_UBI_SECURE_ROTATE_SOON_PCT / 100)
 
 /* Module types and type definitiones ----------------------------------------------------------- */
 
@@ -61,7 +61,7 @@ struct runtime_policy_test_state {
 	/** Number of events received by the callback. */
 	size_t event_count;
 	/** Type of the most recently received event. */
-	enum ubi_crypto_event_type last_event_type;
+	enum ubi_secure_event_type last_event_type;
 	/** Number of times sync_freshness was called. */
 	size_t sync_call_count;
 	/** Return code that counting_sync_freshness uses (0 = success). */
@@ -104,7 +104,7 @@ static struct runtime_policy_test_state ts;
 /**
  * \brief Comprehensive event tracker — returns CONTINUE.
  */
-static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict tracking_event_cb(const struct ubi_secure_event *event,
 						       void *user_data);
 static void *ztest_suite_setup(void);
 static void ztest_suite_before(void *ctx);
@@ -113,7 +113,7 @@ static void ztest_suite_after(void *ctx);
 /* Static function definitions ------------------------------------------------------------------ */
 
 /** \brief Comprehensive event tracker — returns CONTINUE */
-static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict tracking_event_cb(const struct ubi_secure_event *event,
 						       void *user_data)
 {
 	(void)user_data;
@@ -121,36 +121,36 @@ static enum ubi_crypto_event_verdict tracking_event_cb(const struct ubi_crypto_e
 	ts.last_event_type = event->type;
 
 	switch (event->type) {
-	case UBI_CRYPTO_EVENT_KEY_ROTATE_SOON:
+	case UBI_SECURE_EVENT_KEY_ROTATE_SOON:
 		ts.rotate_soon_count++;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_ROTATE_NOW:
+	case UBI_SECURE_EVENT_KEY_ROTATE_NOW:
 		ts.rotate_now_count++;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_RETIRABLE:
+	case UBI_SECURE_EVENT_KEY_RETIRABLE:
 		ts.key_retirable_count++;
 		ts.key_retirable_kv = event->rotation.key_version;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
+	case UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED:
 		ts.allowlist_reject_count++;
 		break;
-	case UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE:
+	case UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE:
 		ts.key_unavailable_count++;
 		break;
-	case UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH:
+	case UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH:
 		ts.rollback_mismatch_count++;
 		break;
-	case UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE:
+	case UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE:
 		ts.freshness_sync_failure_count++;
 		break;
-	case UBI_CRYPTO_EVENT_AUTH_FAILURE:
+	case UBI_SECURE_EVENT_AUTH_FAILURE:
 		ts.auth_failure_count++;
 		break;
 	default:
 		break;
 	}
 
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
 static void *ztest_suite_setup(void)
@@ -199,7 +199,7 @@ ZTEST_SUITE(ubi_secure_runtime_policy_budgets, NULL, ztest_suite_setup, ztest_su
  */
 ZTEST(ubi_secure_runtime_policy_budgets, reserved_metadata_budget_exhausts_blocks_until_rotation)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -292,7 +292,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, reserved_metadata_budget_exhausts_block
  */
 ZTEST(ubi_secure_runtime_policy_budgets, ec_metadata_budget_exhausts_blocks_until_rotation)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -388,7 +388,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, ec_metadata_budget_exhausts_blocks_unti
  */
 ZTEST(ubi_secure_runtime_policy_budgets, vid_metadata_budget_exhausts_blocks_until_rotation)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -466,7 +466,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, vid_metadata_budget_exhausts_blocks_unt
  */
 ZTEST(ubi_secure_runtime_policy_budgets, metadata_rotate_soon_emitted_below_now)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -524,7 +524,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, metadata_rotate_soon_emitted_below_now)
  */
 ZTEST(ubi_secure_runtime_policy_budgets, metadata_budget_resets_on_key_rotation_reattach)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -601,7 +601,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, metadata_budget_resets_on_key_rotation_
  */
 ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_rotate_soon_emitted_below_now)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -654,7 +654,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_rotate_soon_emitted_below_no
  */
 ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_exhausts_blocks_until_rotation)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -705,7 +705,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, leb_budget_exhausts_blocks_until_rotati
  */
 ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_resets_on_rotation)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
@@ -766,7 +766,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_resets_on_rotation)
  */
 ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_persists_within_same_kv)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
@@ -811,7 +811,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_persists_within_same_kv)
  */
 ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_reset_writes_use_low_counters)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &g_ubi));
 
@@ -870,7 +870,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, vid_floor_reset_writes_use_low_counters
  */
 ZTEST(ubi_secure_runtime_policy_budgets, reserved_refcount_no_spurious_key_retirable)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 
@@ -931,7 +931,7 @@ ZTEST(ubi_secure_runtime_policy_budgets, reserved_refcount_no_spurious_key_retir
 ZTEST(ubi_secure_runtime_policy_budgets, forced_rekey_with_stale_objects)
 {
 	/* Phase 1+2: Format + write + overwrite under kv=1. */
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = tracking_event_cb;
 

@@ -20,7 +20,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 #include "ubi_test_memory.h"
@@ -109,7 +109,7 @@ ZTEST_SUITE(ubi_secure_recovery, NULL, ztest_suite_setup, ztest_suite_before, zt
 ZTEST(ubi_secure_recovery, interrupted_data_write_preserves_old_mapping)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c', 'v', '1' },
@@ -173,7 +173,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_preserves_old_mapping)
 ZTEST(ubi_secure_recovery, interrupted_vid_commit_preserves_old_mapping)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c', 'v', '2' },
@@ -229,7 +229,7 @@ ZTEST(ubi_secure_recovery, interrupted_vid_commit_preserves_old_mapping)
 ZTEST(ubi_secure_recovery, interrupted_first_write_leaves_unmapped)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c', 'v', '3' },
@@ -285,7 +285,7 @@ ZTEST(ubi_secure_recovery, interrupted_first_write_leaves_unmapped)
 ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c', 'v', '4' },
@@ -370,7 +370,7 @@ ZTEST(ubi_secure_recovery, interrupted_data_write_survives_reboot)
 ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c', 'a', '1' },
@@ -483,7 +483,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_write_preserves_continuity)
 ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg1 = {
 		.name = { '/', 'r', 'p', 'l', '1' },
@@ -584,7 +584,7 @@ ZTEST(ubi_secure_recovery, reserved_generation_replay_rejected)
 ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg1 = {
 		.name = { '/', 'r', 'e', 's', '1' },
@@ -690,7 +690,7 @@ ZTEST(ubi_secure_recovery, interrupted_reserved_commit_no_ghost_volume)
 ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'e', 's', '3' },
@@ -794,7 +794,7 @@ ZTEST(ubi_secure_recovery, interrupted_anchor_create_during_volume_create)
 ZTEST(ubi_secure_recovery, init_recreates_missing_anchor)
 {
 #if defined(CONFIG_UBI_TEST_FAULT_INJECTION) && defined(CONFIG_UBI_TEST_API_ENABLE)
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'r', 'c', 'o', '1' },

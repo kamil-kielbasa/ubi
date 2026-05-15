@@ -328,12 +328,12 @@ UBI is designed for resource-constrained embedded systems. The figures below wer
 Build the sample for the target board and inspect the UBI library archive only — that way the number reflects UBI itself and not the rest of the application or the platform crypto stack:
 
 ```sh
-# Plain backend (CONFIG_UBI_CRYPTO=n)
+# Plain backend (CONFIG_UBI_SECURE=n)
 west build -p always -b b_u585i_iot02a ./sample
 arm-none-eabi-size --total \
     build/modules/ubi/lib/lib..__ubi__lib.a
 
-# Secure backend (CONFIG_UBI_CRYPTO=y)
+# Secure backend (CONFIG_UBI_SECURE=y)
 west build -p always -b b_u585i_iot02a ./sample \
     -- -DOVERLAY_CONFIG=boards/secure.conf
 arm-none-eabi-size --total \
@@ -347,7 +347,7 @@ The headline flash number is the `(TOTALS)` row's `text + data` columns. PSA Cry
 | Metric | Value | Notes |
 |--------|-------|-------|
 | Flash (plain) | ~9.5 KB | `.text` + `.data` in `lib..__ubi__lib.a`, Cortex-M33, `-Os` |
-| Flash (secure) | ~28.6 KB | `.text` + `.data` in `lib..__ubi__lib.a` with `CONFIG_UBI_CRYPTO=y`. UBI library archive only — PSA Crypto / mbedTLS is provided by the platform and is **not** counted here. The ~19 KB delta over plain is the secure-only sources (`ubi_secure_*.c` + `ubi_core_init.c`: AEAD framing, HKDF key derivation, the budget tracker, the freshness/rollback machinery, and on-flash serialisation) plus the crypto-aware branches added to the shared `ubi_plain_*.c` sources |
+| Flash (secure) | ~28.6 KB | `.text` + `.data` in `lib..__ubi__lib.a` with `CONFIG_UBI_SECURE=y`. UBI library archive only — PSA Crypto / mbedTLS is provided by the platform and is **not** counted here. The ~19 KB delta over plain is the secure-only sources (`ubi_secure_*.c` + `ubi_core_init.c`: AEAD framing, HKDF key derivation, the budget tracker, the freshness/rollback machinery, and on-flash serialisation) plus the crypto-aware branches added to the shared `ubi_plain_*.c` sources |
 | Static RAM (BSS) | Depends on Kconfig | Proportional to `MAX_NR_OF_DEVICES`, `MAX_NR_OF_DATA_PEBS`, `MAX_NR_OF_VOLUMES` under `CONFIG_UBI_MEM_BACKEND_STATIC` (see [Configuration — Memory Sizing Guide](/guide/configuration.md#memory-sizing-guide)) |
 
 With `CONFIG_UBI_MEM_BACKEND_STATIC` (default), runtime RAM is fully determined at compile time and isolated from the application heap. Under `CONFIG_UBI_MEM_BACKEND_HEAP` (legacy), static RAM is minimal (partition guard only) and all device/volume state is heap-allocated.

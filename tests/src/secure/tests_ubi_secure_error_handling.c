@@ -15,7 +15,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "ubi_api_contract.h"
 
@@ -101,8 +101,7 @@ ZTEST_SUITE(ubi_secure_error_handling, NULL, ztest_suite_setup, ztest_suite_befo
  */
 ZTEST(ubi_secure_error_handling, init_null_mtd)
 {
-	static struct ubi_crypto_config cfg;
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_equal(-EINVAL, ubi_device_init(NULL, &cfg, &ubi));
@@ -117,8 +116,7 @@ ZTEST(ubi_secure_error_handling, init_null_mtd)
  */
 ZTEST(ubi_secure_error_handling, init_null_ubi)
 {
-	static struct ubi_crypto_config cfg;
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	zassert_equal(-EINVAL, ubi_device_init(&flash, &cfg, NULL));
 }

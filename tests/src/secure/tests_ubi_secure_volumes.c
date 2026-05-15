@@ -11,7 +11,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "ubi_secure_test_hooks.h"
 
@@ -87,7 +87,7 @@ ZTEST_SUITE(ubi_secure_volumes, NULL, ztest_suite_setup, ztest_suite_before, NUL
  */
 ZTEST(ubi_secure_volumes, create_one_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },
@@ -157,7 +157,7 @@ ZTEST(ubi_secure_volumes, create_one_with_reboot)
  */
 ZTEST(ubi_secure_volumes, create_remove_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },
@@ -217,7 +217,7 @@ ZTEST(ubi_secure_volumes, create_remove_with_reboot)
  */
 ZTEST(ubi_secure_volumes, resize_upper_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'u', 'b', 'i', '_', '0' },
@@ -278,7 +278,7 @@ ZTEST(ubi_secure_volumes, resize_upper_with_reboot)
  */
 ZTEST(ubi_secure_volumes, create_many_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg_1 = {
 		.name = { '/', 'u', 'b', 'i', '_', '1' },
@@ -346,7 +346,7 @@ ZTEST(ubi_secure_volumes, create_many_with_reboot)
  */
 ZTEST(ubi_secure_volumes, shrink_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 's', 'h', 'r', 'k' },
@@ -419,7 +419,7 @@ ZTEST(ubi_secure_volumes, shrink_with_reboot)
  */
 ZTEST(ubi_secure_volumes, shrink_erase_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 's', 'e', 'r' },
@@ -502,7 +502,7 @@ ZTEST(ubi_secure_volumes, shrink_erase_reboot)
  */
 ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'v', 'c', 'f' },
@@ -643,7 +643,7 @@ ZTEST(ubi_secure_volumes, vid_counter_floor_persists)
  */
 ZTEST(ubi_secure_volumes, vid_counter_floor_remove_create_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg_a = {
 		.name = { '/', 'a' },

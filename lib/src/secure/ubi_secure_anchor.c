@@ -57,7 +57,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, pnum, &ec_hdr, &ec_ctx);
+	int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, pnum, &ec_hdr, &ec_ctx);
 
 	if (ret != 0) {
 		LOG_ERR("EC read failure on anchor PEB %zu", pnum);
@@ -86,10 +86,10 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 		.leb_total_auth_bytes = UBI_SECURE_LEB_AAD_SIZE,
 	};
 
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	/* 4. Write zero-length LEB data (prefix32 + tag16, no payload). */
-	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->secure_cfg, pnum, &ec_ctx, &vid_hdr,
 					write_kv, NULL, 0, write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("Anchor LEB write failure on PEB %zu", pnum);
@@ -102,8 +102,8 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 
 	if (vid_counter > UBI_SECURE_COUNTER_MAX) {
 		LOG_ERR("VID counter overflow");
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+		const struct ubi_secure_event event = {
+			.type = UBI_SECURE_EVENT_KEY_ROTATE_NOW,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.rotation = { .key_version = write_kv,
 				      .usage_pct = UBI_SECURE_PERCENT_BASE },
@@ -113,7 +113,7 @@ int ubi_secure_anchor_create(struct ubi_device *ubi, struct ubi_volume *vol)
 		goto mark_bad;
 	}
 
-	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->secure_cfg, pnum, &ec_ctx, &vid_hdr,
 				       &vid_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("Anchor VID write failure on PEB %zu", pnum);
@@ -154,7 +154,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
 	int ret =
-		ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_pnum, &ec_hdr, &ec_ctx);
+		ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, dirty_pnum, &ec_hdr, &ec_ctx);
 
 	if (ret != 0) {
 		/* Cannot read EC -- PEB might already be partially erased.
@@ -166,7 +166,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	struct ubi_vid_secure_meta vid_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->crypto_cfg, dirty_pnum, &ec_ctx, &vid_hdr,
+	ret = ubi_secure_vid_hdr_read(&ubi->flash, ubi->secure_cfg, dirty_pnum, &ec_ctx, &vid_hdr,
 				      &vid_meta, &vid_ctx);
 	if (ret != 0) {
 		/* VID unreadable -- no counter state to protect. */
@@ -238,7 +238,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	struct ubi_ec_hdr new_ec = { 0 };
 	struct ubi_secure_ec_auth_ctx new_ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec, &new_ec_ctx);
+	ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, new_pnum, &new_ec, &new_ec_ctx);
 	if (ret != 0) {
 		LOG_ERR("EC read failure on anchor rewrite PEB %zu", new_pnum);
 		goto rewrite_bad;
@@ -263,7 +263,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 		.leb_total_auth_bytes = vol->cached_leb_total_auth_bytes + UBI_SECURE_LEB_AAD_SIZE,
 	};
 
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	/* Conservative cache bump BEFORE flash mutation (same rule as
 	 * leb_prepare_new_mapping): if the write fails partway, counters
@@ -271,7 +271,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	ubi_volume_observe_counters(vol, new_meta.leb_write_counter, new_meta.leb_total_auth_bytes);
 
 	/* Write zero-length LEB data. */
-	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
+	ret = ubi_secure_leb_data_write(&ubi->flash, ubi->secure_cfg, new_pnum, &new_ec_ctx,
 					&new_vid, write_kv, NULL, 0, write_kv, 0);
 	if (ret != 0) {
 		LOG_ERR("Anchor rewrite LEB failure on PEB %zu", new_pnum);
@@ -281,7 +281,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	/* Write VID header -- commit point. */
 	const uint64_t vid_counter = ubi->aead.next_vid;
 
-	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->crypto_cfg, new_pnum, &new_ec_ctx,
+	ret = ubi_secure_vid_hdr_write(&ubi->flash, ubi->secure_cfg, new_pnum, &new_ec_ctx,
 				       &new_vid, &new_meta, write_kv, vid_counter);
 	if (ret != 0) {
 		LOG_ERR("Anchor rewrite VID failure on PEB %zu", new_pnum);
@@ -297,7 +297,7 @@ int ubi_secure_anchor_rewrite_for_dirty_witness(struct ubi_device *ubi, size_t d
 	 * fails we still need to retire the PEB; use ec_avg as the key. */
 	struct ubi_ec_hdr old_anchor_ec = { 0 };
 	struct ubi_secure_ec_auth_ctx old_anchor_ec_ctx = { 0 };
-	const int old_ec_ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, old_anchor_pnum,
+	const int old_ec_ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, old_anchor_pnum,
 						      &old_anchor_ec, &old_anchor_ec_ctx);
 
 	vol->anchor_pnum = new_pnum;

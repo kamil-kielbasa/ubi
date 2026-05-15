@@ -24,7 +24,7 @@
 #include "ubi_secure_types.h"
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Zephyr headers: */
 #include <zephyr/sys/__assert.h>
@@ -51,9 +51,9 @@
 static inline void ubi_secure_key_refcount_inc(struct ubi_device *ubi, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
-	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
+	__ASSERT_NO_MSG(ubi->secure_cfg != NULL);
 
-	const int slot = ubi_secure_policy_kv_slot(&ubi->crypto_cfg->policy, kv);
+	const int slot = ubi_secure_policy_kv_slot(&ubi->secure_cfg->policy, kv);
 
 	if (slot >= 0) {
 		ubi->key_peb_refcount[slot]++;
@@ -89,18 +89,18 @@ static inline void ubi_secure_reserved_refcount_inc(struct ubi_device *ubi, uint
 }
 
 /**
- * \brief Build an ubi_crypto_freshness snapshot from current device state.
+ * \brief Build an ubi_secure_freshness snapshot from current device state.
  *
  * \param[in] ubi  UBI device (caller holds mutex).
  *
  * \return Freshness descriptor.
  */
-static inline struct ubi_crypto_freshness
+static inline struct ubi_secure_freshness
 ubi_secure_freshness_get_snapshot(const struct ubi_device *ubi)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	return (struct ubi_crypto_freshness){
+	return (struct ubi_secure_freshness){
 		.device_revision = ubi->freshness.cached_device_revision,
 		.global_sqnum = ubi->global_sqnum,
 	};
@@ -110,26 +110,26 @@ ubi_secure_freshness_get_snapshot(const struct ubi_device *ubi)
  * \brief Emit a crypto event and handle the callback verdict.
  *
  * Calls the application-provided event_cb with the given event.  If the
- * callback returns UBI_CRYPTO_EVENT_ENTER_READ_ONLY, the sticky crypto
+ * callback returns UBI_SECURE_EVENT_ENTER_READ_ONLY, the sticky crypto
  * read-only flag is set.
  *
  * \param[in,out] ubi    UBI device (caller holds mutex).
  * \param[in]     event  Event payload to emit.
  */
 static inline void ubi_secure_event_emit(struct ubi_device *ubi,
-					 const struct ubi_crypto_event *event)
+					 const struct ubi_secure_event *event)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 	__ASSERT_NO_MSG(event != NULL);
 
-	if (ubi->crypto_cfg == NULL || ubi->crypto_cfg->event_cb == NULL) {
+	if (ubi->secure_cfg == NULL || ubi->secure_cfg->event_cb == NULL) {
 		return;
 	}
 
-	const enum ubi_crypto_event_verdict verdict =
-		ubi->crypto_cfg->event_cb(event, ubi->crypto_cfg->user_data);
+	const enum ubi_secure_event_verdict verdict =
+		ubi->secure_cfg->event_cb(event, ubi->secure_cfg->user_data);
 
-	if (verdict == UBI_CRYPTO_EVENT_ENTER_READ_ONLY) {
+	if (verdict == UBI_SECURE_EVENT_ENTER_READ_ONLY) {
 		ubi->read_only_crypto = true;
 	}
 }
@@ -147,9 +147,9 @@ static inline void ubi_secure_event_emit(struct ubi_device *ubi,
 static inline void ubi_secure_key_refcount_dec_and_check(struct ubi_device *ubi, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
-	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
+	__ASSERT_NO_MSG(ubi->secure_cfg != NULL);
 
-	const int slot = ubi_secure_policy_kv_slot(&ubi->crypto_cfg->policy, kv);
+	const int slot = ubi_secure_policy_kv_slot(&ubi->secure_cfg->policy, kv);
 
 	if (slot < 0) {
 		return;
@@ -160,9 +160,9 @@ static inline void ubi_secure_key_refcount_dec_and_check(struct ubi_device *ubi,
 	}
 
 	if (ubi->key_peb_refcount[slot] == 0 &&
-	    kv != ubi->crypto_cfg->policy.requested_write_key_version) {
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_KEY_RETIRABLE,
+	    kv != ubi->secure_cfg->policy.requested_write_key_version) {
+		const struct ubi_secure_event event = {
+			.type = UBI_SECURE_EVENT_KEY_RETIRABLE,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.rotation = { .key_version = kv },
 		};
@@ -205,7 +205,7 @@ static inline void ubi_secure_reserved_refcount_dec(struct ubi_device *ubi, uint
  * - delta > 0: sync when mutations_since_sync reaches delta.
  *
  * On sync failure, emits FRESHNESS_SYNC_FAILURE and optionally enters
- * read-only based on CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE.
+ * read-only based on CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE.
  *
  * \param[in,out] ubi  UBI device (caller holds mutex).
  */
@@ -213,11 +213,11 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	if (ubi->crypto_cfg == NULL || ubi->crypto_cfg->sync_freshness == NULL) {
+	if (ubi->secure_cfg == NULL || ubi->secure_cfg->sync_freshness == NULL) {
 		return;
 	}
 
-	const size_t delta = CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA;
+	const size_t delta = CONFIG_UBI_SECURE_FRESHNESS_SYNC_DELTA;
 
 	ubi->freshness.mutations_since_sync += 1;
 
@@ -225,54 +225,54 @@ static inline void ubi_secure_freshness_maybe_sync(struct ubi_device *ubi)
 		return;
 	}
 
-	const struct ubi_crypto_freshness freshness = ubi_secure_freshness_get_snapshot(ubi);
+	const struct ubi_secure_freshness freshness = ubi_secure_freshness_get_snapshot(ubi);
 
-	const int rc = ubi->crypto_cfg->sync_freshness(&freshness, ubi->crypto_cfg->user_data);
+	const int rc = ubi->secure_cfg->sync_freshness(&freshness, ubi->secure_cfg->user_data);
 
 	ubi->freshness.mutations_since_sync = 0;
 
 	if (rc != 0
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 	    || ubi_secure_test_hook_check(UBI_SECURE_HOOK_FRESHNESS_SYNC_FAIL)
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 	) {
-		const struct ubi_crypto_event event = {
-			.type = UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE,
+		const struct ubi_secure_event event = {
+			.type = UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE,
 			.freshness = freshness,
 			.sync = { .sync_errno = rc },
 		};
 
 		ubi_secure_event_emit(ubi, &event);
 
-#if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE)
+#if defined(CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE)
 		ubi->read_only_crypto = true;
-#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE */
+#endif /* CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE */
 		return;
 	}
 
-#if defined(CONFIG_UBI_CRYPTO_SYNC_FRESHNESS_VERIFY)
+#if defined(CONFIG_UBI_SECURE_SYNC_FRESHNESS_VERIFY)
 	/* Opt-in defensive round-trip: ask check_freshness whether the
 	 * snapshot the application just acknowledged is actually durable.
 	 * Catches "sync_freshness returned 0 but the persistence layer
 	 * lied or did not flush" classes of bugs. */
-	if (ubi->crypto_cfg->check_freshness != NULL) {
-		const enum ubi_crypto_rollback_verdict verdict =
-			ubi->crypto_cfg->check_freshness(&freshness, ubi->crypto_cfg->user_data);
+	if (ubi->secure_cfg->check_freshness != NULL) {
+		const enum ubi_secure_rollback_verdict verdict =
+			ubi->secure_cfg->check_freshness(&freshness, ubi->secure_cfg->user_data);
 
-		if (verdict != UBI_CRYPTO_ROLLBACK_ACCEPT) {
-			const struct ubi_crypto_event event = {
-				.type = UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,
+		if (verdict != UBI_SECURE_ROLLBACK_ACCEPT) {
+			const struct ubi_secure_event event = {
+				.type = UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH,
 				.freshness = freshness,
 			};
 
 			ubi_secure_event_emit(ubi, &event);
 
-#if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE)
+#if defined(CONFIG_UBI_SECURE_STRICT_RO_ON_POLICY_FAILURE)
 			ubi->read_only_crypto = true;
-#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE */
+#endif /* CONFIG_UBI_SECURE_STRICT_RO_ON_POLICY_FAILURE */
 		}
 	}
-#endif /* CONFIG_UBI_CRYPTO_SYNC_FRESHNESS_VERIFY */
+#endif /* CONFIG_UBI_SECURE_SYNC_FRESHNESS_VERIFY */
 }
 
 /**
@@ -321,23 +321,23 @@ static inline int ubi_secure_event_handle_write_error(struct ubi_device *ubi, in
 
 	switch (ret) {
 	case -UBI_SECURE_ENORAND: {
-		const struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_RNG_FAILURE,
+		const struct ubi_secure_event ev = {
+			.type = UBI_SECURE_EVENT_RNG_FAILURE,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.rng = { .rng_errno = ret },
 		};
 		ubi_secure_event_emit(ubi, &ev);
-#if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE)
+#if defined(CONFIG_UBI_SECURE_STRICT_RO_ON_RNG_FAILURE)
 		ubi->read_only_crypto = true;
-#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE */
+#endif /* CONFIG_UBI_SECURE_STRICT_RO_ON_RNG_FAILURE */
 		return 0;
 	}
 	case -UBI_SECURE_ENOKEY: {
-		const struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE,
+		const struct ubi_secure_event ev = {
+			.type = UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.key = { .key_version =
-					 ubi->crypto_cfg->policy.requested_write_key_version },
+					 ubi->secure_cfg->policy.requested_write_key_version },
 		};
 		ubi_secure_event_emit(ubi, &ev);
 		return 0;
@@ -370,8 +370,8 @@ static inline int ubi_secure_event_handle_read_error(struct ubi_device *ubi, int
 
 	switch (ret) {
 	case -UBI_SECURE_ENOKEY: {
-		const struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE,
+		const struct ubi_secure_event ev = {
+			.type = UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.key = { .key_version = kv },
 		};
@@ -379,8 +379,8 @@ static inline int ubi_secure_event_handle_read_error(struct ubi_device *ubi, int
 		return 0;
 	}
 	case -EBADMSG: {
-		const struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_AUTH_FAILURE,
+		const struct ubi_secure_event ev = {
+			.type = UBI_SECURE_EVENT_AUTH_FAILURE,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.auth = { .peb_index = pnum, .domain = domain },
 		};
@@ -388,8 +388,8 @@ static inline int ubi_secure_event_handle_read_error(struct ubi_device *ubi, int
 		return 0;
 	}
 	case -UBI_SECURE_EFORMAT: {
-		const struct ubi_crypto_event ev = {
-			.type = UBI_CRYPTO_EVENT_FORMAT_VIOLATION,
+		const struct ubi_secure_event ev = {
+			.type = UBI_SECURE_EVENT_FORMAT_VIOLATION,
 			.freshness = ubi_secure_freshness_get_snapshot(ubi),
 			.auth = { .peb_index = pnum, .domain = domain },
 		};
@@ -416,14 +416,14 @@ static inline int ubi_secure_event_handle_read_error(struct ubi_device *ubi, int
 static inline bool ubi_secure_policy_check_allowlist(struct ubi_device *ubi, uint8_t kv)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
-	__ASSERT_NO_MSG(ubi->crypto_cfg != NULL);
+	__ASSERT_NO_MSG(ubi->secure_cfg != NULL);
 
-	if (ubi_secure_policy_kv_slot(&ubi->crypto_cfg->policy, kv) >= 0) {
+	if (ubi_secure_policy_kv_slot(&ubi->secure_cfg->policy, kv) >= 0) {
 		return true;
 	}
 
-	const struct ubi_crypto_event ev = {
-		.type = UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED,
+	const struct ubi_secure_event ev = {
+		.type = UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED,
 		.freshness = ubi_secure_freshness_get_snapshot(ubi),
 		.key = { .key_version = kv },
 	};

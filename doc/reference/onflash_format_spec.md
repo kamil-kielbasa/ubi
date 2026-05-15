@@ -55,10 +55,10 @@ Those assumptions matter because SECURE mode reuses the same logical object mode
 
 PLAIN and SECURE are different on-flash formats.
 
-The library is **multi-backend capable**: both plain and secure backends may be compiled into the same binary. However, **each `ubi_device` handle operates in exactly one mode** — the mode is selected at runtime during `ubi_device_init()` based on the caller-supplied `crypto_cfg` pointer and the detected on-flash format:
+The library is **multi-backend capable**: both plain and secure backends may be compiled into the same binary. However, **each `ubi_device` handle operates in exactly one mode** — the mode is selected at runtime during `ubi_device_init()` based on the caller-supplied `secure_cfg` pointer and the detected on-flash format:
 
-- `crypto_cfg == NULL` requests plain mode,
-- `crypto_cfg != NULL` requests secure mode,
+- `secure_cfg == NULL` requests plain mode,
+- `secure_cfg != NULL` requests secure mode,
 - for blank media the requested mode determines the format,
 - for non-blank media the detected on-flash format must match the requested mode.
 
@@ -514,7 +514,7 @@ The plain payload structures (`ubi_dev_hdr`, `ubi_vol_hdr`, `ubi_ec_hdr`, `ubi_v
 Every secure record begins with the same **32-byte prefix**:
 
 ```c
-struct ubi_crypto_prefix32 {
+struct ubi_secure_prefix32 {
     uint32_t magic;           /* format magic */
     uint8_t  wrapper_version; /* current on-flash format version */
     uint8_t  domain;          /* DEVICE_HEADER / VOLUME_HEADER / ERASE_COUNTER / VOLUME_IDENTIFIER / LEB */
@@ -1804,7 +1804,7 @@ key_object_refcount[v] == 0
 UBI emits:
 
 ```text
-UBI_CRYPTO_EVENT_KEY_RETIRABLE
+UBI_SECURE_EVENT_KEY_RETIRABLE
 ```
 
 This is a **lifecycle / informational event**, not a tamper event.
@@ -1950,22 +1950,22 @@ Recommended Kconfig knobs for SECURE mode:
 
 | Kconfig symbol | Meaning |
 |---|---|
-| `CONFIG_UBI_CRYPTO` | Enables SECURE mode support. |
-| `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS` | Maximum number of distinct key versions that one attach session may inventory and track internally, and maximum number of entries accepted in the runtime allowlist array. The on-flash `key_version` field itself remains 8-bit. |
-| `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT` | Soft threshold for usage-budget warnings. Crossing it emits `KEY_ROTATE_SOON`. |
-| `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT` | Hard threshold for usage-budget exhaustion. Crossing it emits `KEY_ROTATE_NOW` and may reject further writes by policy. |
-| `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET` | Maximum allowed metadata AEAD invocation count per `{domain, key_version}`. |
-| `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET` | Maximum allowed authenticated metadata bytes per `{domain, key_version}`. This is derived from fixed record sizes; no extra on-flash byte counter is needed. |
-| `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET` | Maximum allowed AEAD invocation count per `{key_version, volume_id}`. |
-| `CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET` | Maximum allowed cumulative authenticated LEB bytes per `{key_version, volume_id}`. |
-| `CONFIG_UBI_CRYPTO_LEB_CHUNKED` | Enables chunked secure LEB layout for geometries where single-tag mode is invalid or undesirable. |
-| `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` | Chunk size used by chunked LEB layout. It drives chunk count, tag overhead, RAM profile, and alignment requirements. |
-| `CONFIG_UBI_CRYPTO_PEB_CACHE` | Enables one reusable eraseblock-sized SECURE staging / cache buffer. This avoids mandatory heap allocation in paths that need full-PEB staging. |
-| `CONFIG_UBI_CRYPTO_PEB_CACHE_STATIC` | Allocates the SECURE eraseblock-sized cache statically. This is the expected choice for a static-memory model. In a dynamic-memory model it may stay optional, especially when chunked mode avoids full-PEB staging. |
-| `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA` | Number of commit-visible mutations between post-commit freshness-sync callbacks. `0` means sync after every commit-visible mutation. |
-| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE` | Forces read-only or write shutdown when fresh secure-write salt cannot be generated. |
-| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE` | Forces read-only or init failure when freshness policy rejects the authenticated flash state. |
-| `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE` | Forces read-only after post-commit freshness synchronization failures if product policy requires that. |
+| `CONFIG_UBI_SECURE` | Enables SECURE mode support. |
+| `CONFIG_UBI_SECURE_MAX_KEY_VERSIONS` | Maximum number of distinct key versions that one attach session may inventory and track internally, and maximum number of entries accepted in the runtime allowlist array. The on-flash `key_version` field itself remains 8-bit. |
+| `CONFIG_UBI_SECURE_ROTATE_SOON_PCT` | Soft threshold for usage-budget warnings. Crossing it emits `KEY_ROTATE_SOON`. |
+| `CONFIG_UBI_SECURE_ROTATE_NOW_PCT` | Hard threshold for usage-budget exhaustion. Crossing it emits `KEY_ROTATE_NOW` and may reject further writes by policy. |
+| `CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET` | Maximum allowed metadata AEAD invocation count per `{domain, key_version}`. |
+| `CONFIG_UBI_SECURE_METADATA_TOTAL_AUTH_BYTES_BUDGET` | Maximum allowed authenticated metadata bytes per `{domain, key_version}`. This is derived from fixed record sizes; no extra on-flash byte counter is needed. |
+| `CONFIG_UBI_SECURE_LEB_WRITE_BUDGET` | Maximum allowed AEAD invocation count per `{key_version, volume_id}`. |
+| `CONFIG_UBI_SECURE_LEB_TOTAL_AUTH_BYTES_BUDGET` | Maximum allowed cumulative authenticated LEB bytes per `{key_version, volume_id}`. |
+| `CONFIG_UBI_SECURE_LEB_CHUNKED` | Enables chunked secure LEB layout for geometries where single-tag mode is invalid or undesirable. |
+| `CONFIG_UBI_SECURE_LEB_CHUNK_SIZE` | Chunk size used by chunked LEB layout. It drives chunk count, tag overhead, RAM profile, and alignment requirements. |
+| `CONFIG_UBI_SECURE_PEB_CACHE` | Enables one reusable eraseblock-sized SECURE staging / cache buffer. This avoids mandatory heap allocation in paths that need full-PEB staging. |
+| `CONFIG_UBI_SECURE_PEB_CACHE_STATIC` | Allocates the SECURE eraseblock-sized cache statically. This is the expected choice for a static-memory model. In a dynamic-memory model it may stay optional, especially when chunked mode avoids full-PEB staging. |
+| `CONFIG_UBI_SECURE_FRESHNESS_SYNC_DELTA` | Number of commit-visible mutations between post-commit freshness-sync callbacks. `0` means sync after every commit-visible mutation. |
+| `CONFIG_UBI_SECURE_STRICT_RO_ON_RNG_FAILURE` | Forces read-only or write shutdown when fresh secure-write salt cannot be generated. |
+| `CONFIG_UBI_SECURE_STRICT_RO_ON_POLICY_FAILURE` | Forces read-only or init failure when freshness policy rejects the authenticated flash state. |
+| `CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE` | Forces read-only after post-commit freshness synchronization failures if product policy requires that. |
 
 Existing plain UBI geometry knobs remain authoritative for:
 
@@ -2055,13 +2055,13 @@ The detailed illustrative API is in Appendix A, but the architectural expectatio
 2. There is **one public initialization entry point** for both plain and secure mode:
    ```c
    int ubi_device_init(const struct ubi_flash_desc *flash,
-                       const struct ubi_crypto_config *crypto_cfg,
+                       const struct ubi_secure_config *secure_cfg,
                        struct ubi_device **ubi);
    ```
-   - `crypto_cfg == NULL` → attach or format as plain,
-   - `crypto_cfg != NULL` → attach or format as secure.
-   The public header `ubi.h` forward-declares `struct ubi_crypto_config` so that plain callers do not need to include `ubi_crypto.h`.
-3. The application provides (via `ubi_crypto_config`):
+   - `secure_cfg == NULL` → attach or format as plain,
+   - `secure_cfg != NULL` → attach or format as secure.
+   The public header `ubi.h` forward-declares `struct ubi_secure_config` so that plain callers do not need to include `ubi_secure.h`.
+3. The application provides (via `ubi_secure_config`):
    - a callback that returns the PSA key identifier for one key version,
    - allowlist,
    - an optional request to advance the write-active key version,
@@ -2076,7 +2076,7 @@ The detailed illustrative API is in Appendix A, but the architectural expectatio
    - optional event-driven escalation to read-only mode for future writes.
 5. There is no raw `IKM` buffer callback in the normal API surface.
 6. If the application provides no external trusted freshness store, SECURE mode may still provide authenticated encryption and authenticated freshness signals, but it does not provide complete anti-rollback protection.
-7. When `CONFIG_UBI_CRYPTO` is not enabled and the caller passes `crypto_cfg != NULL`, the library returns a stable, documented error (`-ENOTSUP`).
+7. When `CONFIG_UBI_SECURE` is not enabled and the caller passes `secure_cfg != NULL`, the library returns a stable, documented error (`-ENOTSUP`).
 
 The summary below omits a dedicated getter for the authenticated on-flash `write_active_key_version`, but the architecture expects that state to be available to the application.
 
@@ -2216,7 +2216,7 @@ Let:
 
 ```text
 S = authenticated payload_bytes for one LEB
-C = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE
+C = CONFIG_UBI_SECURE_LEB_CHUNK_SIZE
 N = ceil(S / C)
 T = 16
 ```
@@ -2302,7 +2302,7 @@ Single-tag mode rules:
 
 Chunked mode minimum rules:
 
-- `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE` should be a multiple of the target flash write alignment.
+- `CONFIG_UBI_SECURE_LEB_CHUNK_SIZE` should be a multiple of the target flash write alignment.
 
 If the implementation writes each `(chunk ciphertext || tag)` tuple directly to flash, it must also ensure that each such write obeys the target flash alignment and write-size rules.
 
@@ -2566,16 +2566,16 @@ lives in {doc}`/guide/secure_workflow`.
 After every commit-visible mutation (volume create / resize / remove,
 LEB write, LEB map, PEB erase) the backend calls `sync_freshness`
 according to the cadence configured by
-`CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`:
+`CONFIG_UBI_SECURE_FRESHNESS_SYNC_DELTA`:
 
 - **delta = 0** (default): sync after every mutation.
 - **delta > 0**: sync every N mutations.
 
 If `sync_freshness` returns a non-zero error code, the backend:
 
-1. Emits `UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE` via the `event_cb`.
+1. Emits `UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE` via the `event_cb`.
 2. Optionally enters sticky crypto read-only when
-   `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y`.
+   `CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE=y`.
 
 ### 21.2 Event callback and verdicts
 
@@ -2584,8 +2584,8 @@ application-provided `event_cb`. The callback returns one of:
 
 | Verdict | Meaning |
 |---------|---------|
-| `UBI_CRYPTO_EVENT_CONTINUE` | Normal operation continues. |
-| `UBI_CRYPTO_EVENT_ENTER_READ_ONLY` | Sticky crypto read-only: all subsequent mutations are rejected with `-EROFS`. Reads remain functional. |
+| `UBI_SECURE_EVENT_CONTINUE` | Normal operation continues. |
+| `UBI_SECURE_EVENT_ENTER_READ_ONLY` | Sticky crypto read-only: all subsequent mutations are rejected with `-EROFS`. Reads remain functional. |
 
 Event types and their triggers:
 
@@ -2670,8 +2670,8 @@ overflow, the write is rejected with `-EOVERFLOW`.
 
 **Post-write check.** After each successful LEB commit, usage
 percentages are computed against the Kconfig budgets
-(`UBI_CRYPTO_LEB_WRITE_BUDGET`,
-`UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET`) and `KEY_ROTATE_SOON` or
+(`UBI_SECURE_LEB_WRITE_BUDGET`,
+`UBI_SECURE_LEB_TOTAL_AUTH_BYTES_BUDGET`) and `KEY_ROTATE_SOON` or
 `KEY_ROTATE_NOW` events are emitted when thresholds are crossed.
 
 ### 21.7 Metadata usage budget
@@ -2695,8 +2695,8 @@ record-size macros and are `BUILD_ASSERT`-locked in
 
 **Pre-commit check.** Before any flash mutation, the backend projects
 the post-commit counter and authenticated-byte total. If either
-crosses `ROTATE_NOW_PCT` of `UBI_CRYPTO_METADATA_COUNTER_BUDGET` /
-`UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `KEY_ROTATE_NOW` is
+crosses `ROTATE_NOW_PCT` of `UBI_SECURE_METADATA_COUNTER_BUDGET` /
+`UBI_SECURE_METADATA_TOTAL_AUTH_BYTES_BUDGET`, `KEY_ROTATE_NOW` is
 emitted, sticky `read_only_crypto` is set, and the operation is
 rejected with `-ENOSPC` (or `-EROFS` if the gate already trips on a
 subsequent call).
@@ -2740,7 +2740,7 @@ dead-store elimination — before returning or freeing.
 
 ### A.1 Runtime backend selection
 
-The library uses **one public initialization entry point**. The `crypto_cfg` pointer selects the backend at runtime:
+The library uses **one public initialization entry point**. The `secure_cfg` pointer selects the backend at runtime:
 
 ```c
 /**
@@ -2751,8 +2751,8 @@ The library uses **one public initialization entry point**. The `crypto_cfg` poi
  * allocated device handle; on failure, *ubi is set to NULL.
  *
  * Backend selection:
- * - @p crypto_cfg == NULL  →  attach or format as plain.
- * - @p crypto_cfg != NULL  →  attach or format as secure.
+ * - @p secure_cfg == NULL  →  attach or format as plain.
+ * - @p secure_cfg != NULL  →  attach or format as secure.
  *
  * If the detected on-flash format does not match the requested mode,
  * initialization fails with a mode-mismatch error. Silent fallback and
@@ -2761,24 +2761,24 @@ The library uses **one public initialization entry point**. The `crypto_cfg` poi
  * Only one active handle per flash partition is allowed.
  *
  * @param[in]  flash        Flash partition descriptor (caller retains ownership).
- * @param[in]  crypto_cfg SECURE configuration, or NULL for plain mode.
+ * @param[in]  secure_cfg SECURE configuration, or NULL for plain mode.
  *                        The caller retains ownership; UBI copies what it needs.
  * @param[out] ubi        Pointer to receive the UBI device handle (NULL on failure).
  *
  * @retval 0        Success.
  * @retval -EINVAL  NULL pointer or invalid geometry.
- * @retval -ENOTSUP crypto_cfg != NULL but CONFIG_UBI_CRYPTO is disabled.
+ * @retval -ENOTSUP secure_cfg != NULL but CONFIG_UBI_SECURE is disabled.
  * @retval -EBUSY   A handle for this partition is already active.
  * @retval -EILSEQ  Mode mismatch (plain media vs secure request, or vice versa).
  * @retval -ENOMEM  Allocation failure.
  * @retval -EIO     Unrecoverable flash I/O error.
  */
 int ubi_device_init(const struct ubi_flash_desc *flash,
-                    const struct ubi_crypto_config *crypto_cfg,
+                    const struct ubi_secure_config *secure_cfg,
                     struct ubi_device **ubi);
 ```
 
-The `ubi.h` public header forward-declares `struct ubi_crypto_config` without including `ubi_crypto.h`. Plain callers never see PSA types.
+The `ubi.h` public header forward-declares `struct ubi_secure_config` without including `ubi_secure.h`. Plain callers never see PSA types.
 
 ### A.2 Callbacks, types, and configuration
 
@@ -2790,7 +2790,7 @@ These callbacks remain separate on purpose:
 
 The authenticated current `write_active_key_version` lives on flash in the secure device header. The illustrative API below therefore models the application field as an optional **forward-rotation request**, not as the source of truth for the currently active version.
 
-`ubi_crypto_sync_freshness_cb_t` intentionally returns only success / failure, not `ubi_crypto_rollback_verdict`. The reason is architectural:
+`ubi_secure_sync_freshness_cb_t` intentionally returns only success / failure, not `ubi_secure_rollback_verdict`. The reason is architectural:
 
 - rollback / replay acceptance is decided at attach, when UBI selects one authenticated flash state,
 - post-commit freshness synchronization happens **after** UBI has already committed a new state,
@@ -2806,7 +2806,7 @@ The authenticated current `write_active_key_version` lives on flash in the secur
  *
  * The application defines the acceptance policy for this pair.
  */
-struct ubi_crypto_freshness {
+struct ubi_secure_freshness {
     /** Authenticated reserved-metadata revision selected at attach time. */
     uint64_t device_revision;
     /** Highest authenticated data-mapping sequence number selected at attach time. */
@@ -2816,27 +2816,27 @@ struct ubi_crypto_freshness {
 /**
  * @brief Security and lifecycle event types emitted by UBI SECURE.
  */
-enum ubi_crypto_event_type {
+enum ubi_secure_event_type {
     /** Authentication of a secure record failed. */
-    UBI_CRYPTO_EVENT_AUTH_FAILURE,
+    UBI_SECURE_EVENT_AUTH_FAILURE,
     /** The on-flash secure format violated a structural rule. */
-    UBI_CRYPTO_EVENT_FORMAT_VIOLATION,
+    UBI_SECURE_EVENT_FORMAT_VIOLATION,
     /** An authenticated on-flash key version is outside the allowlist. */
-    UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED,
+    UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED,
     /** An authenticated on-flash key version is required but not provisioned. */
-    UBI_CRYPTO_EVENT_KEY_VERSION_UNAVAILABLE,
+    UBI_SECURE_EVENT_KEY_VERSION_UNAVAILABLE,
     /** The authenticated freshness descriptor was rejected by product policy. */
-    UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,
+    UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH,
     /** Post-commit freshness synchronization failed. */
-    UBI_CRYPTO_EVENT_FRESHNESS_SYNC_FAILURE,
+    UBI_SECURE_EVENT_FRESHNESS_SYNC_FAILURE,
     /** Fresh randomness required for a secure write was unavailable. */
-    UBI_CRYPTO_EVENT_RNG_FAILURE,
+    UBI_SECURE_EVENT_RNG_FAILURE,
     /** A projected usage budget crossed the soft rotation threshold. */
-    UBI_CRYPTO_EVENT_KEY_ROTATE_SOON,
+    UBI_SECURE_EVENT_KEY_ROTATE_SOON,
     /** A projected usage budget crossed the hard rotation threshold. */
-    UBI_CRYPTO_EVENT_KEY_ROTATE_NOW,
+    UBI_SECURE_EVENT_KEY_ROTATE_NOW,
     /** No authenticated on-flash object still references this key version. */
-    UBI_CRYPTO_EVENT_KEY_RETIRABLE,
+    UBI_SECURE_EVENT_KEY_RETIRABLE,
 };
 
 /**
@@ -2850,11 +2850,11 @@ enum ubi_crypto_event_type {
  * then remove that key version from the allowlist and purge the corresponding
  * PSA-managed key material.
  */
-struct ubi_crypto_event {
+struct ubi_secure_event {
     /** Event discriminator. */
-    enum ubi_crypto_event_type type;
+    enum ubi_secure_event_type type;
     /** Authenticated freshness descriptor at the time of the event. */
-    struct ubi_crypto_freshness freshness;
+    struct ubi_secure_freshness freshness;
     /** Per-event-type payload. */
     union {
         /** Payload for AUTH_FAILURE, FORMAT_VIOLATION. */
@@ -2893,11 +2893,11 @@ struct ubi_crypto_event {
  * The application receives authenticated freshness values exported by UBI and
  * decides whether they are acceptable for the product's trust model.
  */
-enum ubi_crypto_rollback_verdict {
+enum ubi_secure_rollback_verdict {
     /** Authenticated flash state is acceptable. */
-    UBI_CRYPTO_ROLLBACK_ACCEPT = 0,
+    UBI_SECURE_ROLLBACK_ACCEPT = 0,
     /** Authenticated flash state must be rejected. */
-    UBI_CRYPTO_ROLLBACK_REJECT = 1,
+    UBI_SECURE_ROLLBACK_REJECT = 1,
 };
 
 /**
@@ -2906,17 +2906,17 @@ enum ubi_crypto_rollback_verdict {
  * This verdict applies only to future writes. It must not override a mandatory
  * rejection already required by the architecture for the current operation.
  */
-enum ubi_crypto_event_verdict {
+enum ubi_secure_event_verdict {
     /** Keep operating normally after the callback returns. */
-    UBI_CRYPTO_EVENT_CONTINUE = 0,
+    UBI_SECURE_EVENT_CONTINUE = 0,
     /** Enter read-only mode for subsequent writes. */
-    UBI_CRYPTO_EVENT_ENTER_READ_ONLY = 1,
+    UBI_SECURE_EVENT_ENTER_READ_ONLY = 1,
 };
 
 /**
  * @brief Per-device SECURE policy configuration.
  */
-struct ubi_crypto_policy {
+struct ubi_secure_policy {
     /** Optional request to advance the on-flash write-active key version. 0 means no change requested. */
     uint8_t requested_write_key_version;
     /** Explicit allowlist of acceptable key versions. */
@@ -2935,7 +2935,7 @@ struct ubi_crypto_policy {
  * @retval -ENOENT Key version is not provisioned.
  * @retval negative errno Other failure.
  */
-typedef int (*ubi_crypto_get_key_id_cb_t)(uint8_t key_version,
+typedef int (*ubi_secure_get_key_id_cb_t)(uint8_t key_version,
                                           psa_key_id_t *key_id_out);
 
 /**
@@ -2950,8 +2950,8 @@ typedef int (*ubi_crypto_get_key_id_cb_t)(uint8_t key_version,
  *
  * @return Application verdict for rollback policy.
  */
-typedef enum ubi_crypto_rollback_verdict
-(*ubi_crypto_check_freshness_cb_t)(const struct ubi_crypto_freshness *freshness,
+typedef enum ubi_secure_rollback_verdict
+(*ubi_secure_check_freshness_cb_t)(const struct ubi_secure_freshness *freshness,
                                    void *user_data);
 
 /**
@@ -2969,8 +2969,8 @@ typedef enum ubi_crypto_rollback_verdict
  * @retval 0 Success.
  * @retval negative errno Sync failed.
  */
-typedef int (*ubi_crypto_sync_freshness_cb_t)(
-    const struct ubi_crypto_freshness *freshness,
+typedef int (*ubi_secure_sync_freshness_cb_t)(
+    const struct ubi_secure_freshness *freshness,
     void *user_data);
 
 /**
@@ -2983,24 +2983,24 @@ typedef int (*ubi_crypto_sync_freshness_cb_t)(
  *
  * @return Event-handling verdict for subsequent writes.
  */
-typedef enum ubi_crypto_event_verdict
-(*ubi_crypto_event_cb_t)(const struct ubi_crypto_event *event,
+typedef enum ubi_secure_event_verdict
+(*ubi_secure_event_cb_t)(const struct ubi_secure_event *event,
                          void *user_data);
 
 /**
  * @brief SECURE configuration passed during device initialization.
  */
-struct ubi_crypto_config {
+struct ubi_secure_config {
     /** Per-device SECURE runtime policy, including allowlist and an optional forward-rotation request. */
-    struct ubi_crypto_policy policy;
+    struct ubi_secure_policy policy;
     /** Callback that returns the PSA key identifier for one key version. */
-    ubi_crypto_get_key_id_cb_t get_key_id;
+    ubi_secure_get_key_id_cb_t get_key_id;
     /** Callback that validates authenticated freshness during attach. */
-    ubi_crypto_check_freshness_cb_t check_freshness;
+    ubi_secure_check_freshness_cb_t check_freshness;
     /** Callback that persists authenticated freshness after commit-visible writes. */
-    ubi_crypto_sync_freshness_cb_t sync_freshness;
+    ubi_secure_sync_freshness_cb_t sync_freshness;
     /** Callback that receives security and lifecycle events and may escalate to read-only mode. */
-    ubi_crypto_event_cb_t event_cb;
+    ubi_secure_event_cb_t event_cb;
     /** Opaque user pointer passed back to all callbacks. */
     void *user_data;
 };

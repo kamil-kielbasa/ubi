@@ -14,7 +14,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 #include "ubi_secure_test_hooks.h"
@@ -41,9 +41,9 @@
 
 /* Module types and type definitiones ----------------------------------------------------------- */
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 /* Counter-overflow event accounting -- per-test stack-allocated state passed
- * through `ubi_crypto_config.user_data`. No file-scope mutable state. */
+ * through `ubi_secure_config.user_data`. No file-scope mutable state. */
 struct chunked_overflow_state {
 	uint32_t event_count;
 	uint32_t rotate_now_count;
@@ -51,7 +51,7 @@ struct chunked_overflow_state {
 	uint32_t last_rotate_vol_id;
 	uint8_t last_rotate_usage_pct;
 };
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 /* Module interface variables and constants ----------------------------------------------------- */
 
@@ -69,8 +69,8 @@ static struct sys_memory_stats after_deinit = { 0 };
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
-static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_crypto_event *event,
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
+static enum ubi_secure_event_verdict chunked_overflow_event_cb(const struct ubi_secure_event *event,
 							       void *user_data);
 #endif
 static void *ztest_suite_setup(void);
@@ -78,24 +78,24 @@ static void ztest_suite_before(void *ctx);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 
-static enum ubi_crypto_event_verdict chunked_overflow_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict chunked_overflow_event_cb(const struct ubi_secure_event *event,
 							       void *user_data)
 {
 	struct chunked_overflow_state *st = user_data;
 
 	st->event_count++;
-	if (event->type == UBI_CRYPTO_EVENT_KEY_ROTATE_NOW) {
+	if (event->type == UBI_SECURE_EVENT_KEY_ROTATE_NOW) {
 		st->rotate_now_count++;
 		st->last_rotate_kv = event->rotation.key_version;
 		st->last_rotate_vol_id = event->rotation.volume_id;
 		st->last_rotate_usage_pct = event->rotation.usage_pct;
 	}
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 
 static void *ztest_suite_setup(void)
 {
@@ -123,7 +123,7 @@ ZTEST_SUITE(ubi_secure_chunked, NULL, ztest_suite_setup, ztest_suite_before, NUL
  */
 ZTEST(ubi_secure_chunked, geometry_leb_size)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
@@ -154,7 +154,7 @@ ZTEST(ubi_secure_chunked, geometry_leb_size)
  */
 ZTEST(ubi_secure_chunked, single_chunk_write_read)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "single_chunk",
@@ -197,7 +197,7 @@ ZTEST(ubi_secure_chunked, single_chunk_write_read)
  */
 ZTEST(ubi_secure_chunked, multi_chunk_write_read)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "multi_chunk",
@@ -242,7 +242,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_write_read)
  */
 ZTEST(ubi_secure_chunked, partial_read_cross_chunk)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "partial_cross",
@@ -277,7 +277,7 @@ ZTEST(ubi_secure_chunked, partial_read_cross_chunk)
  */
 ZTEST(ubi_secure_chunked, partial_read_within_chunk)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "partial_within",
@@ -312,7 +312,7 @@ ZTEST(ubi_secure_chunked, partial_read_within_chunk)
  */
 ZTEST(ubi_secure_chunked, partial_last_chunk)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "partial_last",
@@ -351,7 +351,7 @@ ZTEST(ubi_secure_chunked, partial_last_chunk)
  */
 ZTEST(ubi_secure_chunked, multi_chunk_with_reboot)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "multi_reboot",
@@ -410,7 +410,7 @@ ZTEST(ubi_secure_chunked, multi_chunk_with_reboot)
  */
 ZTEST(ubi_secure_chunked, overwrite_chunked)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "overwrite_chunk",
@@ -453,7 +453,7 @@ ZTEST(ubi_secure_chunked, overwrite_chunked)
  */
 ZTEST(ubi_secure_chunked, tamper_one_chunk)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "tamper_chunk",
@@ -502,7 +502,7 @@ ZTEST(ubi_secure_chunked, tamper_one_chunk)
 
 	const size_t nr_res_pebs = 2;
 	const size_t nr_pebs = UBI_PARTITION_SIZE / flash.erase_block_size;
-	const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+	const size_t chunk_size = CONFIG_UBI_SECURE_LEB_CHUNK_SIZE;
 	const size_t tag_size = 16;
 	/* Chunk 2 ct starts at: LEB_OFFSET(160) + prefix(32) + 2*(chunk_size+tag) */
 	const size_t chunk2_ct_off = 160 + 32 + 2 * (chunk_size + tag_size);
@@ -563,7 +563,7 @@ ZTEST(ubi_secure_chunked, tamper_one_chunk)
  */
 ZTEST(ubi_secure_chunked, zero_length_map)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = "zero_len_map",
@@ -605,7 +605,7 @@ ZTEST(ubi_secure_chunked, zero_length_map)
  */
 ZTEST(ubi_secure_chunked, geometry_reject_tiny_erase_block)
 {
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	/* Create a flash descriptor with a very small erase block that cannot fit
 	 * the secure headers + even one chunk. */
@@ -624,11 +624,11 @@ ZTEST(ubi_secure_chunked, geometry_reject_tiny_erase_block)
  * Exercises the chunked-write path's 48-bit AEAD counter overflow guard
  * in \ref leb_prepare_new_mapping. The guard runs *before* the LEB
  * write budget check, so it can be reached deterministically even under
- * the lowered `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET=100` used by the
+ * the lowered `CONFIG_UBI_SECURE_LEB_WRITE_BUDGET=100` used by the
  * test build. The per-LEB `leb_write_counter` is driven close to
  * UBI_SECURE_COUNTER_MAX via the test-only
  * `ubi_secure_test_set_leb_write_counter_floor()` hook (compiled in
- * only under CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION) instead of having
+ * only under CONFIG_UBI_SECURE_TEST_FAULT_INJECTION) instead of having
  * to issue 2^48 real chunk writes.
  *
  * Note: a "boundary success" companion test (projected counter equal
@@ -638,7 +638,7 @@ ZTEST(ubi_secure_chunked, geometry_reject_tiny_erase_block)
  * is the only one that can be observed in isolation here.
  */
 
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 
 /**
  * \brief Chunked write that would overflow the 48-bit AEAD counter is rejected.
@@ -659,7 +659,7 @@ ZTEST(ubi_secure_chunked, geometry_reject_tiny_erase_block)
 ZTEST(ubi_secure_chunked, chunked_write_overflow_rejected)
 {
 	struct chunked_overflow_state evt_state = { 0 };
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	cfg.event_cb = chunked_overflow_event_cb;
 	cfg.user_data = &evt_state;
@@ -688,8 +688,8 @@ ZTEST(ubi_secure_chunked, chunked_write_overflow_rejected)
 
 	/* Lift floor so projected = MAX-3 + 4 = MAX+1 -> overflow. */
 	const uint64_t aead_invocations =
-		(ARRAY_SIZE(array_1024) + CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE - 1) /
-		CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+		(ARRAY_SIZE(array_1024) + CONFIG_UBI_SECURE_LEB_CHUNK_SIZE - 1) /
+		CONFIG_UBI_SECURE_LEB_CHUNK_SIZE;
 
 	ubi_secure_test_set_leb_write_counter_floor(UBI_SECURE_COUNTER_MAX -
 						    (aead_invocations - 1));
@@ -729,4 +729,4 @@ ZTEST(ubi_secure_chunked, chunked_write_overflow_rejected)
 	zassert_ok(ubi_device_deinit(ubi));
 }
 
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */

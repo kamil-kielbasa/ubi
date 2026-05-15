@@ -11,7 +11,7 @@
  *   4. EC   header  : AAD builder.
  *   5. VID  header  : AAD builder + secure-meta serialize/deserialize.
  *   6. LEB  record  : AAD builder.
- *   7. LEB  chunk   : AAD builder (CONFIG_UBI_CRYPTO_LEB_CHUNKED).
+ *   7. LEB  chunk   : AAD builder (CONFIG_UBI_SECURE_LEB_CHUNKED).
  *
  * \copyright Copyright (c) 2026
  */
@@ -39,7 +39,7 @@
  * \param[in]  prefix  Source prefix.
  * \param[out] buf     Output buffer (at least UBI_SECURE_PREFIX_SIZE).
  */
-void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uint8_t *buf);
+void ubi_secure_prefix32_serialize(const struct ubi_secure_prefix32 *prefix, uint8_t *buf);
 
 /**
  * \brief Deserialize a 32-byte big-endian buffer into a prefix32 struct.
@@ -47,7 +47,7 @@ void ubi_secure_prefix32_serialize(const struct ubi_crypto_prefix32 *prefix, uin
  * \param[in]  buf     Input buffer (at least UBI_SECURE_PREFIX_SIZE).
  * \param[out] prefix  Output prefix.
  */
-void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_crypto_prefix32 *prefix);
+void ubi_secure_prefix32_deserialize(const uint8_t *buf, struct ubi_secure_prefix32 *prefix);
 
 /**
  * \brief Encode a 48-bit counter value into 6 bytes big-endian.
@@ -169,7 +169,7 @@ void ubi_secure_build_leb_aad(const struct ubi_secure_leb_aad_input *input,
 
 /* LEB chunk ------------------------------------------------------------------------------------ */
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 /**
  * \brief Build AAD for a secure LEB record chunk (78 bytes).
  *
@@ -180,6 +180,6 @@ void ubi_secure_build_leb_aad(const struct ubi_secure_leb_aad_input *input,
  */
 void ubi_secure_build_leb_chunk_aad(const struct ubi_secure_leb_chunk_aad_input *input,
 				    uint8_t aad[UBI_SECURE_LEB_CHUNK_AAD_SIZE]);
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 
 #endif /* UBI_SECURE_SER_H */

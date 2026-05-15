@@ -28,7 +28,7 @@ LOG_MODULE_DECLARE(ubi, CONFIG_UBI_LOG_LEVEL);
 
 /* Device lifecycle ----------------------------------------------------------------------------- */
 
-int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_crypto_config *crypto_cfg,
+int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_secure_config *secure_cfg,
 		    struct ubi_device **ubi)
 {
 	if (!flash || !ubi) {
@@ -36,16 +36,16 @@ int ubi_device_init(const struct ubi_flash_desc *flash, const struct ubi_crypto_
 		return -EINVAL;
 	}
 
-	if (crypto_cfg != NULL) {
-#if defined(CONFIG_UBI_CRYPTO)
-		return ubi_secure_backend()->init(flash, crypto_cfg, ubi);
-#else /* !CONFIG_UBI_CRYPTO */
+	if (secure_cfg != NULL) {
+#if defined(CONFIG_UBI_SECURE)
+		return ubi_secure_backend()->init(flash, secure_cfg, ubi);
+#else /* !CONFIG_UBI_SECURE */
 		LOG_ERR("Secure backend not available");
 		return -ENOTSUP;
-#endif /* CONFIG_UBI_CRYPTO */
+#endif /* CONFIG_UBI_SECURE */
 	}
 
-	return ubi_plain_backend()->init(flash, crypto_cfg, ubi);
+	return ubi_plain_backend()->init(flash, secure_cfg, ubi);
 }
 
 int ubi_device_get_info(struct ubi_device *ubi, struct ubi_device_info *info)

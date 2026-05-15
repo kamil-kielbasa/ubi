@@ -16,7 +16,7 @@
  *          file access). For the host-side Python equivalent, see
  *          scripts/scan_flash.py.
  *
- * Requires CONFIG_UBI_CRYPTO=y and CONFIG_UBI_TEST_API_ENABLE=y.
+ * Requires CONFIG_UBI_SECURE=y and CONFIG_UBI_TEST_API_ENABLE=y.
  *
  * \copyright Copyright (c) 2026
  */
@@ -25,7 +25,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
@@ -165,7 +165,7 @@ ZTEST_SUITE(ubi_secure_forensic, NULL, ztest_suite_setup, ztest_suite_before, zt
  */
 ZTEST(ubi_secure_forensic, plaintext_data_absent_after_write)
 {
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'f', 'r', 'n', '1' },
@@ -208,7 +208,7 @@ ZTEST(ubi_secure_forensic, plaintext_data_absent_after_write)
  */
 ZTEST(ubi_secure_forensic, volume_name_absent_in_data_area)
 {
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'S', 'E', 'C', 'R', 'E', 'T' },
@@ -246,7 +246,7 @@ ZTEST(ubi_secure_forensic, volume_name_absent_in_data_area)
  */
 ZTEST(ubi_secure_forensic, key_material_absent_on_flash)
 {
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'f', 'r', 'n', '3' },
@@ -284,7 +284,7 @@ ZTEST(ubi_secure_forensic, key_material_absent_on_flash)
  */
 ZTEST(ubi_secure_forensic, plaintext_absent_after_overwrite_and_erase)
 {
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 'f', 'r', 'n', '4' },
@@ -400,7 +400,7 @@ ZTEST(ubi_secure_forensic, leb_tail_padding_uses_erased_value)
 
 	zassert_ok(ubi_test_get_erased_val(&flash, &erased_val));
 
-	const struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_volume_config vol_cfg = {
 		.name = { '/', 't', 'a', 'i', 'l' },
 		.type = UBI_VOLUME_TYPE_STATIC,

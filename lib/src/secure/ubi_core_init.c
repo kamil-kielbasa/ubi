@@ -26,7 +26,7 @@
 #include "ubi_partition_guard.h"
 
 /* Public headers: */
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 /* Third-party headers: */
 #include <psa/crypto.h>
@@ -57,12 +57,12 @@ enum scan_result {
 /**
  * \brief Validate crypto config: all callbacks must be non-NULL.
  */
-static int validate_crypto_cfg(const struct ubi_crypto_config *cfg);
+static int validate_secure_cfg(const struct ubi_secure_config *cfg);
 
 /**
  * \brief Check if the requested write key version is in the allowlist.
  */
-static bool key_version_is_allowed(const struct ubi_crypto_policy *policy, uint8_t kv);
+static bool key_version_is_allowed(const struct ubi_secure_policy *policy, uint8_t kv);
 
 /**
  * \brief Detect mode from reserved PEBs: blank, secure, or plain.
@@ -135,18 +135,18 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
  * \brief Format a blank device in secure mode.
  */
 static int secure_format(const struct ubi_flash_desc *flash,
-			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev);
+			 const struct ubi_secure_config *secure_cfg, struct ubi_device *ubi_dev);
 
 /**
  * \brief Attach to an existing secure device.
  */
 static int secure_attach(const struct ubi_flash_desc *flash,
-			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev,
+			 const struct ubi_secure_config *secure_cfg, struct ubi_device *ubi_dev,
 			 uint64_t *out_device_revision, bool *out_rotation_happened);
 
 /* Static function definitions ------------------------------------------------------------------ */
 
-static int validate_crypto_cfg(const struct ubi_crypto_config *cfg)
+static int validate_secure_cfg(const struct ubi_secure_config *cfg)
 {
 	__ASSERT_NO_MSG(cfg != NULL);
 
@@ -177,7 +177,7 @@ static int validate_crypto_cfg(const struct ubi_crypto_config *cfg)
 	return 0;
 }
 
-static bool key_version_is_allowed(const struct ubi_crypto_policy *policy, uint8_t kv)
+static bool key_version_is_allowed(const struct ubi_secure_policy *policy, uint8_t kv)
 {
 	__ASSERT_NO_MSG(policy != NULL);
 	__ASSERT_NO_MSG(policy->allowed_key_versions != NULL);
@@ -230,7 +230,7 @@ static int init_format_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs)
 {
 	__ASSERT_NO_MSG(ubi_dev != NULL);
 
-	const struct ubi_crypto_config *cfg = ubi_dev->crypto_cfg;
+	const struct ubi_secure_config *cfg = ubi_dev->secure_cfg;
 	const uint8_t write_kv = cfg->policy.requested_write_key_version;
 
 	const struct flash_area *fa = NULL;
@@ -335,7 +335,7 @@ static void init_compute_ec_average(struct ubi_device *ubi_dev, size_t nr_of_peb
 		struct ubi_ec_hdr ec_hdr = { 0 };
 		struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-		const int ret = ubi_secure_ec_hdr_read(&ubi_dev->flash, ubi_dev->crypto_cfg, pnum,
+		const int ret = ubi_secure_ec_hdr_read(&ubi_dev->flash, ubi_dev->secure_cfg, pnum,
 						       &ec_hdr, &ec_ctx);
 		if (ret == 0) {
 			ec_sum += ec_hdr.ec;
@@ -354,7 +354,7 @@ static int scan_validate_ec(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 	__ASSERT_NO_MSG(ec_hdr != NULL);
 	__ASSERT_NO_MSG(ec_ctx != NULL);
 
-	const int ret = ubi_secure_ec_hdr_read(&dev->flash, dev->crypto_cfg, pnum, ec_hdr, ec_ctx);
+	const int ret = ubi_secure_ec_hdr_read(&dev->flash, dev->secure_cfg, pnum, ec_hdr, ec_ctx);
 
 	if (ret != 0) {
 		struct ubi_list_item *item = NULL;
@@ -492,14 +492,14 @@ static int scan_map_first(struct ubi_device *dev, size_t pnum, const struct ubi_
 			struct ubi_vid_secure_meta old_vid_meta = { 0 };
 			struct ubi_secure_vid_auth_ctx old_vid_ctx = { 0 };
 
-			int ret = ubi_secure_ec_hdr_read(&dev->flash, dev->crypto_cfg,
+			int ret = ubi_secure_ec_hdr_read(&dev->flash, dev->secure_cfg,
 							 vol->anchor_pnum, &old_ec, &old_ec_ctx);
 			if (ret != 0) {
 				/* Old anchor unreadable — replace with current. */
 				goto replace_anchor;
 			}
 
-			ret = ubi_secure_vid_hdr_read(&dev->flash, dev->crypto_cfg,
+			ret = ubi_secure_vid_hdr_read(&dev->flash, dev->secure_cfg,
 						      vol->anchor_pnum, &old_ec_ctx, &old_vid,
 						      &old_vid_meta, &old_vid_ctx);
 			if (ret != 0) {
@@ -598,7 +598,7 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 	struct ubi_ec_hdr exist_ec = { 0 };
 	struct ubi_secure_ec_auth_ctx exist_ec_ctx = { 0 };
 
-	ret = ubi_secure_ec_hdr_read(&dev->flash, dev->crypto_cfg, existing->value.pnum, &exist_ec,
+	ret = ubi_secure_ec_hdr_read(&dev->flash, dev->secure_cfg, existing->value.pnum, &exist_ec,
 				     &exist_ec_ctx);
 	if (ret != 0) {
 		rb_remove(&vol->eba_tbl, &existing->node);
@@ -621,7 +621,7 @@ static int scan_resolve_dup(struct ubi_device *dev, size_t pnum, size_t ec_avg,
 	struct ubi_vid_secure_meta exist_vid_meta = { 0 };
 	struct ubi_secure_vid_auth_ctx exist_vid_ctx = { 0 };
 
-	ret = ubi_secure_vid_hdr_read(&dev->flash, dev->crypto_cfg, existing->value.pnum,
+	ret = ubi_secure_vid_hdr_read(&dev->flash, dev->secure_cfg, existing->value.pnum,
 				      &exist_ec_ctx, &exist_vid, &exist_vid_meta, &exist_vid_ctx);
 	if (ret != 0) {
 		rb_remove(&vol->eba_tbl, &existing->node);
@@ -703,7 +703,7 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 		struct ubi_vid_secure_meta vid_meta = { 0 };
 		struct ubi_secure_vid_auth_ctx vid_ctx = { 0 };
 
-		ret = ubi_secure_vid_hdr_read(&ubi_dev->flash, ubi_dev->crypto_cfg, pnum, &ec_ctx,
+		ret = ubi_secure_vid_hdr_read(&ubi_dev->flash, ubi_dev->secure_cfg, pnum, &ec_ctx,
 					      &vid_hdr, &vid_meta, &vid_ctx);
 		if (ret != 0) {
 			LOG_ERR("VID header auth failure for PEB %zu — marking bad", pnum);
@@ -730,7 +730,7 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 
 		/* Track max VID counter for write-active key version. */
 		if (vid_ctx.key_version ==
-		    ubi_dev->crypto_cfg->policy.requested_write_key_version) {
+		    ubi_dev->secure_cfg->policy.requested_write_key_version) {
 			if (vid_ctx.vid_counter >= ubi_dev->aead.next_vid) {
 				ubi_dev->aead.next_vid = vid_ctx.vid_counter + 1;
 			}
@@ -777,10 +777,10 @@ static int init_scan_data_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, si
 }
 
 static int secure_format(const struct ubi_flash_desc *flash,
-			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev)
+			 const struct ubi_secure_config *secure_cfg, struct ubi_device *ubi_dev)
 {
 	__ASSERT_NO_MSG(flash != NULL);
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
+	__ASSERT_NO_MSG(secure_cfg != NULL);
 	__ASSERT_NO_MSG(ubi_dev != NULL);
 
 	const struct flash_area *fa = NULL;
@@ -810,13 +810,13 @@ static int secure_format(const struct ubi_flash_desc *flash,
 	flash_area_close(fa);
 
 	struct ubi_dev_secure_meta dev_meta = {
-		.write_active_key_version = crypto_cfg->policy.requested_write_key_version,
+		.write_active_key_version = secure_cfg->policy.requested_write_key_version,
 		.vid_next_counter_floor = 0,
 	};
 
 	/* Commit encrypted reserved PEBs. */
-	ret = ubi_secure_res_peb_commit(flash, crypto_cfg, &dev_hdr, &dev_meta, NULL, 0,
-					crypto_cfg->policy.requested_write_key_version,
+	ret = ubi_secure_res_peb_commit(flash, secure_cfg, &dev_hdr, &dev_meta, NULL, 0,
+					secure_cfg->policy.requested_write_key_version,
 					ubi_dev->aead.next_res_peb);
 	if (ret != 0 && ret != -EROFS) {
 		LOG_ERR("Secure format commit failure");
@@ -833,8 +833,8 @@ static int secure_format(const struct ubi_flash_desc *flash,
 
 	/* Track reserved-PEB key version and refcount.  Initial format has no
 	 * volumes, so the contribution is just one DEV header per reserved PEB. */
-	ubi_dev->reserved_key_version = crypto_cfg->policy.requested_write_key_version;
-	ubi_secure_reserved_refcount_inc(ubi_dev, crypto_cfg->policy.requested_write_key_version,
+	ubi_dev->reserved_key_version = secure_cfg->policy.requested_write_key_version;
+	ubi_secure_reserved_refcount_inc(ubi_dev, secure_cfg->policy.requested_write_key_version,
 					 UBI_DEV_HDR_NR_OF_RES_PEBS, 0);
 
 	/* Format data PEBs: erase and write secure EC headers. */
@@ -854,18 +854,18 @@ static int secure_format(const struct ubi_flash_desc *flash,
 }
 
 static int secure_attach(const struct ubi_flash_desc *flash,
-			 const struct ubi_crypto_config *crypto_cfg, struct ubi_device *ubi_dev,
+			 const struct ubi_secure_config *secure_cfg, struct ubi_device *ubi_dev,
 			 uint64_t *out_device_revision, bool *out_rotation_happened)
 {
 	__ASSERT_NO_MSG(flash != NULL);
-	__ASSERT_NO_MSG(crypto_cfg != NULL);
+	__ASSERT_NO_MSG(secure_cfg != NULL);
 	__ASSERT_NO_MSG(ubi_dev != NULL);
 	__ASSERT_NO_MSG(out_device_revision != NULL);
 	__ASSERT_NO_MSG(out_rotation_happened != NULL);
 
 	/* Scan and authenticate reserved PEBs. */
 	struct ubi_secure_res_peb_scan scan = { 0 };
-	int ret = ubi_secure_res_peb_scan(flash, crypto_cfg, &scan);
+	int ret = ubi_secure_res_peb_scan(flash, secure_cfg, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Secure reserved PEB scan failure");
@@ -878,7 +878,7 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 	}
 
 	/* Validate allowlist: the device's write_active_key_version must be allowlisted. */
-	if (!key_version_is_allowed(&crypto_cfg->policy, scan.dev_meta.write_active_key_version)) {
+	if (!key_version_is_allowed(&secure_cfg->policy, scan.dev_meta.write_active_key_version)) {
 		LOG_ERR("On-flash write_active_key_version %u not in allowlist",
 			scan.dev_meta.write_active_key_version);
 		return -EACCES;
@@ -890,10 +890,10 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 	 * a downgrade would reuse a uint8_t slot that may have been retired
 	 * (wrap-around hazard) and would invalidate freshness/budget invariants
 	 * built around monotonic key progression. */
-	if (crypto_cfg->policy.requested_write_key_version <
+	if (secure_cfg->policy.requested_write_key_version <
 	    scan.dev_meta.write_active_key_version) {
 		LOG_ERR("requested_write_key_version=%u below on-flash write_active_key_version=%u (downgrade rejected)",
-			crypto_cfg->policy.requested_write_key_version,
+			secure_cfg->policy.requested_write_key_version,
 			scan.dev_meta.write_active_key_version);
 		return -EINVAL;
 	}
@@ -902,7 +902,7 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 	struct ubi_vol_hdr vol_hdrs[CONFIG_UBI_MAX_NR_OF_VOLUMES] = { 0 };
 
 	if (scan.dev_hdr.vol_count > 0) {
-		ret = ubi_secure_res_peb_read_vol_hdrs(flash, crypto_cfg, &scan, vol_hdrs,
+		ret = ubi_secure_res_peb_read_vol_hdrs(flash, secure_cfg, &scan, vol_hdrs,
 						       CONFIG_UBI_MAX_NR_OF_VOLUMES);
 		if (ret != 0) {
 			LOG_ERR("Volume header authentication failure");
@@ -928,7 +928,7 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 	 * differs from what is on flash.  This ensures KEY_RETIRABLE can fire
 	 * as soon as all data PEBs are cleaned up, without waiting for a
 	 * volume mutation to trigger the upgrade. */
-	const uint8_t new_kv = crypto_cfg->policy.requested_write_key_version;
+	const uint8_t new_kv = secure_cfg->policy.requested_write_key_version;
 
 	if (new_kv != scan.dev_prefix.key_version) {
 		struct ubi_dev_hdr upd_hdr = scan.dev_hdr;
@@ -944,7 +944,7 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 		 * range. */
 		upd_meta.vid_next_counter_floor = 0;
 
-		ret = ubi_secure_res_peb_commit(flash, crypto_cfg, &upd_hdr, &upd_meta, vol_hdrs,
+		ret = ubi_secure_res_peb_commit(flash, secure_cfg, &upd_hdr, &upd_meta, vol_hdrs,
 						scan.dev_hdr.vol_count, new_kv,
 						ubi_dev->aead.next_res_peb);
 		if (ret == -EROFS) {
@@ -999,15 +999,15 @@ static int secure_attach(const struct ubi_flash_desc *flash,
 /* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_secure_device_init(const struct ubi_flash_desc *flash,
-			   const struct ubi_crypto_config *crypto_cfg, struct ubi_device **ubi)
+			   const struct ubi_secure_config *secure_cfg, struct ubi_device **ubi)
 {
-	if (!flash || !crypto_cfg || !ubi) {
-		LOG_ERR("Invalid argument: flash=%p crypto_cfg=%p ubi=%p", (const void *)flash,
-			(const void *)crypto_cfg, (const void *)ubi);
+	if (!flash || !secure_cfg || !ubi) {
+		LOG_ERR("Invalid argument: flash=%p secure_cfg=%p ubi=%p", (const void *)flash,
+			(const void *)secure_cfg, (const void *)ubi);
 		return -EINVAL;
 	}
 
-	int ret = validate_crypto_cfg(crypto_cfg);
+	int ret = validate_secure_cfg(secure_cfg);
 
 	if (ret != 0) {
 		LOG_ERR("Crypto config validation failed");
@@ -1025,10 +1025,10 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	}
 
 	/* Validate that the write key version is allowlisted. */
-	if (!key_version_is_allowed(&crypto_cfg->policy,
-				    crypto_cfg->policy.requested_write_key_version)) {
+	if (!key_version_is_allowed(&secure_cfg->policy,
+				    secure_cfg->policy.requested_write_key_version)) {
 		LOG_ERR("Requested write key version %u not in allowlist",
-			crypto_cfg->policy.requested_write_key_version);
+			secure_cfg->policy.requested_write_key_version);
 		*ubi = NULL;
 		return -EINVAL;
 	}
@@ -1056,7 +1056,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	ubi_dev->flash = *flash;
 	ubi_dev->mode = UBI_MODE_SECURE;
 	ubi_dev->ops = ubi_secure_backend();
-	ubi_dev->crypto_cfg = crypto_cfg;
+	ubi_dev->secure_cfg = secure_cfg;
 	ubi_dev->free_pool.tree.lessthan_fn = ubi_cache_cmp;
 	ubi_dev->dirty_pool.tree.lessthan_fn = ubi_cache_cmp;
 	sys_slist_init(&ubi_dev->bad_pebs);
@@ -1149,7 +1149,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	/* Cache geometry for fast internal lookups. */
 	ubi_dev->total_data_peb_count = nr_of_pebs - UBI_DEV_HDR_NR_OF_RES_PEBS;
 
-#if defined(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+#if defined(CONFIG_UBI_SECURE_LEB_CHUNKED)
 	/* Chunked-mode geometry check.
 	 * chunk_size must be a multiple of the flash write alignment.
 	 * leb_size accounts for per-chunk tag overhead:
@@ -1158,7 +1158,7 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 	 *   remaining = payload_space - n_full * (chunk_size + TAG_SIZE)
 	 *   leb_size = n_full * chunk_size + max(0, remaining - TAG_SIZE) */
 	{
-		const size_t chunk_size = CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE;
+		const size_t chunk_size = CONFIG_UBI_SECURE_LEB_CHUNK_SIZE;
 
 		if (chunk_size % ubi_dev->flash.write_block_size != 0) {
 			LOG_ERR("Chunk size %zu not aligned to write block size %zu", chunk_size,
@@ -1187,18 +1187,18 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 			goto exit;
 		}
 	}
-#else /* !CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#else /* !CONFIG_UBI_SECURE_LEB_CHUNKED */
 	ubi_dev->leb_size =
 		ubi_dev->flash.erase_block_size - UBI_SECURE_LEB_OFFSET - UBI_SECURE_LEB_OVERHEAD;
 
 	if (ubi_dev->leb_size > UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD) {
 		LOG_ERR("Single-tag leb_size %zu exceeds CCM limit %u; enable "
-			"CONFIG_UBI_CRYPTO_LEB_CHUNKED for this geometry",
+			"CONFIG_UBI_SECURE_LEB_CHUNKED for this geometry",
 			ubi_dev->leb_size, UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD);
 		ret = -EINVAL;
 		goto exit;
 	}
-#endif /* CONFIG_UBI_CRYPTO_LEB_CHUNKED */
+#endif /* CONFIG_UBI_SECURE_LEB_CHUNKED */
 
 	/* Detect mode: blank, secure, or plain. */
 	bool any_blank = false;
@@ -1224,11 +1224,11 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 
 	if (any_secure) {
 		/* Existing secure media → attach. */
-		ret = secure_attach(flash, crypto_cfg, ubi_dev, &device_revision,
+		ret = secure_attach(flash, secure_cfg, ubi_dev, &device_revision,
 				    &rotation_happened);
 	} else {
 		/* All blank → format. */
-		ret = secure_format(flash, crypto_cfg, ubi_dev);
+		ret = secure_format(flash, secure_cfg, ubi_dev);
 	}
 
 	if (ret != 0) {
@@ -1286,29 +1286,29 @@ int ubi_secure_device_init(const struct ubi_flash_desc *flash,
 
 	/* Freshness check — now that global_sqnum reflects all data PEBs. */
 	if (any_secure) {
-		const struct ubi_crypto_freshness freshness = {
+		const struct ubi_secure_freshness freshness = {
 			.device_revision = device_revision,
 			.global_sqnum = ubi_dev->global_sqnum,
 		};
 
-		const enum ubi_crypto_rollback_verdict verdict =
-			crypto_cfg->check_freshness(&freshness, crypto_cfg->user_data);
+		const enum ubi_secure_rollback_verdict verdict =
+			secure_cfg->check_freshness(&freshness, secure_cfg->user_data);
 
-		if (verdict == UBI_CRYPTO_ROLLBACK_REJECT
-#if defined(CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION)
+		if (verdict == UBI_SECURE_ROLLBACK_REJECT
+#if defined(CONFIG_UBI_SECURE_TEST_FAULT_INJECTION)
 		    || ubi_secure_test_hook_check(UBI_SECURE_HOOK_FRESHNESS_REJECT)
-#endif /* CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION */
+#endif /* CONFIG_UBI_SECURE_TEST_FAULT_INJECTION */
 		) {
 			LOG_ERR("Freshness check rejected — rollback detected");
-			struct ubi_crypto_event ev = {
-				.type = UBI_CRYPTO_EVENT_ROLLBACK_POLICY_MISMATCH,
+			struct ubi_secure_event ev = {
+				.type = UBI_SECURE_EVENT_ROLLBACK_POLICY_MISMATCH,
 				.freshness = freshness,
 				.rollback = { ._reserved = 0 },
 			};
 			ubi_secure_event_emit(ubi_dev, &ev);
-#if defined(CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE)
+#if defined(CONFIG_UBI_SECURE_STRICT_RO_ON_POLICY_FAILURE)
 			ubi_dev->read_only_crypto = true;
-#endif /* CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE */
+#endif /* CONFIG_UBI_SECURE_STRICT_RO_ON_POLICY_FAILURE */
 			ret = -EACCES;
 			goto exit;
 		}

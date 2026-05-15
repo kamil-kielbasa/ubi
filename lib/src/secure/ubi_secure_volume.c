@@ -74,7 +74,7 @@ static int reserved_commit_budget_pre(struct ubi_device *ubi, size_t vol_count)
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	int ret = ubi_secure_budget_metadata_pre(ubi, UBI_SECURE_DOMAIN_DEVICE_HEADER,
 						 ubi->aead.next_res_peb + 1, kv, 0);
@@ -94,7 +94,7 @@ static void reserved_commit_budget_post(struct ubi_device *ubi, size_t vol_count
 {
 	__ASSERT_NO_MSG(ubi != NULL);
 
-	const uint8_t kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	ubi_secure_budget_metadata_post(ubi, UBI_SECURE_DOMAIN_DEVICE_HEADER,
 					ubi->aead.next_res_peb, kv, 0);
@@ -115,7 +115,7 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 	__ASSERT_NO_MSG(vol_count != NULL);
 
 	struct ubi_secure_res_peb_scan scan = { 0 };
-	int ret = ubi_secure_res_peb_scan(&ubi->flash, ubi->crypto_cfg, &scan);
+	int ret = ubi_secure_res_peb_scan(&ubi->flash, ubi->secure_cfg, &scan);
 
 	if (ret != 0) {
 		LOG_ERR("Reserved PEB scan failure");
@@ -137,7 +137,7 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 
 	/* Read volume headers. */
 	if (scan.dev_hdr.vol_count > 0) {
-		ret = ubi_secure_res_peb_read_vol_hdrs(&ubi->flash, ubi->crypto_cfg, &scan,
+		ret = ubi_secure_res_peb_read_vol_hdrs(&ubi->flash, ubi->secure_cfg, &scan,
 						       vol_hdrs, CONFIG_UBI_MAX_NR_OF_VOLUMES);
 		if (ret != 0) {
 			LOG_ERR("Volume header read failure");
@@ -158,7 +158,7 @@ static int dev_hdr_read_and_bump(struct ubi_device *ubi, struct ubi_dev_hdr *hdr
 
 	/* Refresh write_active_key_version so that a key-rotation that changed
 	 * requested_write_key_version is persisted into the device metadata. */
-	meta->write_active_key_version = ubi->crypto_cfg->policy.requested_write_key_version;
+	meta->write_active_key_version = ubi->secure_cfg->policy.requested_write_key_version;
 
 	return 0;
 }
@@ -171,7 +171,7 @@ static int reclaim_peb_to_dirty(struct ubi_device *ubi, struct ubi_rbt_item *ite
 	struct ubi_ec_hdr ec_hdr = { 0 };
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 
-	const int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->crypto_cfg, item->value.pnum,
+	const int ret = ubi_secure_ec_hdr_read(&ubi->flash, ubi->secure_cfg, item->value.pnum,
 					       &ec_hdr, &ec_ctx);
 	if (ret != 0) {
 		LOG_WRN("EC header read failure for PEB %zu, marking bad", item->value.pnum);
@@ -312,7 +312,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 	vol_hdrs[existing_vol_count] = new_vol_hdr;
 	const size_t new_vol_count = existing_vol_count + 1;
 
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	/* Per-domain budget pre-check (DEV + VOL) before any flash mutation. */
 	ret = reserved_commit_budget_pre(ubi, new_vol_count);
@@ -323,7 +323,7 @@ int ubi_secure_volume_create(struct ubi_device *ubi, const struct ubi_volume_con
 		goto exit;
 	}
 
-	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
+	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->secure_cfg, &dev_hdr, &dev_meta, vol_hdrs,
 					new_vol_count, write_kv, ubi->aead.next_res_peb);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during create commit");
@@ -482,7 +482,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 		goto exit;
 	}
 
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	/* Per-domain budget pre-check (DEV + VOL) before any flash mutation. */
 	ret = reserved_commit_budget_pre(ubi, existing_vol_count);
@@ -491,7 +491,7 @@ int ubi_secure_volume_resize(struct ubi_device *ubi, int vol_id,
 		goto exit;
 	}
 
-	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta, vol_hdrs,
+	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->secure_cfg, &dev_hdr, &dev_meta, vol_hdrs,
 					existing_vol_count, write_kv, ubi->aead.next_res_peb);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during resize commit");
@@ -597,7 +597,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 		}
 	}
 
-	const uint8_t write_kv = ubi->crypto_cfg->policy.requested_write_key_version;
+	const uint8_t write_kv = ubi->secure_cfg->policy.requested_write_key_version;
 
 	/* Per-domain budget pre-check (DEV + VOL) before any flash mutation. */
 	ret = reserved_commit_budget_pre(ubi, new_count);
@@ -606,7 +606,7 @@ int ubi_secure_volume_remove(struct ubi_device *ubi, int vol_id)
 		goto exit;
 	}
 
-	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->crypto_cfg, &dev_hdr, &dev_meta,
+	ret = ubi_secure_res_peb_commit(&ubi->flash, ubi->secure_cfg, &dev_hdr, &dev_meta,
 					new_vol_hdrs, new_count, write_kv, ubi->aead.next_res_peb);
 	if (ret == -EROFS) {
 		LOG_WRN("Reserved PEB bank degraded during remove commit");

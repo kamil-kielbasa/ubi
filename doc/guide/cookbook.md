@@ -234,7 +234,7 @@ workflow. This recipe shows the application-side glue.
 
 ```c
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <psa/crypto.h>
 
 static psa_key_id_t key_v1;   /* legacy root */
@@ -249,10 +249,10 @@ static int my_get_key_id(uint8_t key_version, uint32_t *out)
     }
 }
 
-static enum ubi_crypto_event_verdict
-my_event_cb(const struct ubi_crypto_event *ev, void *user_data)
+static enum ubi_secure_event_verdict
+my_event_cb(const struct ubi_secure_event *ev, void *user_data)
 {
-    if (ev->type == UBI_CRYPTO_EVENT_KEY_RETIRABLE) {
+    if (ev->type == UBI_SECURE_EVENT_KEY_RETIRABLE) {
         /* Refcount of the named key version reached zero on flash.
          * Now (and only now) is it safe to destroy the PSA key.
          */
@@ -261,7 +261,7 @@ my_event_cb(const struct ubi_crypto_event *ev, void *user_data)
             key_v1 = PSA_KEY_ID_NULL;
         }
     }
-    return UBI_CRYPTO_EVENT_CONTINUE;
+    return UBI_SECURE_EVENT_CONTINUE;
 }
 ```
 
@@ -273,7 +273,7 @@ my_event_cb(const struct ubi_crypto_event *ev, void *user_data)
    ```c
    static const uint8_t allowed[] = { 1, 2 };
 
-   struct ubi_crypto_config crypto_cfg = {
+   struct ubi_secure_config secure_cfg = {
        .policy = {
            .requested_write_key_version = 2,
            .allowed_key_versions        = allowed,
@@ -314,7 +314,7 @@ monotonic counter; the structure of the callbacks does not change.
 
 ```c
 #include <zephyr/settings/settings.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 
 #define FRESHNESS_KEY "ubi/freshness"
 
@@ -343,30 +343,30 @@ void ubi_freshness_init(void)
     settings_load_subtree("ubi");
 }
 
-static enum ubi_crypto_rollback_verdict
-my_check_freshness(const struct ubi_crypto_freshness *fr, void *user_data)
+static enum ubi_secure_rollback_verdict
+my_check_freshness(const struct ubi_secure_freshness *fr, void *user_data)
 {
     if (fr_state.device_revision == 0 && fr_state.global_sqnum == 0) {
         /* First boot: trust the on-flash value, persist, accept. */
         fr_state.device_revision = fr->device_revision;
         fr_state.global_sqnum    = fr->global_sqnum;
         settings_save_one(FRESHNESS_KEY, &fr_state, sizeof(fr_state));
-        return UBI_CRYPTO_ROLLBACK_ACCEPT;
+        return UBI_SECURE_ROLLBACK_ACCEPT;
     }
 
     if (fr->device_revision  < fr_state.device_revision ||
         (fr->device_revision == fr_state.device_revision &&
          fr->global_sqnum    < fr_state.global_sqnum)) {
-        return UBI_CRYPTO_ROLLBACK_REJECT;   /* rollback detected */
+        return UBI_SECURE_ROLLBACK_REJECT;   /* rollback detected */
     }
 
     fr_state.device_revision = fr->device_revision;
     fr_state.global_sqnum    = fr->global_sqnum;
     settings_save_one(FRESHNESS_KEY, &fr_state, sizeof(fr_state));
-    return UBI_CRYPTO_ROLLBACK_ACCEPT;
+    return UBI_SECURE_ROLLBACK_ACCEPT;
 }
 
-static int my_sync_freshness(const struct ubi_crypto_freshness *fr,
+static int my_sync_freshness(const struct ubi_secure_freshness *fr,
                              void *user_data)
 {
     fr_state.device_revision = fr->device_revision;
@@ -378,7 +378,7 @@ static int my_sync_freshness(const struct ubi_crypto_freshness *fr,
 **Tuning.**
 
 - `sync_freshness` is throttled by
-  `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA` — Secure UBI calls it only
+  `CONFIG_UBI_SECURE_FRESHNESS_SYNC_DELTA` — Secure UBI calls it only
   after the on-flash counter has advanced by at least that many
   units. Pick a value that bounds your worst-case rewind window
   against the cost of a Settings write.

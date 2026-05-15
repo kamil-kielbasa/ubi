@@ -3,7 +3,7 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 
 project(ubi_sample)
 
-if(CONFIG_UBI_CRYPTO)
+if(CONFIG_UBI_SECURE)
     zephyr_library_sources(src/main_secure.c)
 else()
     zephyr_library_sources(src/main.c)

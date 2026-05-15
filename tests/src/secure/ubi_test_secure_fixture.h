@@ -10,7 +10,7 @@
 #define UBI_TEST_SECURE_FIXTURE_H
 
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 
 #include <psa/crypto.h>
@@ -72,37 +72,37 @@ static inline int mock_get_key_id(uint8_t key_version, psa_key_id_t *key_id_out)
 	return 0;
 }
 
-static inline enum ubi_crypto_rollback_verdict
-mock_check_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
+static inline enum ubi_secure_rollback_verdict
+mock_check_freshness(const struct ubi_secure_freshness *freshness, void *user_data)
 {
 	(void)freshness;
 	(void)user_data;
-	return UBI_CRYPTO_ROLLBACK_ACCEPT;
+	return UBI_SECURE_ROLLBACK_ACCEPT;
 }
 
-static inline int mock_sync_freshness(const struct ubi_crypto_freshness *freshness, void *user_data)
+static inline int mock_sync_freshness(const struct ubi_secure_freshness *freshness, void *user_data)
 {
 	(void)freshness;
 	(void)user_data;
 	return 0;
 }
 
-static inline enum ubi_crypto_event_verdict mock_event_cb(const struct ubi_crypto_event *event,
+static inline enum ubi_secure_event_verdict mock_event_cb(const struct ubi_secure_event *event,
 							  void *user_data)
 {
 	(void)event;
 	(void)user_data;
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
 /**
  * \brief Build a mock crypto config with all callbacks wired to permissive stubs.
  */
-static inline struct ubi_crypto_config ubi_test_mock_crypto_config(void)
+static inline struct ubi_secure_config ubi_test_mock_secure_config(void)
 {
 	static const uint8_t allowed_versions[] = { 1 };
 
-	struct ubi_crypto_config cfg = {
+	struct ubi_secure_config cfg = {
 		.policy = {
 			.requested_write_key_version = 1,
 			.allowed_key_versions = allowed_versions,
@@ -176,7 +176,7 @@ static inline void ubi_test_secure_before_impl(void)
 /**
  * \brief Initialise a secure UBI device wired to the test mock crypto config.
  *
- * \details Builds a fresh `ubi_crypto_config` from the test mocks (in a
+ * \details Builds a fresh `ubi_secure_config` from the test mocks (in a
  *          file-static so the device can keep its pointer alive past
  *          this call), invokes `ubi_device_init()` against the caller's
  *          flash descriptor and asserts success. Callers are expected to
@@ -186,9 +186,9 @@ static inline void ubi_test_secure_before_impl(void)
  */
 static inline struct ubi_device *ubi_test_secure_init(struct ubi_flash_desc *flash_desc)
 {
-	static struct ubi_crypto_config cfg;
+	static struct ubi_secure_config cfg;
 
-	cfg = ubi_test_mock_crypto_config();
+	cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_ok(ubi_device_init(flash_desc, &cfg, &ubi));

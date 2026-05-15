@@ -16,7 +16,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "ubi_secure_test_hooks.h"
 #include "ubi_secure_types.h"
@@ -433,9 +433,7 @@ ZTEST(ubi_secure_crypto_faults, freshness_reject_on_init)
 	g_ubi = NULL;
 
 	/* Now re-init with freshness rejection armed. */
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	ubi_secure_test_hook_set(UBI_SECURE_HOOK_FRESHNESS_REJECT, true);
 	const int ret = ubi_device_init(&flash, &cfg, &ubi);

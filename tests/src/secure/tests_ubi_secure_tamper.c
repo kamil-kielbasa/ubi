@@ -15,7 +15,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 #include "arrays.h"
 
@@ -48,7 +48,7 @@ static struct ubi_device *g_ubi;
 
 /* Static function declarations ----------------------------------------------------------------- */
 
-static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict counting_event_cb(const struct ubi_secure_event *event,
 						       void *user_data);
 static void *ztest_suite_setup(void);
 static void ztest_suite_before(void *ctx);
@@ -58,14 +58,14 @@ static void ztest_suite_after(void *ctx);
 
 static size_t auth_failure_count;
 
-static enum ubi_crypto_event_verdict counting_event_cb(const struct ubi_crypto_event *event,
+static enum ubi_secure_event_verdict counting_event_cb(const struct ubi_secure_event *event,
 						       void *user_data)
 {
 	(void)user_data;
-	if (event->type == UBI_CRYPTO_EVENT_AUTH_FAILURE) {
+	if (event->type == UBI_SECURE_EVENT_AUTH_FAILURE) {
 		auth_failure_count++;
 	}
-	return UBI_CRYPTO_EVENT_CONTINUE;
+	return UBI_SECURE_EVENT_CONTINUE;
 }
 
 static void *ztest_suite_setup(void)
@@ -155,7 +155,7 @@ ZTEST_SUITE(ubi_secure_tamper, NULL, ztest_suite_setup, ztest_suite_before, ztes
  */
 ZTEST(ubi_secure_tamper, leb_data_tamper_smoke)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = counting_event_cb;
 
 	const struct ubi_volume_config vol_cfg = {
@@ -255,7 +255,7 @@ ZTEST(ubi_secure_tamper, leb_data_tamper_smoke)
  */
 ZTEST(ubi_secure_tamper, reserved_peb_tamper_smoke)
 {
-	struct ubi_crypto_config cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	cfg.event_cb = counting_event_cb;
 
 	/* 1. Format. */

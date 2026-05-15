@@ -15,7 +15,7 @@
 
 /* UBI headers: */
 #include <ubi.h>
-#include <ubi_crypto.h>
+#include <ubi_secure.h>
 #include <ubi_test.h>
 /* Internal secure headers (via target_include_directories). */
 #include "ubi_secure_crypto.h"
@@ -86,7 +86,7 @@ ZTEST(ubi_secure_defensive, ser_prefix32_serialize_null)
 	uint8_t buf[UBI_SECURE_PREFIX_SIZE] = { 0 };
 
 	ubi_secure_prefix32_serialize(NULL, buf);
-	ubi_secure_prefix32_serialize(&(struct ubi_crypto_prefix32){ 0 }, NULL);
+	ubi_secure_prefix32_serialize(&(struct ubi_secure_prefix32){ 0 }, NULL);
 }
 
 /**
@@ -98,7 +98,7 @@ ZTEST(ubi_secure_defensive, ser_prefix32_serialize_null)
  */
 ZTEST(ubi_secure_defensive, ser_prefix32_deserialize_null)
 {
-	struct ubi_crypto_prefix32 prefix = { 0 };
+	struct ubi_secure_prefix32 prefix = { 0 };
 
 	ubi_secure_prefix32_deserialize(NULL, &prefix);
 
@@ -260,7 +260,7 @@ ZTEST(ubi_secure_defensive, crypto_build_nonce_null)
 }
 
 /**
- * \brief derive_domain_key rejects NULL crypto_cfg.
+ * \brief derive_domain_key rejects NULL secure_cfg.
  *
  * \details Scenario: Calls with NULL config pointer.
  *
@@ -275,7 +275,7 @@ ZTEST(ubi_secure_defensive, crypto_derive_domain_key_null)
 }
 
 /**
- * \brief derive_leb_key rejects NULL crypto_cfg.
+ * \brief derive_leb_key rejects NULL secure_cfg.
  *
  * \details Scenario: Calls with NULL config pointer.
  *
@@ -293,15 +293,13 @@ ZTEST(ubi_secure_defensive, crypto_derive_leb_key_null)
 /**
  * \brief ec_hdr_read rejects NULL arguments.
  *
- * \details Scenario: Calls with NULL flash, NULL crypto_cfg, NULL ec_hdr, NULL ec_ctx.
+ * \details Scenario: Calls with NULL flash, NULL secure_cfg, NULL ec_hdr, NULL ec_ctx.
  *
  * \expect Returns -EINVAL.
  */
 ZTEST(ubi_secure_defensive, io_ec_hdr_read_null)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_ec_hdr ec = { 0 };
 	struct ubi_secure_ec_auth_ctx ctx = { 0 };
 
@@ -320,9 +318,7 @@ ZTEST(ubi_secure_defensive, io_ec_hdr_read_null)
  */
 ZTEST(ubi_secure_defensive, io_vid_hdr_read_null)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 	struct ubi_vid_hdr vid = { 0 };
 	struct ubi_vid_secure_meta meta = { 0 };
@@ -343,9 +339,7 @@ ZTEST(ubi_secure_defensive, io_vid_hdr_read_null)
  */
 ZTEST(ubi_secure_defensive, io_vid_hdr_write_null)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 	struct ubi_vid_hdr vid = { 0 };
 	struct ubi_vid_secure_meta meta = { 0 };
@@ -364,9 +358,7 @@ ZTEST(ubi_secure_defensive, io_vid_hdr_write_null)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_read_null)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_vid_hdr vid = { .data_size = 4 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 	uint8_t buf[4] = { 0 };
@@ -385,9 +377,7 @@ ZTEST(ubi_secure_defensive, io_leb_data_read_null)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_write_null)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 	struct ubi_vid_hdr vid = { 0 };
 	const uint8_t data[] = { 0x01 };
@@ -406,9 +396,7 @@ ZTEST(ubi_secure_defensive, io_leb_data_write_null)
  */
 ZTEST(ubi_secure_defensive, io_ec_hdr_write_null)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	const struct ubi_ec_hdr ec = { 0 };
 
 	zassert_equal(ubi_secure_ec_hdr_write(NULL, &cfg, 0, &ec, 0, 0), -EINVAL);
@@ -426,9 +414,7 @@ ZTEST(ubi_secure_defensive, io_ec_hdr_write_null)
  */
 ZTEST(ubi_secure_defensive, io_ec_hdr_read_bad_magic)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	/* Write garbage to PEB 3 EC header area. */
 	const struct flash_area *fa = NULL;
@@ -459,9 +445,7 @@ ZTEST(ubi_secure_defensive, io_ec_hdr_read_bad_magic)
  */
 ZTEST(ubi_secure_defensive, io_vid_hdr_read_bad_magic)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	/* Write a valid EC header first. */
 	const struct ubi_ec_hdr ec_hdr = {
@@ -510,9 +494,7 @@ ZTEST(ubi_secure_defensive, io_vid_hdr_read_bad_magic)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_read_zero_datasize)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_vid_hdr vid = { .data_size = 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 	uint8_t buf[1] = { 0 };
@@ -529,9 +511,7 @@ ZTEST(ubi_secure_defensive, io_leb_data_read_zero_datasize)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_read_out_of_bounds)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_vid_hdr vid = { .data_size = 2 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 	uint8_t buf[4] = { 0 };
@@ -550,9 +530,7 @@ ZTEST(ubi_secure_defensive, io_leb_data_read_out_of_bounds)
  */
 ZTEST(ubi_secure_defensive, init_zero_write_block)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_flash_desc bad_flash = flash;
 
 	bad_flash.write_block_size = 0;
@@ -571,9 +549,7 @@ ZTEST(ubi_secure_defensive, init_zero_write_block)
  */
 ZTEST(ubi_secure_defensive, init_zero_erase_block)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_flash_desc bad_flash = flash;
 
 	bad_flash.erase_block_size = 0;
@@ -592,9 +568,7 @@ ZTEST(ubi_secure_defensive, init_zero_erase_block)
  */
 ZTEST(ubi_secure_defensive, init_oversized_write_block)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_flash_desc bad_flash = flash;
 
 	/* Set to a large value unlikely to match any real flash. */
@@ -615,9 +589,7 @@ ZTEST(ubi_secure_defensive, init_oversized_write_block)
  */
 ZTEST(ubi_secure_defensive, init_erase_block_too_small)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_flash_desc bad_flash = flash;
 
 	/* Set erase block to 16 bytes — too small for EC+VID+LEB overhead. */
@@ -640,9 +612,7 @@ ZTEST(ubi_secure_defensive, init_erase_block_too_small)
  */
 ZTEST(ubi_secure_defensive, init_bad_write_key_version)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	/* Set requested write key version to a value not in the allowlist. */
 	cfg.policy.requested_write_key_version = 99;
@@ -664,9 +634,7 @@ ZTEST(ubi_secure_defensive, init_bad_write_key_version)
  */
 ZTEST(ubi_secure_defensive, scan_corrupt_ec_marks_bad)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	/* Format fresh device. */
@@ -716,9 +684,7 @@ ZTEST(ubi_secure_defensive, scan_corrupt_ec_marks_bad)
  */
 ZTEST(ubi_secure_defensive, scan_erased_vid_dirty_leb)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
@@ -773,9 +739,7 @@ ZTEST(ubi_secure_defensive, scan_erased_vid_dirty_leb)
  */
 ZTEST(ubi_secure_defensive, scan_orphan_classification)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_device *ubi = NULL;
 
 	zassert_ok(ubi_device_init(&flash, &cfg, &ubi));
@@ -821,9 +785,7 @@ ZTEST(ubi_secure_defensive, scan_orphan_classification)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_read_zero_len_zero_data)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 	struct ubi_vid_hdr vid = { .data_size = 0 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
 
@@ -993,9 +955,7 @@ ZTEST(ubi_secure_defensive, crypto_aead_decrypt_propagates_psa_error)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_read_null_buf_with_len)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	struct ubi_vid_hdr vid = { .data_size = 4 };
 	struct ubi_secure_vid_auth_ctx vid_ctx = { .vid_hdr = &vid };
@@ -1022,9 +982,7 @@ ZTEST(ubi_secure_defensive, io_leb_data_read_null_buf_with_len)
  */
 ZTEST(ubi_secure_defensive, io_leb_data_write_null_buf_with_len)
 {
-	static struct ubi_crypto_config cfg;
-
-	cfg = ubi_test_mock_crypto_config();
+	const struct ubi_secure_config cfg = ubi_test_mock_secure_config();
 
 	struct ubi_secure_ec_auth_ctx ec_ctx = { 0 };
 	struct ubi_vid_hdr vid = { 0 };

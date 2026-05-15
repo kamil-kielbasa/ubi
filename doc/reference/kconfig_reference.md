@@ -182,9 +182,9 @@ the PEB stays bad permanently.
 
 ## Secure mode options
 
-All options below live behind `CONFIG_UBI_CRYPTO=y`.
+All options below live behind `CONFIG_UBI_SECURE=y`.
 
-### `CONFIG_UBI_CRYPTO`
+### `CONFIG_UBI_SECURE`
 
 - **Type:** menuconfig (bool)
 - **Default:** `n`
@@ -192,14 +192,14 @@ All options below live behind `CONFIG_UBI_CRYPTO=y`.
 - **Selects:** `PSA_WANT_ALG_CCM`, `PSA_WANT_ALG_HKDF`, `PSA_WANT_ALG_SHA_256`, `PSA_WANT_KEY_TYPE_AES`
 
 Enable the secure backend. When set, devices initialised with a
-non-`NULL` `crypto_cfg` use AES-128-CCM authenticated encryption
+non-`NULL` `secure_cfg` use AES-128-CCM authenticated encryption
 for every on-flash structure. Pulls in PSA Crypto via mbedTLS and
 requires a platform CSPRNG.
 
 *See also:* {doc}`/architecture/secure_overview`,
 {doc}`/guide/secure_workflow`.
 
-### `CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS`
+### `CONFIG_UBI_SECURE_MAX_KEY_VERSIONS`
 
 - **Type:** int
 - **Default:** `4`
@@ -207,9 +207,9 @@ requires a platform CSPRNG.
 
 Upper bound on the number of distinct key versions active during a
 single attach session. Sizes per-key-version bookkeeping arrays and
-caps the length of `ubi_crypto_policy.allowed_key_versions`.
+caps the length of `ubi_secure_policy.allowed_key_versions`.
 
-### `CONFIG_UBI_CRYPTO_METADATA_COUNTER_BUDGET`
+### `CONFIG_UBI_SECURE_METADATA_COUNTER_BUDGET`
 
 - **Type:** int
 - **Default:** `1000000`
@@ -221,7 +221,7 @@ event is triggered.
 *See also:* {doc}`/reference/onflash_format_spec` § 13 *Key
 lifecycle, inventory, and retirement*.
 
-### `CONFIG_UBI_CRYPTO_METADATA_TOTAL_AUTH_BYTES_BUDGET`
+### `CONFIG_UBI_SECURE_METADATA_TOTAL_AUTH_BYTES_BUDGET`
 
 - **Type:** int
 - **Default:** `100000000`
@@ -229,7 +229,7 @@ lifecycle, inventory, and retirement*.
 Maximum cumulative authenticated bytes (AAD + plaintext) for
 metadata AEAD operations per `(domain, key_version)`.
 
-### `CONFIG_UBI_CRYPTO_LEB_WRITE_BUDGET`
+### `CONFIG_UBI_SECURE_LEB_WRITE_BUDGET`
 
 - **Type:** int
 - **Default:** `1000000`
@@ -237,7 +237,7 @@ metadata AEAD operations per `(domain, key_version)`.
 Maximum AEAD encrypt invocations for LEB data records per
 `(key_version, volume_id)` before a key-rotation event is triggered.
 
-### `CONFIG_UBI_CRYPTO_LEB_TOTAL_AUTH_BYTES_BUDGET`
+### `CONFIG_UBI_SECURE_LEB_TOTAL_AUTH_BYTES_BUDGET`
 
 - **Type:** int
 - **Default:** `100000000`
@@ -245,7 +245,7 @@ Maximum AEAD encrypt invocations for LEB data records per
 Maximum cumulative authenticated bytes (AAD + plaintext) for LEB
 AEAD operations per `(key_version, volume_id)`.
 
-### `CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT`
+### `CONFIG_UBI_SECURE_ROTATE_SOON_PCT`
 
 - **Type:** int
 - **Default:** `80`
@@ -257,7 +257,7 @@ application should prepare a replacement key.
 
 *See also:* {doc}`/guide/secure_workflow` § *Key rotation workflow*.
 
-### `CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT`
+### `CONFIG_UBI_SECURE_ROTATE_NOW_PCT`
 
 - **Type:** int
 - **Default:** `95`
@@ -267,7 +267,7 @@ Hard rotation threshold. When usage reaches this percentage of any
 budget, the secure backend emits `KEY_ROTATE_NOW`. If no
 replacement key is available, writes may be rejected.
 
-### `CONFIG_UBI_CRYPTO_LEB_CHUNKED`
+### `CONFIG_UBI_SECURE_LEB_CHUNKED`
 
 - **Type:** bool
 - **Default:** `n`
@@ -280,18 +280,18 @@ per chunk on flash.
 *See also:* {doc}`/reference/onflash_format_spec` § 7 *Secure record
 formats* (chunked layout).
 
-### `CONFIG_UBI_CRYPTO_LEB_CHUNK_SIZE`
+### `CONFIG_UBI_SECURE_LEB_CHUNK_SIZE`
 
 - **Type:** int
 - **Default:** `4096`
 - **Range:** `256`–`65536`
-- **Depends on:** `UBI_CRYPTO_LEB_CHUNKED`
+- **Depends on:** `UBI_SECURE_LEB_CHUNKED`
 
 Size in bytes of each independently authenticated chunk within a
 secure LEB record. Smaller values give finer-grained reads but
 inflate per-LEB overhead.
 
-### `CONFIG_UBI_CRYPTO_PEB_CACHE`
+### `CONFIG_UBI_SECURE_PEB_CACHE`
 
 - **Type:** bool
 - **Default:** `y`
@@ -300,16 +300,16 @@ Allocate a reusable eraseblock-sized buffer for AEAD encrypt /
 decrypt staging. Required by the secure read and write paths;
 disabling it is for very specific embedded scenarios only.
 
-### `CONFIG_UBI_CRYPTO_PEB_CACHE_STATIC`
+### `CONFIG_UBI_SECURE_PEB_CACHE_STATIC`
 
 - **Type:** bool
 - **Default:** `n`
-- **Depends on:** `UBI_CRYPTO_PEB_CACHE`
+- **Depends on:** `UBI_SECURE_PEB_CACHE`
 
 Allocate the PEB staging buffer at compile time (statically) rather
 than at device-init time through the configured memory backend.
 
-### `CONFIG_UBI_CRYPTO_FRESHNESS_SYNC_DELTA`
+### `CONFIG_UBI_SECURE_FRESHNESS_SYNC_DELTA`
 
 - **Type:** int
 - **Default:** `0`
@@ -322,7 +322,7 @@ the cost of a larger worst-case rewind.
 
 *See also:* {doc}`/guide/secure_workflow` § 4.3 *Freshness store*.
 
-### `CONFIG_UBI_CRYPTO_STRICT_RO_ON_RNG_FAILURE`
+### `CONFIG_UBI_SECURE_STRICT_RO_ON_RNG_FAILURE`
 
 - **Type:** bool
 - **Default:** `y`
@@ -330,7 +330,7 @@ the cost of a larger worst-case rewind.
 When the platform RNG cannot produce a fresh salt, enter sticky
 read-only mode instead of just rejecting the current write.
 
-### `CONFIG_UBI_CRYPTO_STRICT_RO_ON_POLICY_FAILURE`
+### `CONFIG_UBI_SECURE_STRICT_RO_ON_POLICY_FAILURE`
 
 - **Type:** bool
 - **Default:** `y`
@@ -339,7 +339,7 @@ When the `check_freshness` callback rejects at attach time, or a
 rollback policy mismatch is detected post-attach, enter sticky
 read-only mode.
 
-### `CONFIG_UBI_CRYPTO_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE`
+### `CONFIG_UBI_SECURE_STRICT_RO_ON_FRESHNESS_SYNC_FAILURE`
 
 - **Type:** bool
 - **Default:** `n`
@@ -347,7 +347,7 @@ read-only mode.
 When the `sync_freshness` callback returns non-zero, enter sticky
 read-only mode. The failing commit itself is **not** rolled back.
 
-### `CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION`
+### `CONFIG_UBI_SECURE_TEST_FAULT_INJECTION`
 
 - **Type:** bool
 - **Default:** `n`

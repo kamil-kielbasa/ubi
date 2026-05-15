@@ -718,9 +718,9 @@ static int init_scan_pebs(struct ubi_device *ubi_dev, size_t nr_of_pebs, size_t 
 /* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_plain_device_init(const struct ubi_flash_desc *flash,
-			  const struct ubi_crypto_config *crypto_cfg, struct ubi_device **ubi)
+			  const struct ubi_secure_config *secure_cfg, struct ubi_device **ubi)
 {
-	ARG_UNUSED(crypto_cfg);
+	ARG_UNUSED(secure_cfg);
 
 	int ret = -1;
 

@@ -175,7 +175,7 @@ Allowlist
     The application-supplied array `allowed_key_versions[]`. UBI
     authenticates on-flash records only if their `key_version`
     appears here; otherwise it emits
-    `UBI_CRYPTO_EVENT_KEY_VERSION_NOT_ALLOWLISTED` and rejects the
+    `UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED` and rejects the
     record.
 
 Freshness store

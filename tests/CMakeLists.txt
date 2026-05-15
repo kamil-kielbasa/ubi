@@ -52,7 +52,7 @@ target_include_directories(app PRIVATE ../lib/src/plain)
 
 target_sources(app PRIVATE src/common/arrays.c)
 
-if(CONFIG_UBI_CRYPTO)
+if(CONFIG_UBI_SECURE)
     target_include_directories(app PRIVATE ../lib/src/secure)
     target_include_directories(app PRIVATE ../lib/src/plain)
     target_sources(app PRIVATE src/secure/tests_ubi_secure_api.c
@@ -92,7 +92,7 @@ if(CONFIG_UBI_CRYPTO)
     if(DEFINED ubi_part2_path)
         target_sources(app PRIVATE src/secure/tests_ubi_secure_coexistence.c)
     endif()
-    if(CONFIG_UBI_CRYPTO_LEB_CHUNKED)
+    if(CONFIG_UBI_SECURE_LEB_CHUNKED)
         target_sources(app PRIVATE src/secure/tests_ubi_secure_chunked.c)
     endif()
 endif()
