@@ -1,0 +1,1046 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Kconfig Reference" href="kconfig_reference.html" /><link rel="prev" title="Secure Architecture: Overview" href="../architecture/secure_overview.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>API Reference - UBI on Zephyr</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=312cd7bf" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UBI on Zephyr</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UBI on Zephyr</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/what_is_ubi.html">What is UBI?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/comparison.html">Comparison: UBI vs LittleFS vs NVS vs ZMS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/concepts.html">Concepts at a Glance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/plain_workflow.html">Plain UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/secure_workflow.html">Secure UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/environment_setup.html">Environment Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cookbook.html">Cookbook</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/plain_architecture.html">Architecture Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/secure_overview.html">Secure Architecture: Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kconfig_reference.html">Kconfig Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="error_codes.html">Error Codes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onflash_format_spec.html">Secure On-Flash Format Specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/test_strategy.html">Test Strategy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/changelog.html">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/blob/main/doc/reference/api.rst?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/edit/main/doc/reference/api.rst" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
+<p>This reference is auto-generated from the Doxygen comments in <code class="docutils literal notranslate"><span class="pre">ubi.h</span></code>.</p>
+<section id="usage-notes">
+<h2>Usage Notes<a class="headerlink" href="#usage-notes" title="Link to this heading">¶</a></h2>
+<p><strong>Lifecycle</strong>: A UBI device must be initialized with <code class="docutils literal notranslate"><span class="pre">ubi_device_init()</span></code> before any other
+operations. After <code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code>, the handle is invalid.</p>
+<p><strong>Thread safety</strong>: All public functions acquire a per-device mutex. Multiple threads
+may safely call UBI functions on the same device concurrently. <strong>Do not call from ISR context.</strong></p>
+<p><strong>Error model</strong>: All functions return <code class="docutils literal notranslate"><span class="pre">0</span></code> on success or a negative <code class="docutils literal notranslate"><span class="pre">errno</span></code> code on failure.
+Common error codes:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 85.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Code</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code></p></td>
+<td><p>NULL pointer or invalid parameter (bad vol_id, lnum out of range, invalid geometry).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code></p></td>
+<td><p>No free PEBs available for the requested operation.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOENT</span></code></p></td>
+<td><p>Volume with given vol_id does not exist.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-EEXIST</span></code></p></td>
+<td><p>A volume with the same name but different configuration already exists.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EROFS</span></code></p></td>
+<td><p>Device is in degraded read-only mode (reserved PEB redundancy lost).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-EIO</span></code></p></td>
+<td><p>Flash I/O error (read, write, or erase failure).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOMEM</span></code></p></td>
+<td><p>Heap allocation failure (<code class="docutils literal notranslate"><span class="pre">k_malloc</span></code> returned NULL).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-ECANCELED</span></code></p></td>
+<td><p>Operation not applicable (e.g., resize on static volume, or leb_count unchanged).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Typical API call sequence</strong>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ubi_device_init</span><span class="p">()</span>          <span class="o">--</span> <span class="n">initialize</span> <span class="n">device</span>
+<span class="n">ubi_volume_create</span><span class="p">()</span>        <span class="o">--</span> <span class="n">create</span> <span class="n">one</span> <span class="ow">or</span> <span class="n">more</span> <span class="n">volumes</span>
+<span class="n">ubi_leb_write</span><span class="p">()</span>            <span class="o">--</span> <span class="n">write</span> <span class="n">data</span> <span class="n">to</span> <span class="n">a</span> <span class="n">LEB</span>
+<span class="n">ubi_leb_read</span><span class="p">()</span>             <span class="o">--</span> <span class="n">read</span> <span class="n">data</span> <span class="kn">from</span> <span class="nn">a</span> <span class="n">LEB</span>
+<span class="n">ubi_device_erase_peb</span><span class="p">()</span>     <span class="o">--</span> <span class="n">reclaim</span> <span class="n">dirty</span> <span class="n">PEBs</span> <span class="p">(</span><span class="n">call</span> <span class="n">periodically</span><span class="p">)</span>
+<span class="n">ubi_volume_remove</span><span class="p">()</span>        <span class="o">--</span> <span class="n">remove</span> <span class="n">volumes</span> <span class="n">when</span> <span class="n">no</span> <span class="n">longer</span> <span class="n">needed</span>
+<span class="n">ubi_device_deinit</span><span class="p">()</span>        <span class="o">--</span> <span class="n">shut</span> <span class="n">down</span> <span class="ow">and</span> <span class="n">free</span> <span class="n">resources</span>
+</pre></div>
+</div>
+</section>
+<section id="defines">
+<h2>Defines<a class="headerlink" href="#defines" title="Link to this heading">¶</a></h2>
+<dl class="cpp macro">
+<dt class="sig sig-object cpp" id="c.UBI_VOLUME_NAME_MAX_LEN">
+<span class="target" id="ubi_8h_1a979daa9a5d9e9c4434e97841a2ccbb08"></span><span class="sig-name descname"><span class="n"><span class="pre">UBI_VOLUME_NAME_MAX_LEN</span></span></span><a class="headerlink" href="#c.UBI_VOLUME_NAME_MAX_LEN" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Maximum length of a UBI volume name including the null terminator. </p>
+</dd></dl>
+
+</section>
+<section id="data-structures">
+<h2>Data Structures<a class="headerlink" href="#data-structures" title="Link to this heading">¶</a></h2>
+<dl>
+<dt class="sig sig-object cpp">
+<span class="target" id="group__ubi__structs"></span><em><span class="pre">group</span></em> <span class="sig-name descname"><span class="pre">UBI</span> <span class="pre">Data</span> <span class="pre">Structures</span></span></dt>
+<dd><div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-enums">Enums</p>
+<dl class="cpp enum">
+<dt class="sig sig-object cpp" id="_CPPv415ubi_volume_type">
+<span id="_CPPv315ubi_volume_type"></span><span id="_CPPv215ubi_volume_type"></span><span class="target" id="group__ubi__structs_1ga625f448125d0d05e9f3bb7a8ad91ec9f"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_volume_type</span></span></span><a class="headerlink" href="#_CPPv415ubi_volume_type" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Types of UBI volumes. </p>
+<p><em>Values:</em></p>
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_volume_type22UBI_VOLUME_TYPE_STATICE">
+<span id="_CPPv3N15ubi_volume_type22UBI_VOLUME_TYPE_STATICE"></span><span id="_CPPv2N15ubi_volume_type22UBI_VOLUME_TYPE_STATICE"></span><span class="target" id="group__ubi__structs_1gga625f448125d0d05e9f3bb7a8ad91ec9faaaf810bb0c8f6e82a6fac363addb8f60"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">UBI_VOLUME_TYPE_STATIC</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_volume_type22UBI_VOLUME_TYPE_STATICE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Static volume — LEB count fixed after creation. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_volume_type23UBI_VOLUME_TYPE_DYNAMICE">
+<span id="_CPPv3N15ubi_volume_type23UBI_VOLUME_TYPE_DYNAMICE"></span><span id="_CPPv2N15ubi_volume_type23UBI_VOLUME_TYPE_DYNAMICE"></span><span class="target" id="group__ubi__structs_1gga625f448125d0d05e9f3bb7a8ad91ec9fa8f0316a82f0dd36426cbb393af3e4b6b"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">UBI_VOLUME_TYPE_DYNAMIC</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_volume_type23UBI_VOLUME_TYPE_DYNAMICE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Dynamic volume — can be resized at runtime. </p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv414ubi_flash_desc">
+<span id="_CPPv314ubi_flash_desc"></span><span id="_CPPv214ubi_flash_desc"></span><span id="ubi_flash_desc"></span><span class="target" id="structubi__flash__desc"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_flash_desc</span></span></span><a class="headerlink" href="#_CPPv414ubi_flash_desc" title="Link to this definition">¶</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;ubi.h&gt;</em></div>
+<p>Flash partition descriptor. </p>
+<p>Describes the underlying flash partition used by UBI, including its geometry (write and erase block sizes). </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14ubi_flash_desc12partition_idE">
+<span id="_CPPv3N14ubi_flash_desc12partition_idE"></span><span id="_CPPv2N14ubi_flash_desc12partition_idE"></span><span id="ubi_flash_desc::partition_id__uint8_t"></span><span class="target" id="structubi__flash__desc_1a728b13207c9aa2e2742c2c3035ccd9d7"></span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">partition_id</span></span></span><a class="headerlink" href="#_CPPv4N14ubi_flash_desc12partition_idE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Flash partition identifier (from FIXED_PARTITION_ID). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14ubi_flash_desc16write_block_sizeE">
+<span id="_CPPv3N14ubi_flash_desc16write_block_sizeE"></span><span id="_CPPv2N14ubi_flash_desc16write_block_sizeE"></span><span id="ubi_flash_desc::write_block_size__s"></span><span class="target" id="structubi__flash__desc_1a79c680f4fa61f9230ea077c124ef7ccb"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">write_block_size</span></span></span><a class="headerlink" href="#_CPPv4N14ubi_flash_desc16write_block_sizeE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Minimum write block size in bytes. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14ubi_flash_desc16erase_block_sizeE">
+<span id="_CPPv3N14ubi_flash_desc16erase_block_sizeE"></span><span id="_CPPv2N14ubi_flash_desc16erase_block_sizeE"></span><span id="ubi_flash_desc::erase_block_size__s"></span><span class="target" id="structubi__flash__desc_1a5cab2658afc3018736202d2055ae26ce"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">erase_block_size</span></span></span><a class="headerlink" href="#_CPPv4N14ubi_flash_desc16erase_block_sizeE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Erase block (sector) size in bytes. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv415ubi_device_info">
+<span id="_CPPv315ubi_device_info"></span><span id="_CPPv215ubi_device_info"></span><span id="ubi_device_info"></span><span class="target" id="structubi__device__info"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_device_info</span></span></span><a class="headerlink" href="#_CPPv415ubi_device_info" title="Link to this definition">¶</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;ubi.h&gt;</em></div>
+<p>UBI device information. </p>
+<p>Snapshot of the current device state returned by <a class="reference internal" href="#group__ubi__device_1gaafadf8af1279877137d9146587f29b1f"><span class="std std-ref">ubi_device_get_info()</span></a>. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info18read_only_degradedE">
+<span id="_CPPv3N15ubi_device_info18read_only_degradedE"></span><span id="_CPPv2N15ubi_device_info18read_only_degradedE"></span><span id="ubi_device_info::read_only_degraded__b"></span><span class="target" id="structubi__device__info_1a11f73a89792e60b3c6d22704be47115b"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">read_only_degraded</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info18read_only_degradedE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>True when reserved PEB redundancy is lost. Metadata mutations (create/resize/remove) return -EROFS. Call <a class="reference internal" href="#group__ubi__device_1ga8ea02e2d5b8596c9c6205d01941f6d8c"><span class="std std-ref">ubi_device_erase_peb()</span></a> periodically to attempt self-healing recovery. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info18reserved_peb_countE">
+<span id="_CPPv3N15ubi_device_info18reserved_peb_countE"></span><span id="_CPPv2N15ubi_device_info18reserved_peb_countE"></span><span id="ubi_device_info::reserved_peb_count__s"></span><span class="target" id="structubi__device__info_1a3cbff850a9afcd1420dc380cc846cc11"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reserved_peb_count</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info18reserved_peb_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Sum of leb_count across all volumes (PEBs reserved by volume configuration). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info14free_peb_countE">
+<span id="_CPPv3N15ubi_device_info14free_peb_countE"></span><span id="_CPPv2N15ubi_device_info14free_peb_countE"></span><span id="ubi_device_info::free_peb_count__s"></span><span class="target" id="structubi__device__info_1a8a1bad18c31b3642a2826949b67ce242"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">free_peb_count</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info14free_peb_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Free PEBs available for allocation. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info15dirty_peb_countE">
+<span id="_CPPv3N15ubi_device_info15dirty_peb_countE"></span><span id="_CPPv2N15ubi_device_info15dirty_peb_countE"></span><span id="ubi_device_info::dirty_peb_count__s"></span><span class="target" id="structubi__device__info_1a646f6a673ce147ae69c77e7705284171"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dirty_peb_count</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info15dirty_peb_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Dirty PEBs awaiting erasure. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info13bad_peb_countE">
+<span id="_CPPv3N15ubi_device_info13bad_peb_countE"></span><span id="_CPPv2N15ubi_device_info13bad_peb_countE"></span><span id="ubi_device_info::bad_peb_count__s"></span><span class="target" id="structubi__device__info_1a265b3ba7e3ccd79f083e1b769a62f176"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bad_peb_count</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info13bad_peb_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Bad PEBs detected and retired. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info6ec_avgE">
+<span id="_CPPv3N15ubi_device_info6ec_avgE"></span><span id="_CPPv2N15ubi_device_info6ec_avgE"></span><span id="ubi_device_info::ec_avg__s"></span><span class="target" id="structubi__device__info_1a5c32fa1f6f88a2e5462e44aa6697e09d"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ec_avg</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info6ec_avgE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Average erase counter across all data PEBs. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info15total_peb_countE">
+<span id="_CPPv3N15ubi_device_info15total_peb_countE"></span><span id="_CPPv2N15ubi_device_info15total_peb_countE"></span><span id="ubi_device_info::total_peb_count__s"></span><span class="target" id="structubi__device__info_1a8f640c05f788191c974bde273f6430eb"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">total_peb_count</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info15total_peb_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Total usable data PEBs on the device. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info8leb_sizeE">
+<span id="_CPPv3N15ubi_device_info8leb_sizeE"></span><span id="_CPPv2N15ubi_device_info8leb_sizeE"></span><span id="ubi_device_info::leb_size__s"></span><span class="target" id="structubi__device__info_1abd7e98dadc0244cbf7383e4fff3bf04f"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">leb_size</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info8leb_sizeE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Usable data size per LEB in bytes. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N15ubi_device_info12volume_countE">
+<span id="_CPPv3N15ubi_device_info12volume_countE"></span><span id="_CPPv2N15ubi_device_info12volume_countE"></span><span id="ubi_device_info::volume_count__s"></span><span class="target" id="structubi__device__info_1a455295a4b5cc88acf7c9dd7ea23edb44"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">volume_count</span></span></span><a class="headerlink" href="#_CPPv4N15ubi_device_info12volume_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Number of volumes on the device. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv417ubi_volume_config">
+<span id="_CPPv317ubi_volume_config"></span><span id="_CPPv217ubi_volume_config"></span><span id="ubi_volume_config"></span><span class="target" id="structubi__volume__config"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_volume_config</span></span></span><a class="headerlink" href="#_CPPv417ubi_volume_config" title="Link to this definition">¶</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;ubi.h&gt;</em></div>
+<p>Volume configuration. </p>
+<p>Describes the parameters of a UBI volume, used during volume creation and returned by <a class="reference internal" href="#group__ubi__volumes_1ga20a30e29726b210d09a213b5a2087459"><span class="std std-ref">ubi_volume_get_info()</span></a>. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N17ubi_volume_config4nameE">
+<span id="_CPPv3N17ubi_volume_config4nameE"></span><span id="_CPPv2N17ubi_volume_config4nameE"></span><span id="ubi_volume_config::name__cA"></span><span class="target" id="structubi__volume__config_1a0d431be78c366b47321050e0232aedec"></span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">name</span></span></span><span class="p"><span class="pre">[</span></span><span class="n"><span class="pre">UBI_VOLUME_NAME_MAX_LEN</span></span><span class="p"><span class="pre">]</span></span><a class="headerlink" href="#_CPPv4N17ubi_volume_config4nameE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Volume name. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N17ubi_volume_config4typeE">
+<span id="_CPPv3N17ubi_volume_config4typeE"></span><span id="_CPPv2N17ubi_volume_config4typeE"></span><span id="ubi_volume_config::type__ubi_volume_type"></span><span class="target" id="structubi__volume__config_1af958f5433fccda0eeeb204c0cb4af783"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv415ubi_volume_type" title="ubi_volume_type"><span class="n"><span class="pre">ubi_volume_type</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">type</span></span></span><a class="headerlink" href="#_CPPv4N17ubi_volume_config4typeE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Volume type. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N17ubi_volume_config9leb_countE">
+<span id="_CPPv3N17ubi_volume_config9leb_countE"></span><span id="_CPPv2N17ubi_volume_config9leb_countE"></span><span id="ubi_volume_config::leb_count__s"></span><span class="target" id="structubi__volume__config_1acd9964e28960330f79a90edd742bccfd"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">leb_count</span></span></span><a class="headerlink" href="#_CPPv4N17ubi_volume_config9leb_countE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Number of logical erase blocks. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="device-management">
+<h2>Device Management<a class="headerlink" href="#device-management" title="Link to this heading">¶</a></h2>
+<dl>
+<dt class="sig sig-object cpp">
+<span class="target" id="group__ubi__device"></span><em><span class="pre">group</span></em> <span class="sig-name descname"><span class="pre">UBI</span> <span class="pre">Device</span> <span class="pre">Management</span></span></dt>
+<dd><p>Functions for device initialization, shutdown, statistics, and PEB reclamation. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Thread safety</strong>: all functions in this group use a per-device mutex. They must NOT be called from ISR context. </p>
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv415ubi_device_initPK14ubi_flash_descPK17ubi_secure_configPP10ubi_device">
+<span id="_CPPv315ubi_device_initPK14ubi_flash_descPK17ubi_secure_configPP10ubi_device"></span><span id="_CPPv215ubi_device_initPK14ubi_flash_descPK17ubi_secure_configPP10ubi_device"></span><span id="ubi_device_init__ubi_flash_descCP.ubi_secure_configCP.ubi_devicePP"></span><span class="target" id="group__ubi__device_1gaab71dda1c372f82101023d5d6339cee2"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_device_init</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv414ubi_flash_desc" title="ubi_flash_desc"><span class="n"><span class="pre">ubi_flash_desc</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">flash</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_secure_config</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">secure_cfg</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv415ubi_device_initPK14ubi_flash_descPK17ubi_secure_configPP10ubi_device" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Initialize a UBI device on the given flash partition. </p>
+<p>Scans the flash partition, formats it on first use, and builds the in-memory PEB and volume tables. On success, *ubi points to the allocated device handle; on failure, *ubi is set to NULL.</p>
+<p>Only one active handle per flash partition is allowed. A second call with the same partition_id while a handle is still alive returns -EBUSY.</p>
+<p>If the reserved PEB area has lost redundancy (one copy damaged), initialization still succeeds but the device enters degraded read-only mode — check <code class="docutils literal notranslate"><a class="reference internal" href="#structubi__device__info_1a11f73a89792e60b3c6d22704be47115b"><span class="std std-ref"><span class="pre">ubi_device_info.read_only_degraded</span></span></a></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>flash</strong> – <strong>[in]</strong> Flash partition descriptor (caller retains ownership). </p></li>
+<li><p><strong>secure_cfg</strong> – <strong>[in]</strong> Crypto configuration for secure mode, or NULL for plain. When non-NULL the secure backend is selected; when NULL the plain backend is selected. </p></li>
+<li><p><strong>ubi</strong> – <strong>[out]</strong> Pointer to receive the UBI device handle. Set to NULL on failure.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success (device may be degraded — query info to check). </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer or invalid flash geometry. </p></li>
+<li><p><strong>-EBUSY</strong> – A handle for this partition is already active. </p></li>
+<li><p><strong>-ENOMEM</strong> – Heap allocation failure. </p></li>
+<li><p><strong>-ENODEV</strong> – Flash device not ready. </p></li>
+<li><p><strong>-ENOTSUP</strong> – Secure backend requested but not available. </p></li>
+<li><p><strong>-EIO</strong> – Unrecoverable flash I/O error. </p></li>
+</ul>
+</dd>
+<dt class="field-odd">Pre<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">flash</span></code> fields must be non-zero and geometrically consistent: write_block_size &gt; 0, erase_block_size &gt; 0, erase_block_size % write_block_size == 0, partition size % erase_block_size == 0, partition must hold at least UBI_DEV_HDR_NR_OF_RES_PEBS + 1 PEBs.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv419ubi_device_get_infoP10ubi_deviceP15ubi_device_info">
+<span id="_CPPv319ubi_device_get_infoP10ubi_deviceP15ubi_device_info"></span><span id="_CPPv219ubi_device_get_infoP10ubi_deviceP15ubi_device_info"></span><span id="ubi_device_get_info__ubi_deviceP.ubi_device_infoP"></span><span class="target" id="group__ubi__device_1gaafadf8af1279877137d9146587f29b1f"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_device_get_info</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv415ubi_device_info" title="ubi_device_info"><span class="n"><span class="pre">ubi_device_info</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">info</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv419ubi_device_get_infoP10ubi_deviceP15ubi_device_info" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query the current state of a UBI device. </p>
+<p>Populates <code class="docutils literal notranslate"><span class="pre">info</span></code> with PEB counts, LEB geometry, volume statistics, and the degraded-mode flag. This is a lightweight operation that reads only cached in-memory state (no flash I/O).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle (must be initialized). </p></li>
+<li><p><strong>info</strong> – <strong>[out]</strong> Device information output (zeroed, then populated).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv420ubi_device_erase_pebP10ubi_device">
+<span id="_CPPv320ubi_device_erase_pebP10ubi_device"></span><span id="_CPPv220ubi_device_erase_pebP10ubi_device"></span><span id="ubi_device_erase_peb__ubi_deviceP"></span><span class="target" id="group__ubi__device_1ga8ea02e2d5b8596c9c6205d01941f6d8c"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_device_erase_peb</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv420ubi_device_erase_pebP10ubi_device" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Reclaim one dirty PEB and attempt reserved PEB bank recovery. </p>
+<p>Normal path: erases the highest-priority dirty PEB and moves it to the free pool. Also attempts to recover bad PEBs via erase torture.</p>
+<p>Recovery path: when the device is in degraded read-only mode (<code class="docutils literal notranslate"><span class="pre">read_only_degraded</span></code> is true), this function additionally attempts to recover the reserved PEB bank after its normal maintenance cycle. If recovery succeeds (corrupt reserved PEB erased and rewritten from the surviving copy), the degraded flag is cleared and the device returns to read-write operation. The application should keep calling this function periodically (e.g. in a GC loop) so that transient flash errors can self-heal without a reboot.</p>
+<p>If no dirty PEBs exist and the device is healthy, returns 0 immediately.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle.</p>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success (or no dirty PEBs to reclaim). </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer. </p></li>
+<li><p><strong>-EROFS</strong> – Blocked by test write-shutdown (test builds only). </p></li>
+<li><p><strong>-EIO</strong> – Flash erase/write failure. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417ubi_device_deinitP10ubi_device">
+<span id="_CPPv317ubi_device_deinitP10ubi_device"></span><span id="_CPPv217ubi_device_deinitP10ubi_device"></span><span id="ubi_device_deinit__ubi_deviceP"></span><span class="target" id="group__ubi__device_1ga26d614b4e881fc67f6e48e1398a9c528"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_device_deinit</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417ubi_device_deinitP10ubi_device" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Shut down a UBI device and release all resources. </p>
+<p>Acquires the device mutex to wait for any in-flight operations to complete, then frees all in-memory structures. The handle must not be used after this call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle (may be partially initialized).</p>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer. </p></li>
+</ul>
+</dd>
+<dt class="field-odd">Pre<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The caller must ensure no other thread will start new operations on this handle after calling deinit. In-flight operations that already hold the mutex will complete before teardown proceeds.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="volume-management">
+<h2>Volume Management<a class="headerlink" href="#volume-management" title="Link to this heading">¶</a></h2>
+<dl>
+<dt class="sig sig-object cpp">
+<span class="target" id="group__ubi__volumes"></span><em><span class="pre">group</span></em> <span class="sig-name descname"><span class="pre">UBI</span> <span class="pre">Volume</span> <span class="pre">Management</span></span></dt>
+<dd><p>Functions to create, resize, remove, and query volumes. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Thread safety</strong>: all functions in this group use a per-device mutex. They must NOT be called from ISR context.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Volume create, resize, and remove modify on-flash metadata in the reserved PEB area. They will fail with <code class="docutils literal notranslate"><span class="pre">-EROFS</span></code> if the device is in degraded read-only mode (see <code class="docutils literal notranslate"><a class="reference internal" href="#structubi__device__info_1a11f73a89792e60b3c6d22704be47115b"><span class="std std-ref"><span class="pre">ubi_device_info.read_only_degraded</span></span></a></code>). </p>
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417ubi_volume_createP10ubi_devicePK17ubi_volume_configPi">
+<span id="_CPPv317ubi_volume_createP10ubi_devicePK17ubi_volume_configPi"></span><span id="_CPPv217ubi_volume_createP10ubi_devicePK17ubi_volume_configPi"></span><span id="ubi_volume_create__ubi_deviceP.ubi_volume_configCP.iP"></span><span class="target" id="group__ubi__volumes_1gab5e46c7792494e1876257cc00d0ecf86"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_volume_create</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv417ubi_volume_config" title="ubi_volume_config"><span class="n"><span class="pre">ubi_volume_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vol_cfg</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vol_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417ubi_volume_createP10ubi_devicePK17ubi_volume_configPi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Create a new UBI volume. </p>
+<p>If a volume with the same name already exists and has an identical configuration (type and leb_count), the call succeeds and returns the existing volume’s identifier (idempotent create). If the name matches but the configuration differs, -EEXIST is returned.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle (must be initialized). </p></li>
+<li><p><strong>vol_cfg</strong> – <strong>[in]</strong> Volume configuration (name, type, LEB count). </p></li>
+<li><p><strong>vol_id</strong> – <strong>[out]</strong> Assigned volume identifier.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success (including idempotent duplicate). </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid name, invalid type, or leb_count == 0. </p></li>
+<li><p><strong>-ENOSPC</strong> – Not enough free PEBs for the requested LEB count. </p></li>
+<li><p><strong>-EEXIST</strong> – A volume with the same name but different configuration exists. </p></li>
+<li><p><strong>-EROFS</strong> – Device is in degraded read-only mode. </p></li>
+<li><p><strong>-ENOMEM</strong> – Heap allocation failure. </p></li>
+</ul>
+</dd>
+<dt class="field-odd">Pre<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">vol_cfg-&gt;name</span></code> must be NUL-terminated within UBI_VOLUME_NAME_MAX_LEN bytes and non-empty. </p>
+</dd>
+<dt class="field-even">Pre<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">vol_cfg-&gt;type</span></code> must be a valid <code class="docutils literal notranslate"><span class="pre">ubi_volume_type</span></code> enumerator. </p>
+</dd>
+<dt class="field-odd">Pre<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">vol_cfg-&gt;leb_count</span></code> must be &gt; 0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417ubi_volume_resizeP10ubi_deviceiPK17ubi_volume_config">
+<span id="_CPPv317ubi_volume_resizeP10ubi_deviceiPK17ubi_volume_config"></span><span id="_CPPv217ubi_volume_resizeP10ubi_deviceiPK17ubi_volume_config"></span><span id="ubi_volume_resize__ubi_deviceP.i.ubi_volume_configCP"></span><span class="target" id="group__ubi__volumes_1gae2996ea52e3f27d67b7cddaf42ddd625"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_volume_resize</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv417ubi_volume_config" title="ubi_volume_config"><span class="n"><span class="pre">ubi_volume_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vol_cfg</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417ubi_volume_resizeP10ubi_deviceiPK17ubi_volume_config" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Resize an existing UBI volume. </p>
+<p>Only dynamic volumes may be resized. The new <code class="docutils literal notranslate"><span class="pre">leb_count</span></code> must differ from the current one. When growing, the additional PEBs are reserved but not mapped until written. When shrinking, mapped LEBs beyond the new count are unmapped and their PEBs reclaimed to the dirty pool.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>vol_cfg</strong> – <strong>[in]</strong> New volume configuration (only leb_count is used).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer or leb_count == 0. </p></li>
+<li><p><strong>-ENOENT</strong> – Volume with given vol_id does not exist. </p></li>
+<li><p><strong>-ECANCELED</strong> – Static volume, or leb_count unchanged. </p></li>
+<li><p><strong>-ENOSPC</strong> – Not enough free PEBs to grow. </p></li>
+<li><p><strong>-EROFS</strong> – Device is in degraded read-only mode. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417ubi_volume_removeP10ubi_devicei">
+<span id="_CPPv317ubi_volume_removeP10ubi_devicei"></span><span id="_CPPv217ubi_volume_removeP10ubi_devicei"></span><span id="ubi_volume_remove__ubi_deviceP.i"></span><span class="target" id="group__ubi__volumes_1ga3eecd0437a1074d1ddfb53ea1e2f385b"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_volume_remove</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417ubi_volume_removeP10ubi_devicei" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Remove an existing UBI volume. </p>
+<p>Removes the volume’s on-flash header and reclaims all mapped PEBs to the dirty pool.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer. </p></li>
+<li><p><strong>-ENOENT</strong> – Volume with given vol_id does not exist. </p></li>
+<li><p><strong>-EROFS</strong> – Device is in degraded read-only mode. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv419ubi_volume_get_infoP10ubi_deviceiP17ubi_volume_configP6size_t">
+<span id="_CPPv319ubi_volume_get_infoP10ubi_deviceiP17ubi_volume_configP6size_t"></span><span id="_CPPv219ubi_volume_get_infoP10ubi_deviceiP17ubi_volume_configP6size_t"></span><span id="ubi_volume_get_info__ubi_deviceP.i.ubi_volume_configP.sP"></span><span class="target" id="group__ubi__volumes_1ga20a30e29726b210d09a213b5a2087459"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_volume_get_info</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv417ubi_volume_config" title="ubi_volume_config"><span class="n"><span class="pre">ubi_volume_config</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">vol_cfg</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">alloc_lebs</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv419ubi_volume_get_infoP10ubi_deviceiP17ubi_volume_configP6size_t" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Query volume configuration and allocation. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>vol_cfg</strong> – <strong>[out]</strong> Returned volume configuration. </p></li>
+<li><p><strong>alloc_lebs</strong> – <strong>[out]</strong> Number of LEBs currently mapped (with data written).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer. </p></li>
+<li><p><strong>-ENOENT</strong> – Volume with given vol_id does not exist. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="leb-i-o">
+<h2>LEB I/O<a class="headerlink" href="#leb-i-o" title="Link to this heading">¶</a></h2>
+<dl>
+<dt class="sig sig-object cpp">
+<span class="target" id="group__ubi__io"></span><em><span class="pre">group</span></em> <span class="sig-name descname"><span class="pre">UBI</span> <span class="pre">LEB</span> <span class="pre">Operations</span></span></dt>
+<dd><p>Functions to map, unmap, read, write, and query logical erase blocks. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Thread safety</strong>: all functions in this group use a per-device mutex. They must NOT be called from ISR context. </p>
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv413ubi_leb_writeP10ubi_devicei6size_tPKv6size_t">
+<span id="_CPPv313ubi_leb_writeP10ubi_devicei6size_tPKv6size_t"></span><span id="_CPPv213ubi_leb_writeP10ubi_devicei6size_tPKv6size_t"></span><span id="ubi_leb_write__ubi_deviceP.i.s.voidCP.s"></span><span class="target" id="group__ubi__io_1ga4cf01df39e0c947e74664d979e5993bf"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_leb_write</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lnum</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">buf</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv413ubi_leb_writeP10ubi_devicei6size_tPKv6size_t" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Write data to a logical erase block (LEB). </p>
+<p>Maps the LEB if not already mapped, then writes <code class="docutils literal notranslate"><span class="pre">len</span></code> bytes from <code class="docutils literal notranslate"><span class="pre">buf</span></code>. Works for both static and dynamic volumes. <code class="docutils literal notranslate"><span class="pre">len</span></code> must not exceed the LEB data size. Unaligned lengths are internally padded to <code class="docutils literal notranslate"><span class="pre">flash.write_block_size</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>lnum</strong> – <strong>[in]</strong> Logical block number (must be &lt; vol_cfg.leb_count). </p></li>
+<li><p><strong>buf</strong> – <strong>[in]</strong> Data buffer to write (caller retains ownership). </p></li>
+<li><p><strong>len</strong> – <strong>[in]</strong> Number of bytes to write from <code class="docutils literal notranslate"><span class="pre">buf</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid vol_id, or lnum out of range. </p></li>
+<li><p><strong>-EIO</strong> – Flash write failure. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv412ubi_leb_readP10ubi_devicei6size_t6size_tPv6size_t">
+<span id="_CPPv312ubi_leb_readP10ubi_devicei6size_t6size_tPv6size_t"></span><span id="_CPPv212ubi_leb_readP10ubi_devicei6size_t6size_tPv6size_t"></span><span id="ubi_leb_read__ubi_deviceP.i.s.s.voidP.s"></span><span class="target" id="group__ubi__io_1ga1ca88418e269a3b00c03261f8a7a9163"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_leb_read</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lnum</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">buf</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">len</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv412ubi_leb_readP10ubi_devicei6size_t6size_tPv6size_t" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Read data from a logical erase block (LEB). </p>
+<p>Reads <code class="docutils literal notranslate"><span class="pre">len</span></code> bytes starting at <code class="docutils literal notranslate"><span class="pre">offset</span></code> from the LEB into <code class="docutils literal notranslate"><span class="pre">buf</span></code>. The LEB must be mapped (written to) before reading.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>lnum</strong> – <strong>[in]</strong> Logical block number (must be &lt; vol_cfg.leb_count). </p></li>
+<li><p><strong>offset</strong> – <strong>[in]</strong> Byte offset within the LEB to start reading. </p></li>
+<li><p><strong>buf</strong> – <strong>[out]</strong> Buffer to receive the data. </p></li>
+<li><p><strong>len</strong> – <strong>[in]</strong> Number of bytes to read.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid vol_id, lnum out of range, or offset+len overflow. </p></li>
+<li><p><strong>-EIO</strong> – Flash read failure. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv411ubi_leb_mapP10ubi_devicei6size_t">
+<span id="_CPPv311ubi_leb_mapP10ubi_devicei6size_t"></span><span id="_CPPv211ubi_leb_mapP10ubi_devicei6size_t"></span><span id="ubi_leb_map__ubi_deviceP.i.s"></span><span class="target" id="group__ubi__io_1ga416e60703b5d2efaa4bd52a9158c1b27"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_leb_map</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lnum</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv411ubi_leb_mapP10ubi_devicei6size_t" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Map a logical erase block (LEB) to a physical block. </p>
+<p>Allocates a free PEB for the given LEB. The PEB is erased and headers are written. If the LEB is already mapped, returns success.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>lnum</strong> – <strong>[in]</strong> Logical block number (must be &lt; vol_cfg.leb_count).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid vol_id, or lnum out of range. </p></li>
+<li><p><strong>-ENOSPC</strong> – No free PEBs available. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv413ubi_leb_unmapP10ubi_devicei6size_t">
+<span id="_CPPv313ubi_leb_unmapP10ubi_devicei6size_t"></span><span id="_CPPv213ubi_leb_unmapP10ubi_devicei6size_t"></span><span id="ubi_leb_unmap__ubi_deviceP.i.s"></span><span class="target" id="group__ubi__io_1gafb9d9f338179776e5e4b3433476cbf68"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_leb_unmap</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lnum</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv413ubi_leb_unmapP10ubi_devicei6size_t" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Unmap a logical erase block (LEB). </p>
+<p>Reclaims the PEB backing the given LEB to the dirty pool. If the LEB is not mapped, returns success.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>lnum</strong> – <strong>[in]</strong> Logical block number (must be &lt; vol_cfg.leb_count).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid vol_id, or lnum out of range. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417ubi_leb_is_mappedP10ubi_devicei6size_tPb">
+<span id="_CPPv317ubi_leb_is_mappedP10ubi_devicei6size_tPb"></span><span id="_CPPv217ubi_leb_is_mappedP10ubi_devicei6size_tPb"></span><span id="ubi_leb_is_mapped__ubi_deviceP.i.s.bP"></span><span class="target" id="group__ubi__io_1gad86beaf4b2355a364c72ab3b229b8256"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_leb_is_mapped</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lnum</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">is_mapped</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417ubi_leb_is_mappedP10ubi_devicei6size_tPb" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Check whether a logical erase block is mapped. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>lnum</strong> – <strong>[in]</strong> Logical block number (must be &lt; vol_cfg.leb_count). </p></li>
+<li><p><strong>is_mapped</strong> – <strong>[out]</strong> Set to true if the LEB is mapped, false otherwise.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid vol_id, or lnum out of range. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv416ubi_leb_get_sizeP10ubi_devicei6size_tP6size_t">
+<span id="_CPPv316ubi_leb_get_sizeP10ubi_devicei6size_tP6size_t"></span><span id="_CPPv216ubi_leb_get_sizeP10ubi_devicei6size_tP6size_t"></span><span id="ubi_leb_get_size__ubi_deviceP.i.s.sP"></span><span class="target" id="group__ubi__io_1ga154cb6500a704e98cdcf5f8337437e7c"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ubi_leb_get_size</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">ubi_device</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ubi</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">vol_id</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">lnum</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv416ubi_leb_get_sizeP10ubi_devicei6size_tP6size_t" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Get the data size of a mapped LEB. </p>
+<p>Returns the number of user data bytes stored in the LEB. The LEB must be mapped.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ubi</strong> – <strong>[in]</strong> UBI device handle. </p></li>
+<li><p><strong>vol_id</strong> – <strong>[in]</strong> Volume identifier. </p></li>
+<li><p><strong>lnum</strong> – <strong>[in]</strong> Logical block number (must be &lt; vol_cfg.leb_count). </p></li>
+<li><p><strong>size</strong> – <strong>[out]</strong> Data size in bytes stored in the LEB.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return values<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>0</strong> – Success. </p></li>
+<li><p><strong>-EINVAL</strong> – NULL pointer, invalid vol_id, or lnum out of range. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="test-api-config-ubi-test-api-enable">
+<h2>Test API (CONFIG_UBI_TEST_API_ENABLE)<a class="headerlink" href="#test-api-config-ubi-test-api-enable" title="Link to this heading">¶</a></h2>
+<p>These functions are only available when <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_API_ENABLE=y</span></code>.
+Do not enable in production builds. They are included in the Device Management
+group above.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="kconfig_reference.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Kconfig Reference</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../architecture/secure_overview.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Secure Architecture: Overview</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Kamil Kielbasa
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/kamil-kielbasa/ubi" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">API Reference</a><ul>
+<li><a class="reference internal" href="#usage-notes">Usage Notes</a></li>
+<li><a class="reference internal" href="#defines">Defines</a><ul>
+<li><a class="reference internal" href="#c.UBI_VOLUME_NAME_MAX_LEN"><code class="docutils literal notranslate"><span class="pre">UBI_VOLUME_NAME_MAX_LEN</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#data-structures">Data Structures</a><ul>
+<li><a class="reference internal" href="#_CPPv415ubi_volume_type"><code class="docutils literal notranslate"><span class="pre">ubi_volume_type</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N15ubi_volume_type22UBI_VOLUME_TYPE_STATICE"><code class="docutils literal notranslate"><span class="pre">UBI_VOLUME_TYPE_STATIC</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_volume_type23UBI_VOLUME_TYPE_DYNAMICE"><code class="docutils literal notranslate"><span class="pre">UBI_VOLUME_TYPE_DYNAMIC</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#_CPPv414ubi_flash_desc"><code class="docutils literal notranslate"><span class="pre">ubi_flash_desc</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N14ubi_flash_desc12partition_idE"><code class="docutils literal notranslate"><span class="pre">partition_id</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N14ubi_flash_desc16write_block_sizeE"><code class="docutils literal notranslate"><span class="pre">write_block_size</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N14ubi_flash_desc16erase_block_sizeE"><code class="docutils literal notranslate"><span class="pre">erase_block_size</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#_CPPv415ubi_device_info"><code class="docutils literal notranslate"><span class="pre">ubi_device_info</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info18read_only_degradedE"><code class="docutils literal notranslate"><span class="pre">read_only_degraded</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info18reserved_peb_countE"><code class="docutils literal notranslate"><span class="pre">reserved_peb_count</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info14free_peb_countE"><code class="docutils literal notranslate"><span class="pre">free_peb_count</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info15dirty_peb_countE"><code class="docutils literal notranslate"><span class="pre">dirty_peb_count</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info13bad_peb_countE"><code class="docutils literal notranslate"><span class="pre">bad_peb_count</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info6ec_avgE"><code class="docutils literal notranslate"><span class="pre">ec_avg</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info15total_peb_countE"><code class="docutils literal notranslate"><span class="pre">total_peb_count</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info8leb_sizeE"><code class="docutils literal notranslate"><span class="pre">leb_size</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N15ubi_device_info12volume_countE"><code class="docutils literal notranslate"><span class="pre">volume_count</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#_CPPv417ubi_volume_config"><code class="docutils literal notranslate"><span class="pre">ubi_volume_config</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N17ubi_volume_config4nameE"><code class="docutils literal notranslate"><span class="pre">name</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N17ubi_volume_config4typeE"><code class="docutils literal notranslate"><span class="pre">type</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N17ubi_volume_config9leb_countE"><code class="docutils literal notranslate"><span class="pre">leb_count</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#device-management">Device Management</a><ul>
+<li><a class="reference internal" href="#_CPPv415ubi_device_initPK14ubi_flash_descPK17ubi_secure_configPP10ubi_device"><code class="docutils literal notranslate"><span class="pre">ubi_device_init()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv419ubi_device_get_infoP10ubi_deviceP15ubi_device_info"><code class="docutils literal notranslate"><span class="pre">ubi_device_get_info()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv420ubi_device_erase_pebP10ubi_device"><code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv417ubi_device_deinitP10ubi_device"><code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#volume-management">Volume Management</a><ul>
+<li><a class="reference internal" href="#_CPPv417ubi_volume_createP10ubi_devicePK17ubi_volume_configPi"><code class="docutils literal notranslate"><span class="pre">ubi_volume_create()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv417ubi_volume_resizeP10ubi_deviceiPK17ubi_volume_config"><code class="docutils literal notranslate"><span class="pre">ubi_volume_resize()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv417ubi_volume_removeP10ubi_devicei"><code class="docutils literal notranslate"><span class="pre">ubi_volume_remove()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv419ubi_volume_get_infoP10ubi_deviceiP17ubi_volume_configP6size_t"><code class="docutils literal notranslate"><span class="pre">ubi_volume_get_info()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#leb-i-o">LEB I/O</a><ul>
+<li><a class="reference internal" href="#_CPPv413ubi_leb_writeP10ubi_devicei6size_tPKv6size_t"><code class="docutils literal notranslate"><span class="pre">ubi_leb_write()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv412ubi_leb_readP10ubi_devicei6size_t6size_tPv6size_t"><code class="docutils literal notranslate"><span class="pre">ubi_leb_read()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv411ubi_leb_mapP10ubi_devicei6size_t"><code class="docutils literal notranslate"><span class="pre">ubi_leb_map()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv413ubi_leb_unmapP10ubi_devicei6size_t"><code class="docutils literal notranslate"><span class="pre">ubi_leb_unmap()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv417ubi_leb_is_mappedP10ubi_devicei6size_tPb"><code class="docutils literal notranslate"><span class="pre">ubi_leb_is_mapped()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv416ubi_leb_get_sizeP10ubi_devicei6size_tP6size_t"><code class="docutils literal notranslate"><span class="pre">ubi_leb_get_size()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-api-config-ubi-test-api-enable">Test API (CONFIG_UBI_TEST_API_ENABLE)</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>

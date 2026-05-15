@@ -1,0 +1,755 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Configuration" href="configuration.html" /><link rel="prev" title="Secure UBI Workflow" href="secure_workflow.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>Environment Setup - UBI on Zephyr</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=312cd7bf" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UBI on Zephyr</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UBI on Zephyr</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/what_is_ubi.html">What is UBI?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/comparison.html">Comparison: UBI vs LittleFS vs NVS vs ZMS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/concepts.html">Concepts at a Glance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="plain_workflow.html">Plain UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="secure_workflow.html">Secure UBI Workflow</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Environment Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cookbook.html">Cookbook</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/plain_architecture.html">Architecture Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/secure_overview.html">Secure Architecture: Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../reference/api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/kconfig_reference.html">Kconfig Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/error_codes.html">Error Codes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/onflash_format_spec.html">Secure On-Flash Format Specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/test_strategy.html">Test Strategy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/changelog.html">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/blob/main/doc/guide/environment_setup.md?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/edit/main/doc/guide/environment_setup.md" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="environment-setup">
+<h1>Environment Setup<a class="headerlink" href="#environment-setup" title="Link to this heading">¶</a></h1>
+<p>Build, flash, and debug guide for UBI on Zephyr.</p>
+<p>Supported boards:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Board</p></th>
+<th class="head"><p>Target</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">native_sim</span></code></p></td>
+<td><p>Host (x86)</p></td>
+<td><p>Zephyr simulator — no hardware required</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code></p></td>
+<td><p>STM32U585 (Cortex-M33)</p></td>
+<td><p>ST B-U585I-IOT02A discovery kit</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code></p></td>
+<td><p>nRF5340 (Cortex-M33)</p></td>
+<td><p>Nordic nRF5340 DK, application core</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Purpose</p></th>
+<th class="head"><p>Install</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference external" href="https://docs.zephyrproject.org/latest/develop/west/index.html">west</a></p></td>
+<td><p>Zephyr meta-tool (build, flash, manage manifests)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">west</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html">Zephyr SDK</a></p></td>
+<td><p>Cross-compilation toolchain</p></td>
+<td><p>See Zephyr docs</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://www.st.com/en/development-tools/stm32cubeprog.html">STM32CubeProgrammer CLI</a></p></td>
+<td><p>Flash erase and programming (STM32 only)</p></td>
+<td><p>ST website</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://www.nordicsemi.com/Products/Development-tools/nRF-Command-Line-Tools">nRF Command Line Tools</a></p></td>
+<td><p>Flash and debug (nRF5340 only)</p></td>
+<td><p>Nordic website</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://github.com/npat-efault/picocom">picocom</a></p></td>
+<td><p>Serial terminal for UART output (hardware only)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">picocom</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://clang.llvm.org/docs/ClangFormat.html">clang-format</a></p></td>
+<td><p>Code formatting (optional)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">clang-format</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="initialize-workspace">
+<h2>1. Initialize Workspace<a class="headerlink" href="#initialize-workspace" title="Link to this heading">¶</a></h2>
+<p>Set up the Zephyr west workspace and fetch dependencies:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>init<span class="w"> </span>-l<span class="w"> </span>.
+west<span class="w"> </span>update<span class="w"> </span>--narrow<span class="w"> </span>-o<span class="o">=</span>--depth<span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="code-formatting-optional">
+<h2>2. Code Formatting (Optional)<a class="headerlink" href="#code-formatting-optional" title="Link to this heading">¶</a></h2>
+<p>Apply the project’s <code class="docutils literal notranslate"><span class="pre">.clang-format</span></code> rules to all source files:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./scripts/format.sh
+</pre></div>
+</div>
+</section>
+<section id="build">
+<h2>3. Build<a class="headerlink" href="#build" title="Link to this heading">¶</a></h2>
+<p>UBI tests can be built in three <strong>backend modes</strong> and two <strong>memory backends</strong>, on any supported board.</p>
+<section id="backend-modes">
+<h3>Backend Modes<a class="headerlink" href="#backend-modes" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Mode</p></th>
+<th class="head"><p>Overlay</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Plain</p></td>
+<td><p><em>(none)</em></p></td>
+<td><p>No encryption — default when no overlay is specified</p></td>
+</tr>
+<tr class="row-odd"><td><p>Secure</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">boards/native_sim_secure.conf</span></code> / <code class="docutils literal notranslate"><span class="pre">boards/secure.conf</span></code></p></td>
+<td><p>AES-128-CCM authenticated encryption (PSA Crypto)</p></td>
+</tr>
+<tr class="row-even"><td><p>Secure + chunked</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">boards/native_sim_secure_chunked.conf</span></code></p></td>
+<td><p>Secure with chunked LEB mode (256 B chunks, partial-read support)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="memory-backends">
+<h3>Memory Backends<a class="headerlink" href="#memory-backends" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Backend</p></th>
+<th class="head"><p>Kconfig</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Static (default)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_MEM_BACKEND_STATIC=y</span></code></p></td>
+<td><p>Fixed-size <code class="docutils literal notranslate"><span class="pre">k_mem_slab</span></code> pools sized at compile time</p></td>
+</tr>
+<tr class="row-odd"><td><p>Heap</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_MEM_BACKEND_HEAP=y</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">k_malloc</span></code> / <code class="docutils literal notranslate"><span class="pre">k_free</span></code> from the global Zephyr heap</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="native-sim-simulator">
+<h3>3.1 native_sim (simulator)<a class="headerlink" href="#native-sim-simulator" title="Link to this heading">¶</a></h3>
+<p><strong>Plain</strong> (static memory, default):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native/plain<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./tests/
+</pre></div>
+</div>
+<p><strong>Plain</strong> (heap memory):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native/plain-heap<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DCONFIG_UBI_MEM_BACKEND_HEAP<span class="o">=</span>y
+</pre></div>
+</div>
+<p><strong>Secure</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native/secure<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/native_sim_secure.conf&quot;</span>
+</pre></div>
+</div>
+<p><strong>Secure</strong> (heap memory):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native/secure-heap<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/native_sim_secure.conf&quot;</span><span class="w"> </span>-DCONFIG_UBI_MEM_BACKEND_HEAP<span class="o">=</span>y
+</pre></div>
+</div>
+<p><strong>Secure + chunked LEB</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native/secure-chunked<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/native_sim_secure_chunked.conf&quot;</span>
+</pre></div>
+</div>
+<p><strong>Sample application</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native/sample<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./sample/
+</pre></div>
+</div>
+</section>
+<section id="stm32u585-b-u585i-iot02a">
+<h3>3.2 STM32U585 (b_u585i_iot02a)<a class="headerlink" href="#stm32u585-b-u585i-iot02a" title="Link to this heading">¶</a></h3>
+<p><strong>Plain</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/plain<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./tests/
+</pre></div>
+</div>
+<p><strong>Plain</strong> (heap memory):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/plain-heap<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DCONFIG_UBI_MEM_BACKEND_HEAP<span class="o">=</span>y
+</pre></div>
+</div>
+<p><strong>Secure</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/secure<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/secure.conf&quot;</span>
+</pre></div>
+</div>
+<p><strong>Secure</strong> (heap memory):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/secure-heap<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/secure.conf&quot;</span><span class="w"> </span>-DCONFIG_UBI_MEM_BACKEND_HEAP<span class="o">=</span>y
+</pre></div>
+</div>
+<p><strong>Sample application</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/sample<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./sample/
+</pre></div>
+</div>
+</section>
+<section id="nrf5340-dk-nrf5340dk-nrf5340-cpuapp">
+<h3>3.3 nRF5340 DK (nrf5340dk/nrf5340/cpuapp)<a class="headerlink" href="#nrf5340-dk-nrf5340dk-nrf5340-cpuapp" title="Link to this heading">¶</a></h3>
+<p><strong>Plain</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/plain<span class="w"> </span>-b<span class="w"> </span>nrf5340dk/nrf5340/cpuapp<span class="w"> </span>./tests/
+</pre></div>
+</div>
+<p><strong>Plain</strong> (heap memory):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/plain-heap<span class="w"> </span>-b<span class="w"> </span>nrf5340dk/nrf5340/cpuapp<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DCONFIG_UBI_MEM_BACKEND_HEAP<span class="o">=</span>y
+</pre></div>
+</div>
+<p><strong>Secure</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/secure<span class="w"> </span>-b<span class="w"> </span>nrf5340dk/nrf5340/cpuapp<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/secure.conf&quot;</span>
+</pre></div>
+</div>
+<p><strong>Secure</strong> (heap memory):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/secure-heap<span class="w"> </span>-b<span class="w"> </span>nrf5340dk/nrf5340/cpuapp<span class="w"> </span>./tests/<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--<span class="w"> </span>-DOVERLAY_CONFIG<span class="o">=</span><span class="s2">&quot;boards/secure.conf&quot;</span><span class="w"> </span>-DCONFIG_UBI_MEM_BACKEND_HEAP<span class="o">=</span>y
+</pre></div>
+</div>
+<p><strong>Sample application</strong>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/sample<span class="w"> </span>-b<span class="w"> </span>nrf5340dk/nrf5340/cpuapp<span class="w"> </span>./sample/
+</pre></div>
+</div>
+</section>
+<section id="quick-reference">
+<h3>3.4 Quick Reference<a class="headerlink" href="#quick-reference" title="Link to this heading">¶</a></h3>
+<p>All six test combinations for <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> at a glance:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Build dir</p></th>
+<th class="head"><p>Backend</p></th>
+<th class="head"><p>Memory</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">build/native/plain</span></code></p></td>
+<td><p>Plain</p></td>
+<td><p>Static</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">build/native/plain-heap</span></code></p></td>
+<td><p>Plain</p></td>
+<td><p>Heap</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">build/native/secure</span></code></p></td>
+<td><p>Secure</p></td>
+<td><p>Static</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">build/native/secure-heap</span></code></p></td>
+<td><p>Secure</p></td>
+<td><p>Heap</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">build/native/secure-chunked</span></code></p></td>
+<td><p>Secure + chunked</p></td>
+<td><p>Static</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">build/native/sample</span></code></p></td>
+<td><p>Sample app</p></td>
+<td><p>—</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="run-tests">
+<h2>4. Run Tests<a class="headerlink" href="#run-tests" title="Link to this heading">¶</a></h2>
+<section id="native-sim">
+<h3>4.1 native_sim<a class="headerlink" href="#native-sim" title="Link to this heading">¶</a></h3>
+<p>The simulator produces a host executable — run it directly:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain</span>
+./build/native/plain/zephyr/zephyr.exe
+
+<span class="c1"># Secure</span>
+./build/native/secure/zephyr/zephyr.exe
+
+<span class="c1"># Secure + chunked</span>
+./build/native/secure-chunked/zephyr/zephyr.exe
+
+<span class="c1"># Heap variants</span>
+./build/native/plain-heap/zephyr/zephyr.exe
+./build/native/secure-heap/zephyr/zephyr.exe
+</pre></div>
+</div>
+<p>Test results are printed to <code class="docutils literal notranslate"><span class="pre">stdout</span></code>. Look for <code class="docutils literal notranslate"><span class="pre">PROJECT</span> <span class="pre">EXECUTION</span> <span class="pre">SUCCESSFUL</span></code> at the end.</p>
+</section>
+<section id="stm32u585">
+<h3>4.2 STM32U585<a class="headerlink" href="#stm32u585" title="Link to this heading">¶</a></h3>
+<p>Erase all flash contents before programming (required on first use or when switching builds):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>STM32_Programmer_CLI<span class="w"> </span>-c<span class="w"> </span><span class="nv">port</span><span class="o">=</span>SWD<span class="w"> </span>-e<span class="w"> </span>all
+</pre></div>
+</div>
+<p>Flash and run (select the build dir matching your configuration):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain</span>
+STM32_Programmer_CLI<span class="w"> </span>-c<span class="w"> </span><span class="nv">port</span><span class="o">=</span>SWD<span class="w"> </span>-d<span class="w"> </span>./build/stm32u5/plain/zephyr/zephyr.hex
+
+<span class="c1"># Secure</span>
+STM32_Programmer_CLI<span class="w"> </span>-c<span class="w"> </span><span class="nv">port</span><span class="o">=</span>SWD<span class="w"> </span>-d<span class="w"> </span>./build/stm32u5/secure/zephyr/zephyr.hex
+</pre></div>
+</div>
+<p>Open a serial terminal to observe test output:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>picocom<span class="w"> </span>-b<span class="w"> </span><span class="m">115200</span><span class="w"> </span>/dev/ttyACM0
+</pre></div>
+</div>
+<p>If you get a “permission denied” error, add your user to the <code class="docutils literal notranslate"><span class="pre">dialout</span></code> group:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>usermod<span class="w"> </span>-aG<span class="w"> </span>dialout<span class="w"> </span><span class="nv">$USER</span>
+</pre></div>
+</div>
+<p>Then log out and back in for the change to take effect.</p>
+</section>
+<section id="nrf5340-dk">
+<h3>4.3 nRF5340 DK<a class="headerlink" href="#nrf5340-dk" title="Link to this heading">¶</a></h3>
+<p>Flash and run (select the build dir matching your configuration):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain</span>
+nrfjprog<span class="w"> </span>--program<span class="w"> </span>./build/nrf5340dk/plain/zephyr/zephyr.hex<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--verify<span class="w"> </span>--sectorerase<span class="w"> </span>--reset
+
+<span class="c1"># Secure</span>
+nrfjprog<span class="w"> </span>--program<span class="w"> </span>./build/nrf5340dk/secure/zephyr/zephyr.hex<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--verify<span class="w"> </span>--sectorerase<span class="w"> </span>--reset
+</pre></div>
+</div>
+<p>Open a serial terminal to observe test output:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>picocom<span class="w"> </span>-b<span class="w"> </span><span class="m">115200</span><span class="w"> </span>/dev/ttyACM1
+</pre></div>
+</div>
+</section>
+</section>
+<section id="flash-sample-application">
+<h2>5. Flash Sample Application<a class="headerlink" href="#flash-sample-application" title="Link to this heading">¶</a></h2>
+<p>Flash the <strong>sample</strong> application to STM32U585:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>STM32_Programmer_CLI<span class="w"> </span>-c<span class="w"> </span><span class="nv">port</span><span class="o">=</span>SWD<span class="w"> </span>-d<span class="w"> </span>./build/stm32u5/sample/zephyr/zephyr.hex
+</pre></div>
+</div>
+<p>Flash the <strong>sample</strong> application to nRF5340 DK:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>nrfjprog<span class="w"> </span>--program<span class="w"> </span>./build/nrf5340dk/sample/zephyr/zephyr.hex<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--verify<span class="w"> </span>--sectorerase<span class="w"> </span>--reset
+</pre></div>
+</div>
+</section>
+<section id="measure-flash-usage">
+<h2>6. Measure Flash Usage<a class="headerlink" href="#measure-flash-usage" title="Link to this heading">¶</a></h2>
+<p>After building for the ARM target, measure the UBI library footprint:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain</span>
+arm-none-eabi-size<span class="w"> </span>build/stm32u5/plain/modules/ubi/lib/lib..__ubi__lib.a
+
+<span class="c1"># Secure</span>
+arm-none-eabi-size<span class="w"> </span>build/stm32u5/secure/modules/ubi/lib/lib..__ubi__lib.a
+</pre></div>
+</div>
+<p>For a per-section breakdown:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>arm-none-eabi-size<span class="w"> </span>-A<span class="w"> </span>build/stm32u5/plain/modules/ubi/lib/lib..__ubi__lib.a
+</pre></div>
+</div>
+<p>For the nRF5340 DK build:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>arm-none-eabi-size<span class="w"> </span>build/nrf5340dk/plain/modules/ubi/lib/lib..__ubi__lib.a
+arm-none-eabi-size<span class="w"> </span>build/nrf5340dk/secure/modules/ubi/lib/lib..__ubi__lib.a
+</pre></div>
+</div>
+<p>The CI pipeline collects this measurement automatically for both boards (see the <code class="docutils literal notranslate"><span class="pre">flash-usage-b_u585i_iot02a</span></code> and <code class="docutils literal notranslate"><span class="pre">flash-usage-nrf5340dk_cpuapp</span></code> build artifacts).</p>
+</section>
+<section id="resource-reports">
+<h2>7. Resource Reports<a class="headerlink" href="#resource-reports" title="Link to this heading">¶</a></h2>
+<p>Generate flash (ROM) and static RAM usage reports for the whole firmware image:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/sample<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./sample/<span class="w"> </span>-t<span class="w"> </span>rom_report
+west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/sample<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./sample/<span class="w"> </span>-t<span class="w"> </span>ram_report
+</pre></div>
+</div>
+<p>UBI-only library numbers (partition size vs. code size) are documented in <a class="reference internal" href="../architecture/plain_architecture.html"><span class="doc">Architecture Guide</span></a>: the DeviceTree <code class="docutils literal notranslate"><span class="pre">ubi_partition</span></code> used in this repo is <strong>128 KiB</strong> (STM32U5) / <strong>64 KiB</strong> (nRF5340); the measured <strong>library</strong> ROM footprint is <strong>~9.5 KB</strong> plain / <strong>~28.6 KB</strong> secure (Cortex-M33, <code class="docutils literal notranslate"><span class="pre">-Os</span></code>, library archive only — PSA Crypto/mbedTLS not counted).</p>
+</section>
+<section id="code-coverage">
+<h2>8. Code Coverage<a class="headerlink" href="#code-coverage" title="Link to this heading">¶</a></h2>
+<p>Generate an lcov/gcov HTML coverage report for <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> (requires <code class="docutils literal notranslate"><span class="pre">lcov</span></code>):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain backend</span>
+bash<span class="w"> </span>scripts/coverage.sh<span class="w"> </span>plain
+
+<span class="c1"># Secure backend</span>
+bash<span class="w"> </span>scripts/coverage.sh<span class="w"> </span>secure
+</pre></div>
+</div>
+<p>The script builds with coverage instrumentation, runs tests, and generates an HTML report under <code class="docutils literal notranslate"><span class="pre">build/coverage-{plain,secure}/html/index.html</span></code>.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="configuration.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Configuration</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="secure_workflow.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Secure UBI Workflow</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Kamil Kielbasa
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/kamil-kielbasa/ubi" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Environment Setup</a><ul>
+<li><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li><a class="reference internal" href="#initialize-workspace">1. Initialize Workspace</a></li>
+<li><a class="reference internal" href="#code-formatting-optional">2. Code Formatting (Optional)</a></li>
+<li><a class="reference internal" href="#build">3. Build</a><ul>
+<li><a class="reference internal" href="#backend-modes">Backend Modes</a></li>
+<li><a class="reference internal" href="#memory-backends">Memory Backends</a></li>
+<li><a class="reference internal" href="#native-sim-simulator">3.1 native_sim (simulator)</a></li>
+<li><a class="reference internal" href="#stm32u585-b-u585i-iot02a">3.2 STM32U585 (b_u585i_iot02a)</a></li>
+<li><a class="reference internal" href="#nrf5340-dk-nrf5340dk-nrf5340-cpuapp">3.3 nRF5340 DK (nrf5340dk/nrf5340/cpuapp)</a></li>
+<li><a class="reference internal" href="#quick-reference">3.4 Quick Reference</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#run-tests">4. Run Tests</a><ul>
+<li><a class="reference internal" href="#native-sim">4.1 native_sim</a></li>
+<li><a class="reference internal" href="#stm32u585">4.2 STM32U585</a></li>
+<li><a class="reference internal" href="#nrf5340-dk">4.3 nRF5340 DK</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#flash-sample-application">5. Flash Sample Application</a></li>
+<li><a class="reference internal" href="#measure-flash-usage">6. Measure Flash Usage</a></li>
+<li><a class="reference internal" href="#resource-reports">7. Resource Reports</a></li>
+<li><a class="reference internal" href="#code-coverage">8. Code Coverage</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>

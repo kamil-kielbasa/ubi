@@ -1,0 +1,548 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Secure On-Flash Format Specification" href="onflash_format_spec.html" /><link rel="prev" title="Error Codes" href="error_codes.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>Glossary - UBI on Zephyr</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=312cd7bf" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UBI on Zephyr</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UBI on Zephyr</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/what_is_ubi.html">What is UBI?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/comparison.html">Comparison: UBI vs LittleFS vs NVS vs ZMS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/concepts.html">Concepts at a Glance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/plain_workflow.html">Plain UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/secure_workflow.html">Secure UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/environment_setup.html">Environment Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cookbook.html">Cookbook</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/plain_architecture.html">Architecture Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/secure_overview.html">Secure Architecture: Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kconfig_reference.html">Kconfig Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="error_codes.html">Error Codes</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onflash_format_spec.html">Secure On-Flash Format Specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/test_strategy.html">Test Strategy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/changelog.html">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/blob/main/doc/reference/glossary.md?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/edit/main/doc/reference/glossary.md" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="glossary">
+<h1>Glossary<a class="headerlink" href="#glossary" title="Link to this heading">¶</a></h1>
+<p>A single-page lookup for every UBI-specific term used in this
+documentation. Where a concept also has a longer treatment, the entry
+links to it.</p>
+<dl class="simple glossary">
+<dt id="term-Allowlist">Allowlist<a class="headerlink" href="#term-Allowlist" title="Link to this term">¶</a></dt><dd><p>The application-supplied array <code class="docutils literal notranslate"><span class="pre">allowed_key_versions[]</span></code>. UBI
+authenticates on-flash records only if their <code class="docutils literal notranslate"><span class="pre">key_version</span></code>
+appears here; otherwise it emits
+<code class="docutils literal notranslate"><span class="pre">UBI_SECURE_EVENT_KEY_VERSION_NOT_ALLOWLISTED</span></code> and rejects the
+record.</p>
+</dd>
+<dt id="term-Attach">Attach<a class="headerlink" href="#term-Attach" title="Link to this term">¶</a></dt><dd><p>The act of mounting a UBI partition with <code class="docutils literal notranslate"><span class="pre">ubi_device_init()</span></code>. UBI
+scans every PEB, classifies it, rebuilds the EBA tables from VID
+headers, and (in Secure mode) consults the freshness store before
+enabling writes.</p>
+</dd>
+<dt id="term-Bad-PEB">Bad PEB<a class="headerlink" href="#term-Bad-PEB" title="Link to this term">¶</a></dt><dd><p>A PEB that has failed an I/O operation (invalid EC header, write
+failure, erase failure). Excluded from the free / dirty pools.
+The bad-PEB list is <strong>not</strong> persisted to flash; it is rebuilt
+from the next attach scan.</p>
+</dd>
+<dt id="term-Cold-spare">Cold spare<a class="headerlink" href="#term-Cold-spare" title="Link to this term">¶</a></dt><dd><p>A reserved PEB held in reserve, erased and unused, that is
+promoted to active on demand when one of the active reserved PEBs
+fails permanently.</p>
+</dd>
+<dt id="term-Device-header">Device header<a class="headerlink" href="#term-Device-header" title="Link to this term">¶</a></dt><dd><p>The 32-byte header on each reserved PEB describing the overall
+UBI device (<code class="docutils literal notranslate"><span class="pre">vol_count</span></code>, <code class="docutils literal notranslate"><span class="pre">revision</span></code>, <code class="docutils literal notranslate"><span class="pre">vol_id_watermark</span></code>). Stored
+in dual-bank mirrors.</p>
+</dd>
+<dt id="term-Dirty-PEB">Dirty PEB<a class="headerlink" href="#term-Dirty-PEB" title="Link to this term">¶</a></dt><dd><p>A PEB that holds stale data (overwritten LEB or unmapped LEB).
+Must be erased before re-use. Tracked in the <code class="docutils literal notranslate"><span class="pre">dirty_pebs</span></code>
+red-black tree, also keyed by EC. Reclaimed by
+<code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code>.</p>
+</dd>
+<dt id="term-Dual-bank">Dual-bank<a class="headerlink" href="#term-Dual-bank" title="Link to this term">¶</a></dt><dd><p>The crash-safe storage discipline UBI applies to reserved PEBs:
+two active reserved PEBs hold byte-identical mirrors of the
+device + volume headers. A metadata update writes both copies
+sequentially; if a crash splits the write, attach picks the
+survivor with the higher <code class="docutils literal notranslate"><span class="pre">revision</span></code>.</p>
+</dd>
+<dt id="term-Dynamic-volume">Dynamic volume<a class="headerlink" href="#term-Dynamic-volume" title="Link to this term">¶</a></dt><dd><p>A volume created with <code class="docutils literal notranslate"><span class="pre">UBI_VOLUME_TYPE_DYNAMIC</span></code>. <code class="docutils literal notranslate"><span class="pre">leb_count</span></code>
+can be changed at runtime via <code class="docutils literal notranslate"><span class="pre">ubi_volume_resize()</span></code>.</p>
+</dd>
+<dt id="term-EBA">EBA<a class="headerlink" href="#term-EBA" title="Link to this term">¶</a></dt><dd><p><strong>Erase Block Association.</strong> The per-volume mapping table from
+<code class="docutils literal notranslate"><span class="pre">lnum</span></code> (logical) to PEB index (physical). Stored in RAM as a
+red-black tree; rebuilt at attach time from the VID headers
+found on flash.</p>
+</dd>
+<dt id="term-EC">EC<a class="headerlink" href="#term-EC" title="Link to this term">¶</a></dt><dd><p><strong>Erase Counter.</strong> A 32-bit value stored in every PEB’s EC
+header, incremented on every successful erase. Drives
+wear-leveling: the next free PEB chosen for a write is always the
+one with the lowest EC.</p>
+</dd>
+<dt id="term-EC-header">EC header<a class="headerlink" href="#term-EC-header" title="Link to this term">¶</a></dt><dd><p>The 16-byte header at offset 0 of every data PEB. Contains
+<code class="docutils literal notranslate"><span class="pre">magic</span></code>, <code class="docutils literal notranslate"><span class="pre">version</span></code>, the erase counter, and <code class="docutils literal notranslate"><span class="pre">hdr_crc</span></code>. Authenticated
+by AEAD in Secure UBI.</p>
+</dd>
+<dt id="term-Erased-value">Erased value<a class="headerlink" href="#term-Erased-value" title="Link to this term">¶</a></dt><dd><p>The byte value the flash hardware reports for an erased cell.
+UBI reads this at runtime via <code class="docutils literal notranslate"><span class="pre">flash_area_erased_val()</span></code> and never
+hardcodes <code class="docutils literal notranslate"><span class="pre">0xFF</span></code> (NOR) or <code class="docutils literal notranslate"><span class="pre">0x00</span></code>.</p>
+</dd>
+<dt id="term-Free-PEB">Free PEB<a class="headerlink" href="#term-Free-PEB" title="Link to this term">¶</a></dt><dd><p>A PEB that has been erased and carries a valid EC header but no
+VID header. Tracked in the <code class="docutils literal notranslate"><span class="pre">free_pebs</span></code> red-black tree, keyed by
+EC. The least-worn free PEB is selected for the next write.</p>
+</dd>
+<dt id="term-Freshness-store">Freshness store<a class="headerlink" href="#term-Freshness-store" title="Link to this term">¶</a></dt><dd><p>External, application-owned trusted storage for the
+<code class="docutils literal notranslate"><span class="pre">(device_revision,</span> <span class="pre">global_sqnum)</span></code> pair UBI exports after a
+successful attach. Read by the <code class="docutils literal notranslate"><span class="pre">check_freshness</span></code> callback at
+attach time and updated by the optional <code class="docutils literal notranslate"><span class="pre">sync_freshness</span></code>
+callback after each commit-visible mutation. Without one, Secure
+UBI cannot detect rollback to an earlier authentic state.</p>
+</dd>
+<dt id="term-global_sqnum">global_sqnum<a class="headerlink" href="#term-global_sqnum" title="Link to this term">¶</a></dt><dd><p>The device-wide maximum <code class="docutils literal notranslate"><span class="pre">vid_sqnum</span></code>, recovered at attach time as
+the highest value found across all VID headers. The next write
+uses <code class="docutils literal notranslate"><span class="pre">global_sqnum</span> <span class="pre">+</span> <span class="pre">1</span></code>.</p>
+</dd>
+<dt id="term-Hidden-anchor">Hidden anchor<a class="headerlink" href="#term-Hidden-anchor" title="Link to this term">¶</a></dt><dd><p>A per-volume reserved data PEB Secure UBI keeps so that
+per-volume LEB usage floors survive <code class="docutils literal notranslate"><span class="pre">unmap</span></code>, <code class="docutils literal notranslate"><span class="pre">shrink</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">volume_remove</span></code>. Invisible to the application.</p>
+</dd>
+<dt id="term-IKM">IKM<a class="headerlink" href="#term-IKM" title="Link to this term">¶</a></dt><dd><p><strong>Input Keying Material.</strong> The per-version root secret of Secure
+UBI, denoted <code class="docutils literal notranslate"><span class="pre">IKM[v]</span></code> where <code class="docutils literal notranslate"><span class="pre">v</span></code> is the <code class="docutils literal notranslate"><span class="pre">key_version</span></code>. Must be
+≥ 256 bits, device-unique, and provided as a PSA key. Never
+reaches UBI as raw bytes.</p>
+</dd>
+<dt id="term-KEY_RETIRABLE">KEY_RETIRABLE<a class="headerlink" href="#term-KEY_RETIRABLE" title="Link to this term">¶</a></dt><dd><p>The Secure UBI event emitted when a non-write-active key version
+has on-flash refcount zero, meaning every PEB authenticated under
+that key has been erased or overwritten. Only at this point is it
+safe for the application to remove the version from the
+<a class="reference internal" href="#term-Allowlist"><span class="xref std std-term">allowlist</span></a> and destroy its PSA key material.</p>
+</dd>
+<dt id="term-key_version">key_version<a class="headerlink" href="#term-key_version" title="Link to this term">¶</a></dt><dd><p>An 8-bit identifier for one root key generation. Carried in
+every secure record’s prefix. The application-supplied
+<a class="reference internal" href="#term-Allowlist"><span class="xref std std-term">allowlist</span></a> enumerates the versions UBI may authenticate.</p>
+</dd>
+<dt id="term-LEB">LEB<a class="headerlink" href="#term-LEB" title="Link to this term">¶</a></dt><dd><p><strong>Logical Erase Block.</strong> A volume-relative virtual block exposed
+to the application. UBI maps each LEB to one PEB at a time via
+the EBA table. From the application’s point of view, LEBs hide
+wear-leveling, bad blocks, and crash-time PEB swaps.</p>
+</dd>
+<dt id="term-PEB">PEB<a class="headerlink" href="#term-PEB" title="Link to this term">¶</a></dt><dd><p><strong>Physical Erase Block.</strong> A hardware erase unit on the flash chip
+(typically 4 KB on internal flash, 64 KB on NAND). The smallest
+unit the flash controller can erase. UBI manages a partition as a
+sequence of PEBs.</p>
+</dd>
+<dt id="term-PRK">PRK<a class="headerlink" href="#term-PRK" title="Link to this term">¶</a></dt><dd><p><strong>Pseudo-Random Key.</strong> The HKDF-Extract output of <code class="docutils literal notranslate"><span class="pre">IKM[v]</span></code>. UBI
+HKDF-Expands it with fixed domain labels to obtain the per-domain
+child keys (<code class="docutils literal notranslate"><span class="pre">K_device_header</span></code>, <code class="docutils literal notranslate"><span class="pre">K_volume_header</span></code>, <code class="docutils literal notranslate"><span class="pre">K_erase_counter</span></code>,
+<code class="docutils literal notranslate"><span class="pre">K_volume_identifier</span></code>, <code class="docutils literal notranslate"><span class="pre">K_leb</span></code>).</p>
+</dd>
+<dt id="term-PSA-Crypto">PSA Crypto<a class="headerlink" href="#term-PSA-Crypto" title="Link to this term">¶</a></dt><dd><p>The Arm Platform Security Architecture cryptography API. Secure
+UBI consumes PSA Crypto exclusively (<code class="docutils literal notranslate"><span class="pre">AES-128-CCM</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HKDF-SHA-256</span></code>, CSPRNG); it never receives raw key bytes.</p>
+</dd>
+<dt id="term-Read-only-degraded-mode">Read-only degraded mode<a class="headerlink" href="#term-Read-only-degraded-mode" title="Link to this term">¶</a></dt><dd><p>The state UBI enters when reserved-PEB redundancy is lost (one
+active reserved PEB plus zero spares). Mutators return <code class="docutils literal notranslate"><span class="pre">-EROFS</span></code>;
+reads and <code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code> keep working, the latter
+attempting self-healing on every call.</p>
+</dd>
+<dt id="term-Reserved-generation">Reserved generation<a class="headerlink" href="#term-Reserved-generation" title="Link to this term">¶</a></dt><dd><p>One end-to-end reserved-area write cycle. Every metadata change
+advances the device-header <code class="docutils literal notranslate"><span class="pre">revision</span></code> field; the active reserved
+PEBs are then rewritten in lock-step.</p>
+</dd>
+<dt id="term-Reserved-PEB">Reserved PEB<a class="headerlink" href="#term-Reserved-PEB" title="Link to this term">¶</a></dt><dd><p>A PEB at the start of the partition that holds device + volume
+metadata, never user data. UBI keeps two reserved PEBs <strong>active</strong>
+(true dual-bank mirrors) and may keep additional ones as cold
+spares (<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS</span></code>).</p>
+</dd>
+<dt id="term-Sequence-number">Sequence number<a class="headerlink" href="#term-Sequence-number" title="Link to this term">¶</a></dt><dd><p>See <a class="reference internal" href="#term-vid_sqnum"><span class="xref std std-term">vid_sqnum</span></a> and <a class="reference internal" href="#term-global_sqnum"><span class="xref std std-term">global_sqnum</span></a>.</p>
+</dd>
+<dt id="term-Static-volume">Static volume<a class="headerlink" href="#term-Static-volume" title="Link to this term">¶</a></dt><dd><p>A volume created with <code class="docutils literal notranslate"><span class="pre">UBI_VOLUME_TYPE_STATIC</span></code>. Its <code class="docutils literal notranslate"><span class="pre">leb_count</span></code>
+is fixed at create time. <code class="docutils literal notranslate"><span class="pre">ubi_leb_unmap()</span></code> is forbidden on
+static volumes (returns <code class="docutils literal notranslate"><span class="pre">-EACCES</span></code>).</p>
+</dd>
+<dt id="term-Strict-read-only">Strict read-only<a class="headerlink" href="#term-Strict-read-only" title="Link to this term">¶</a></dt><dd><p>A sticky read-only state Secure UBI may latch when an event
+breaches policy (<code class="docutils literal notranslate"><span class="pre">STRICT_RO_ON_RNG_FAILURE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">STRICT_RO_ON_POLICY_FAILURE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">STRICT_RO_ON_FRESHNESS_SYNC_FAILURE</span></code>). Cleared only by
+<code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code>.</p>
+</dd>
+<dt id="term-Torture">Torture<a class="headerlink" href="#term-Torture" title="Link to this term">¶</a></dt><dd><p>A short erase / verify loop applied to a candidate bad PEB to
+decide whether the failure was transient. If a PEB survives the
+torture cycles configured by
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_BAD_PEB_TORTURE_*</span></code>, it returns to the free pool;
+otherwise it stays bad.</p>
+</dd>
+<dt id="term-VID-header">VID header<a class="headerlink" href="#term-VID-header" title="Link to this term">¶</a></dt><dd><p><strong>Volume Identifier header.</strong> The 32-byte header at offset 0x010
+of every mapped data PEB. Contains the <code class="docutils literal notranslate"><span class="pre">volume_id</span></code>, <code class="docutils literal notranslate"><span class="pre">lnum</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">vid_sqnum</span></code> that bind the PEB to a specific LEB of a specific
+volume. Acts as the <strong>commit point</strong> for a write — the new
+mapping becomes visible only after the VID header is written.</p>
+</dd>
+<dt id="term-vid_sqnum">vid_sqnum<a class="headerlink" href="#term-vid_sqnum" title="Link to this term">¶</a></dt><dd><p>The 64-bit monotonic sequence number stored in every VID header.
+Used at attach time to break ties when two PEBs claim the same
+<code class="docutils literal notranslate"><span class="pre">(volume_id,</span> <span class="pre">lnum)</span></code> — the higher <code class="docutils literal notranslate"><span class="pre">vid_sqnum</span></code> wins, the other PEB
+becomes dirty.</p>
+</dd>
+<dt id="term-vol_id_watermark">vol_id_watermark<a class="headerlink" href="#term-vol_id_watermark" title="Link to this term">¶</a></dt><dd><p>The 32-bit monotonic counter held in the device header. Bumped
+by every <code class="docutils literal notranslate"><span class="pre">ubi_volume_create</span></code> and never decremented. When it
+reaches <code class="docutils literal notranslate"><span class="pre">UINT32_MAX</span></code>, no further volumes can be created.</p>
+</dd>
+<dt id="term-Volume-header">Volume header<a class="headerlink" href="#term-Volume-header" title="Link to this term">¶</a></dt><dd><p>A 48-byte header describing one volume (<code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span></code>,
+<code class="docutils literal notranslate"><span class="pre">leb_count</span></code>, <code class="docutils literal notranslate"><span class="pre">volume_id</span></code>). Stored sequentially after the device
+header on the reserved PEBs, mirrored across the active reserved
+bank.</p>
+</dd>
+<dt id="term-volume_id">volume_id<a class="headerlink" href="#term-volume_id" title="Link to this term">¶</a></dt><dd><p>The durable, monotonically allocated identifier for a volume.
+Stored in the volume header, in every VID header that references
+the volume, and (in Secure mode) used as a stable cryptographic
+identity input for the per-volume LEB key. <strong>Never reused</strong> for
+the lifetime of one formatted device, even after
+<code class="docutils literal notranslate"><span class="pre">ubi_volume_remove</span></code>.</p>
+</dd>
+<dt id="term-write-active-key-version">write-active key version<a class="headerlink" href="#term-write-active-key-version" title="Link to this term">¶</a></dt><dd><p>The single <code class="docutils literal notranslate"><span class="pre">key_version</span></code> UBI uses for <strong>new</strong> secure writes. Held
+in the secure device header. Monotonic — never moves backward on
+the same formatted device.</p>
+</dd>
+</dl>
+<section id="see-also">
+<h2>See also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../getting_started/concepts.html"><span class="doc">Concepts at a Glance</span></a> — the same six core terms (PEB,
+LEB, EC, VID, EBA) introduced with worked examples.</p></li>
+<li><p><a class="reference internal" href="../architecture/plain_architecture.html"><span class="doc">Architecture Guide</span></a> — the canonical reference
+for the plain on-flash layout and recovery rules.</p></li>
+<li><p><a class="reference internal" href="onflash_format_spec.html"><span class="doc">Secure On-Flash Format Specification</span></a> — the canonical reference for
+Secure UBI byte layouts and lifecycle invariants.</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="onflash_format_spec.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Secure On-Flash Format Specification</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="error_codes.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Error Codes</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Kamil Kielbasa
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/kamil-kielbasa/ubi" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Glossary</a><ul>
+<li><a class="reference internal" href="#see-also">See also</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>

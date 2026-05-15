@@ -1,0 +1,1656 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Changelog" href="changelog.html" /><link rel="prev" title="Contributing" href="contributing.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>Test Strategy - UBI on Zephyr</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=312cd7bf" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UBI on Zephyr</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UBI on Zephyr</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/what_is_ubi.html">What is UBI?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/comparison.html">Comparison: UBI vs LittleFS vs NVS vs ZMS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/concepts.html">Concepts at a Glance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/plain_workflow.html">Plain UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/secure_workflow.html">Secure UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/environment_setup.html">Environment Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cookbook.html">Cookbook</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/plain_architecture.html">Architecture Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/secure_overview.html">Secure Architecture: Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../reference/api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/kconfig_reference.html">Kconfig Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/error_codes.html">Error Codes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/onflash_format_spec.html">Secure On-Flash Format Specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Test Strategy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/blob/main/doc/project/test_strategy.md?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/edit/main/doc/project/test_strategy.md" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="test-strategy">
+<h1>Test Strategy<a class="headerlink" href="#test-strategy" title="Link to this heading">¶</a></h1>
+<p><strong>What this page covers:</strong> How to build and run the test suite, code
+coverage, the forensic scan, test categories, environments, coverage
+targets, test patterns, and known gaps.</p>
+<p><strong>Prerequisites:</strong> <a class="reference internal" href="../getting_started/quick_start.html"><span class="std std-doc">Quick Start</span></a> for the basic Zephyr +
+UBI build.</p>
+<section id="building-and-running-tests">
+<h2>Building and running tests<a class="headerlink" href="#building-and-running-tests" title="Link to this heading">¶</a></h2>
+<section id="prerequisites">
+<h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>Purpose</p></th>
+<th class="head"><p>Install</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference external" href="https://docs.zephyrproject.org/latest/develop/west/index.html">west</a></p></td>
+<td><p>Zephyr meta-tool (build, flash, manage manifests)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">west</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://docs.zephyrproject.org/latest/develop/toolchains/zephyr_sdk.html">Zephyr SDK</a></p></td>
+<td><p>Cross-compilation toolchain</p></td>
+<td><p>See Zephyr docs</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://www.st.com/en/development-tools/stm32cubeprog.html">STM32CubeProgrammer CLI</a></p></td>
+<td><p>Flash erase and programming (hardware only)</p></td>
+<td><p>ST website</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/npat-efault/picocom">picocom</a></p></td>
+<td><p>Serial terminal for UART output (hardware only)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt</span> <span class="pre">install</span> <span class="pre">picocom</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="initialise-the-workspace">
+<h3>Initialise the workspace<a class="headerlink" href="#initialise-the-workspace" title="Link to this heading">¶</a></h3>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>init<span class="w"> </span>-l<span class="w"> </span>.
+west<span class="w"> </span>update<span class="w"> </span>--narrow<span class="w"> </span>-o<span class="o">=</span>--depth<span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="build-for-native-sim-simulator">
+<h3>Build for <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> (simulator)<a class="headerlink" href="#build-for-native-sim-simulator" title="Link to this heading">¶</a></h3>
+<p>Build and run the <strong>test</strong> suite:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native_sim/tests<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./tests/
+./build/native_sim/tests/zephyr/zephyr.exe
+</pre></div>
+</div>
+<p>Build and run the <strong>sample</strong> application:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/native_sim/sample<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>./sample/
+./build/native_sim/sample/zephyr/zephyr.exe
+</pre></div>
+</div>
+</section>
+<section id="build-for-stm32u5-b-u585i-iot02a">
+<h3>Build for STM32U5 (<code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code>)<a class="headerlink" href="#build-for-stm32u5-b-u585i-iot02a" title="Link to this heading">¶</a></h3>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/stm32u5/tests<span class="w"> </span>-b<span class="w"> </span>b_u585i_iot02a<span class="w"> </span>./tests/
+
+STM32_Programmer_CLI<span class="w"> </span>-c<span class="w"> </span><span class="nv">port</span><span class="o">=</span>SWD<span class="w"> </span>-e<span class="w"> </span>all
+STM32_Programmer_CLI<span class="w"> </span>-c<span class="w"> </span><span class="nv">port</span><span class="o">=</span>SWD<span class="w"> </span>-d<span class="w"> </span>./build/stm32u5/tests/zephyr/zephyr.hex
+
+picocom<span class="w"> </span>-b<span class="w"> </span><span class="m">115200</span><span class="w"> </span>/dev/ttyACM0
+</pre></div>
+</div>
+</section>
+<section id="build-for-nrf5340-dk-nrf5340dk-nrf5340-cpuapp">
+<h3>Build for nRF5340 DK (<code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code>)<a class="headerlink" href="#build-for-nrf5340-dk-nrf5340dk-nrf5340-cpuapp" title="Link to this heading">¶</a></h3>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/tests<span class="w"> </span>-b<span class="w"> </span>nrf5340dk/nrf5340/cpuapp<span class="w"> </span>./tests/
+
+west<span class="w"> </span>flash<span class="w"> </span>--build-dir<span class="w"> </span>build/nrf5340dk/tests
+
+picocom<span class="w"> </span>-b<span class="w"> </span><span class="m">115200</span><span class="w"> </span>/dev/ttyACM0
+</pre></div>
+</div>
+</section>
+<section id="running-the-test-modes">
+<h3>Running the test modes<a class="headerlink" href="#running-the-test-modes" title="Link to this heading">¶</a></h3>
+<p>Tests run on <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> in three modes:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain tests (default)</span>
+bash<span class="w"> </span>scripts/run_tests.sh<span class="w"> </span>native_sim<span class="w"> </span>plain
+
+<span class="c1"># Secure tests</span>
+bash<span class="w"> </span>scripts/run_tests.sh<span class="w"> </span>native_sim<span class="w"> </span>secure
+
+<span class="c1"># Chunked secure tests</span>
+bash<span class="w"> </span>scripts/run_tests.sh<span class="w"> </span>native_sim<span class="w"> </span>chunked
+</pre></div>
+</div>
+</section>
+<section id="code-coverage">
+<h3>Code coverage<a class="headerlink" href="#code-coverage" title="Link to this heading">¶</a></h3>
+<p>Generate separate HTML coverage reports for plain and secure:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Plain coverage</span>
+bash<span class="w"> </span>scripts/coverage.sh<span class="w"> </span>plain
+
+<span class="c1"># Secure coverage</span>
+bash<span class="w"> </span>scripts/coverage.sh<span class="w"> </span>secure
+</pre></div>
+</div>
+<p>Reports are written to <code class="docutils literal notranslate"><span class="pre">build/coverage-plain/html/</span></code> and
+<code class="docutils literal notranslate"><span class="pre">build/coverage-secure/html/</span></code>.</p>
+</section>
+<section id="forensic-scan">
+<h3>Forensic scan<a class="headerlink" href="#forensic-scan" title="Link to this heading">¶</a></h3>
+<p>After running secure tests, scan the flash image for forbidden plaintext:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>scripts/scan_flash.py<span class="w"> </span>flash.bin
+</pre></div>
+</div>
+</section>
+<section id="test-description-check">
+<h3>Test description check<a class="headerlink" href="#test-description-check" title="Link to this heading">¶</a></h3>
+<p>Every <code class="docutils literal notranslate"><span class="pre">ZTEST()</span></code> must carry the three required Doxygen tags <code class="docutils literal notranslate"><span class="pre">\brief</span></code>,
+<code class="docutils literal notranslate"><span class="pre">\details</span></code>, <code class="docutils literal notranslate"><span class="pre">\expected</span></code> in the docblock immediately preceding it.  Three
+additional tags are <em>optional</em> and reported only as warnings:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tag</p></th>
+<th class="head"><p>Status</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">\brief</span></code></p></td>
+<td><p>required</p></td>
+<td><p>One-line summary of what the test verifies.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">\details</span></code></p></td>
+<td><p>required</p></td>
+<td><p>Step-by-step scenario, including the relevant configuration / fixture state.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">\expected</span></code></p></td>
+<td><p>required</p></td>
+<td><p>Pass/fail criteria phrased as observable behaviour.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">\oracle</span></code></p></td>
+<td><p>optional</p></td>
+<td><p>The numeric / observational oracle that proves the test (e.g. <code class="docutils literal notranslate"><span class="pre">mem_equal</span></code>, counter monotonicity, exact return code).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">\trace</span></code></p></td>
+<td><p>optional</p></td>
+<td><p>Back-link to a spec section or requirement id (e.g. <code class="docutils literal notranslate"><span class="pre">§9.8.5</span></code>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">\precondition</span></code></p></td>
+<td><p>optional</p></td>
+<td><p>Non-obvious environmental setup the test relies on (Kconfig, fault hooks, geometry).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Run the checker as part of the local pre-push loop:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Default — fail only if a required tag is missing; report optional gaps as warnings.</span>
+python3<span class="w"> </span>scripts/check_test_descriptions.py<span class="w"> </span>tests/src/
+
+<span class="c1"># Strict mode — also fail if any of the three optional tags is missing.</span>
+python3<span class="w"> </span>scripts/check_test_descriptions.py<span class="w"> </span>tests/src/<span class="w"> </span>--strict
+</pre></div>
+</div>
+<p>The optional tags should be added to new and modified tests; existing
+tests that predate the template are not retro-fitted in a single sweep.
+The warning channel exists so the pattern can be adopted incrementally
+without blocking unrelated changes.</p>
+</section>
+<section id="code-formatting">
+<h3>Code formatting<a class="headerlink" href="#code-formatting" title="Link to this heading">¶</a></h3>
+<p>Apply the project’s <code class="docutils literal notranslate"><span class="pre">.clang-format</span></code> rules:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./scripts/format.sh
+</pre></div>
+</div>
+<p>Dry-run check (mirrors the CI format-check job):</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>./scripts/format.sh<span class="w"> </span>--check
+</pre></div>
+</div>
+</section>
+</section>
+<section id="executive-summary">
+<h2>Executive Summary<a class="headerlink" href="#executive-summary" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head text-right"><p>Tests</p></th>
+<th class="head"><p>Focus</p></th>
+<th class="head"><p>Environment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_device</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_device.c</span></code></p></td>
+<td class="text-right"><p>2</p></td>
+<td><p>Device init, deinit, get_info</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_volumes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_volumes.c</span></code></p></td>
+<td class="text-right"><p>6</p></td>
+<td><p>Volume create, remove, resize, get_info</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_map_unmap</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_map_unmap.c</span></code></p></td>
+<td class="text-right"><p>3</p></td>
+<td><p>LEB map, unmap, is_mapped</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_write_read</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_write_read.c</span></code></p></td>
+<td class="text-right"><p>5</p></td>
+<td><p>LEB write, read, get_size</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_erase</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_erase.c</span></code></p></td>
+<td class="text-right"><p>2</p></td>
+<td><p>PEB erase, dirty-to-free recycling</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_mixed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_mixed.c</span></code></p></td>
+<td class="text-right"><p>1</p></td>
+<td><p>Multi-volume cross-functional workflows</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_error_handling</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_error_handling.c</span></code></p></td>
+<td class="text-right"><p>97</p></td>
+<td><p>NULL params, out-of-range, no-space, contract tests, corrupt headers, reserved PEB corruption, degraded recovery, LEB edge cases</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_boundary</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_boundary.c</span></code></p></td>
+<td class="text-right"><p>6</p></td>
+<td><p>Max LEB capacity, alignment, sqnum persistence</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_recovery</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_recovery.c</span></code></p></td>
+<td class="text-right"><p>30</p></td>
+<td><p>Corruption, dual-bank, sqnum conflicts, degraded mode, multi-volume recovery, free vs. uncommitted PEB classification</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_fault_injection</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_fault_injection.c</span></code></p></td>
+<td class="text-right"><p>6</p></td>
+<td><p>Transactional safety under allocation failures, COW overwrite, invariant checks, per-kind allocator fault selector</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_io_faults</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_io_faults.c</span></code></p></td>
+<td class="text-right"><p>26</p></td>
+<td><p>Malloc/flash-write/flash-erase fault sweeps across init, volume, and I/O paths; commit-order fault injection (VID write failure preserves old mapping)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_io_defensive</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_io_defensive.c</span></code></p></td>
+<td class="text-right"><p>16</p></td>
+<td><p>Plain-backend internal I/O API defensive guards: NULL/range rejection on <code class="docutils literal notranslate"><span class="pre">ubi_ec_hdr_*</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_vid_hdr_*</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_leb_data_*</span></code>; metadata helper NULL guards; reserved-PEB helper NULL/range guards plus <code class="docutils literal notranslate"><span class="pre">find_first_active</span></code> synthetic-scan oracle; <code class="docutils literal notranslate"><span class="pre">flash_area_open</span></code> failure propagation through every helper</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_init_errors</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_init_errors.c</span></code></p></td>
+<td class="text-right"><p>33</p></td>
+<td><p>Geometry validation, partition guard, format failures, header corruption at init</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_stress</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_stress.c</span></code></p></td>
+<td class="text-right"><p>4</p></td>
+<td><p>Full utilization, init cycling, wear leveling</p></td>
+<td><p>native_sim (simulator only)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_stress_longrun</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_stress_longrun.c</span></code></p></td>
+<td class="text-right"><p>4</p></td>
+<td><p>Randomized churn with reboots, multi-volume operations, persistence across reinit, EC counter equality after 500 cycles</p></td>
+<td><p>native_sim (simulator only)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_torture</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_torture.c</span></code></p></td>
+<td class="text-right"><p>5</p></td>
+<td><p>Bad-block torture, erase retry, degraded transitions</p></td>
+<td><p>native_sim (simulator only)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_hil_smoke</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_hil_smoke.c</span></code></p></td>
+<td class="text-right"><p>3</p></td>
+<td><p>Basic lifecycle, persistence, stress cycles (board-portable smoke)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_concurrency</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_concurrency.c</span></code></p></td>
+<td class="text-right"><p>5</p></td>
+<td><p>Multi-threaded readers/writers, deinit quiescence, partition guard</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_erased_val</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_erased_val.c</span></code></p></td>
+<td class="text-right"><p>6</p></td>
+<td><p>Erased-value helper unit tests (<code class="docutils literal notranslate"><span class="pre">ubi_buf_is_erased</span></code> with 0xFF, 0x00, mixed), <code class="docutils literal notranslate"><span class="pre">ubi_get_erased_val</span></code> integration, init regression</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_mutation_gate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_mutation_gate.c</span></code></p></td>
+<td class="text-right"><p>5</p></td>
+<td><p>Central mutation gate: write-shutdown blocks all mutators, degraded mode blocks reserved-metadata only, runtime PEB corruption recovered transparently, runtime degradation sets flag and blocks mutations, erase_peb recovers reserved bank and clears flag</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_vol_id_watermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_vol_id_watermark.c</span></code></p></td>
+<td class="text-right"><p>4</p></td>
+<td><p>Persistent vol_id high-watermark: same-boot reuse prevention, cross-reboot persistence, slot re-indexing stability, overflow fail-closed</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Total (plain)</strong></p></td>
+<td><p></p></td>
+<td class="text-right"><p><strong>269</strong></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="secure-backend-parity-tests">
+<h3>Secure Backend Parity Tests<a class="headerlink" href="#secure-backend-parity-tests" title="Link to this heading">¶</a></h3>
+<p>All secure tests require <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE=y</span></code> and run with a PSA-imported test root key.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head text-right"><p>Tests</p></th>
+<th class="head"><p>Focus</p></th>
+<th class="head"><p>Environment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_api</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_api.c</span></code></p></td>
+<td class="text-right"><p>7</p></td>
+<td><p>Crypto type sizes, secure format on blank, plain unaffected by secure types, runtime backend selection sanity, getter <code class="docutils literal notranslate"><span class="pre">write_active_key_version</span></code></p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_attach</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_attach.c</span></code></p></td>
+<td class="text-right"><p>10</p></td>
+<td><p>Format/attach, mode mismatch, freshness rejection, NULL callbacks, allowlist validation, allowlist duplicates rejected, requested write_kv downgrade rejected</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_device</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_device.c</span></code></p></td>
+<td class="text-right"><p>2</p></td>
+<td><p>Secure init/deinit, info sane, reboot persistence</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_volumes.c</span></code></p></td>
+<td class="text-right"><p>8</p></td>
+<td><p>Create, remove, resize, shrink, multi-volume persistence, vid_counter_floor reconstruction (parity with <code class="docutils literal notranslate"><span class="pre">ubi_volumes</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_write_read</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_write_read.c</span></code></p></td>
+<td class="text-right"><p>3</p></td>
+<td><p>Single/multi LEB write/read, overwrite (parity with <code class="docutils literal notranslate"><span class="pre">ubi_write_read</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_map</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_map_unmap.c</span></code></p></td>
+<td class="text-right"><p>4</p></td>
+<td><p>Map/unmap lifecycle, dirty PEB accounting, unmap→reboot persistence, unmap→erase→reboot (parity with <code class="docutils literal notranslate"><span class="pre">ubi_map</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_erase</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_erase.c</span></code></p></td>
+<td class="text-right"><p>4</p></td>
+<td><p>Fill-unmap-erase cycle, anchor wear-leveling migration, stale-anchor rejection after reboot, reclaim continuity witness preservation (parity with <code class="docutils literal notranslate"><span class="pre">ubi_erase</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_mixed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_mixed.c</span></code></p></td>
+<td class="text-right"><p>1</p></td>
+<td><p>Multi-volume create/write/remove/resize/map/reboot (parity with <code class="docutils literal notranslate"><span class="pre">ubi_mixed</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_tamper</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_tamper.c</span></code></p></td>
+<td class="text-right"><p>2</p></td>
+<td><p>LEB data tampering smoke, reserved PEB tampering smoke</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_replay</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_replay.c</span></code></p></td>
+<td class="text-right"><p>3</p></td>
+<td><p>Replay of authentic EC/VID/LEB record to a different physical PEB — parent-child AAD binding (<code class="docutils literal notranslate"><span class="pre">peb_index</span></code> in AAD) rejects forgery: EC/VID replay marks destination PEB bad on reattach, LEB replay raises <code class="docutils literal notranslate"><span class="pre">AUTH_FAILURE</span></code> on read</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_coexistence</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_coexistence.c</span></code></p></td>
+<td class="text-right"><p>2</p></td>
+<td><p>Plain UBI device on <code class="docutils literal notranslate"><span class="pre">ubi_partition</span></code> and secure UBI device on <code class="docutils literal notranslate"><span class="pre">ubi_partition_2</span></code> operate concurrently without cross-talk; partition guard still rejects double attach with <code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code> (requires <code class="docutils literal notranslate"><span class="pre">ubi_partition_2</span></code> in DT, native_sim only)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_runtime_policy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_runtime_policy.c</span></code></p></td>
+<td class="text-right"><p>26</p></td>
+<td><p>Sticky crypto read-only, event escalation, freshness sync cadence, sync failure events, reads in read-only, per-domain (LEB / DEV / VOL / EC / VID) budget SOON/NOW thresholds, budget reset on key-rotation reattach, KEY_RETIRABLE, allowlist reject, missing key, rollback mismatch, sticky read-only reinit, mixed-key rotation, forced rekey with stale free/dirty/mapped objects</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_recovery.c</span></code></p></td>
+<td class="text-right"><p>9</p></td>
+<td><p>Interrupted data write COW preservation, interrupted VID commit, first-write-leaves-unmapped, reboot after partial write, interrupted anchor rewrite continuity, reserved generation replay rejection, interrupted reserved PEB commit, interrupted anchor creation during volume create, init-time anchor re-creation for orphaned volumes</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_chunked.c</span></code></p></td>
+<td class="text-right"><p>12</p></td>
+<td><p>Chunked LEB geometry, geometry reject, single/multi-chunk write/read, partial reads within and across chunk boundaries, last-chunk padding, reboot persistence, overwrite, chunk tamper isolation, zero-length map fallback, 48-bit AEAD counter overflow rejection (requires <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE_LEB_CHUNKED=y</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_forensic</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_forensic.c</span></code></p></td>
+<td class="text-right"><p>6</p></td>
+<td><p>Portable forensic scan: plaintext data absence, volume name absence, key material absence, post-overwrite+erase absence, negative test validates scanner on plain backend, magic-prefix sweep</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_error_handling</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_error_handling.c</span></code></p></td>
+<td class="text-right"><p>74</p></td>
+<td><p>Secure-side parity for plain <code class="docutils literal notranslate"><span class="pre">ubi_error_handling</span></code>: NULL/out-of-range params, no-space, contract tests, corrupt EC/VID auth headers, reserved PEB corruption, degraded recovery, LEB edge cases</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_fault_injection</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_fault_injection.c</span></code></p></td>
+<td class="text-right"><p>6</p></td>
+<td><p>Transactional safety on secure backend under malloc/flash faults during create/write; per-kind allocator fault selector and SCRATCH-allocation faults on <code class="docutils literal notranslate"><span class="pre">leb_read/write</span></code> (requires <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_FAULT_INJECTION=y</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_mutation_gate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_mutation_gate.c</span></code></p></td>
+<td class="text-right"><p>1</p></td>
+<td><p>Central mutation gate sanity on secure backend (write-shutdown blocks mutators with <code class="docutils literal notranslate"><span class="pre">-EROFS</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_vol_id_watermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_vol_id_watermark.c</span></code></p></td>
+<td class="text-right"><p>3</p></td>
+<td><p>Persistent vol_id high-watermark on secure backend (parity with plain <code class="docutils literal notranslate"><span class="pre">ubi_vol_id_watermark</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_coverage.c</span></code></p></td>
+<td class="text-right"><p>16</p></td>
+<td><p>Branch-coverage-driven secure-path tests: dirty PEB accounting, LEB overwrite recovery and persistence, leb_get_size, map/unmap lifecycle, volume-remove variants, flash-write fault on EC/VID, erase-all-dirty</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_crypto_faults</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_crypto_faults.c</span></code></p></td>
+<td class="text-right"><p>18</p></td>
+<td><p>Crypto primitive fault hooks (AEAD encrypt/decrypt fail, RNG fail, HKDF fail) inserted via <code class="docutils literal notranslate"><span class="pre">ubi_secure_test_hook_set</span></code> exercise error propagation on init/write/read paths (requires <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE_TEST_FAULT_INJECTION=y</span></code>)</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_defensive</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_secure_defensive.c</span></code></p></td>
+<td class="text-right"><p>109</p></td>
+<td><p>Defensive header-shape validation: <code class="docutils literal notranslate"><span class="pre">bad_wrapper_version</span></code>, <code class="docutils literal notranslate"><span class="pre">exceeds_ccm_limit</span></code>, malformed prefix/AAD/tag fields across EC/VID/LEB records</p></td>
+<td><p>native_sim</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Total (secure)</strong></p></td>
+<td><p></p></td>
+<td class="text-right"><p><strong>321</strong></p></td>
+<td><p></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<blockquote>
+<div><p>Counts above are for the <code class="docutils literal notranslate"><span class="pre">secure</span></code> build (<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE=y</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE_LEB_CHUNKED=n</span></code>).  The <code class="docutils literal notranslate"><span class="pre">chunked</span></code> build adds the
+<code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked</span></code> suite (12 ZTEST).  Plain tests from the section
+above are also linked into the secure build (so the secure
+binary executes 251 + 311 = 562 ZTEST in total, 41 suites).</p>
+</div></blockquote>
+</section>
+</section>
+<section id="what-native-sim-proves-vs-what-hardware-proves">
+<h2>What native_sim Proves vs. What Hardware Proves<a class="headerlink" href="#what-native-sim-proves-vs-what-hardware-proves" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Aspect</p></th>
+<th class="head"><p>native_sim (simulator)</p></th>
+<th class="head"><p>Hardware (b_u585i_iot02a, nrf5340dk)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Functional correctness</p></td>
+<td><p>Full — all 562 tests run (560 pass, 2 skip, 41 suites) in the <code class="docutils literal notranslate"><span class="pre">secure</span></code> config; the <code class="docutils literal notranslate"><span class="pre">plain</span></code> and <code class="docutils literal notranslate"><span class="pre">chunked</span></code> configs run subsets</p></td>
+<td><p>Build verification only (CI cross-compiles)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Flash timing / latency</p></td>
+<td><p>Not representative</p></td>
+<td><p>Realistic</p></td>
+</tr>
+<tr class="row-even"><td><p>Power-loss behavior</p></td>
+<td><p>Not tested (simulator has no power-loss model)</p></td>
+<td><p>Not currently tested (no HIL power-loss setup)</p></td>
+</tr>
+<tr class="row-odd"><td><p>Bad block behavior</p></td>
+<td><p>Simulated via <code class="docutils literal notranslate"><span class="pre">CONFIG_FLASH_SIMULATOR</span></code> flags</p></td>
+<td><p>Real flash errors (rare on NOR)</p></td>
+</tr>
+<tr class="row-even"><td><p>Wear-leveling distribution</p></td>
+<td><p>Verified via erase counter checks</p></td>
+<td><p>Observable but not systematically tested</p></td>
+</tr>
+<tr class="row-odd"><td><p>Memory footprint</p></td>
+<td><p>Approximate (host allocator)</p></td>
+<td><p>Precise (Cortex-M33 heap)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="test-categories">
+<h2>Test Categories<a class="headerlink" href="#test-categories" title="Link to this heading">¶</a></h2>
+<section id="unit-functional-tests">
+<h3>1. Unit / Functional Tests<a class="headerlink" href="#unit-functional-tests" title="Link to this heading">¶</a></h3>
+<p>Core API verification organized by functional area:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_device</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_device.c</span></code></p></td>
+<td><p>Device init, deinit, get_info</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_volumes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_volumes.c</span></code></p></td>
+<td><p>Volume create, remove, resize, get_info</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_map_unmap</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_map_unmap.c</span></code></p></td>
+<td><p>LEB map, unmap, is_mapped</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_write_read</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_write_read.c</span></code></p></td>
+<td><p>LEB write, read, get_size</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_erase</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_erase.c</span></code></p></td>
+<td><p>PEB erase, dirty-to-free recycling</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_mixed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_mixed.c</span></code></p></td>
+<td><p>Multi-volume and cross-functional workflows</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="error-handling-tests">
+<h3>2. Error Handling Tests<a class="headerlink" href="#error-handling-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_error_handling</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_error_handling.c</span></code></p></td>
+<td><p>NULL parameters, out-of-range LEB numbers, no-space conditions, resize edge cases, overwrite semantics, no-volumes paths, contract tests (idempotent unmap, no-op map, static volume write, invalid type, zero LEBs, capacity accounting), corrupt EC/VID headers, reserved PEB corruption, degraded recovery, LEB edge cases, wrong vol_id removal</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="boundary-tests">
+<h3>3. Boundary Tests<a class="headerlink" href="#boundary-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_boundary</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_boundary.c</span></code></p></td>
+<td><p>Max LEB capacity writes, exceeds-capacity errors, exact read offsets, alignment boundaries, sub-alignment writes</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="recovery-corruption-tests">
+<h3>4. Recovery / Corruption Tests<a class="headerlink" href="#recovery-corruption-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_recovery</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_recovery.c</span></code></p></td>
+<td><p>Corrupt EC header -&gt; bad PEB, corrupt VID CRC -&gt; bad PEB, valid EC + erased VID + erased data -&gt; free PEB, valid EC + erased VID + non-erased data -&gt; dirty PEB (uncommitted write), orphan vol_id -&gt; dirty PEB, duplicate LEB sqnum conflict resolution, erase_peb no-op when clean, dual-bank recovery during resize, degraded-mode blocking, multi-volume recovery, reinit after interrupted commit preserves old data</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="fault-injection-tests">
+<h3>5. Fault Injection Tests<a class="headerlink" href="#fault-injection-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_fault_injection</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_fault_injection.c</span></code></p></td>
+<td><p>Transactional safety: malloc failure during create (P0.2), COW overwrite preserves old data on failure (P0.7), invariant checker after create/write/remove and resize/shrink cycles. Requires <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_FAULT_INJECTION=y</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="b-i-o-fault-injection-tests">
+<h3>5b. I/O Fault Injection Tests<a class="headerlink" href="#b-i-o-fault-injection-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_io_faults</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_io_faults.c</span></code></p></td>
+<td><p>Systematic malloc-failure sweeps (init with no volumes, with volume, with orphans, with duplicates, with bad VID CRC, with bad EC), scratch alloc faults, diag alloc fault, volume create/remove alloc sweeps, flash erase failure -&gt; bad PEB transition, commit-order tests (VID write failure after data write preserves old mapping; unmapped LEB stays unmapped on VID failure). Requires <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_FAULT_INJECTION=y</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="c-init-error-tests">
+<h3>5c. Init Error Tests<a class="headerlink" href="#c-init-error-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_init_errors</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_init_errors.c</span></code></p></td>
+<td><p>Geometry validation (erase block size, write block size, partition size), partition guard (<code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code>), format error paths, corrupt EC/VID headers at init time, PEB classification under various corruption scenarios.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="stress-tests-simulator-only">
+<h3>6. Stress Tests (simulator only)<a class="headerlink" href="#stress-tests-simulator-only" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_stress</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_stress.c</span></code></p></td>
+<td><p>Full volume utilization, init-deinit cycling, PEB wear leveling, multi-volume concurrent usage</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_stress_longrun</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_stress_longrun.c</span></code></p></td>
+<td><p>Randomized churn with reboots, multi-volume mixed operations, persistence across reinit, EC counter equality after 500 cycles</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="torture-tests-simulator-only">
+<h3>7. Torture Tests (simulator only)<a class="headerlink" href="#torture-tests-simulator-only" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_torture</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_torture.c</span></code></p></td>
+<td><p>Bad-block torture, erase retry logic, degraded-mode transitions</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="hil-smoke-tests">
+<h3>8. HIL Smoke Tests<a class="headerlink" href="#hil-smoke-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_hil_smoke</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_hil_smoke.c</span></code></p></td>
+<td><p>Board-portable smoke: basic lifecycle, persistence across reinit, stress cycles. Runs on both native_sim and hardware targets.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="concurrency-tests">
+<h3>9. Concurrency Tests<a class="headerlink" href="#concurrency-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_concurrency</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_concurrency.c</span></code></p></td>
+<td><p>Multi-threaded concurrent readers, reader-writer interleave, deinit-after-quiescence, double-init partition guard (<code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code>), init-after-deinit reuse. Uses <code class="docutils literal notranslate"><span class="pre">k_thread_create</span></code> + <code class="docutils literal notranslate"><span class="pre">k_thread_join</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="mutation-gate-tests">
+<h3>10. Mutation Gate Tests<a class="headerlink" href="#mutation-gate-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_mutation_gate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_mutation_gate.c</span></code></p></td>
+<td><p>Central mutation gate: write-shutdown flag blocks all 7 public mutators (<code class="docutils literal notranslate"><span class="pre">-EROFS</span></code>) while read-only operations succeed; degraded-mode entry blocks reserved-metadata mutators only (skips on simulator when recovery succeeds); runtime reserved PEB corruption triggers transparent recovery during next volume operation; runtime degradation (corrupt PEB + erase fault) sets <code class="docutils literal notranslate"><span class="pre">read_only_degraded</span></code> flag and blocks subsequent mutations; <code class="docutils literal notranslate"><span class="pre">erase_peb</span></code> recovers degraded reserved PEB bank and clears the flag. Requires <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_API_ENABLE=y</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="volume-id-watermark-tests">
+<h3>11. Volume ID Watermark Tests<a class="headerlink" href="#volume-id-watermark-tests" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Suite</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"><p>Focus</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubi_vol_id_watermark</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">tests_ubi_vol_id_watermark.c</span></code></p></td>
+<td><p>Persistent vol_id high-watermark: same-boot reuse prevention (create, remove, create → new id), cross-reboot persistence (create, remove, reinit, create → watermark survives), slot re-indexing stability (remove middle volume, remaining vol_ids unchanged), overflow fail-closed (vol_id_watermark = UINT32_MAX → <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="test-environment">
+<h2>Test Environment<a class="headerlink" href="#test-environment" title="Link to this heading">¶</a></h2>
+<section id="primary-native-sim">
+<h3>Primary: <code class="docutils literal notranslate"><span class="pre">native_sim</span></code><a class="headerlink" href="#primary-native-sim" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Platform</strong>: Zephyr <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> board with flash simulator</p></li>
+<li><p><strong>Config</strong>: <code class="docutils literal notranslate"><span class="pre">CONFIG_FLASH_SIMULATOR=y</span></code>, <code class="docutils literal notranslate"><span class="pre">CONFIG_FLASH_SIMULATOR_DOUBLE_WRITES=y</span></code>, <code class="docutils literal notranslate"><span class="pre">CONFIG_FLASH_SIMULATOR_EXPLICIT_ERASE=y</span></code></p></li>
+<li><p><strong>Usage</strong>: All test suites run here; stress and torture tests are simulator-only</p></li>
+</ul>
+</section>
+<section id="flash-geometry-variants">
+<h3>Flash Geometry Variants<a class="headerlink" href="#flash-geometry-variants" title="Link to this heading">¶</a></h3>
+<p>All functional and stress tests run against three flash geometries to exercise
+different erase-block sizes, write-block alignment requirements, and partition
+capacities. The geometry is selected via DTC overlay files in <code class="docutils literal notranslate"><span class="pre">tests/boards/</span></code>.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Variant</p></th>
+<th class="head"><p>Overlay file</p></th>
+<th class="head text-right"><p>Erase block</p></th>
+<th class="head text-right"><p>Write block</p></th>
+<th class="head text-right"><p>Partition</p></th>
+<th class="head text-right"><p>PEB count</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Default</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">native_sim.overlay</span></code></p></td>
+<td class="text-right"><p>8192 B</p></td>
+<td class="text-right"><p>1 B</p></td>
+<td class="text-right"><p>128 KB</p></td>
+<td class="text-right"><p>16</p></td>
+</tr>
+<tr class="row-odd"><td><p>nRF5340</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">native_sim_nrf5340.overlay</span></code></p></td>
+<td class="text-right"><p>4096 B</p></td>
+<td class="text-right"><p>4 B</p></td>
+<td class="text-right"><p>64 KB</p></td>
+<td class="text-right"><p>16</p></td>
+</tr>
+<tr class="row-even"><td><p>STM32U5</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">native_sim_stm32u5.overlay</span></code></p></td>
+<td class="text-right"><p>8192 B</p></td>
+<td class="text-right"><p>16 B</p></td>
+<td class="text-right"><p>128 KB</p></td>
+<td class="text-right"><p>16</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Running locally with a geometry overlay:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># nRF5340 geometry</span>
+west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>always<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>ubi/tests<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DDTC_OVERLAY_FILE<span class="o">=</span><span class="s2">&quot;boards/native_sim_nrf5340.overlay&quot;</span>
+./build/zephyr/zephyr.exe
+
+<span class="c1"># STM32U5 geometry</span>
+west<span class="w"> </span>build<span class="w"> </span>-p<span class="w"> </span>always<span class="w"> </span>-b<span class="w"> </span>native_sim<span class="w"> </span>ubi/tests<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-DDTC_OVERLAY_FILE<span class="o">=</span><span class="s2">&quot;boards/native_sim_stm32u5.overlay&quot;</span>
+./build/zephyr/zephyr.exe
+</pre></div>
+</div>
+<p><strong>CI:</strong> The <code class="docutils literal notranslate"><span class="pre">native-tests</span></code> job matrix includes <code class="docutils literal notranslate"><span class="pre">geometry:</span> <span class="pre">[default,</span> <span class="pre">nrf5340,</span> <span class="pre">stm32u5]</span></code>,
+producing 6 jobs (2 mem backends × 3 geometries).</p>
+<p><strong>Twister:</strong> <code class="docutils literal notranslate"><span class="pre">testcase.yaml</span></code> contains 16 geometry-specific scenarios using
+<code class="docutils literal notranslate"><span class="pre">extra_dtc_overlay_files</span></code> (8 per geometry variant).</p>
+</section>
+<section id="secondary-b-u585i-iot02a">
+<h3>Secondary: <code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code><a class="headerlink" href="#secondary-b-u585i-iot02a" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Platform</strong>: STM32U585AI hardware target (8 KB erase blocks, 128 KB UBI partition)</p></li>
+<li><p><strong>Usage</strong>: Cross-compilation verification (build only in CI)</p></li>
+</ul>
+</section>
+<section id="secondary-nrf5340dk-nrf5340-cpuapp">
+<h3>Secondary: <code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code><a class="headerlink" href="#secondary-nrf5340dk-nrf5340-cpuapp" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Platform</strong>: Nordic nRF5340 DK, application core (4 KB erase blocks, 64 KB UBI partition)</p></li>
+<li><p><strong>Usage</strong>: Cross-compilation verification (build only in CI)</p></li>
+</ul>
+</section>
+</section>
+<section id="coverage">
+<h2>Coverage<a class="headerlink" href="#coverage" title="Link to this heading">¶</a></h2>
+<section id="targets">
+<h3>Targets<a class="headerlink" href="#targets" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Metric</p></th>
+<th class="head"><p>Source of truth</p></th>
+<th class="head"><p>Long-term target (post-1.0)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Line coverage</p></td>
+<td><p><a class="reference external" href="https://codecov.io/gh/kamil-kielbasa/ubi">Codecov badge</a> in the <a class="reference external" href="https://github.com/kamil-kielbasa/ubi#readme">project README</a></p></td>
+<td><p>&gt;= 80%</p></td>
+</tr>
+<tr class="row-odd"><td><p>Branch coverage</p></td>
+<td><p><a class="reference external" href="https://codecov.io/gh/kamil-kielbasa/ubi">Codecov badge</a> in the <a class="reference external" href="https://github.com/kamil-kielbasa/ubi#readme">project README</a></p></td>
+<td><p>&gt;= 70%</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Live coverage is reported by Codecov on every push to <code class="docutils literal notranslate"><span class="pre">main</span></code>; the
+badge in the README is the authoritative current number. The targets
+above are post-1.0 goals — branch coverage in particular is tracked
+as a roadmap item.</p>
+</section>
+<section id="tooling">
+<h3>Tooling<a class="headerlink" href="#tooling" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Instrumentation</strong>: Zephyr <code class="docutils literal notranslate"><span class="pre">CONFIG_COVERAGE=y</span></code> + <code class="docutils literal notranslate"><span class="pre">CONFIG_COVERAGE_GCOV=y</span></code></p></li>
+<li><p><strong>Collection</strong>: <code class="docutils literal notranslate"><span class="pre">lcov</span> <span class="pre">--capture</span></code> filtered to <code class="docutils literal notranslate"><span class="pre">lib/src/*</span></code></p></li>
+<li><p><strong>Report</strong>: <code class="docutils literal notranslate"><span class="pre">genhtml</span></code> with <code class="docutils literal notranslate"><span class="pre">--branch-coverage</span></code></p></li>
+</ul>
+</section>
+<section id="running-locally">
+<h3>Running Locally<a class="headerlink" href="#running-locally" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>scripts/coverage.sh
+</pre></div>
+</div>
+<p>HTML report is generated at <code class="docutils literal notranslate"><span class="pre">build/coverage/html/index.html</span></code>.</p>
+</section>
+<section id="ci">
+<h3>CI<a class="headerlink" href="#ci" title="Link to this heading">¶</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">coverage</span></code> job in <code class="docutils literal notranslate"><span class="pre">.github/workflows/ci.yml</span></code> builds with coverage, runs tests,
+collects lcov data, and uploads the HTML report as a build artifact.</p>
+</section>
+</section>
+<section id="test-patterns">
+<h2>Test Patterns<a class="headerlink" href="#test-patterns" title="Link to this heading">¶</a></h2>
+<section id="fixture-pattern">
+<h3>Fixture Pattern<a class="headerlink" href="#fixture-pattern" title="Link to this heading">¶</a></h3>
+<p>Each test suite uses the standard ZTest fixture. Shared helpers in <code class="docutils literal notranslate"><span class="pre">tests/src/</span></code> eliminate boilerplate:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">ubi_test_fixture.h</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">ubi_test_setup_mtd()</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_test_erase_partition()</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_test_init_device()</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_test_reinit_device()</span></code></p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">ubi_test_memory.h</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">ubi_test_memory_snapshot()</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_test_memory_check_no_leak()</span></code> (requires <code class="docutils literal notranslate"><span class="pre">CONFIG_SYS_HEAP_RUNTIME_STATS</span></code>)</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">ubi_test_raw_flash.h</span></code></strong> — <code class="docutils literal notranslate"><span class="pre">ubi_test_raw_write_ec_hdr()</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_test_raw_write_vid_hdr()</span></code> for corruption injection</p></li>
+</ul>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;ubi_test_fixture.h&quot;</span>
+
+<span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ubi_flash_desc</span><span class="w"> </span><span class="n">flash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="nf">ztest_suite_setup</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">ubi_test_setup_mtd</span><span class="p">(</span><span class="o">&amp;</span><span class="n">flash</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="nf">ztest_testcase_before</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+<span class="w">    </span><span class="n">ubi_test_erase_partition</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="n">ZTEST_SUITE</span><span class="p">(</span><span class="n">suite_name</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">ztest_suite_setup</span><span class="p">,</span><span class="w"> </span><span class="n">ztest_testcase_before</span><span class="p">,</span>
+<span class="w">            </span><span class="n">ztest_testcase_teardown</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Every test starts with a fully erased flash partition, ensuring isolation.</p>
+</section>
+<section id="corruption-testing-pattern">
+<h3>Corruption Testing Pattern<a class="headerlink" href="#corruption-testing-pattern" title="Link to this heading">¶</a></h3>
+<p>Recovery tests use raw <code class="docutils literal notranslate"><span class="pre">flash_area_write()</span></code> to inject corrupt headers:</p>
+<ol class="arabic simple">
+<li><p>Initialize UBI normally (creates device/volume headers on reserved PEBs)</p></li>
+<li><p>Deinit</p></li>
+<li><p>Directly write corrupt EC or VID headers on data PEBs</p></li>
+<li><p>Re-init and verify PEB classification (<code class="docutils literal notranslate"><span class="pre">bad_peb_count</span></code>, <code class="docutils literal notranslate"><span class="pre">dirty_peb_count</span></code>, etc.)</p></li>
+</ol>
+</section>
+<section id="compile-flags">
+<h3>Compile Flags<a class="headerlink" href="#compile-flags" title="Link to this heading">¶</a></h3>
+<p>Tests build with strict warnings to catch issues at compile time:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">Werror</span> <span class="o">-</span><span class="n">Wextra</span> <span class="o">-</span><span class="n">Wshadow</span> <span class="o">-</span><span class="n">Wdouble</span><span class="o">-</span><span class="n">promotion</span> <span class="o">-</span><span class="n">Wformat</span><span class="o">=</span><span class="mi">2</span>
+<span class="o">-</span><span class="n">Wnull</span><span class="o">-</span><span class="n">dereference</span> <span class="o">-</span><span class="n">Wunused</span> <span class="o">-</span><span class="n">Wno</span><span class="o">-</span><span class="n">unused</span><span class="o">-</span><span class="n">parameter</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="known-gaps">
+<h2>Known Gaps<a class="headerlink" href="#known-gaps" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Gap</p></th>
+<th class="head"><p>Impact</p></th>
+<th class="head"><p>Mitigation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Partial flash write failure coverage</p></td>
+<td><p>Flash write fault injection covers <code class="docutils literal notranslate"><span class="pre">flash_write_with_retry</span></code>; not all write call-sites are individually swept</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_io_faults</span></code> suite validates erase failure -&gt; bad PEB; write retry logic is code-reviewed</p></td>
+</tr>
+<tr class="row-odd"><td><p>HIL smoke only (no CI hardware)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_hil_smoke</span></code> suite exists but CI only cross-compiles for STM32U5 and nRF5340</p></td>
+<td><p>Manual hardware testing during development; HIL CI planned</p></td>
+</tr>
+<tr class="row-even"><td><p>Non-0xFF erased value end-to-end</p></td>
+<td><p>Erased-value helpers are unit-tested for 0x00, but the flash simulator only supports 0xFF</p></td>
+<td><p>Helpers are trivial; integration tests on 0xFF backend cover the full scan path</p></td>
+</tr>
+<tr class="row-odd"><td><p>Secure tamper detection precision</p></td>
+<td><p>Tamper tests verify no-crash and graceful handling but do not assert specific AUTH_FAILURE events (depends on PEB layout)</p></td>
+<td><p>Forensic scan suite (<code class="docutils literal notranslate"><span class="pre">ubi_secure_forensic</span></code>) verifies absence of plaintext</p></td>
+</tr>
+<tr class="row-even"><td><p>Secure data size limit</p></td>
+<td><p>Secure LEB read requires scratch memory for decryption (<code class="docutils literal notranslate"><span class="pre">ct_tag_size</span> <span class="pre">+</span> <span class="pre">data_size</span></code>); data exceeding ~248 bytes may exceed default scratch budget (512 bytes)</p></td>
+<td><p>Use data within scratch budget in tests; increase <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_MAX_NR_OF_VOLUMES</span></code> to enlarge scratch, or use chunked mode</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="how-to-add-a-new-test">
+<h2>How to Add a New Test<a class="headerlink" href="#how-to-add-a-new-test" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Choose the appropriate test file based on test category (see executive summary table)</p></li>
+<li><p>Add a <code class="docutils literal notranslate"><span class="pre">ZTEST(suite_name,</span> <span class="pre">test_name)</span></code> function</p></li>
+<li><p>Follow the fixture pattern: init -&gt; operate -&gt; assert -&gt; deinit</p></li>
+<li><p>If testing a new file, add it to <code class="docutils literal notranslate"><span class="pre">tests/CMakeLists.txt</span></code></p></li>
+<li><p>Build and run: <code class="docutils literal notranslate"><span class="pre">bash</span> <span class="pre">scripts/run_tests.sh</span></code></p></li>
+</ol>
+</section>
+<section id="ztest-traceability-for-secure-ubi">
+<h2>ZTEST traceability for Secure UBI<a class="headerlink" href="#ztest-traceability-for-secure-ubi" title="Link to this heading">¶</a></h2>
+<p>The tables below map each Secure UBI lifecycle step, recovery
+scenario, and release-checklist item to the specific ZTESTs that
+exercise it. All tests live under <code class="docutils literal notranslate"><span class="pre">tests/src/secure/</span></code> and run as part
+of the secure ZTEST suite (<code class="docutils literal notranslate"><span class="pre">bash</span> <span class="pre">scripts/run_tests.sh</span> <span class="pre">native_sim</span> <span class="pre">secure</span></code>). Items marked <strong>review-only</strong> are design / code-review
+constraints with no direct runtime test (intentional; documented for
+traceability).</p>
+<p>The corresponding normative behaviour is specified in
+<a class="reference internal" href="../reference/onflash_format_spec.html"><span class="doc">Secure On-Flash Format Specification</span></a> chapters 19 (Secure volume lifecycle), 20
+(Secure recovery scenarios), and 21 (Runtime policy).</p>
+<section id="lifecycle-step-ztest-coverage">
+<h3>Lifecycle step → ZTEST coverage<a class="headerlink" href="#lifecycle-step-ztest-coverage" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Lifecycle step</p></th>
+<th class="head"><p>Implementation</p></th>
+<th class="head"><p>ZTEST(s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Create</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volume_create()</span></code> (<code class="docutils literal notranslate"><span class="pre">lib/src/secure/ubi_secure_volume.c</span></code>)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::create_one_with_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::create_many_with_reboot</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Resize (grow)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volume_resize()</span></code> (grow branch)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::resize_upper_with_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_resize_grow</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_resize_persists</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Shrink</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volume_resize()</span></code> (shrink branch)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::shrink_with_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::shrink_erase_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_resize_shrink</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Remove</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volume_remove()</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_remove_basic</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_remove_persists</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_remove_with_mapped_lebs</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::create_remove_with_reboot</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Unmap</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_leb_unmap()</span></code> (<code class="docutils literal notranslate"><span class="pre">lib/src/secure/ubi_secure_leb.c</span></code>)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::leb_unmap</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_map::unmap_reboot_before_erase</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_map::unmap_erase_reboot</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Erase and reclaim</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_device_erase_peb()</span></code> + anchor witness (§11.6)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::anchor_participates_in_wear_leveling</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::reclaim_preserves_continuity_witness</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::fill_unmap_erase_cycle</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Reboot recovery</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_device_init()</span></code> scan path (<code class="docutils literal notranslate"><span class="pre">lib/src/secure/ubi_core_init.c</span></code>)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_map::all_lebs_lifecycle_with_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_data_write_survives_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::init_recreates_missing_anchor</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="recovery-scenario-ztest-coverage">
+<h3>Recovery scenario → ZTEST coverage<a class="headerlink" href="#recovery-scenario-ztest-coverage" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Scenario</p></th>
+<th class="head"><p>ZTEST(s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">unmap</span> <span class="pre">→</span> <span class="pre">reboot</span></code> (before erase)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_map::unmap_reboot_before_erase</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">unmap</span> <span class="pre">→</span> <span class="pre">erase</span> <span class="pre">→</span> <span class="pre">reboot</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_map::unmap_erase_reboot</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">shrink</span> <span class="pre">→</span> <span class="pre">reboot</span></code> (before erase)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::shrink_with_reboot</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">shrink</span> <span class="pre">→</span> <span class="pre">erase</span> <span class="pre">→</span> <span class="pre">reboot</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::shrink_erase_reboot</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">remove</span> <span class="pre">all</span> <span class="pre">volumes</span> <span class="pre">→</span> <span class="pre">reboot</span> <span class="pre">→</span> <span class="pre">create</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::vid_counter_floor_remove_create_reboot</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Anchor migration during erase</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::anchor_participates_in_wear_leveling</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::reclaim_preserves_continuity_witness</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::stale_anchor_rejected_after_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_anchor_write_preserves_continuity</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Per-volume LEB floor continuity at runtime</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::vid_counter_floor_persists</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::vid_counter_floor_remove_create_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::leb_overwrite_counter_recovery</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Stale anchor after reboot</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::stale_anchor_rejected_after_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::init_recreates_missing_anchor</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Emergency reserve refill</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::fill_unmap_erase_cycle</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Dual-bank reserved metadata recovery</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_reserved_commit_no_ghost_volume</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::reserved_generation_replay_rejected</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_tamper::reserved_peb_tamper_smoke</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="release-checklist-ztest-coverage">
+<h3>Release checklist → ZTEST coverage<a class="headerlink" href="#release-checklist-ztest-coverage" title="Link to this heading">¶</a></h3>
+<section id="critical-format-constraints">
+<h4>Critical format constraints<a class="headerlink" href="#critical-format-constraints" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Checklist bullet</p></th>
+<th class="head"><p>ZTEST(s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Reserved-generation fit against geometry</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_api::reserved_generation_fit_guard_rejects_small_eb</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_defensive::init_erase_block_too_small</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Single-tag CCM payload limit / require chunked or reject SECURE</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::geometry_reject_tiny_erase_block</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::geometry_leb_size</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::chunked_write_overflow_rejected</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Zero-length LEB encoding fixed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::zero_length_map</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Single-tag tail-padding behaviour fixed</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::partial_last_chunk</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::overwrite_chunked</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Reject cross-mode attach; mixed-mode migration out of scope</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_attach::plain_then_secure_mismatch</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_attach::secure_then_plain_mismatch</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coexistence::partition_guard_blocks_double_attach</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="important-implementation-notes">
+<h4>Important implementation notes<a class="headerlink" href="#important-implementation-notes" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Checklist bullet</p></th>
+<th class="head"><p>ZTEST(s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Operational retirement levels (§13.8)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_runtime_policy::reserved_metadata_budget_exhausts_blocks_until_rotation</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_runtime_policy::leb_budget_exhausts_blocks_until_rotation</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_runtime_policy::leb_budget_rotate_soon_emitted_below_now</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Authenticated parent <code class="docutils literal notranslate"><span class="pre">key_version</span></code> in every child AAD binding</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_defensive::derive_domain_key_rejects_non_allowlisted_kv</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_defensive::derive_leb_key_rejects_non_allowlisted_kv</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Zeroize plaintext scratch and software-derived child-key buffers</p></td>
+<td><p>review-only (audited in <code class="docutils literal notranslate"><span class="pre">ubi_secure_crypto.c</span></code>; relies on <code class="docutils literal notranslate"><span class="pre">psa_destroy_key</span></code> + scratch slab <code class="docutils literal notranslate"><span class="pre">memset</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">volume_id</span></code> as durable cryptographic identity</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_vol_id_watermark::volume_id_not_reused_after_remove_and_reinit</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_vol_id_watermark::volume_id_not_reused_after_remove_same_boot</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Authenticated <code class="docutils literal notranslate"><span class="pre">write_active_key_version</span></code> monotonic</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_attach::requested_write_kv_downgrade_rejected</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_api::get_write_active_kv_after_format_and_rotation</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">device_revision</span></code> widening preserves on-flash numeric ordering</p></td>
+<td><p>review-only (locked by <code class="docutils literal notranslate"><span class="pre">BUILD_ASSERT</span></code> on serialized layout in <code class="docutils literal notranslate"><span class="pre">ubi_secure_ser.c</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="validation-expected-before-upstream">
+<h4>Validation expected before upstream<a class="headerlink" href="#validation-expected-before-upstream" title="Link to this heading">¶</a></h4>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Checklist bullet</p></th>
+<th class="head"><p>ZTEST(s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Power-cut testing: <code class="docutils literal notranslate"><span class="pre">DATA</span> <span class="pre">→</span> <span class="pre">VID</span></code>, zero-length, hidden-anchor, reserved-gen</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_data_write_preserves_old_mapping</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_vid_commit_preserves_old_mapping</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_anchor_write_preserves_continuity</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_reserved_commit_no_ghost_volume</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::reserved_generation_replay_rejected</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>PSA-only failure paths (RNG fail, missing key material)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_crypto_faults::rng_fail_on_leb_write</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_crypto_faults::rng_fail_on_erase</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_crypto_faults::get_key_id_fail_on_leb_write</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_crypto_faults::hkdf_fail_on_leb_write</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_attach::freshness_reject</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Zero-length, mixed-key, chunked, alignment, hidden-anchor recovery</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::zero_length_map</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::multi_chunk_with_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_chunked::partial_read_cross_chunk</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_recovery::interrupted_anchor_create_during_volume_create</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">unmap/shrink</span> <span class="pre">→</span> <span class="pre">erase</span> <span class="pre">→</span> <span class="pre">reboot</span></code> with last-witness PEB</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_map::unmap_erase_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::shrink_erase_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_erase::reclaim_preserves_continuity_witness</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">volume_remove</span></code> including remove-all → reboot → zero-volume state</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_remove_basic</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_coverage::volume_remove_persists</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::vid_counter_floor_remove_create_reboot</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">vid_next_counter_floor</span></code> reconstruction; monotonic write-active-key</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_volumes::vid_counter_floor_remove_create_reboot</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_attach::requested_write_kv_downgrade_rejected</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Refcount-driven <code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code> during reclaim and rotation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_runtime_policy::forced_rekey_with_stale_objects</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_secure_runtime_policy::reserved_refcount_no_spurious_key_retirable</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="changelog.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Changelog</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="contributing.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Contributing</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Kamil Kielbasa
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/kamil-kielbasa/ubi" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Test Strategy</a><ul>
+<li><a class="reference internal" href="#building-and-running-tests">Building and running tests</a><ul>
+<li><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li><a class="reference internal" href="#initialise-the-workspace">Initialise the workspace</a></li>
+<li><a class="reference internal" href="#build-for-native-sim-simulator">Build for <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> (simulator)</a></li>
+<li><a class="reference internal" href="#build-for-stm32u5-b-u585i-iot02a">Build for STM32U5 (<code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code>)</a></li>
+<li><a class="reference internal" href="#build-for-nrf5340-dk-nrf5340dk-nrf5340-cpuapp">Build for nRF5340 DK (<code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code>)</a></li>
+<li><a class="reference internal" href="#running-the-test-modes">Running the test modes</a></li>
+<li><a class="reference internal" href="#code-coverage">Code coverage</a></li>
+<li><a class="reference internal" href="#forensic-scan">Forensic scan</a></li>
+<li><a class="reference internal" href="#test-description-check">Test description check</a></li>
+<li><a class="reference internal" href="#code-formatting">Code formatting</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#executive-summary">Executive Summary</a><ul>
+<li><a class="reference internal" href="#secure-backend-parity-tests">Secure Backend Parity Tests</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#what-native-sim-proves-vs-what-hardware-proves">What native_sim Proves vs. What Hardware Proves</a></li>
+<li><a class="reference internal" href="#test-categories">Test Categories</a><ul>
+<li><a class="reference internal" href="#unit-functional-tests">1. Unit / Functional Tests</a></li>
+<li><a class="reference internal" href="#error-handling-tests">2. Error Handling Tests</a></li>
+<li><a class="reference internal" href="#boundary-tests">3. Boundary Tests</a></li>
+<li><a class="reference internal" href="#recovery-corruption-tests">4. Recovery / Corruption Tests</a></li>
+<li><a class="reference internal" href="#fault-injection-tests">5. Fault Injection Tests</a></li>
+<li><a class="reference internal" href="#b-i-o-fault-injection-tests">5b. I/O Fault Injection Tests</a></li>
+<li><a class="reference internal" href="#c-init-error-tests">5c. Init Error Tests</a></li>
+<li><a class="reference internal" href="#stress-tests-simulator-only">6. Stress Tests (simulator only)</a></li>
+<li><a class="reference internal" href="#torture-tests-simulator-only">7. Torture Tests (simulator only)</a></li>
+<li><a class="reference internal" href="#hil-smoke-tests">8. HIL Smoke Tests</a></li>
+<li><a class="reference internal" href="#concurrency-tests">9. Concurrency Tests</a></li>
+<li><a class="reference internal" href="#mutation-gate-tests">10. Mutation Gate Tests</a></li>
+<li><a class="reference internal" href="#volume-id-watermark-tests">11. Volume ID Watermark Tests</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-environment">Test Environment</a><ul>
+<li><a class="reference internal" href="#primary-native-sim">Primary: <code class="docutils literal notranslate"><span class="pre">native_sim</span></code></a></li>
+<li><a class="reference internal" href="#flash-geometry-variants">Flash Geometry Variants</a></li>
+<li><a class="reference internal" href="#secondary-b-u585i-iot02a">Secondary: <code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code></a></li>
+<li><a class="reference internal" href="#secondary-nrf5340dk-nrf5340-cpuapp">Secondary: <code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#coverage">Coverage</a><ul>
+<li><a class="reference internal" href="#targets">Targets</a></li>
+<li><a class="reference internal" href="#tooling">Tooling</a></li>
+<li><a class="reference internal" href="#running-locally">Running Locally</a></li>
+<li><a class="reference internal" href="#ci">CI</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#test-patterns">Test Patterns</a><ul>
+<li><a class="reference internal" href="#fixture-pattern">Fixture Pattern</a></li>
+<li><a class="reference internal" href="#corruption-testing-pattern">Corruption Testing Pattern</a></li>
+<li><a class="reference internal" href="#compile-flags">Compile Flags</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#known-gaps">Known Gaps</a></li>
+<li><a class="reference internal" href="#how-to-add-a-new-test">How to Add a New Test</a></li>
+<li><a class="reference internal" href="#ztest-traceability-for-secure-ubi">ZTEST traceability for Secure UBI</a><ul>
+<li><a class="reference internal" href="#lifecycle-step-ztest-coverage">Lifecycle step → ZTEST coverage</a></li>
+<li><a class="reference internal" href="#recovery-scenario-ztest-coverage">Recovery scenario → ZTEST coverage</a></li>
+<li><a class="reference internal" href="#release-checklist-ztest-coverage">Release checklist → ZTEST coverage</a><ul>
+<li><a class="reference internal" href="#critical-format-constraints">Critical format constraints</a></li>
+<li><a class="reference internal" href="#important-implementation-notes">Important implementation notes</a></li>
+<li><a class="reference internal" href="#validation-expected-before-upstream">Validation expected before upstream</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>

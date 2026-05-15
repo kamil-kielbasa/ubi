@@ -1,0 +1,520 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Glossary" href="glossary.html" /><link rel="prev" title="Kconfig Reference" href="kconfig_reference.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>Error Codes - UBI on Zephyr</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=312cd7bf" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UBI on Zephyr</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UBI on Zephyr</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/what_is_ubi.html">What is UBI?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/comparison.html">Comparison: UBI vs LittleFS vs NVS vs ZMS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/concepts.html">Concepts at a Glance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/plain_workflow.html">Plain UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/secure_workflow.html">Secure UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/environment_setup.html">Environment Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cookbook.html">Cookbook</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/plain_architecture.html">Architecture Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/secure_overview.html">Secure Architecture: Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="kconfig_reference.html">Kconfig Reference</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Error Codes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onflash_format_spec.html">Secure On-Flash Format Specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../project/roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/test_strategy.html">Test Strategy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../project/changelog.html">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/blob/main/doc/reference/error_codes.md?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/edit/main/doc/reference/error_codes.md" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="error-codes">
+<h1>Error Codes<a class="headerlink" href="#error-codes" title="Link to this heading">¶</a></h1>
+<p>Every UBI public API function returns either <code class="docutils literal notranslate"><span class="pre">0</span></code> on success or a
+<strong>negative</strong> standard <code class="docutils literal notranslate"><span class="pre">errno</span></code> value on failure. This page enumerates
+each value: when UBI returns it, what it means at the application
+layer, and how the application is expected to react.</p>
+<p>The table is the lookup view; the sections below add per-code
+recovery notes for the cases where “what to do” is not obvious.</p>
+<section id="lookup-table">
+<h2>Lookup table<a class="headerlink" href="#lookup-table" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Code</p></th>
+<th class="head"><p>Returned by</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>Recommended reaction</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code></p></td>
+<td><p>every public function</p></td>
+<td><p>NULL pointer, bad parameter, geometry mismatch (<code class="docutils literal notranslate"><span class="pre">vol_id</span></code> does not exist as int range, <code class="docutils literal notranslate"><span class="pre">lnum</span></code> ≥ <code class="docutils literal notranslate"><span class="pre">leb_count</span></code>, <code class="docutils literal notranslate"><span class="pre">len</span></code> past end of LEB, malformed <code class="docutils literal notranslate"><span class="pre">secure_cfg</span></code>, …)</p></td>
+<td><p>Programmer error — fix the caller. Do not retry.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOENT</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_leb_*</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_volume_*</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_volume_get_info</span></code></p></td>
+<td><p>Volume with given <code class="docutils literal notranslate"><span class="pre">volume_id</span></code> does not exist (was never created or has been removed); LEB number out of the volume’s range</p></td>
+<td><p>Treat as “not found”. Re-create the volume or skip the operation.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EEXIST</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_volume_create</span></code></p></td>
+<td><p>A volume with the requested <strong>name</strong> already exists with a <em>different</em> configuration (type or <code class="docutils literal notranslate"><span class="pre">leb_count</span></code> differs)</p></td>
+<td><p>Decide intent: either accept the existing config or remove + recreate. Same name + identical config returns <code class="docutils literal notranslate"><span class="pre">0</span></code> (idempotent).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_leb_write</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_leb_map</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_volume_create</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_volume_resize</span></code>, secure budget exhaustion</p></td>
+<td><p>No free PEB available, or <code class="docutils literal notranslate"><span class="pre">vol_id_watermark</span></code> exhausted, or per-key budget reached its hard limit</p></td>
+<td><p>Run <code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code> to reclaim dirty PEBs. If still <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code>, the partition is genuinely full or (secure mode) a key rotation is required.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EROFS</span></code></p></td>
+<td><p>every mutating call when the device is in degraded read-only mode</p></td>
+<td><p>Reserved-PEB redundancy is lost (only 1 active reserved PEB, no spares) <strong>or</strong> the secure backend has latched a strict-RO policy</p></td>
+<td><p>Reads remain available. Call <code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code> periodically — it attempts self-healing by rewriting the bad reserved bank. If recovery succeeds, the flag clears automatically.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-EIO</span></code></p></td>
+<td><p>every flash-touching call</p></td>
+<td><p>Underlying <code class="docutils literal notranslate"><span class="pre">flash_area_*</span></code> returned an error (read, write, or erase failed)</p></td>
+<td><p>Retry once. Persistent <code class="docutils literal notranslate"><span class="pre">-EIO</span></code> indicates physical wear or a hardware fault; the affected PEB will be marked bad on the next operation.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOMEM</span></code></p></td>
+<td><p>every allocating call</p></td>
+<td><p>Memory backend is exhausted: static slab pools full (raise <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_MAX_NR_OF_*</span></code>) or <code class="docutils literal notranslate"><span class="pre">k_malloc()</span></code> returned NULL (heap backend)</p></td>
+<td><p>Programmer error in capacity planning. Re-tune the static pools or the application heap.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_device_init</span></code></p></td>
+<td><p>Another <code class="docutils literal notranslate"><span class="pre">ubi_device</span> <span class="pre">*</span></code> handle for the same <code class="docutils literal notranslate"><span class="pre">partition_id</span></code> is already active</p></td>
+<td><p>Re-use the existing handle, or call <code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code> on the previous owner first.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-ECANCELED</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_volume_resize</span></code></p></td>
+<td><p>Operation is not applicable: resize on a static volume, or <code class="docutils literal notranslate"><span class="pre">leb_count</span></code> unchanged</p></td>
+<td><p>Not an error per se. The caller asked for a no-op.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-ENOTSUP</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ubi_device_init</span></code> (secure mode)</p></td>
+<td><p>A required secure-mode platform capability (PSA <code class="docutils literal notranslate"><span class="pre">AES-128-CCM</span></code>, <code class="docutils literal notranslate"><span class="pre">HKDF-SHA-256</span></code>, or CSPRNG) is not available</p></td>
+<td><p>Adjust Kconfig: enable PSA Crypto and entropy. Secure UBI cannot be brought up without these.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EOVERFLOW</span></code></p></td>
+<td><p>secure I/O paths, secure <code class="docutils literal notranslate"><span class="pre">volume_resize</span></code></p></td>
+<td><p>An on-flash counter (per-LEB <code class="docutils literal notranslate"><span class="pre">record_seq</span></code>, per-key <code class="docutils literal notranslate"><span class="pre">aead_invocations</span></code>, etc.) has reached its representable maximum</p></td>
+<td><p>Trigger a key rotation; the new write-active key resets the counters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-EFBIG</span></code></p></td>
+<td><p>secure LEB write</p></td>
+<td><p>The supplied payload is larger than the secure LEB capacity (LEB size minus AEAD overhead, or chunk size when chunked layout is enabled)</p></td>
+<td><p>Reduce the write size or enable / re-tune <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE_LEB_CHUNKED</span></code> and <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE_LEB_CHUNK_SIZE</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code></p></td>
+<td><p>secure read paths, secure attach, reserved-PEB scan</p></td>
+<td><p>Authentication failure (AEAD tag mismatch, invalid header magic, CRC mismatch on a secure record)</p></td>
+<td><p>Treat the affected record as untrusted. The secure backend will route the failure through the event callback (<code class="docutils literal notranslate"><span class="pre">UBI_SECURE_EVENT_DECRYPT_FAIL</span></code>); the application’s policy decides whether to drop the LEB, latch read-only, or attempt recovery.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-EACCES</span></code></p></td>
+<td><p>secure attach (<code class="docutils literal notranslate"><span class="pre">ubi_device_init</span></code> with <code class="docutils literal notranslate"><span class="pre">secure_cfg</span></code>); plain <code class="docutils literal notranslate"><span class="pre">leb_unmap</span></code> on a static volume</p></td>
+<td><p>A freshness / policy callback rejected the attach; or an attempt was made to unmap a LEB on a static volume</p></td>
+<td><p>Attach: investigate <code class="docutils literal notranslate"><span class="pre">check_freshness</span></code> — a rollback was reported. Unmap: forbidden by design on static volumes.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="per-code-notes">
+<h2>Per-code notes<a class="headerlink" href="#per-code-notes" title="Link to this heading">¶</a></h2>
+<section id="enospc-is-overloaded">
+<h3><code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code> is overloaded<a class="headerlink" href="#enospc-is-overloaded" title="Link to this heading">¶</a></h3>
+<p>Three distinct conditions surface as <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code>:</p>
+<ol class="arabic simple">
+<li><p><strong>No free PEB</strong> for a write — call <code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code> until
+it returns <code class="docutils literal notranslate"><span class="pre">-ENOENT</span></code> (no dirty PEBs left); if writes still fail
+with <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code> the partition is full at the <em>physical</em> level.</p></li>
+<li><p><strong>Volume ID watermark exhausted</strong> — the device has created
+<code class="docutils literal notranslate"><span class="pre">UINT32_MAX</span></code> volumes over its lifetime (volume IDs are
+monotonic and never reused). This is unrecoverable without a full
+reformat.</p></li>
+<li><p><strong>Per-key budget reached <code class="docutils literal notranslate"><span class="pre">ROTATE_NOW_PCT</span></code></strong> <em>(secure mode only)</em> —
+the secure backend refuses further writes against a key that has
+reached its hard usage threshold. Provide a new key version via
+<code class="docutils literal notranslate"><span class="pre">get_key_id</span></code> and either bump <code class="docutils literal notranslate"><span class="pre">requested_write_key_version</span></code> in
+<code class="docutils literal notranslate"><span class="pre">secure_cfg</span></code> or re-attach with the rotated allowlist.</p></li>
+</ol>
+</section>
+<section id="erofs-and-self-healing">
+<h3><code class="docutils literal notranslate"><span class="pre">-EROFS</span></code> and self-healing<a class="headerlink" href="#erofs-and-self-healing" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">-EROFS</span></code> does not mean the device is permanently broken. The
+maintenance call <code class="docutils literal notranslate"><span class="pre">ubi_device_erase_peb()</span></code> is intentionally allowed
+in read-only mode: after its dirty-PEB cycle it tries to rewrite the
+bad reserved bank from the surviving copy. If that succeeds, the
+internal <code class="docutils literal notranslate"><span class="pre">read_only_degraded</span></code> flag clears and the next mutating call
+will succeed. See <a class="reference internal" href="../architecture/plain_architecture.html"><span class="doc">Architecture Guide</span></a> § <em>Read-Only
+Degraded Mode</em> for the full mutation gate.</p>
+</section>
+<section id="ebadmsg-is-a-security-event-not-a-transient-i-o-error">
+<h3><code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code> is a security event, not a transient I/O error<a class="headerlink" href="#ebadmsg-is-a-security-event-not-a-transient-i-o-error" title="Link to this heading">¶</a></h3>
+<p>Never treat <code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code> as something to retry. It means a record
+authentication tag did not validate — either the flash content was
+tampered with, or a key version mismatch slipped through. The secure
+backend always emits a corresponding <code class="docutils literal notranslate"><span class="pre">UBI_SECURE_EVENT_*</span></code> to the
+application’s <code class="docutils literal notranslate"><span class="pre">event_cb</span></code> before returning. Use that event (not the
+errno) as the trigger for security policy.</p>
+</section>
+<section id="ebusy-means-single-handle-per-partition">
+<h3><code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code> means “single handle per partition”<a class="headerlink" href="#ebusy-means-single-handle-per-partition" title="Link to this heading">¶</a></h3>
+<p>UBI enforces one active <code class="docutils literal notranslate"><span class="pre">ubi_device</span> <span class="pre">*</span></code> per flash partition. The
+guard is set in <code class="docutils literal notranslate"><span class="pre">ubi_device_init()</span></code> and released in
+<code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code>. Tests that rapidly cycle init/deinit can use
+<code class="docutils literal notranslate"><span class="pre">ubi_test_partition_guard_reset()</span></code> (gated by
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_API_ENABLE</span></code>) to reset the guard between iterations.</p>
+</section>
+</section>
+<section id="cross-reference">
+<h2>Cross-reference<a class="headerlink" href="#cross-reference" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="api.html"><span class="doc">API Reference</span></a> — the per-function Doxygen reference; each
+function’s <code class="docutils literal notranslate"><span class="pre">\retval</span></code> lines list the codes it can actually return.</p></li>
+<li><p><a class="reference internal" href="../architecture/secure_overview.html"><span class="doc">Secure Architecture: Overview</span></a> § <em>Events and read-only mode</em> —
+how <code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code>, <code class="docutils literal notranslate"><span class="pre">-EACCES</span></code>, and the strict-RO policies interact.</p></li>
+<li><p><a class="reference internal" href="../guide/secure_workflow.html"><span class="doc">Secure UBI Workflow</span></a> § 4.4 — handling
+<code class="docutils literal notranslate"><span class="pre">UBI_SECURE_EVENT_*</span></code> callbacks (the security counterpart to the
+errno surface).</p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="glossary.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Glossary</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="kconfig_reference.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Kconfig Reference</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Kamil Kielbasa
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/kamil-kielbasa/ubi" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Error Codes</a><ul>
+<li><a class="reference internal" href="#lookup-table">Lookup table</a></li>
+<li><a class="reference internal" href="#per-code-notes">Per-code notes</a><ul>
+<li><a class="reference internal" href="#enospc-is-overloaded"><code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code> is overloaded</a></li>
+<li><a class="reference internal" href="#erofs-and-self-healing"><code class="docutils literal notranslate"><span class="pre">-EROFS</span></code> and self-healing</a></li>
+<li><a class="reference internal" href="#ebadmsg-is-a-security-event-not-a-transient-i-o-error"><code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code> is a security event, not a transient I/O error</a></li>
+<li><a class="reference internal" href="#ebusy-means-single-handle-per-partition"><code class="docutils literal notranslate"><span class="pre">-EBUSY</span></code> means “single handle per partition”</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cross-reference">Cross-reference</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>

@@ -1,0 +1,2744 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="prev" title="Test Strategy" href="test_strategy.html" />
+
+    <!-- Generated with Sphinx 7.4.7 and Furo 2024.08.06 -->
+        <title>Changelog - UBI on Zephyr</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=312cd7bf" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">UBI on Zephyr</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">UBI on Zephyr</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/what_is_ubi.html">What is UBI?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/comparison.html">Comparison: UBI vs LittleFS vs NVS vs ZMS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/quick_start.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/concepts.html">Concepts at a Glance</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../guide/plain_workflow.html">Plain UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/secure_workflow.html">Secure UBI Workflow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/environment_setup.html">Environment Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guide/cookbook.html">Cookbook</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/plain_architecture.html">Architecture Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../architecture/secure_overview.html">Secure Architecture: Overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../reference/api.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/kconfig_reference.html">Kconfig Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/error_codes.html">Error Codes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/glossary.html">Glossary</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/onflash_format_spec.html">Secure On-Flash Format Specification</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="test_strategy.html">Test Strategy</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Changelog</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/blob/main/doc/project/changelog.md?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/kamil-kielbasa/ubi/edit/main/doc/project/changelog.md" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="changelog">
+<h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading">¶</a></h1>
+<p>All notable changes to this project will be documented in this file.</p>
+<p>The format is based on <a class="reference external" href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
+and this project adheres to <a class="reference external" href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<section id="unreleased">
+<h2>[Unreleased]<a class="headerlink" href="#unreleased" title="Link to this heading">¶</a></h2>
+</section>
+<section id="id1">
+<h2>[1.0.0] - 2026-05-15<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p>First stable release. The pre-1.0 history below (0.1.0 – 0.113.0) is the
+incremental record; this entry summarises what v1.0.0 delivers as a
+whole and what stability commitments come with it.</p>
+<section id="stability-commitment">
+<h3>Stability commitment<a class="headerlink" href="#stability-commitment" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Public API in <code class="docutils literal notranslate"><span class="pre">lib/include/ubi.h</span></code> and <code class="docutils literal notranslate"><span class="pre">lib/include/ubi_secure.h</span></code> is
+stable. Breaking changes require a major version bump.</p></li>
+<li><p>The on-flash format (plain and secure) is frozen. Future v1.x
+releases will read v1.0.0 partitions.</p></li>
+<li><p>The Kconfig surface (<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_*</span></code>) follows the same compatibility
+guarantee.</p></li>
+</ul>
+</section>
+<section id="plain-backend-always-built">
+<h3>Plain backend (always built)<a class="headerlink" href="#plain-backend-always-built" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Device lifecycle.</strong> Unified <code class="docutils literal notranslate"><span class="pre">ubi_device_init(flash,</span> <span class="pre">secure_cfg,</span> <span class="pre">&amp;ubi)</span></code>
+/ <code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code> with backend dispatch via an internal vtable.
+Per-device static memory backend (<code class="docutils literal notranslate"><span class="pre">k_mem_slab</span></code>) is the default; legacy
+heap backend is selectable via Kconfig.</p></li>
+<li><p><strong>Volumes.</strong> Static and dynamic types, runtime <code class="docutils literal notranslate"><span class="pre">ubi_volume_create</span></code> /
+<code class="docutils literal notranslate"><span class="pre">_remove</span></code> / <code class="docutils literal notranslate"><span class="pre">_resize</span></code> with grow + shrink, transactional rollback on
+failure, persistent <code class="docutils literal notranslate"><span class="pre">vol_id</span></code> high-watermark (IDs are never reused
+across the device lifetime).</p></li>
+<li><p><strong>LEB I/O.</strong> <code class="docutils literal notranslate"><span class="pre">ubi_leb_map</span></code> / <code class="docutils literal notranslate"><span class="pre">_unmap</span></code> / <code class="docutils literal notranslate"><span class="pre">_read</span></code> / <code class="docutils literal notranslate"><span class="pre">_write</span></code> over the
+Zephyr Flash Map API, with copy-on-write semantics (old mapping
+preserved until the new PEB is fully written) and write-block-aligned
+tail padding using the hardware-reported erase value.</p></li>
+<li><p><strong>Wear-leveling.</strong> Global wear budget across all PEBs of a partition;
+monotonic erase counters with average-tracking; configurable
+per-write retry count; bad-block torture before isolation.</p></li>
+<li><p><strong>Crash safety.</strong> Reserved-PEB dual bank with monotonic
+<code class="docutils literal notranslate"><span class="pre">vid_sqnum</span></code>-based recovery; degraded mode that exposes a sticky
+read-only flag (<code class="docutils literal notranslate"><span class="pre">read_only_degraded</span></code>) when one bank fails.</p></li>
+<li><p><strong>Mutation gate.</strong> A per-device read-only flag is checked before every
+public mutator; data path, reserved-metadata path, and maintenance
+path are gated independently.</p></li>
+<li><p><strong>Concurrency.</strong> Per-device mutex; multiple <code class="docutils literal notranslate"><span class="pre">ubi_device</span></code> handles per
+application supported, each on its own partition; single-handle-per-
+partition guard rejects double-attach.</p></li>
+<li><p><strong>Misuse handling.</strong> All public entry points return <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code> with a
+diagnostic log on <code class="docutils literal notranslate"><span class="pre">NULL</span></code> arguments instead of asserting; integration
+bugs are non-fatal in production builds.</p></li>
+</ul>
+</section>
+<section id="secure-backend-config-ubi-secure-y-opt-in">
+<h3>Secure backend (<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE=y</span></code>, opt-in)<a class="headerlink" href="#secure-backend-config-ubi-secure-y-opt-in" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>AEAD coverage.</strong> AES-128-CCM via PSA Crypto over <strong>every</strong>
+commit-visible on-flash structure: device header, volume headers, EC
+headers, VID headers, reserved PEBs, and LEB payloads. Block location
+and identity are bound into the AAD, so relocating an authentic
+record to a different PEB or replaying it under a different
+<code class="docutils literal notranslate"><span class="pre">volume_id</span></code> / <code class="docutils literal notranslate"><span class="pre">lnum</span></code> fails MAC verification.</p></li>
+<li><p><strong>Key hierarchy.</strong> HKDF-SHA-256 key derivation, parent-child binding,
+per-domain child keys, salt generation. Application supplies key
+material through the <code class="docutils literal notranslate"><span class="pre">get_key_id</span></code> callback returning <code class="docutils literal notranslate"><span class="pre">psa_key_id_t</span></code>.</p></li>
+<li><p><strong>Versioned keys &amp; allowlist.</strong> Per-PEB key-version refcount; the
+active write-key version is authenticated on flash; allowlist is
+enforced on both read and write before any key derivation. Key-life-
+cycle events <code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_SOON</span></code>, <code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_NOW</span></code>, <code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code> are
+delivered to the application; <code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code> fires only after the
+last carrier of an old version is recycled.</p></li>
+<li><p><strong>Anti-rollback.</strong> Application-supplied <code class="docutils literal notranslate"><span class="pre">check_freshness</span></code> /
+<code class="docutils literal notranslate"><span class="pre">sync_freshness</span></code> callbacks bound to the device-header revision and
+the VID-header global sequence number — attach-time check plus
+post-commit sync. Optional <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE_SYNC_FRESHNESS_VERIFY</span></code>
+re-reads each successful sync to catch ack-but-not-persisted
+integrations.</p></li>
+<li><p><strong>Counter continuity.</strong> Monotonic AEAD counters per LEB, VID, EC, and
+device-header domain, recovered from flash at attach via a per-volume
+hidden anchor PEB and a last-writable-witness rule on erase. 48-bit
+counter saturation fails closed before any flash mutation.</p></li>
+<li><p><strong>Per-domain write budgets.</strong> Soft/hard thresholds for each metadata
+and data domain under the active write key version; reaching the soft
+threshold emits <code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_SOON</span></code>, hard threshold emits
+<code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_NOW</span></code>, rejects the operation with <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code>, and
+transitions the device to read-only. Reads remain available.</p></li>
+<li><p><strong>Sticky read-only mode.</strong> AEAD failure, RNG failure, or write-budget
+exhaustion escalates the device to <code class="docutils literal notranslate"><span class="pre">-EROFS</span></code>-on-write while reads
+continue. Reset clears the flag.</p></li>
+<li><p><strong>Chunked LEB mode.</strong> Optional independently-authenticated 256 B –
+64 KiB chunks for large LEBs; only touched chunks are verified on
+partial read.</p></li>
+<li><p><strong>Coexistence.</strong> Plain and secure devices run side by side on
+different partitions; plain dispatcher returns <code class="docutils literal notranslate"><span class="pre">-ENOTSUP</span></code> if a
+non-<code class="docutils literal notranslate"><span class="pre">NULL</span></code> <code class="docutils literal notranslate"><span class="pre">secure_cfg</span></code> is passed without <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE</span></code>.</p></li>
+</ul>
+</section>
+<section id="validated-targets">
+<h3>Validated targets<a class="headerlink" href="#validated-targets" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Zephyr <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> (flash simulator) with both 4 KB and 8 KB erase-
+block geometries, plain + secure + chunked configurations.</p></li>
+<li><p>STM32U585 (<code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code>) — 128 KiB UBI partition, plain + secure
+cross-build verified on every PR.</p></li>
+<li><p>nRF5340 DK (<code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code>) — 64 KiB UBI partition,
+plain + secure cross-build verified on every PR.</p></li>
+</ul>
+</section>
+<section id="quality-bar">
+<h3>Quality bar<a class="headerlink" href="#quality-bar" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>55 ZTEST suites, 609 tests</strong> (270 plain + 339 secure) covering API
+contracts, recovery, fault injection (allocation, flash I/O, crypto,
+RNG, freshness), concurrency, stress, replay-to-other-PEB resistance,
+forensic scanning, and budget exhaustion.</p></li>
+<li><p><strong>Live coverage</strong> reported by Codecov on every push to <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p></li>
+<li><p><strong>Forensic scanner</strong> (<code class="docutils literal notranslate"><span class="pre">scripts/scan_flash.py</span></code>) verifies that no
+plaintext data, volume names, or key material appear on flash after
+secure writes; runs in CI.</p></li>
+<li><p><strong>Build hygiene.</strong> <code class="docutils literal notranslate"><span class="pre">format-check</span></code>, <code class="docutils literal notranslate"><span class="pre">forensic-scan</span></code>, and per-target
+cross-build jobs gate every PR; warnings are errors
+(<code class="docutils literal notranslate"><span class="pre">-Werror</span> <span class="pre">-Wextra</span> <span class="pre">-Wshadow</span></code>); test docblocks (<code class="docutils literal notranslate"><span class="pre">\brief</span></code>, <code class="docutils literal notranslate"><span class="pre">\details</span></code>,
+<code class="docutils literal notranslate"><span class="pre">\expected</span></code>, optional <code class="docutils literal notranslate"><span class="pre">\oracle</span></code> / <code class="docutils literal notranslate"><span class="pre">\trace</span></code> / <code class="docutils literal notranslate"><span class="pre">\precondition</span></code>) are
+checked in <code class="docutils literal notranslate"><span class="pre">--strict</span></code> mode.</p></li>
+</ul>
+</section>
+<section id="resource-profile">
+<h3>Resource profile<a class="headerlink" href="#resource-profile" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain build: ~9.5 KB flash, ~1.5 KB BSS.</p></li>
+<li><p>Secure build: ~28.6 KB flash, ~1.8 KB BSS.</p></li>
+<li><p>Cortex-M33, <code class="docutils literal notranslate"><span class="pre">-Os</span></code>, STM32U585; UBI library archive only — PSA Crypto
+and mbedTLS are provided by the platform and not counted.</p></li>
+</ul>
+</section>
+<section id="documentation">
+<h3>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Sphinx site under the <strong>Furo</strong> theme, organised in five Diátaxis-
+aligned sections (Getting Started, User Guide, Architecture,
+Reference, Project), deployed to <a class="reference external" href="https://kamil-kielbasa.github.io/ubi/">https://kamil-kielbasa.github.io/ubi/</a>.</p></li>
+<li><p>Topic pages: <em>What is UBI?</em>, <em>Comparison vs LittleFS / NVS / ZMS</em>,
+<em>Concepts at a Glance</em>, <em>Quick Start</em>, <em>Configuration</em>, <em>Cookbook</em>
+(six end-to-end recipes including STM32U5 / nRF5340 bring-up, A/B
+firmware, periodic GC, key rotation, freshness store), <em>Plain UBI
+Workflow</em>, <em>Secure UBI Workflow</em>, <em>Plain Architecture</em>, <em>Secure
+Architecture</em>, <em>Secure On-Flash Format Specification</em>, <em>API
+Reference</em>, <em>Kconfig Reference</em>, <em>Error Codes</em>, <em>Glossary</em>, <em>Test
+Strategy</em>, <em>Contributing</em>.</p></li>
+<li><p>ZTEST traceability tables in <em>Test Strategy</em> link normative
+behaviours to their regression tests.</p></li>
+</ul>
+</section>
+<section id="community-files">
+<h3>Community files<a class="headerlink" href="#community-files" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">SECURITY.md</span></code> (Private Vulnerability Reporting + email + 7-day
+acknowledgement SLA).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CODE_OF_CONDUCT.md</span></code> (Contributor Covenant 2.1).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CITATION.cff</span></code> (CFF 1.2.0).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.github/ISSUE_TEMPLATE/</span></code> — bug, feature, and question forms with a
+security redirect to SECURITY.md.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">.github/pull_request_template.md</span></code> mirroring the contributing-guide
+PR checklist.</p></li>
+</ul>
+</section>
+</section>
+<section id="id2">
+<h2>[0.113.0] - 2026-05-14<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<section id="changed">
+<h3>Changed<a class="headerlink" href="#changed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id3">
+<h2>[0.112.0] - 2026-05-14<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<section id="id4">
+<h3>Changed<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id5">
+<h2>[0.111.0] - 2026-05-13<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<section id="id6">
+<h3>Changed<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id7">
+<h2>[0.110.0] - 2026-05-13<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<section id="id8">
+<h3>Changed<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id9">
+<h2>[0.109.0] - 2026-05-13<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
+<section id="id10">
+<h3>Changed<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id11">
+<h2>[0.108.0] - 2026-05-13<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h2>
+<section id="id12">
+<h3>Changed<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id13">
+<h2>[0.107.0] - 2026-05-13<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h2>
+<section id="added">
+<h3>Added<a class="headerlink" href="#added" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Per-allocator-kind fault-injection selector in the test API
+(<code class="docutils literal notranslate"><span class="pre">enum</span> <span class="pre">ubi_test_alloc_kind</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ubi_test_fault_set_kind_alloc_fail_after()</span></code>), letting integrators
+target a specific allocation site without disturbing others. No-op
+in non-test builds.</p></li>
+</ul>
+</section>
+</section>
+<section id="id14">
+<h2>[0.106.0] - 2026-05-13<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h2>
+<section id="id15">
+<h3>Added<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Test docblock template recognises optional <code class="docutils literal notranslate"><span class="pre">\oracle</span></code>, <code class="docutils literal notranslate"><span class="pre">\trace</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">\precondition</span></code> tags; <code class="docutils literal notranslate"><span class="pre">--strict</span></code> mode promotes them to errors.</p></li>
+</ul>
+</section>
+</section>
+<section id="id16">
+<h2>[0.105.0] - 2026-05-13<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h2>
+<section id="id17">
+<h3>Changed<a class="headerlink" href="#id17" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id18">
+<h2>[0.104.0] - 2026-05-13<a class="headerlink" href="#id18" title="Link to this heading">¶</a></h2>
+<section id="id19">
+<h3>Changed<a class="headerlink" href="#id19" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id20">
+<h2>[0.103.0] - 2026-05-13<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h2>
+<section id="id21">
+<h3>Changed<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id22">
+<h2>[0.102.0] - 2026-05-13<a class="headerlink" href="#id22" title="Link to this heading">¶</a></h2>
+<section id="id23">
+<h3>Changed<a class="headerlink" href="#id23" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id24">
+<h2>[0.101.0] - 2026-05-13<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h2>
+<section id="id25">
+<h3>Changed<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id26">
+<h2>[0.100.0] - 2026-05-13<a class="headerlink" href="#id26" title="Link to this heading">¶</a></h2>
+<section id="id27">
+<h3>Changed<a class="headerlink" href="#id27" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id28">
+<h2>[0.99.0] - 2026-05-13<a class="headerlink" href="#id28" title="Link to this heading">¶</a></h2>
+<section id="id29">
+<h3>Changed<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id30">
+<h2>[0.98.0] - 2026-05-12<a class="headerlink" href="#id30" title="Link to this heading">¶</a></h2>
+<section id="id31">
+<h3>Changed<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id32">
+<h2>[0.97.0] - 2026-05-12<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h2>
+<section id="id33">
+<h3>Changed<a class="headerlink" href="#id33" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id34">
+<h2>[0.96.0] - 2026-05-12<a class="headerlink" href="#id34" title="Link to this heading">¶</a></h2>
+<section id="id35">
+<h3>Changed<a class="headerlink" href="#id35" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id36">
+<h2>[0.95.0] - 2026-05-12<a class="headerlink" href="#id36" title="Link to this heading">¶</a></h2>
+<section id="id37">
+<h3>Changed<a class="headerlink" href="#id37" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id38">
+<h2>[0.94.0] - 2026-05-12<a class="headerlink" href="#id38" title="Link to this heading">¶</a></h2>
+<section id="id39">
+<h3>Changed<a class="headerlink" href="#id39" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id40">
+<h2>[0.93.0] - 2026-05-12<a class="headerlink" href="#id40" title="Link to this heading">¶</a></h2>
+<section id="id41">
+<h3>Changed<a class="headerlink" href="#id41" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id42">
+<h2>[0.92.0] - 2026-05-12<a class="headerlink" href="#id42" title="Link to this heading">¶</a></h2>
+<section id="id43">
+<h3>Changed<a class="headerlink" href="#id43" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup; no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id44">
+<h2>[0.91.0] - 2026-05-12<a class="headerlink" href="#id44" title="Link to this heading">¶</a></h2>
+<section id="id45">
+<h3>Added<a class="headerlink" href="#id45" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Two test-only secure hooks (<code class="docutils literal notranslate"><span class="pre">ubi_secure_test_get_peb_for_lnum</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ubi_secure_test_read_vid_meta_from_peb</span></code>), gated by
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id46">
+<h2>[0.90.0] - 2026-05-12<a class="headerlink" href="#id46" title="Link to this heading">¶</a></h2>
+<section id="id47">
+<h3>Added<a class="headerlink" href="#id47" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>New Kconfig <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_SYNC_FRESHNESS_VERIFY</span></code> (default <code class="docutils literal notranslate"><span class="pre">n</span></code>):
+when enabled, every successful <code class="docutils literal notranslate"><span class="pre">sync_freshness</span></code> callback is
+immediately re-checked via <code class="docutils literal notranslate"><span class="pre">check_freshness</span></code>; a mismatch raises
+<code class="docutils literal notranslate"><span class="pre">ROLLBACK_POLICY_MISMATCH</span></code>. Catches integrations that ack the sync
+but fail to durably persist it.</p></li>
+</ul>
+</section>
+<section id="id48">
+<h3>Changed<a class="headerlink" href="#id48" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal field grouping in <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ubi_device</span></code> (e.g.
+<code class="docutils literal notranslate"><span class="pre">ubi-&gt;next_vid_counter</span></code> → <code class="docutils literal notranslate"><span class="pre">ubi-&gt;aead.next_vid</span></code>). Public
+<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ubi_device_info</span></code> is unchanged. No on-flash format change.</p></li>
+</ul>
+</section>
+</section>
+<section id="id49">
+<h2>[0.89.0] - 2026-05-12<a class="headerlink" href="#id49" title="Link to this heading">¶</a></h2>
+<section id="fixed">
+<h3>Fixed<a class="headerlink" href="#fixed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Stack byte buffers used to build AEAD nonces are now always
+zero-initialised, eliminating a path that could carry stack garbage
+into a chunked-LEB nonce.</p></li>
+</ul>
+</section>
+</section>
+<section id="id50">
+<h2>[0.88.0] - 2026-05-12<a class="headerlink" href="#id50" title="Link to this heading">¶</a></h2>
+<section id="id51">
+<h3>Changed<a class="headerlink" href="#id51" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>AEAD entry points now reject the under-specified case
+<code class="docutils literal notranslate"><span class="pre">aad</span> <span class="pre">==</span> <span class="pre">NULL</span> <span class="pre">&amp;&amp;</span> <span class="pre">aad_len</span> <span class="pre">!=</span> <span class="pre">0</span></code> with <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code> at the boundary.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ubi_secure_destroy_key()</span></code> now warns when PSA reports an unexpected
+error so a key-slot leak is no longer silent on cleanup paths.</p></li>
+</ul>
+</section>
+</section>
+<section id="id52">
+<h2>[0.87.0] - 2026-05-12<a class="headerlink" href="#id52" title="Link to this heading">¶</a></h2>
+<section id="id53">
+<h3>Changed<a class="headerlink" href="#id53" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Public ABI rename: <code class="docutils literal notranslate"><span class="pre">ubi_secure_get_write_active_key_version</span></code> →
+<code class="docutils literal notranslate"><span class="pre">ubi_secure_key_get_active_version</span></code> in <code class="docutils literal notranslate"><span class="pre">ubi_crypto.h</span></code>. Call
+semantics unchanged.</p></li>
+</ul>
+</section>
+</section>
+<section id="id54">
+<h2>[0.86.0] - 2026-05-12<a class="headerlink" href="#id54" title="Link to this heading">¶</a></h2>
+<section id="id55">
+<h3>Changed<a class="headerlink" href="#id55" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Erase-time maintenance failures on the per-volume anchor reserve are
+now reported via <code class="docutils literal notranslate"><span class="pre">LOG_WRN</span></code> (with PEB index and return code) instead
+of being silently swallowed.</p></li>
+</ul>
+</section>
+</section>
+<section id="id56">
+<h2>[0.85.0] - 2026-05-12<a class="headerlink" href="#id56" title="Link to this heading">¶</a></h2>
+<section id="id57">
+<h3>Changed<a class="headerlink" href="#id57" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal refactor of secure AAD builders and LEB I/O signatures.
+No API, behaviour, or on-flash format change.</p></li>
+</ul>
+</section>
+</section>
+<section id="id58">
+<h2>[0.84.0] - 2026-05-12<a class="headerlink" href="#id58" title="Link to this heading">¶</a></h2>
+<section id="id59">
+<h3>Changed<a class="headerlink" href="#id59" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal refactor of the secure backend; no behaviour, API, or
+on-flash format change.</p></li>
+</ul>
+</section>
+</section>
+<section id="id60">
+<h2>[0.83.0] - 2026-05-12<a class="headerlink" href="#id60" title="Link to this heading">¶</a></h2>
+<section id="id61">
+<h3>Changed<a class="headerlink" href="#id61" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>On-flash record sizes are now compile-time bound to their C structs.
+A future change that would shift any committed record’s byte count
+fails the build.</p></li>
+</ul>
+</section>
+</section>
+<section id="id62">
+<h2>[0.82.0] - 2026-05-12<a class="headerlink" href="#id62" title="Link to this heading">¶</a></h2>
+<section id="id63">
+<h3>Changed<a class="headerlink" href="#id63" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>BREAKING:</strong> the secure backend now uses <code class="docutils literal notranslate"><span class="pre">psa_key_id_t</span></code> for key
+identifiers throughout its public API. Applications that provide the
+<code class="docutils literal notranslate"><span class="pre">get_key_id</span></code> callback (<code class="docutils literal notranslate"><span class="pre">ubi_crypto_get_key_id_cb_t</span></code>) must update its
+second parameter from <code class="docutils literal notranslate"><span class="pre">uint32_t</span> <span class="pre">*</span></code> to <code class="docutils literal notranslate"><span class="pre">psa_key_id_t</span> <span class="pre">*</span></code>. No on-flash
+format change; secure devices attach and continue to operate exactly
+as before.</p></li>
+</ul>
+</section>
+</section>
+<section id="id64">
+<h2>[0.81.0] - 2026-05-12<a class="headerlink" href="#id64" title="Link to this heading">¶</a></h2>
+<section id="security">
+<h3>Security<a class="headerlink" href="#security" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Fix AEAD nonce-uniqueness regression in the secure backend.</strong> The
+previous counter-recovery helper only consulted the PEB currently
+mapped to the requested <code class="docutils literal notranslate"><span class="pre">lnum</span></code>. After
+<code class="docutils literal notranslate"><span class="pre">write</span> <span class="pre">→</span> <span class="pre">unmap</span> <span class="pre">→</span> <span class="pre">erase-all-dirty</span> <span class="pre">→</span> <span class="pre">write</span></code> the new mapping restarted
+<code class="docutils literal notranslate"><span class="pre">leb_write_counter</span></code> at 0 under the same HKDF child key, violating
+AEAD nonce uniqueness for the affected <code class="docutils literal notranslate"><span class="pre">{key_version,</span> <span class="pre">volume_id}</span></code>
+pair. <strong>Versions 0.79.0 and 0.80.0 are vulnerable; do not deploy
+them.</strong></p></li>
+</ul>
+</section>
+<section id="id65">
+<h3>Changed<a class="headerlink" href="#id65" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Per-volume AEAD counter floor is now cached in RAM, reseeded from
+the anchor plus every authenticated data PEB during attach, bumped
+before each <code class="docutils literal notranslate"><span class="pre">leb_data_write</span></code>, and refreshed on anchor rewrite.</p></li>
+<li><p>Anchor witness-check on dirty erase is now O(1) instead of O(N²).</p></li>
+</ul>
+</section>
+<section id="id66">
+<h3>Added<a class="headerlink" href="#id66" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>New <code class="docutils literal notranslate"><span class="pre">ubi_secure_anchor</span></code> test suite covering counter inheritance,
+cold-attach reseed, 48-bit counter saturation, and strict
+monotonicity loops.</p></li>
+</ul>
+</section>
+</section>
+<section id="id67">
+<h2>[0.80.0] - 2026-05-11<a class="headerlink" href="#id67" title="Link to this heading">¶</a></h2>
+<section id="id68">
+<h3>Changed<a class="headerlink" href="#id68" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain UBI flow diagrams in <em>Plain UBI Architecture</em> are now a single
+side-by-side SVG instead of three stacked Mermaid blocks.</p></li>
+</ul>
+</section>
+</section>
+<section id="id69">
+<h2>[0.79.0] - 2026-05-11<a class="headerlink" href="#id69" title="Link to this heading">¶</a></h2>
+<section id="id70">
+<h3>Added<a class="headerlink" href="#id70" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>New documentation page <strong>Comparison: UBI vs LittleFS vs NVS vs ZMS</strong>
+with a side-by-side table and a two-question decision shortcut.</p></li>
+</ul>
+</section>
+<section id="id71">
+<h3>Changed<a class="headerlink" href="#id71" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Removed redundant per-page <code class="docutils literal notranslate"><span class="pre">{contents}</span></code> blocks from Cookbook, Error
+Codes, and Kconfig Reference (Furo renders a per-page outline).</p></li>
+</ul>
+</section>
+<section id="id72">
+<h3>Fixed<a class="headerlink" href="#id72" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Footer GitHub icon now renders as inline SVG so it appears on nested
+doc URLs.</p></li>
+</ul>
+</section>
+</section>
+<section id="id73">
+<h2>[0.78.0] - 2026-05-11<a class="headerlink" href="#id73" title="Link to this heading">¶</a></h2>
+<section id="id74">
+<h3>Changed<a class="headerlink" href="#id74" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Documentation site now uses the <strong>Furo</strong> theme: light/dark toggle,
+copy-button on every code block, “Edit on GitHub” links. No content
+or URLs change.</p></li>
+</ul>
+</section>
+</section>
+<section id="id75">
+<h2>[0.77.0] - 2026-05-11<a class="headerlink" href="#id75" title="Link to this heading">¶</a></h2>
+<section id="id76">
+<h3>Changed<a class="headerlink" href="#id76" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain UBI Architecture prose now uses the canonical field names
+<code class="docutils literal notranslate"><span class="pre">volume_id</span></code> and <code class="docutils literal notranslate"><span class="pre">vid_sqnum</span></code> (matching the C headers and the
+Glossary).</p></li>
+</ul>
+</section>
+<section id="id77">
+<h3>Fixed<a class="headerlink" href="#id77" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Removed a stale placeholder in the Secure Architecture Overview
+“What’s next” list.</p></li>
+</ul>
+</section>
+<section id="id78">
+<h3>Added<a class="headerlink" href="#id78" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Stylesheet (<code class="docutils literal notranslate"><span class="pre">_static/custom.css</span></code>) caps Mermaid diagrams at 720 px
+and centres them.</p></li>
+</ul>
+</section>
+</section>
+<section id="id79">
+<h2>[0.76.0] - 2026-05-08<a class="headerlink" href="#id79" title="Link to this heading">¶</a></h2>
+<section id="id80">
+<h3>Changed<a class="headerlink" href="#id80" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The Secure On-Flash Format Specification illustrations are now
+static SVGs (key hierarchy + attach/runtime sequences) instead of
+Mermaid; they render identically on GitHub, GitHub Pages, and
+offline / PDF.</p></li>
+</ul>
+</section>
+</section>
+<section id="id81">
+<h2>[0.75.0] - 2026-05-08<a class="headerlink" href="#id81" title="Link to this heading">¶</a></h2>
+<section id="id82">
+<h3>Added<a class="headerlink" href="#id82" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>README <strong>Acknowledgments</strong> section credits the Linux UBI subsystem
+as the direct inspiration and frames Secure UBI as the author’s
+addition on top of that foundation.</p></li>
+<li><p>Social preview banner ships in <code class="docutils literal notranslate"><span class="pre">doc/img/</span></code>.</p></li>
+</ul>
+</section>
+<section id="id83">
+<h3>Changed<a class="headerlink" href="#id83" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>README release-status note promoted to a top-of-file blockquote;
+Documentation section now links to the new Glossary.</p></li>
+</ul>
+</section>
+</section>
+<section id="id84">
+<h2>[0.74.0] - 2026-05-08<a class="headerlink" href="#id84" title="Link to this heading">¶</a></h2>
+<section id="id85">
+<h3>Added<a class="headerlink" href="#id85" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Single-page <strong>Glossary</strong> under <code class="docutils literal notranslate"><span class="pre">reference/glossary</span></code> collects every
+UBI-specific term used across the documentation.</p></li>
+</ul>
+</section>
+<section id="id86">
+<h3>Changed<a class="headerlink" href="#id86" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain UBI Architecture now uses the precise field names <code class="docutils literal notranslate"><span class="pre">vid_sqnum</span></code>
+and <code class="docutils literal notranslate"><span class="pre">volume_id</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id87">
+<h2>[0.73.0] - 2026-05-08<a class="headerlink" href="#id87" title="Link to this heading">¶</a></h2>
+<section id="id88">
+<h3>Changed<a class="headerlink" href="#id88" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The Secure On-Flash Format Specification is now a tighter normative
+reference. Architectural rationale moved to the Secure Architecture
+Overview and the Secure UBI Workflow guide.</p></li>
+</ul>
+</section>
+</section>
+<section id="id89">
+<h2>[0.72.0] - 2026-05-08<a class="headerlink" href="#id89" title="Link to this heading">¶</a></h2>
+<section id="id90">
+<h3>Added<a class="headerlink" href="#id90" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>New <strong>Plain UBI Workflow</strong> guide — when to use plain UBI, the
+<code class="docutils literal notranslate"><span class="pre">ubi_device</span></code> lifecycle, volume management, the LEB read/write
+contract, GC, error handling, degraded read-only mode.</p></li>
+<li><p>New <strong>Error Codes</strong> reference page listing every value the public
+API can return with the recommended application reaction.</p></li>
+</ul>
+</section>
+<section id="id91">
+<h3>Fixed<a class="headerlink" href="#id91" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Quick Start example: read length now uses <code class="docutils literal notranslate"><span class="pre">sizeof(buf)</span></code> instead of
+<code class="docutils literal notranslate"><span class="pre">sizeof(data)</span></code> (no more silent truncation).</p></li>
+<li><p>Cookbook <em>Periodic garbage collection</em> clarifies that the
+application’s main TU must contain a matching
+<code class="docutils literal notranslate"><span class="pre">LOG_MODULE_REGISTER(app)</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id92">
+<h2>[0.71.0] - 2026-05-08<a class="headerlink" href="#id92" title="Link to this heading">¶</a></h2>
+<section id="id93">
+<h3>Documentation<a class="headerlink" href="#id93" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Documentation reorganised into five topic folders
+(<code class="docutils literal notranslate"><span class="pre">getting_started/</span></code>, <code class="docutils literal notranslate"><span class="pre">guide/</span></code>, <code class="docutils literal notranslate"><span class="pre">architecture/</span></code>, <code class="docutils literal notranslate"><span class="pre">reference/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">project/</span></code>). Old URLs continue to work via redirects.</p></li>
+<li><p>New <strong>Kconfig Reference</strong> page lists every UBI Kconfig symbol with
+type, default, range, dependencies, and description.</p></li>
+</ul>
+</section>
+<section id="id94">
+<h3>Changed<a class="headerlink" href="#id94" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Reported flash footprint of the UBI library is now ~9.5 KB plain
+and ~29 KB secure on Cortex-M33 (<code class="docutils literal notranslate"><span class="pre">-Os</span></code>), measured against the UBI
+archive only. PSA Crypto / mbedTLS is provided by the platform and
+not counted.</p></li>
+</ul>
+</section>
+<section id="id95">
+<h3>Fixed<a class="headerlink" href="#id95" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">key_hierarchy.svg</span></code>: labels no longer overflow their boxes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">onflash_layout.svg</span></code>: added the missing reserved-PEB zoom.</p></li>
+<li><p>On-flash format spec chapter ordering corrected.</p></li>
+</ul>
+</section>
+<section id="removed">
+<h3>Removed<a class="headerlink" href="#removed" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><em>Appendix B</em> and <em>Appendix C</em> of <code class="docutils literal notranslate"><span class="pre">onflash_format_spec.md</span></code> (covered
+by <code class="docutils literal notranslate"><span class="pre">project/roadmap.md</span></code> and the ZTEST traceability tables).</p></li>
+</ul>
+</section>
+</section>
+<section id="id96">
+<h2>[0.70.0] - 2026-05-07<a class="headerlink" href="#id96" title="Link to this heading">¶</a></h2>
+<section id="id97">
+<h3>Changed<a class="headerlink" href="#id97" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The Cookbook chapter has graduated from a stub list to six runnable,
+copy-paste-ready end-to-end recipes: STM32U5 bring-up
+(<code class="docutils literal notranslate"><span class="pre">b_u585i_iot02a</span></code>, 128 KiB partition); nRF5340 bring-up
+(<code class="docutils literal notranslate"><span class="pre">nrf5340dk/nrf5340/cpuapp</span></code>, 64 KiB partition); A/B firmware slots
+with a flip volume; periodic GC via <code class="docutils literal notranslate"><span class="pre">k_work</span></code>; key rotation against
+PSA from version 1 to version 2 (including when it is safe to call
+<code class="docutils literal notranslate"><span class="pre">psa_destroy_key()</span></code>); freshness store on Zephyr Settings with both
+<code class="docutils literal notranslate"><span class="pre">check_freshness</span></code> and <code class="docutils literal notranslate"><span class="pre">sync_freshness</span></code> wired up.</p></li>
+<li><p>Three hero diagrams (<code class="docutils literal notranslate"><span class="pre">stack.svg</span></code>, <code class="docutils literal notranslate"><span class="pre">onflash_layout.svg</span></code>,
+<code class="docutils literal notranslate"><span class="pre">key_hierarchy.svg</span></code>) promoted from ASCII / Mermaid to hand-authored
+SVG.</p></li>
+<li><p>README slimmed to its v1.0.0 target shape.</p></li>
+</ul>
+</section>
+</section>
+<section id="id98">
+<h2>[0.69.0] - 2026-05-07<a class="headerlink" href="#id98" title="Link to this heading">¶</a></h2>
+<section id="id99">
+<h3>Changed<a class="headerlink" href="#id99" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure UBI documentation split along audience boundary into three
+pages: a normative byte-level reference (<code class="docutils literal notranslate"><span class="pre">onflash_format_spec.md</span></code>),
+a developer-onboarding overview (<code class="docutils literal notranslate"><span class="pre">secure_overview.md</span></code>), and a
+user-guide workflow page (<code class="docutils literal notranslate"><span class="pre">secure_workflow.md</span></code>). The three small
+satellites (volume lifecycle, recovery notes, runtime policy) folded
+into the spec as chapters 19–21. ZTEST traceability tables moved to
+<code class="docutils literal notranslate"><span class="pre">test_strategy.md</span></code>. Old URLs continue to work via redirects.</p></li>
+</ul>
+</section>
+</section>
+<section id="id100">
+<h2>[0.68.0] - 2026-05-07<a class="headerlink" href="#id100" title="Link to this heading">¶</a></h2>
+<section id="id101">
+<h3>Changed<a class="headerlink" href="#id101" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain Architecture documentation slimmed: removed duplicate ASCII
+rendering of the PEB lifecycle (Mermaid version retained) and moved
+the per-file source-code map to a contributor-only <em>Developer Notes</em>
+page. The legacy <em>Getting Started</em> page split into a hands-on
+<em>Quick Start</em> and a build/test/coverage section folded into <em>Test
+Strategy</em>. Old URLs forward to <em>Quick Start</em>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id102">
+<h2>[0.67.0] - 2026-05-07<a class="headerlink" href="#id102" title="Link to this heading">¶</a></h2>
+<section id="id103">
+<h3>Changed<a class="headerlink" href="#id103" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Legacy <code class="docutils literal notranslate"><span class="pre">Overview</span></code> and <code class="docutils literal notranslate"><span class="pre">Introduction</span></code> pages merged into a single
+canonical <em>What is UBI?</em> plus a <em>Concepts at a Glance</em> page. The
+resource-usage profile moved into <em>Plain Architecture</em> alongside
+the in-RAM data structures it describes. Old URLs forward to <em>What
+is UBI?</em>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id104">
+<h2>[0.66.0] - 2026-05-07<a class="headerlink" href="#id104" title="Link to this heading">¶</a></h2>
+<section id="id105">
+<h3>Changed<a class="headerlink" href="#id105" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Sphinx documentation sidebar reorganised into five Diátaxis-aligned
+sections (Getting Started, User Guide, Architecture, Reference,
+Project) with a four-card landing page and a v1.0.0 status banner.
+Legacy pages remain reachable while content migration completes;
+<code class="docutils literal notranslate"><span class="pre">sphinx-reredirects</span></code> keeps every old URL alive.</p></li>
+</ul>
+</section>
+</section>
+<section id="id106">
+<h2>[0.65.0] - 2026-05-07<a class="headerlink" href="#id106" title="Link to this heading">¶</a></h2>
+<section id="id107">
+<h3>Changed<a class="headerlink" href="#id107" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal test cleanup (consistent section banners, lifecycle hooks).
+Library, public API, and on-flash format unaffected.</p></li>
+</ul>
+</section>
+</section>
+<section id="id108">
+<h2>[0.64.0] - 2026-05-07<a class="headerlink" href="#id108" title="Link to this heading">¶</a></h2>
+<section id="id109">
+<h3>Changed<a class="headerlink" href="#id109" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure-backend internal vtable entry points now return <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>
+with a diagnostic log on <code class="docutils literal notranslate"><span class="pre">NULL</span></code> arguments instead of tripping an
+assertion. Production builds without asserts no longer experience
+undefined behaviour on misuse.</p></li>
+<li><p>Secure onboarding sample now uses Zephyr logging (<code class="docutils literal notranslate"><span class="pre">LOG_INF</span></code> /
+<code class="docutils literal notranslate"><span class="pre">LOG_ERR</span></code>) instead of <code class="docutils literal notranslate"><span class="pre">printk</span></code> so output can be filtered/silenced.</p></li>
+</ul>
+</section>
+</section>
+<section id="id110">
+<h2>[0.63.0] - 2026-05-07<a class="headerlink" href="#id110" title="Link to this heading">¶</a></h2>
+<section id="id111">
+<h3>Changed<a class="headerlink" href="#id111" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Misuse of the public API now logs which argument was invalid
+(including pointer values for multi-argument checks). Return codes
+are unchanged.</p></li>
+<li><p>Plain sample now uses Zephyr logging instead of <code class="docutils literal notranslate"><span class="pre">printk</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id112">
+<h2>[0.62.0] - 2026-05-07<a class="headerlink" href="#id112" title="Link to this heading">¶</a></h2>
+<section id="id113">
+<h3>Added<a class="headerlink" href="#id113" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Cross-reference tables in the secure documentation linking each
+documented behaviour to the regression test that locks it
+(recovery scenarios → ZTEST, lifecycle steps → ZTEST, release
+checklist → ZTEST).</p></li>
+</ul>
+</section>
+</section>
+<section id="id114">
+<h2>[0.61.0] - 2026-05-07<a class="headerlink" href="#id114" title="Link to this heading">¶</a></h2>
+<section id="id115">
+<h3>Added<a class="headerlink" href="#id115" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Ready-to-run onboarding <strong>sample for the secure backend</strong>. Build
+with
+<code class="docutils literal notranslate"><span class="pre">west</span> <span class="pre">build</span> <span class="pre">-p</span> <span class="pre">-b</span> <span class="pre">&lt;board&gt;</span> <span class="pre">sample/</span> <span class="pre">--</span> <span class="pre">-DOVERLAY_CONFIG=boards/secure.conf</span></code>.
+CMake automatically selects the secure entry point when
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO=y</span></code>.</p></li>
+<li><p>The secure sample is now compile-verified on every PR for the
+supported Cortex-M targets.</p></li>
+</ul>
+</section>
+<section id="id116">
+<h3>Fixed<a class="headerlink" href="#id116" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>The library no longer fails to build for downstream consumers that
+link it without <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_API_ENABLE=y</span></code> (including the new
+sample).</p></li>
+</ul>
+</section>
+</section>
+<section id="id117">
+<h2>[0.60.0] - 2026-05-07<a class="headerlink" href="#id117" title="Link to this heading">¶</a></h2>
+<section id="id118">
+<h3>Added<a class="headerlink" href="#id118" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>End-to-end forced-rekey regression test covering eager reserved
+metadata upgrade, payload survival across rotation, and
+<code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code> firing exactly when the last stale object is
+recycled.</p></li>
+</ul>
+</section>
+</section>
+<section id="id119">
+<h2>[0.59.0] - 2026-05-07<a class="headerlink" href="#id119" title="Link to this heading">¶</a></h2>
+<section id="id120">
+<h3>Added<a class="headerlink" href="#id120" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Chunked-write 48-bit AEAD counter overflow is proven to fail closed
+before any flash mutation: returns <code class="docutils literal notranslate"><span class="pre">-EOVERFLOW</span></code>, emits exactly one
+<code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_NOW</span></code>, consumes no PEB.</p></li>
+</ul>
+</section>
+<section id="id121">
+<h3>Changed<a class="headerlink" href="#id121" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>New test-only API
+<code class="docutils literal notranslate"><span class="pre">ubi_secure_test_set_leb_write_counter_floor()</span></code> /
+<code class="docutils literal notranslate"><span class="pre">_get_leb_write_counter_floor()</span></code> (gated by
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_TEST_FAULT_INJECTION</span></code>).</p></li>
+</ul>
+</section>
+</section>
+<section id="id122">
+<h2>[0.58.0] - 2026-05-06<a class="headerlink" href="#id122" title="Link to this heading">¶</a></h2>
+<section id="id123">
+<h3>Fixed<a class="headerlink" href="#id123" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Restored the <code class="docutils literal notranslate"><span class="pre">native_sim</span></code> chunked test build (config drift had
+silently disabled the chunked configuration).</p></li>
+<li><p>Test runner no longer cascades failures: a single test aborting
+before teardown previously poisoned the rest of the run with
+misleading allocation failures.</p></li>
+<li><p>Chunked tamper test no longer silently no-ops on roughly half of
+runs; deterministic destructive write with read-back guard.</p></li>
+<li><p>Coverage-secure CI now matches the runtime contract assumed by the
+coexistence test (two device handles).</p></li>
+<li><p>Host-side flash forensic scanner (<code class="docutils literal notranslate"><span class="pre">scripts/scan_flash.py</span></code>) no
+longer flags ciphertext as a leak.</p></li>
+</ul>
+</section>
+</section>
+<section id="id124">
+<h2>[0.57.0] - 2026-05-06<a class="headerlink" href="#id124" title="Link to this heading">¶</a></h2>
+<section id="id125">
+<h3>Added<a class="headerlink" href="#id125" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain + secure backend coexistence regression test: a plain device
+on <code class="docutils literal notranslate"><span class="pre">ubi_partition</span></code> and a secure device on <code class="docutils literal notranslate"><span class="pre">ubi_partition_2</span></code> operate
+in parallel without state bleed-through and survive a deinit/reattach
+cycle.</p></li>
+</ul>
+</section>
+<section id="id126">
+<h3>Changed<a class="headerlink" href="#id126" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Test build raises <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_MAX_NR_OF_DEVICES</span></code> to <code class="docutils literal notranslate"><span class="pre">2</span></code> for the
+secure native_sim config. Production defaults unaffected.</p></li>
+</ul>
+</section>
+</section>
+<section id="id127">
+<h2>[0.56.0] - 2026-05-06<a class="headerlink" href="#id127" title="Link to this heading">¶</a></h2>
+<section id="id128">
+<h3>Added<a class="headerlink" href="#id128" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Replay-to-other-location regression tests: forging an authentic EC,
+VID, or LEB record into a different physical PEB is rejected by the
+parent-child AAD binding (<code class="docutils literal notranslate"><span class="pre">peb_index</span></code> in AAD).</p></li>
+</ul>
+</section>
+</section>
+<section id="id129">
+<h2>[0.55.0] - 2026-05-06<a class="headerlink" href="#id129" title="Link to this heading">¶</a></h2>
+<section id="id130">
+<h3>Added<a class="headerlink" href="#id130" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain dispatcher test verifying <code class="docutils literal notranslate"><span class="pre">ubi_device_init()</span></code> returns
+<code class="docutils literal notranslate"><span class="pre">-ENOTSUP</span></code> when a non-NULL <code class="docutils literal notranslate"><span class="pre">crypto_cfg</span></code> is passed but
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO=n</span></code>.</p></li>
+</ul>
+</section>
+<section id="id131">
+<h3>Changed<a class="headerlink" href="#id131" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ubi_device_init()</span></code> now rejects, with <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>, a <code class="docutils literal notranslate"><span class="pre">crypto_cfg</span></code>
+whose <code class="docutils literal notranslate"><span class="pre">allowed_key_versions</span></code> contains duplicate entries.</p></li>
+<li><p>Secure attach now rejects, with <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>, a reattach whose
+<code class="docutils literal notranslate"><span class="pre">requested_write_key_version</span></code> is below the on-flash
+<code class="docutils literal notranslate"><span class="pre">write_active_key_version</span></code> (protects against accidental downgrade
+and <code class="docutils literal notranslate"><span class="pre">uint8_t</span></code> wrap-around).</p></li>
+</ul>
+</section>
+</section>
+<section id="id132">
+<h2>[0.54.0] - 2026-05-06<a class="headerlink" href="#id132" title="Link to this heading">¶</a></h2>
+<section id="id133">
+<h3>Added<a class="headerlink" href="#id133" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Public API <code class="docutils literal notranslate"><span class="pre">ubi_secure_get_write_active_key_version()</span></code> returns the
+authenticated write-active key version of a secure UBI device.</p></li>
+<li><p>Init-time guard: secure init rejects geometries where one reserved
+generation cannot fit inside one reserved PEB.</p></li>
+</ul>
+</section>
+<section id="id134">
+<h3>Changed<a class="headerlink" href="#id134" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>LEB write tail padding now uses the flash erased value (typically
+<code class="docutils literal notranslate"><span class="pre">0xFF</span></code>) instead of <code class="docutils literal notranslate"><span class="pre">0x00</span></code>, matching what an erase would leave.</p></li>
+<li><p>Documentation note: the secure read path deliberately does not
+re-verify inner CRC fields after a successful AEAD verification
+(the CCM tag already covers full record integrity).</p></li>
+</ul>
+</section>
+</section>
+<section id="id135">
+<h2>[0.53.0] - 2026-05-06<a class="headerlink" href="#id135" title="Link to this heading">¶</a></h2>
+<section id="id136">
+<h3>Changed<a class="headerlink" href="#id136" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Eager reserved-PEB upgrade on key-version rotation now resets the
+on-flash and in-RAM VID-domain counter floor to 0. Reattaching with
+the same key version still preserves the monotonic floor.</p></li>
+<li><p>Reserved-PEB key-version refcount now counts secure volume headers
+(one per volume on every reserved PEB); the old <code class="docutils literal notranslate"><span class="pre">(kv,</span> <span class="pre">vol_count)</span></code>
+contribution is released only after the new one has been added.</p></li>
+</ul>
+</section>
+</section>
+<section id="id137">
+<h2>[0.52.0] - 2026-05-05<a class="headerlink" href="#id137" title="Link to this heading">¶</a></h2>
+<section id="id138">
+<h3>Changed<a class="headerlink" href="#id138" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure read paths reject records with an unknown
+<code class="docutils literal notranslate"><span class="pre">prefix32.wrapper_version</span></code> (<code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code>), before any key derivation.</p></li>
+<li><p>Single-tag LEB I/O enforces the AES-128-CCM payload limit:
+<code class="docutils literal notranslate"><span class="pre">ubi_secure_leb_data_write</span></code> rejects <code class="docutils literal notranslate"><span class="pre">len</span> <span class="pre">&gt;</span> <span class="pre">65535</span></code> with <code class="docutils literal notranslate"><span class="pre">-EFBIG</span></code>;
+the read path rejects <code class="docutils literal notranslate"><span class="pre">data_size</span> <span class="pre">&gt;</span> <span class="pre">65535</span></code> with <code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code>. In
+non-chunked builds, device init rejects geometries whose
+<code class="docutils literal notranslate"><span class="pre">leb_size</span> <span class="pre">&gt;</span> <span class="pre">65535</span></code> with <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>.</p></li>
+</ul>
+</section>
+<section id="id139">
+<h3>Added<a class="headerlink" href="#id139" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>New constant <code class="docutils literal notranslate"><span class="pre">UBI_SECURE_LEB_SINGLE_TAG_MAX_PAYLOAD</span></code> (= 65535).</p></li>
+</ul>
+</section>
+</section>
+<section id="id140">
+<h2>[0.51.0] - 2026-05-05<a class="headerlink" href="#id140" title="Link to this heading">¶</a></h2>
+<section id="id141">
+<h3>Added<a class="headerlink" href="#id141" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Per-domain write-budget enforcement for all four metadata domains
+(device header, volume header, EC, VID) under the active write
+key version, alongside the existing per-LEB data budget. Reaching
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_ROTATE_SOON_PCT</span></code> of any budget emits
+<code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_SOON</span></code>; reaching <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_ROTATE_NOW_PCT</span></code>
+emits <code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_NOW</span></code>, rejects the operation with <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code>, and
+transitions the device to read-only. Reads remain available
+throughout.</p></li>
+</ul>
+</section>
+</section>
+<section id="id142">
+<h2>[0.50.0] - 2026-05-04<a class="headerlink" href="#id142" title="Link to this heading">¶</a></h2>
+<section id="id143">
+<h3>Changed<a class="headerlink" href="#id143" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Plain backend: public API functions now return <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code> with a log
+message on NULL arguments instead of triggering a kernel assert.</p></li>
+<li><p>Plain backend: error paths now emit <code class="docutils literal notranslate"><span class="pre">LOG_ERR</span></code> for diagnostics.</p></li>
+<li><p>Plain backend: reserved-PEB overwrite fixed a dual-bank safety
+issue where a replacement PEB could be re-erased within the same
+commit.</p></li>
+</ul>
+</section>
+</section>
+<section id="id144">
+<h2>[0.49.0] - 2026-05-04<a class="headerlink" href="#id144" title="Link to this heading">¶</a></h2>
+<section id="id145">
+<h3>Changed<a class="headerlink" href="#id145" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>API rename:</strong> <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ubi_mtd</span></code> → <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">ubi_flash_desc</span></code>,
+<code class="docutils literal notranslate"><span class="pre">.mtd</span></code> → <code class="docutils literal notranslate"><span class="pre">.flash</span></code> field across the codebase.</p></li>
+<li><p><strong>Kconfig rename:</strong> <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_MAX_ALLOWLIST_LEN</span></code>
+consolidated into <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_CRYPTO_MAX_KEY_VERSIONS</span></code>;
+<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_MEM_STATS</span></code> → <code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_TEST_MEM_STATS</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UBI_CRYPTO</span></code> now <code class="docutils literal notranslate"><span class="pre">depends</span> <span class="pre">on</span> <span class="pre">MBEDTLS_ENTROPY_POLL_ZEPHYR</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id146">
+<h2>[0.48.0] - 2026-04-17<a class="headerlink" href="#id146" title="Link to this heading">¶</a></h2>
+<section id="id147">
+<h3>Added<a class="headerlink" href="#id147" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Monotonic AEAD counters for EC and device-header domains (recovered
+from flash during init, incremented per write).</p></li>
+<li><p>VID counter overflow check (<code class="docutils literal notranslate"><span class="pre">COUNTER_MAX</span></code>) emits <code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_NOW</span></code>.</p></li>
+<li><p>Eager reserved-PEB key upgrade during attach: when
+<code class="docutils literal notranslate"><span class="pre">requested_write_key_version</span></code> differs from flash, reserved metadata
+is rewritten under the new key immediately (graceful fallback if
+the key is not yet provisioned).</p></li>
+<li><p>Reserved-PEB refcount tracking: <code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code> is withheld while
+reserved PEBs still depend on the old key version.</p></li>
+</ul>
+</section>
+<section id="id148">
+<h3>Changed<a class="headerlink" href="#id148" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure crypto: central allowlist check now in <code class="docutils literal notranslate"><span class="pre">derive_domain_key()</span></code>
+and <code class="docutils literal notranslate"><span class="pre">derive_leb_key()</span></code> — all domains and both read/write paths
+validated before key derivation.</p></li>
+</ul>
+</section>
+</section>
+<section id="id149">
+<h2>[0.47.0] - 2026-04-17<a class="headerlink" href="#id149" title="Link to this heading">¶</a></h2>
+<section id="id150">
+<h3>Changed<a class="headerlink" href="#id150" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal cleanup (file renames, sensitive-buffer zeroization via
+<code class="docutils literal notranslate"><span class="pre">mbedtls_platform_zeroize</span></code>); no API or behaviour changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id151">
+<h2>[0.46.0] - 2026-04-17<a class="headerlink" href="#id151" title="Link to this heading">¶</a></h2>
+<section id="id152">
+<h3>Added<a class="headerlink" href="#id152" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Functional parity test coverage for the secure backend (device
+init/deinit, volume CRUD, LEB I/O, resize, edge cases) mirrored
+from the plain backend, plus secure fault-injection,
+mutation-gate, and vol-id-watermark suites.</p></li>
+</ul>
+</section>
+</section>
+<section id="id153">
+<h2>[0.45.0] - 2026-04-16<a class="headerlink" href="#id153" title="Link to this heading">¶</a></h2>
+<section id="id154">
+<h3>Changed<a class="headerlink" href="#id154" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Documentation aligned with secure backend implementation:
+refreshed flash footprint, struct sizes, test counts, coverage
+numbers, and Kconfig reference across all docs.</p></li>
+</ul>
+</section>
+<section id="id155">
+<h3>Fixed<a class="headerlink" href="#id155" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>CI: clang-format version-dependent goto label formatting handled
+with off/on guards.</p></li>
+<li><p>CI cross-build nRF5340 secure: added test random generator for
+builds without BLE IPC.</p></li>
+<li><p>CI cross-build STM32U5 secure: <code class="docutils literal notranslate"><span class="pre">ubi_device</span></code> size BUILD_ASSERT
+guarded for ARM vs POSIX <code class="docutils literal notranslate"><span class="pre">k_mutex</span></code> layout difference.</p></li>
+</ul>
+</section>
+</section>
+<section id="id156">
+<h2>[0.44.0] - 2026-04-16<a class="headerlink" href="#id156" title="Link to this heading">¶</a></h2>
+<section id="id157">
+<h3>Added<a class="headerlink" href="#id157" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Forensic scan test suite: verifies no plaintext data, volume names,
+or key material appear on flash after secure writes.</p></li>
+<li><p>Host-side Python forensic scanner (<code class="docutils literal notranslate"><span class="pre">scripts/scan_flash.py</span></code>) and
+test docblock checker scripts.</p></li>
+<li><p>CI jobs: <code class="docutils literal notranslate"><span class="pre">format-check</span></code>, <code class="docutils literal notranslate"><span class="pre">forensic-scan</span></code>, cross-build secure for
+STM32U5 and nRF5340.</p></li>
+<li><p>Init-time anchor re-creation: orphaned volumes automatically get
+a new hidden anchor at attach.</p></li>
+</ul>
+</section>
+<section id="id158">
+<h3>Changed<a class="headerlink" href="#id158" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Test and coverage scripts accept a mode parameter
+(<code class="docutils literal notranslate"><span class="pre">plain</span></code> / <code class="docutils literal notranslate"><span class="pre">secure</span></code> / <code class="docutils literal notranslate"><span class="pre">chunked</span></code>).</p></li>
+</ul>
+</section>
+</section>
+<section id="id159">
+<h2>[0.43.0] - 2026-04-16<a class="headerlink" href="#id159" title="Link to this heading">¶</a></h2>
+<section id="id160">
+<h3>Added<a class="headerlink" href="#id160" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Chunked secure LEB mode:</strong> LEB records split into independently
+authenticated chunks for partial-read support. Configurable chunk
+size (256–65536 B). Only touched chunks are verified, reducing
+read latency and RAM.</p></li>
+<li><p>Chunked geometry validation at init and budget accounting for
+chunked writes.</p></li>
+<li><p>Secure recovery test suite: interrupted writes, anchor rewrites,
+reserved-PEB commit faults, generation replay rejection.</p></li>
+<li><p>Flash write fault injection wired into the secure backend.</p></li>
+</ul>
+</section>
+</section>
+<section id="id161">
+<h2>[0.42.0] - 2026-04-15<a class="headerlink" href="#id161" title="Link to this heading">¶</a></h2>
+<section id="id162">
+<h3>Added<a class="headerlink" href="#id162" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Sticky crypto read-only mode:</strong> the event callback can escalate
+to a device-wide write block (<code class="docutils literal notranslate"><span class="pre">-EROFS</span></code>); reads remain functional.</p></li>
+<li><p><strong>Security event infrastructure:</strong> 10 event types
+(<code class="docutils literal notranslate"><span class="pre">AUTH_FAILURE</span></code>, <code class="docutils literal notranslate"><span class="pre">FORMAT_VIOLATION</span></code>, <code class="docutils literal notranslate"><span class="pre">KEY_ROTATE_SOON</span></code>/<code class="docutils literal notranslate"><span class="pre">NOW</span></code>,
+<code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code>, <code class="docutils literal notranslate"><span class="pre">RNG_FAILURE</span></code>, etc.) delivered through the
+application callback.</p></li>
+<li><p>Freshness sync after every commit-visible mutation with
+configurable cadence.</p></li>
+<li><p>Key-version PEB refcount tracking with <code class="docutils literal notranslate"><span class="pre">KEY_RETIRABLE</span></code> signalling
+when a key version is fully erased.</p></li>
+<li><p>LEB usage budget tracking with soft/hard thresholds and pre-write
+rejection.</p></li>
+<li><p>Read-path key-version allowlist enforcement.</p></li>
+<li><p>Sensitive-buffer zeroization (compiler-safe volatile memset).</p></li>
+</ul>
+</section>
+</section>
+<section id="id163">
+<h2>[0.41.0] - 2026-04-15<a class="headerlink" href="#id163" title="Link to this heading">¶</a></h2>
+<section id="id164">
+<h3>Added<a class="headerlink" href="#id164" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Hidden per-volume anchor PEBs:</strong> each secure volume reserves one
+internal PEB preserving monotonic counter state across unmap,
+shrink, and erase.</p></li>
+<li><p><strong>VID-domain counter floor:</strong> monotonic VID counter persisted in
+the secure device header, reconstructed at attach.</p></li>
+<li><p><strong>Last-writable-witness check:</strong> the erase path rewrites the anchor
+before erasing the last carrier of a volume’s counter floor.</p></li>
+<li><p>Emergency free-PEB reserve: write path reclaims a dirty PEB before
+consuming the last free PEB.</p></li>
+</ul>
+</section>
+<section id="id165">
+<h3>Changed<a class="headerlink" href="#id165" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Volume create rolls back on anchor allocation failure.</p></li>
+<li><p>New docs: secure volume lifecycle and secure recovery scenarios.</p></li>
+</ul>
+</section>
+</section>
+<section id="id166">
+<h2>[0.40.0] - 2026-04-15<a class="headerlink" href="#id166" title="Link to this heading">¶</a></h2>
+<section id="id167">
+<h3>Added<a class="headerlink" href="#id167" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Complete secure data-PEB runtime:</strong> volume create / resize /
+remove, LEB write / read / map / unmap, erase — all with
+authenticated encryption.</p></li>
+<li><p>Data-PEB scan pipeline: classifies PEBs into free/dirty/bad pools
+with full AEAD verification.</p></li>
+<li><p>Functional parity test coverage with the plain backend on
+encrypted flash.</p></li>
+<li><p>Flash geometry overlays for nRF5340 (4 KB erase) and STM32U5
+(8 KB erase) on <code class="docutils literal notranslate"><span class="pre">native_sim</span></code>; multi-geometry CI runs.</p></li>
+</ul>
+</section>
+<section id="id168">
+<h3>Fixed<a class="headerlink" href="#id168" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>LEB write/nonce counters now recovered from existing VID header
+(were hardcoded to 0).</p></li>
+<li><p>Write-block alignment padding for the secure ciphertext+tag buffer.</p></li>
+<li><p>Missing bad-block torture and degraded-mode recovery in the secure
+runtime.</p></li>
+<li><p>Geometry validation for erase/write block alignment.</p></li>
+</ul>
+</section>
+</section>
+<section id="id169">
+<h2>[0.39.0] - 2026-04-14<a class="headerlink" href="#id169" title="Link to this heading">¶</a></h2>
+<section id="id170">
+<h3>Added<a class="headerlink" href="#id170" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>First secure backend release:</strong> authenticated read/write for EC
+headers, VID headers, and LEB data in single-tag mode.</p></li>
+<li><p>Domain-separated AAD serialisation for all record types.</p></li>
+</ul>
+</section>
+<section id="id171">
+<h3>Changed<a class="headerlink" href="#id171" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Key derivation centralised; parent authentication passed via typed
+context structs.</p></li>
+</ul>
+</section>
+</section>
+<section id="id172">
+<h2>[0.38.0] - 2026-04-15<a class="headerlink" href="#id172" title="Link to this heading">¶</a></h2>
+<section id="id173">
+<h3>Added<a class="headerlink" href="#id173" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure reserved-PEB attach path: format-on-blank, attach-to-existing,
+mode-mismatch detection.</p></li>
+<li><p>PSA Crypto integration: HKDF-SHA-256 key derivation, AES-128-CCM
+AEAD, salt generation.</p></li>
+<li><p>Encrypted dual-bank reserved-PEB commit and authentication.</p></li>
+</ul>
+</section>
+</section>
+<section id="id174">
+<h2>[0.37.0] - 2026-04-14<a class="headerlink" href="#id174" title="Link to this heading">¶</a></h2>
+<section id="id175">
+<h3>Added<a class="headerlink" href="#id175" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Secure public API surface:</strong> crypto config, event types (tagged
+union), freshness descriptor, policy struct, and callback typedefs.</p></li>
+<li><p>Secure Kconfig surface: master enable, budget limits, rotation
+thresholds, chunked mode, PEB cache, freshness sync, strict RO
+policies.</p></li>
+<li><p>Crypto fault-injection hooks (7 stages) for integration tests.</p></li>
+<li><p>Secure test profiles and board configs with mbedTLS PSA.</p></li>
+</ul>
+</section>
+</section>
+<section id="id176">
+<h2>[0.36.0] - 2026-04-14<a class="headerlink" href="#id176" title="Link to this heading">¶</a></h2>
+<section id="id177">
+<h3>Changed<a class="headerlink" href="#id177" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Backend dispatch:</strong> every public API function now routes through
+an 11-op vtable. Plain backend functions renamed to <code class="docutils literal notranslate"><span class="pre">ubi_plain_*</span></code>.
+Internal headers decoupled from plain-specific includes, making
+them backend-agnostic.</p></li>
+</ul>
+</section>
+</section>
+<section id="id178">
+<h2>[0.35.0] - 2026-04-14<a class="headerlink" href="#id178" title="Link to this heading">¶</a></h2>
+<section id="id179">
+<h3>Changed<a class="headerlink" href="#id179" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Unified init API:</strong> <code class="docutils literal notranslate"><span class="pre">ubi_device_init(flash,</span> <span class="pre">crypto_cfg,</span> <span class="pre">&amp;ubi)</span></code>.
+Passing <code class="docutils literal notranslate"><span class="pre">NULL</span></code> selects plain; non-NULL selects secure. Runtime
+backend dispatch via the ops vtable.</p></li>
+</ul>
+</section>
+</section>
+<section id="id180">
+<h2>[0.34.0] - 2026-04-13<a class="headerlink" href="#id180" title="Link to this heading">¶</a></h2>
+<section id="id181">
+<h3>Changed<a class="headerlink" href="#id181" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure architecture spec: per-device runtime mode selection (not
+per-build), tagged-union events, <code class="docutils literal notranslate"><span class="pre">check_freshness</span></code> confirmed as
+attach-time only.</p></li>
+<li><p>Repository layout split into <code class="docutils literal notranslate"><span class="pre">common/</span></code>, <code class="docutils literal notranslate"><span class="pre">plain/</span></code>, <code class="docutils literal notranslate"><span class="pre">secure/</span></code>
+namespaces for library and test sources.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">format.sh</span></code> is now recursive with <code class="docutils literal notranslate"><span class="pre">--check</span></code> mode for CI.</p></li>
+</ul>
+</section>
+</section>
+<section id="id182">
+<h2>[0.33.0] - 2026-04-11<a class="headerlink" href="#id182" title="Link to this heading">¶</a></h2>
+<section id="id183">
+<h3>Changed<a class="headerlink" href="#id183" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">design_proposal_crypto.md</span></code> promoted to <code class="docutils literal notranslate"><span class="pre">secure_architecture.md</span></code> as
+a first-class architecture document.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">architecture.md</span></code> renamed to <code class="docutils literal notranslate"><span class="pre">plain_architecture.md</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id184">
+<h2>[0.32.0] - 2026-04-11<a class="headerlink" href="#id184" title="Link to this heading">¶</a></h2>
+<section id="id185">
+<h3>Changed<a class="headerlink" href="#id185" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure architecture spec rewrite (v6): hidden per-volume anchor
+PEBs, secure device header with crypto metadata, full counter
+continuity framework, renamed child keys to domain names,
+simplified chunked mode, expanded write-budget enforcement, precise
+AAD byte layouts, tagged-union events with verdicts.</p></li>
+</ul>
+</section>
+</section>
+<section id="id186">
+<h2>[0.31.0] - 2026-04-10<a class="headerlink" href="#id186" title="Link to this heading">¶</a></h2>
+<section id="id187">
+<h3>Changed<a class="headerlink" href="#id187" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure architecture spec rewrite (v5): mode detection rules,
+normative KDF labels, single-tag CCM payload limit, zero-length LEB
+encoding, tail-padding rules, parent EC <code class="docutils literal notranslate"><span class="pre">key_version</span></code> in VID and
+LEB AAD.</p></li>
+</ul>
+</section>
+</section>
+<section id="id188">
+<h2>[0.30.0] - 2026-04-09<a class="headerlink" href="#id188" title="Link to this heading">¶</a></h2>
+<section id="id189">
+<h3>Added<a class="headerlink" href="#id189" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>“Why UBI for Zephyr” positioning document: gap analysis, comparison
+with FCB / NVS / ZMS / LittleFS.</p></li>
+</ul>
+</section>
+<section id="id190">
+<h3>Changed<a class="headerlink" href="#id190" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure architecture spec rewrite (v4).</p></li>
+</ul>
+</section>
+</section>
+<section id="id191">
+<h2>[0.29.0] - 2026-04-09<a class="headerlink" href="#id191" title="Link to this heading">¶</a></h2>
+<section id="id192">
+<h3>Added<a class="headerlink" href="#id192" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Persistent <code class="docutils literal notranslate"><span class="pre">vol_id</span></code> high-watermark:</strong> volume IDs are never reused
+across the device lifetime. Overflow returns <code class="docutils literal notranslate"><span class="pre">-ENOSPC</span></code>.</p></li>
+</ul>
+</section>
+<section id="id193">
+<h3>Changed<a class="headerlink" href="#id193" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Volume matching by <code class="docutils literal notranslate"><span class="pre">vol_id</span></code> instead of positional index; re-index
+loop eliminated.</p></li>
+</ul>
+</section>
+</section>
+<section id="id194">
+<h2>[0.28.0] - 2026-04-09<a class="headerlink" href="#id194" title="Link to this heading">¶</a></h2>
+<section id="id195">
+<h3>Added<a class="headerlink" href="#id195" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Central mutation gate:</strong> per-device read-only flag checked before
+every public mutator. Three mutation classes (reserved metadata,
+data path, maintenance).</p></li>
+<li><p>Runtime degradation detection and self-healing via reserved-PEB
+bank recovery.</p></li>
+<li><p>Test-only write-shutdown API.</p></li>
+</ul>
+</section>
+</section>
+<section id="id196">
+<h2>[0.27.0] - 2026-04-10<a class="headerlink" href="#id196" title="Link to this heading">¶</a></h2>
+<section id="id197">
+<h3>Changed<a class="headerlink" href="#id197" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Data-PEB commit order changed to EC → DATA → VID.</strong> The VID
+header is now the sole commit-visible record.</p></li>
+<li><p>Init scan distinguishes free PEBs from uncommitted writes by
+probing the data area.</p></li>
+</ul>
+</section>
+<section id="id198">
+<h3>Fixed<a class="headerlink" href="#id198" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Uncommitted writes were misclassified as free under the new write
+order.</p></li>
+</ul>
+</section>
+</section>
+<section id="id199">
+<h2>[0.26.0] - 2026-04-09<a class="headerlink" href="#id199" title="Link to this heading">¶</a></h2>
+<section id="id200">
+<h3>Changed<a class="headerlink" href="#id200" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Erased-state detection now uses the hardware-reported erase value
+instead of a hard-coded <code class="docutils literal notranslate"><span class="pre">0xFF</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="id201">
+<h2>[0.25.0] - 2026-04-08<a class="headerlink" href="#id201" title="Link to this heading">¶</a></h2>
+<section id="id202">
+<h3>Changed<a class="headerlink" href="#id202" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure architecture spec rewrite (v3): init classification,
+write/read/erase paths, key lifecycle with refcount retirement,
+events and policy, cost model, illustrative API (Appendix A).</p></li>
+</ul>
+</section>
+</section>
+<section id="id203">
+<h2>[0.24.0] - 2026-04-03<a class="headerlink" href="#id203" title="Link to this heading">¶</a></h2>
+<section id="id204">
+<h3>Added<a class="headerlink" href="#id204" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Secure architecture design proposal (v2): AES-128-CCM for all
+on-flash structures, ESSIV nonces, per-domain key derivation,
+anti-rollback, crash-safe key rotation, external AAD callback.</p></li>
+</ul>
+</section>
+</section>
+<section id="id205">
+<h2>[0.23.0] - 2026-04-03<a class="headerlink" href="#id205" title="Link to this heading">¶</a></h2>
+<section id="id206">
+<h3>Added<a class="headerlink" href="#id206" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>nRF5340 DK board support</strong> (64 KB UBI partition, 4 KB erase
+blocks).</p></li>
+</ul>
+</section>
+<section id="id207">
+<h3>Changed<a class="headerlink" href="#id207" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>CI split into parallel jobs (native-tests, cross-build, coverage)
+with concurrency control, least-privilege permissions, path
+filters, and SHA-pinned actions.</p></li>
+</ul>
+</section>
+</section>
+<section id="id208">
+<h2>[0.22.0] - 2026-04-02<a class="headerlink" href="#id208" title="Link to this heading">¶</a></h2>
+<section id="id209">
+<h3>Added<a class="headerlink" href="#id209" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Flash I/O fault injection:</strong> controllable write and erase
+failures.</p></li>
+<li><p>New regression coverage: <code class="docutils literal notranslate"><span class="pre">ubi_io_faults</span></code>, <code class="docutils literal notranslate"><span class="pre">ubi_init_errors</span></code>, plus
+34 new error-handling and 6 new recovery tests.</p></li>
+<li><p>Long-term EC counter equality test (500 cycles, max deviation ≤ 2).</p></li>
+</ul>
+</section>
+</section>
+<section id="id210">
+<h2>[0.21.1] - 2026-04-02<a class="headerlink" href="#id210" title="Link to this heading">¶</a></h2>
+<section id="id211">
+<h3>Fixed<a class="headerlink" href="#id211" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Sphinx <code class="docutils literal notranslate"><span class="pre">-W</span></code>: warnings now fail the doc build.</p></li>
+<li><p>Breathe + Doxygen 1.9.8 compatibility (switched to
+<code class="docutils literal notranslate"><span class="pre">doxygengroup</span></code> directives).</p></li>
+</ul>
+</section>
+</section>
+<section id="id212">
+<h2>[0.21.0] - 2026-04-02<a class="headerlink" href="#id212" title="Link to this heading">¶</a></h2>
+<section id="id213">
+<h3>Added<a class="headerlink" href="#id213" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Static memory backend (default):</strong> all allocations via
+<code class="docutils literal notranslate"><span class="pre">k_mem_slab</span></code> pools instead of the global heap.</p></li>
+<li><p>Memory abstraction layer with Kconfig-selectable backend
+(<code class="docutils literal notranslate"><span class="pre">static</span></code> / <code class="docutils literal notranslate"><span class="pre">heap</span></code>).</p></li>
+<li><p>Init-time validation: static backend verifies flash geometry fits
+configured pools.</p></li>
+<li><p>Dual-backend CI runs.</p></li>
+</ul>
+</section>
+<section id="id214">
+<h3>Changed<a class="headerlink" href="#id214" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>PEB tracking items share a union for in-place retyping during
+state transitions.</p></li>
+<li><p>Fault injection routed through the memory abstraction layer.</p></li>
+</ul>
+</section>
+</section>
+<section id="id215">
+<h2>[0.20.1] - 2026-04-02<a class="headerlink" href="#id215" title="Link to this heading">¶</a></h2>
+<section id="id216">
+<h3>Changed<a class="headerlink" href="#id216" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Removed read-write lock from roadmap (per-device mutex is
+sufficient).</p></li>
+<li><p>Renamed “User-space tools” to “Shell commands” in roadmap.</p></li>
+</ul>
+</section>
+<section id="id217">
+<h3>Fixed<a class="headerlink" href="#id217" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Test API functions now visible in Doxygen output.</p></li>
+</ul>
+</section>
+</section>
+<section id="id218">
+<h2>[0.20.0] - 2026-04-01<a class="headerlink" href="#id218" title="Link to this heading">¶</a></h2>
+<section id="id219">
+<h3>Added<a class="headerlink" href="#id219" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Single-handle-per-partition guard:</strong> prevents two device handles
+for the same flash partition.</p></li>
+<li><p>Concurrency test suite: multi-threaded readers/writers, deinit
+quiescence, double-init guard.</p></li>
+</ul>
+</section>
+<section id="id220">
+<h3>Fixed<a class="headerlink" href="#id220" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ubi_device_deinit()</span></code> acquires the mutex before teardown,
+preventing races with in-flight operations.</p></li>
+</ul>
+</section>
+</section>
+<section id="id221">
+<h2>[0.19.0] - 2026-04-01<a class="headerlink" href="#id221" title="Link to this heading">¶</a></h2>
+<section id="id222">
+<h3>Added<a class="headerlink" href="#id222" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Volume config validation, device/volume header semantic checks.</p></li>
+<li><p>Invariant checker API for tests.</p></li>
+<li><p>Allocation fault injection via Kconfig.</p></li>
+<li><p>Shared test fixtures and raw flash write helpers.</p></li>
+</ul>
+</section>
+<section id="id223">
+<h3>Changed<a class="headerlink" href="#id223" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Transactional <code class="docutils literal notranslate"><span class="pre">ubi_volume_create()</span></code> and shrink:</strong> RAM state
+consistent with flash on failure.</p></li>
+<li><p><strong>Copy-on-write <code class="docutils literal notranslate"><span class="pre">leb_write()</span></code>:</strong> old mapping preserved until the
+new PEB is fully written.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ubi_leb_unmap()</span></code> is idempotent; <code class="docutils literal notranslate"><span class="pre">ubi_leb_map()</span></code> is a no-op when
+already mapped.</p></li>
+</ul>
+</section>
+<section id="id224">
+<h3>Fixed<a class="headerlink" href="#id224" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>PEB tracking loss on allocation failure during bad-block handling.</p></li>
+</ul>
+</section>
+</section>
+<section id="id225">
+<h2>[0.18.0] - 2026-04-01<a class="headerlink" href="#id225" title="Link to this heading">¶</a></h2>
+<section id="id226">
+<h3>Added<a class="headerlink" href="#id226" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Overview doc with mental model, six-step lifecycle, and Mermaid
+diagrams.</p></li>
+<li><p>Architecture guide expanded: core invariants, Mermaid flowcharts,
+degraded-mode table.</p></li>
+</ul>
+</section>
+<section id="id227">
+<h3>Changed<a class="headerlink" href="#id227" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>README rewritten as a landing page with stack diagram, key
+properties, quality metrics.</p></li>
+<li><p>All doc pages restructured with “what this page covers” framing.</p></li>
+</ul>
+</section>
+</section>
+<section id="id228">
+<h2>[0.17.1] - 2026-03-31<a class="headerlink" href="#id228" title="Link to this heading">¶</a></h2>
+<section id="id229">
+<h3>Fixed<a class="headerlink" href="#id229" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Doc source-file table and test counts aligned with file splits.</p></li>
+<li><p>Sample app expanded to demonstrate the full lifecycle.</p></li>
+</ul>
+</section>
+</section>
+<section id="id230">
+<h2>[0.17.0] - 2026-03-31<a class="headerlink" href="#id230" title="Link to this heading">¶</a></h2>
+<section id="id231">
+<h3>Changed<a class="headerlink" href="#id231" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Internal source file split (<code class="docutils literal notranslate"><span class="pre">ubi_core.c</span></code> into init + runtime,
+<code class="docutils literal notranslate"><span class="pre">ubi_io.c</span></code> into metadata + data). No functional changes.</p></li>
+</ul>
+</section>
+</section>
+<section id="id232">
+<h2>[0.16.0] - 2026-03-31<a class="headerlink" href="#id232" title="Link to this heading">¶</a></h2>
+<section id="id233">
+<h3>Added<a class="headerlink" href="#id233" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">read_only_degraded</span></code> exposed in the device-info struct.</p></li>
+<li><p>Cached geometry in the device struct (no flash I/O for
+<code class="docutils literal notranslate"><span class="pre">get_info()</span></code>).</p></li>
+<li><p>Thread-safety notes and precise <code class="docutils literal notranslate"><span class="pre">\retval</span></code> docs on all public
+functions.</p></li>
+</ul>
+</section>
+<section id="id234">
+<h3>Changed<a class="headerlink" href="#id234" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">allocated_peb_count</span></code> renamed to <code class="docutils literal notranslate"><span class="pre">reserved_peb_count</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-EROFS</span></code> propagated from the degraded reserved-PEB scan through
+init and mutators.</p></li>
+</ul>
+</section>
+</section>
+<section id="id235">
+<h2>[0.15.0] - 2026-03-31<a class="headerlink" href="#id235" title="Link to this heading">¶</a></h2>
+<section id="id236">
+<h3>Added<a class="headerlink" href="#id236" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Volume name validation helpers (bounded, NUL-safe).</p></li>
+<li><p>Semantic validation of on-flash device headers.</p></li>
+<li><p>Flash geometry validation at init.</p></li>
+</ul>
+</section>
+<section id="id237">
+<h3>Fixed<a class="headerlink" href="#id237" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Eliminated <code class="docutils literal notranslate"><span class="pre">strlen()</span></code> on raw flash fields (memory safety).</p></li>
+<li><p>Sequence number monotonicity: <code class="docutils literal notranslate"><span class="pre">global_sqnum</span></code> set to <code class="docutils literal notranslate"><span class="pre">max</span> <span class="pre">+</span> <span class="pre">1</span></code>
+after scan.</p></li>
+<li><p>Volume headers always read from the highest-revision reserved PEB.</p></li>
+<li><p>Reclaim error paths no longer leak PEBs.</p></li>
+</ul>
+</section>
+</section>
+<section id="id238">
+<h2>[0.14.0] - 2026-03-30<a class="headerlink" href="#id238" title="Link to this heading">¶</a></h2>
+<section id="id239">
+<h3>Changed<a class="headerlink" href="#id239" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Reserved PEB module renamed with <code class="docutils literal notranslate"><span class="pre">ubi_flash_res_peb_*</span></code> prefix.</p></li>
+<li><p>Volume module deduplicated with shared helpers.</p></li>
+</ul>
+</section>
+</section>
+<section id="id240">
+<h2>[0.13.0] - 2026-03-30<a class="headerlink" href="#id240" title="Link to this heading">¶</a></h2>
+<section id="id241">
+<h3>Added<a class="headerlink" href="#id241" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Bad-block torture test with configurable cycles and per-PEB erase
+attempts.</p></li>
+<li><p>Runtime average erase counter tracking.</p></li>
+</ul>
+</section>
+<section id="id242">
+<h3>Fixed<a class="headerlink" href="#id242" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Use-after-free in <code class="docutils literal notranslate"><span class="pre">leb_write()</span></code> write-fail path.</p></li>
+<li><p>Bad-block paths now update erase counter averages.</p></li>
+</ul>
+</section>
+</section>
+<section id="id243">
+<h2>[0.12.0] - 2026-03-30<a class="headerlink" href="#id243" title="Link to this heading">¶</a></h2>
+<section id="id244">
+<h3>Added<a class="headerlink" href="#id244" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Configurable write retry count for data PEBs
+(<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_PEB_WRITE_RETRY_COUNT</span></code>).</p></li>
+</ul>
+</section>
+<section id="id245">
+<h3>Fixed<a class="headerlink" href="#id245" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Write failure in <code class="docutils literal notranslate"><span class="pre">leb_write()</span></code> now properly marks the PEB as bad.</p></li>
+</ul>
+</section>
+</section>
+<section id="id246">
+<h2>[0.11.0] - 2026-03-27<a class="headerlink" href="#id246" title="Link to this heading">¶</a></h2>
+<section id="id247">
+<h3>Added<a class="headerlink" href="#id247" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Initial crypto layer design proposal (AES-128-CCM via PSA Crypto
+API).</p></li>
+</ul>
+</section>
+</section>
+<section id="id248">
+<h2>[0.10.0] - 2026-03-27<a class="headerlink" href="#id248" title="Link to this heading">¶</a></h2>
+<section id="id249">
+<h3>Added<a class="headerlink" href="#id249" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Reserved-PEB management extracted into a dedicated module.</p></li>
+<li><p><strong>Configurable reserved-PEB count (2–4)</strong> for cold-spare support
+(<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_DEV_HDR_NR_OF_RES_PEBS</span></code>).</p></li>
+</ul>
+</section>
+</section>
+<section id="id250">
+<h2>[0.9.0] - 2026-03-26<a class="headerlink" href="#id250" title="Link to this heading">¶</a></h2>
+<section id="id251">
+<h3>Changed<a class="headerlink" href="#id251" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Monolithic source restructured into core, volume, LEB, I/O, and
+cache modules.</p></li>
+<li><p>Init scan decomposed into 5 helpers.</p></li>
+<li><p>Overhauled Doxygen and Kconfig.</p></li>
+</ul>
+</section>
+<section id="id252">
+<h3>Fixed<a class="headerlink" href="#id252" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>11 bugs from a code-quality audit.</p></li>
+<li><p>Memory leak in duplicate-LEB resolution.</p></li>
+</ul>
+</section>
+</section>
+<section id="id253">
+<h2>[0.8.0] - 2026-03-25<a class="headerlink" href="#id253" title="Link to this heading">¶</a></h2>
+<section id="id254">
+<h3>Added<a class="headerlink" href="#id254" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Sphinx documentation</strong> with the Read the Docs theme, deployed to
+GitHub Pages.</p></li>
+<li><p>Doxygen + Breathe auto-generated API reference.</p></li>
+<li><p>Architecture guide, Getting Started, Configuration reference,
+Contributing guide.</p></li>
+</ul>
+</section>
+</section>
+<section id="id255">
+<h2>[0.7.0] - 2026-03-25<a class="headerlink" href="#id255" title="Link to this heading">¶</a></h2>
+<section id="id256">
+<h3>Added<a class="headerlink" href="#id256" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">native_sim</span></code> board support.</strong></p></li>
+<li><p>Test suites: error handling, boundary, recovery, stress.</p></li>
+<li><p><strong>GitHub Actions CI</strong> with build, test, and Codecov.</p></li>
+<li><p>Coverage infrastructure and CI scripts.</p></li>
+<li><p>Test strategy documentation.</p></li>
+</ul>
+</section>
+<section id="id257">
+<h3>Fixed<a class="headerlink" href="#id257" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">west.yml</span></code>: <code class="docutils literal notranslate"><span class="pre">cmsis_6</span></code> renamed to <code class="docutils literal notranslate"><span class="pre">cmsis</span></code> for Zephyr v4.0.0.</p></li>
+</ul>
+</section>
+</section>
+<section id="id258">
+<h2>[0.6.0] - 2026-03-24<a class="headerlink" href="#id258" title="Link to this heading">¶</a></h2>
+<section id="id259">
+<h3>Added<a class="headerlink" href="#id259" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Architecture guide with ASCII diagrams (on-flash layout, PEB
+lifecycle, init flow, wear-leveling).</p></li>
+<li><p>Development roadmap and contributor guide.</p></li>
+</ul>
+</section>
+<section id="id260">
+<h3>Fixed<a class="headerlink" href="#id260" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>EBA table corruption during init when resolving sequence-number
+conflicts.</p></li>
+</ul>
+</section>
+</section>
+<section id="id261">
+<h2>[0.5.0] - 2025-09-25<a class="headerlink" href="#id261" title="Link to this heading">¶</a></h2>
+<section id="id262">
+<h3>Added<a class="headerlink" href="#id262" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Mutex-based synchronisation</strong> for thread-safe operations.</p></li>
+</ul>
+</section>
+</section>
+<section id="id263">
+<h2>[0.4.0] - 2025-09-24<a class="headerlink" href="#id263" title="Link to this heading">¶</a></h2>
+<section id="id264">
+<h3>Added<a class="headerlink" href="#id264" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Sample application for STM32U5.</p></li>
+</ul>
+</section>
+<section id="id265">
+<h3>Changed<a class="headerlink" href="#id265" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>Optimised flash I/O and improved logging.</p></li>
+</ul>
+</section>
+</section>
+<section id="id266">
+<h2>[0.3.0] - 2025-09-21<a class="headerlink" href="#id266" title="Link to this heading">¶</a></h2>
+<section id="id267">
+<h3>Added<a class="headerlink" href="#id267" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">.clang-format</span></code> configuration.</p></li>
+</ul>
+</section>
+<section id="id268">
+<h3>Changed<a class="headerlink" href="#id268" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Migrated from low-level flash APIs to the Zephyr Flash Map
+(Flash Area API).</strong></p></li>
+</ul>
+</section>
+</section>
+<section id="id269">
+<h2>[0.2.0] - 2025-09-10<a class="headerlink" href="#id269" title="Link to this heading">¶</a></h2>
+<section id="id270">
+<h3>Added<a class="headerlink" href="#id270" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Volume support</strong> with static and dynamic types.</p></li>
+<li><p>Runtime resizing, write-block alignment, partial dual-bank support.</p></li>
+<li><p>Hardware tests on STM32U5.</p></li>
+</ul>
+</section>
+</section>
+<section id="id271">
+<h2>[0.1.0] - 2025-07-25<a class="headerlink" href="#id271" title="Link to this heading">¶</a></h2>
+<section id="id272">
+<h3>Added<a class="headerlink" href="#id272" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p><strong>Initial release:</strong> device init/deinit, LEB I/O (map, unmap,
+read, write), PEB statistics.</p></li>
+<li><p>Hardware integration tests and sample application for STM32U5.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          <a class="prev-page" href="test_strategy.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Test Strategy</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Kamil Kielbasa
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/kamil-kielbasa/ubi" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Changelog</a><ul>
+<li><a class="reference internal" href="#unreleased">[Unreleased]</a></li>
+<li><a class="reference internal" href="#id1">[1.0.0] - 2026-05-15</a><ul>
+<li><a class="reference internal" href="#stability-commitment">Stability commitment</a></li>
+<li><a class="reference internal" href="#plain-backend-always-built">Plain backend (always built)</a></li>
+<li><a class="reference internal" href="#secure-backend-config-ubi-secure-y-opt-in">Secure backend (<code class="docutils literal notranslate"><span class="pre">CONFIG_UBI_SECURE=y</span></code>, opt-in)</a></li>
+<li><a class="reference internal" href="#validated-targets">Validated targets</a></li>
+<li><a class="reference internal" href="#quality-bar">Quality bar</a></li>
+<li><a class="reference internal" href="#resource-profile">Resource profile</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
+<li><a class="reference internal" href="#community-files">Community files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id2">[0.113.0] - 2026-05-14</a><ul>
+<li><a class="reference internal" href="#changed">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id3">[0.112.0] - 2026-05-14</a><ul>
+<li><a class="reference internal" href="#id4">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id5">[0.111.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id6">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id7">[0.110.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id8">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">[0.109.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id10">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id11">[0.108.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id12">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id13">[0.107.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#added">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id14">[0.106.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id15">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id16">[0.105.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id17">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id18">[0.104.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id19">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id20">[0.103.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id21">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id22">[0.102.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id23">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id24">[0.101.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id25">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id26">[0.100.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id27">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id28">[0.99.0] - 2026-05-13</a><ul>
+<li><a class="reference internal" href="#id29">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id30">[0.98.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id31">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id32">[0.97.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id33">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id34">[0.96.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id35">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id36">[0.95.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id37">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id38">[0.94.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id39">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id40">[0.93.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id41">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id42">[0.92.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id43">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id44">[0.91.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id45">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id46">[0.90.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id47">Added</a></li>
+<li><a class="reference internal" href="#id48">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id49">[0.89.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#fixed">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id50">[0.88.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id51">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id52">[0.87.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id53">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id54">[0.86.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id55">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id56">[0.85.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id57">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id58">[0.84.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id59">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id60">[0.83.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id61">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id62">[0.82.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#id63">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id64">[0.81.0] - 2026-05-12</a><ul>
+<li><a class="reference internal" href="#security">Security</a></li>
+<li><a class="reference internal" href="#id65">Changed</a></li>
+<li><a class="reference internal" href="#id66">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id67">[0.80.0] - 2026-05-11</a><ul>
+<li><a class="reference internal" href="#id68">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id69">[0.79.0] - 2026-05-11</a><ul>
+<li><a class="reference internal" href="#id70">Added</a></li>
+<li><a class="reference internal" href="#id71">Changed</a></li>
+<li><a class="reference internal" href="#id72">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id73">[0.78.0] - 2026-05-11</a><ul>
+<li><a class="reference internal" href="#id74">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id75">[0.77.0] - 2026-05-11</a><ul>
+<li><a class="reference internal" href="#id76">Changed</a></li>
+<li><a class="reference internal" href="#id77">Fixed</a></li>
+<li><a class="reference internal" href="#id78">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id79">[0.76.0] - 2026-05-08</a><ul>
+<li><a class="reference internal" href="#id80">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id81">[0.75.0] - 2026-05-08</a><ul>
+<li><a class="reference internal" href="#id82">Added</a></li>
+<li><a class="reference internal" href="#id83">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id84">[0.74.0] - 2026-05-08</a><ul>
+<li><a class="reference internal" href="#id85">Added</a></li>
+<li><a class="reference internal" href="#id86">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id87">[0.73.0] - 2026-05-08</a><ul>
+<li><a class="reference internal" href="#id88">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id89">[0.72.0] - 2026-05-08</a><ul>
+<li><a class="reference internal" href="#id90">Added</a></li>
+<li><a class="reference internal" href="#id91">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id92">[0.71.0] - 2026-05-08</a><ul>
+<li><a class="reference internal" href="#id93">Documentation</a></li>
+<li><a class="reference internal" href="#id94">Changed</a></li>
+<li><a class="reference internal" href="#id95">Fixed</a></li>
+<li><a class="reference internal" href="#removed">Removed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id96">[0.70.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id97">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id98">[0.69.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id99">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id100">[0.68.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id101">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id102">[0.67.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id103">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id104">[0.66.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id105">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id106">[0.65.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id107">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id108">[0.64.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id109">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id110">[0.63.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id111">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id112">[0.62.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id113">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id114">[0.61.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id115">Added</a></li>
+<li><a class="reference internal" href="#id116">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id117">[0.60.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id118">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id119">[0.59.0] - 2026-05-07</a><ul>
+<li><a class="reference internal" href="#id120">Added</a></li>
+<li><a class="reference internal" href="#id121">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id122">[0.58.0] - 2026-05-06</a><ul>
+<li><a class="reference internal" href="#id123">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id124">[0.57.0] - 2026-05-06</a><ul>
+<li><a class="reference internal" href="#id125">Added</a></li>
+<li><a class="reference internal" href="#id126">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id127">[0.56.0] - 2026-05-06</a><ul>
+<li><a class="reference internal" href="#id128">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id129">[0.55.0] - 2026-05-06</a><ul>
+<li><a class="reference internal" href="#id130">Added</a></li>
+<li><a class="reference internal" href="#id131">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id132">[0.54.0] - 2026-05-06</a><ul>
+<li><a class="reference internal" href="#id133">Added</a></li>
+<li><a class="reference internal" href="#id134">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id135">[0.53.0] - 2026-05-06</a><ul>
+<li><a class="reference internal" href="#id136">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id137">[0.52.0] - 2026-05-05</a><ul>
+<li><a class="reference internal" href="#id138">Changed</a></li>
+<li><a class="reference internal" href="#id139">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id140">[0.51.0] - 2026-05-05</a><ul>
+<li><a class="reference internal" href="#id141">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id142">[0.50.0] - 2026-05-04</a><ul>
+<li><a class="reference internal" href="#id143">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id144">[0.49.0] - 2026-05-04</a><ul>
+<li><a class="reference internal" href="#id145">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id146">[0.48.0] - 2026-04-17</a><ul>
+<li><a class="reference internal" href="#id147">Added</a></li>
+<li><a class="reference internal" href="#id148">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id149">[0.47.0] - 2026-04-17</a><ul>
+<li><a class="reference internal" href="#id150">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id151">[0.46.0] - 2026-04-17</a><ul>
+<li><a class="reference internal" href="#id152">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id153">[0.45.0] - 2026-04-16</a><ul>
+<li><a class="reference internal" href="#id154">Changed</a></li>
+<li><a class="reference internal" href="#id155">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id156">[0.44.0] - 2026-04-16</a><ul>
+<li><a class="reference internal" href="#id157">Added</a></li>
+<li><a class="reference internal" href="#id158">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id159">[0.43.0] - 2026-04-16</a><ul>
+<li><a class="reference internal" href="#id160">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id161">[0.42.0] - 2026-04-15</a><ul>
+<li><a class="reference internal" href="#id162">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id163">[0.41.0] - 2026-04-15</a><ul>
+<li><a class="reference internal" href="#id164">Added</a></li>
+<li><a class="reference internal" href="#id165">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id166">[0.40.0] - 2026-04-15</a><ul>
+<li><a class="reference internal" href="#id167">Added</a></li>
+<li><a class="reference internal" href="#id168">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id169">[0.39.0] - 2026-04-14</a><ul>
+<li><a class="reference internal" href="#id170">Added</a></li>
+<li><a class="reference internal" href="#id171">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id172">[0.38.0] - 2026-04-15</a><ul>
+<li><a class="reference internal" href="#id173">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id174">[0.37.0] - 2026-04-14</a><ul>
+<li><a class="reference internal" href="#id175">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id176">[0.36.0] - 2026-04-14</a><ul>
+<li><a class="reference internal" href="#id177">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id178">[0.35.0] - 2026-04-14</a><ul>
+<li><a class="reference internal" href="#id179">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id180">[0.34.0] - 2026-04-13</a><ul>
+<li><a class="reference internal" href="#id181">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id182">[0.33.0] - 2026-04-11</a><ul>
+<li><a class="reference internal" href="#id183">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id184">[0.32.0] - 2026-04-11</a><ul>
+<li><a class="reference internal" href="#id185">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id186">[0.31.0] - 2026-04-10</a><ul>
+<li><a class="reference internal" href="#id187">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id188">[0.30.0] - 2026-04-09</a><ul>
+<li><a class="reference internal" href="#id189">Added</a></li>
+<li><a class="reference internal" href="#id190">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id191">[0.29.0] - 2026-04-09</a><ul>
+<li><a class="reference internal" href="#id192">Added</a></li>
+<li><a class="reference internal" href="#id193">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id194">[0.28.0] - 2026-04-09</a><ul>
+<li><a class="reference internal" href="#id195">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id196">[0.27.0] - 2026-04-10</a><ul>
+<li><a class="reference internal" href="#id197">Changed</a></li>
+<li><a class="reference internal" href="#id198">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id199">[0.26.0] - 2026-04-09</a><ul>
+<li><a class="reference internal" href="#id200">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id201">[0.25.0] - 2026-04-08</a><ul>
+<li><a class="reference internal" href="#id202">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id203">[0.24.0] - 2026-04-03</a><ul>
+<li><a class="reference internal" href="#id204">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id205">[0.23.0] - 2026-04-03</a><ul>
+<li><a class="reference internal" href="#id206">Added</a></li>
+<li><a class="reference internal" href="#id207">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id208">[0.22.0] - 2026-04-02</a><ul>
+<li><a class="reference internal" href="#id209">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id210">[0.21.1] - 2026-04-02</a><ul>
+<li><a class="reference internal" href="#id211">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id212">[0.21.0] - 2026-04-02</a><ul>
+<li><a class="reference internal" href="#id213">Added</a></li>
+<li><a class="reference internal" href="#id214">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id215">[0.20.1] - 2026-04-02</a><ul>
+<li><a class="reference internal" href="#id216">Changed</a></li>
+<li><a class="reference internal" href="#id217">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id218">[0.20.0] - 2026-04-01</a><ul>
+<li><a class="reference internal" href="#id219">Added</a></li>
+<li><a class="reference internal" href="#id220">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id221">[0.19.0] - 2026-04-01</a><ul>
+<li><a class="reference internal" href="#id222">Added</a></li>
+<li><a class="reference internal" href="#id223">Changed</a></li>
+<li><a class="reference internal" href="#id224">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id225">[0.18.0] - 2026-04-01</a><ul>
+<li><a class="reference internal" href="#id226">Added</a></li>
+<li><a class="reference internal" href="#id227">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id228">[0.17.1] - 2026-03-31</a><ul>
+<li><a class="reference internal" href="#id229">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id230">[0.17.0] - 2026-03-31</a><ul>
+<li><a class="reference internal" href="#id231">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id232">[0.16.0] - 2026-03-31</a><ul>
+<li><a class="reference internal" href="#id233">Added</a></li>
+<li><a class="reference internal" href="#id234">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id235">[0.15.0] - 2026-03-31</a><ul>
+<li><a class="reference internal" href="#id236">Added</a></li>
+<li><a class="reference internal" href="#id237">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id238">[0.14.0] - 2026-03-30</a><ul>
+<li><a class="reference internal" href="#id239">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id240">[0.13.0] - 2026-03-30</a><ul>
+<li><a class="reference internal" href="#id241">Added</a></li>
+<li><a class="reference internal" href="#id242">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id243">[0.12.0] - 2026-03-30</a><ul>
+<li><a class="reference internal" href="#id244">Added</a></li>
+<li><a class="reference internal" href="#id245">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id246">[0.11.0] - 2026-03-27</a><ul>
+<li><a class="reference internal" href="#id247">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id248">[0.10.0] - 2026-03-27</a><ul>
+<li><a class="reference internal" href="#id249">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id250">[0.9.0] - 2026-03-26</a><ul>
+<li><a class="reference internal" href="#id251">Changed</a></li>
+<li><a class="reference internal" href="#id252">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id253">[0.8.0] - 2026-03-25</a><ul>
+<li><a class="reference internal" href="#id254">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id255">[0.7.0] - 2026-03-25</a><ul>
+<li><a class="reference internal" href="#id256">Added</a></li>
+<li><a class="reference internal" href="#id257">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id258">[0.6.0] - 2026-03-24</a><ul>
+<li><a class="reference internal" href="#id259">Added</a></li>
+<li><a class="reference internal" href="#id260">Fixed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id261">[0.5.0] - 2025-09-25</a><ul>
+<li><a class="reference internal" href="#id262">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id263">[0.4.0] - 2025-09-24</a><ul>
+<li><a class="reference internal" href="#id264">Added</a></li>
+<li><a class="reference internal" href="#id265">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id266">[0.3.0] - 2025-09-21</a><ul>
+<li><a class="reference internal" href="#id267">Added</a></li>
+<li><a class="reference internal" href="#id268">Changed</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id269">[0.2.0] - 2025-09-10</a><ul>
+<li><a class="reference internal" href="#id270">Added</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id271">[0.1.0] - 2025-07-25</a><ul>
+<li><a class="reference internal" href="#id272">Added</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=8d563738"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    </body>
+</html>

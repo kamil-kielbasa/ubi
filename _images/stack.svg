@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 360"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+     role="img" aria-label="UBI on Zephyr stack diagram">
+  <title>UBI on Zephyr stack</title>
+  <desc>Application sits on top of the UBI public API, which sits on the Zephyr flash_area API, which sits on physical NOR/NAND flash.</desc>
+
+  <defs>
+    <style>
+      .layer { stroke: #6b7c93; stroke-width: 1.5; }
+      .l-app   { fill: #d6e4f5; }
+      .l-ubi   { fill: #c2d4ec; }
+      .l-flash { fill: #b0c4dc; }
+      .l-hw    { fill: #97aac4; }
+      .label   { fill: #1f2d3d; font-size: 18px; font-weight: 600; }
+      .sublbl  { fill: #1f2d3d; font-size: 13px; font-weight: 400; }
+      .axis    { fill: #6b7c93; font-size: 12px; font-style: italic; }
+    </style>
+  </defs>
+
+  <!-- Layers -->
+  <rect class="layer l-app"   x="60"  y="30"  width="480" height="60" rx="6" />
+  <text class="label"  x="300" y="58"  text-anchor="middle">Application / Storage logic</text>
+  <text class="sublbl" x="300" y="78"  text-anchor="middle">filesystem, database, firmware updater, freshness store</text>
+
+  <rect class="layer l-ubi"   x="60"  y="110" width="480" height="100" rx="6" />
+  <text class="label"  x="300" y="138" text-anchor="middle">UBI Public API</text>
+  <text class="sublbl" x="300" y="160" text-anchor="middle">volume management · LEB I/O · wear-leveling · crash recovery</text>
+  <text class="sublbl" x="300" y="180" text-anchor="middle">(Plain mode or Secure mode — AEAD wraps every on-flash record)</text>
+  <text class="sublbl" x="300" y="200" text-anchor="middle">key lifecycle · freshness · anchor witnesses</text>
+
+  <rect class="layer l-flash" x="60"  y="230" width="480" height="50" rx="6" />
+  <text class="label"  x="300" y="261" text-anchor="middle">Zephyr flash_area API · PSA Crypto (secure mode only)</text>
+
+  <rect class="layer l-hw"    x="60"  y="300" width="480" height="40" rx="6" />
+  <text class="label"  x="300" y="326" text-anchor="middle">Physical Flash (NOR / NAND)</text>
+
+  <!-- Side axis annotation -->
+  <text class="axis" x="20"  y="60"  transform="rotate(-90 20 60)">software</text>
+  <text class="axis" x="20"  y="320" transform="rotate(-90 20 320)">hardware</text>
+</svg>

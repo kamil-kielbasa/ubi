@@ -1,0 +1,9 @@
+/* UBI documentation custom styles */
+
+/* Cap Mermaid diagram width so the three plain-architecture flows have
+ * a consistent visual size regardless of node count. */
+.mermaid svg {
+    max-width: 720px;
+    display: block;
+    margin: 0 auto;
+}
