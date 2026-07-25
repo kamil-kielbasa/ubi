@@ -56,6 +56,7 @@ Pick the card that matches what you came here to do.
        * :doc:`reference/kconfig_reference`
        * :doc:`reference/glossary`
        * :doc:`reference/onflash_format_spec`
+       * :doc:`reference/linux_ubi_comparison`
 
 ----
 
@@ -94,6 +95,7 @@ Pick the card that matches what you came here to do.
    reference/error_codes
    reference/glossary
    reference/onflash_format_spec
+   reference/linux_ubi_comparison
 
 .. toctree::
    :maxdepth: 1
