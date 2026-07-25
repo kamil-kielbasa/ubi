@@ -39,6 +39,8 @@ int ubi_plain_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_vol
 /* ubi_plain_leb.c */
 int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
 			size_t len);
+int ubi_plain_leb_write_at(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
+			   const void *buf, size_t len);
 int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
 		       size_t len);
 int ubi_plain_leb_map(struct ubi_device *ubi, int vol_id, size_t lnum);

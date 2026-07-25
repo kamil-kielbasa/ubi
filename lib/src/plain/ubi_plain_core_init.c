@@ -908,6 +908,7 @@ const struct ubi_backend_ops *ubi_plain_backend(void)
 		.vol_remove = ubi_plain_volume_remove,
 		.vol_get_info = ubi_plain_volume_get_info,
 		.leb_write = ubi_plain_leb_write,
+		.leb_write_at = ubi_plain_leb_write_at,
 		.leb_read = ubi_plain_leb_read,
 		.leb_map = ubi_plain_leb_map,
 		.leb_unmap = ubi_plain_leb_unmap,

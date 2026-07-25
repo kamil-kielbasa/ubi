@@ -239,11 +239,11 @@ ZTEST(ubi_io_defensive, leb_data_write_rejects_bad_args)
 {
 	const uint8_t buf[16] = { 0 };
 
-	zassert_equal(-EINVAL, ubi_leb_data_write(NULL, 2, buf, sizeof(buf)));
-	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, 2, NULL, sizeof(buf)));
-	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, 2, buf, 0));
-	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, 0, buf, sizeof(buf)));
-	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, SIZE_MAX, buf, sizeof(buf)));
+	zassert_equal(-EINVAL, ubi_leb_data_write(NULL, 2, 0, buf, sizeof(buf)));
+	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, 2, 0, NULL, sizeof(buf)));
+	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, 2, 0, buf, 0));
+	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, 0, 0, buf, sizeof(buf)));
+	zassert_equal(-EINVAL, ubi_leb_data_write(&flash, SIZE_MAX, 0, buf, sizeof(buf)));
 }
 
 /**
@@ -471,7 +471,7 @@ ZTEST(ubi_io_defensive, leb_data_write_rejects_oversize_len)
 	const size_t too_big = flash.erase_block_size; /* > capacity by EC+VID hdr bytes. */
 
 	zassert_equal(-ENOSPC,
-		      ubi_leb_data_write(&flash, UBI_DEV_HDR_NR_OF_RES_PEBS, buf, too_big));
+		      ubi_leb_data_write(&flash, UBI_DEV_HDR_NR_OF_RES_PEBS, 0, buf, too_big));
 }
 
 /**
@@ -544,7 +544,7 @@ ZTEST(ubi_io_defensive, helpers_propagate_flash_area_open_failure)
 	zassert_not_equal(0,
 			  ubi_leb_data_read(&bad, UBI_DEV_HDR_NR_OF_RES_PEBS, 0, buf, sizeof(buf)));
 	zassert_not_equal(0,
-			  ubi_leb_data_write(&bad, UBI_DEV_HDR_NR_OF_RES_PEBS, buf, sizeof(buf)));
+			  ubi_leb_data_write(&bad, UBI_DEV_HDR_NR_OF_RES_PEBS, 0, buf, sizeof(buf)));
 	zassert_not_equal(0, ubi_dev_mount(&bad));
 	zassert_not_equal(0, ubi_flash_res_peb_scan(&bad, &scan));
 	zassert_not_equal(0, ubi_flash_res_peb_validate(&bad, &dh));

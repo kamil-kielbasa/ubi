@@ -278,8 +278,8 @@ exit:
 	return ret;
 }
 
-int ubi_leb_data_write(const struct ubi_flash_desc *flash, const size_t pnum, const uint8_t *buf,
-		       size_t len)
+int ubi_leb_data_write(const struct ubi_flash_desc *flash, const size_t pnum, size_t data_offset,
+		       const uint8_t *buf, size_t len)
 {
 	if (!flash || !buf || len == 0) {
 		LOG_ERR("Invalid argument: flash=%p buf=%p len=%zu", (const void *)flash,
@@ -305,13 +305,17 @@ int ubi_leb_data_write(const struct ubi_flash_desc *flash, const size_t pnum, co
 		goto exit;
 	}
 
-	if (len > (flash->erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE)) {
-		LOG_ERR("LEB data write length %zu exceeds capacity", len);
+	const size_t usable = flash->erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+
+	if (data_offset > usable || len > (usable - data_offset)) {
+		LOG_ERR("LEB data write [%zu,%zu) exceeds capacity %zu", data_offset,
+			data_offset + len, usable);
 		ret = -ENOSPC;
 		goto exit;
 	}
 
-	size_t offset = (pnum * flash->erase_block_size) + UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE;
+	size_t offset =
+		(pnum * flash->erase_block_size) + UBI_EC_HDR_SIZE + UBI_VID_HDR_SIZE + data_offset;
 	const size_t wbs = flash->write_block_size;
 
 	if (len % wbs == 0) {

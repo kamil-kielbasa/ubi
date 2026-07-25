@@ -1,7 +1,13 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(ubi)
-      
+
+# Only compile UBI when it is enabled. As a Zephyr module, this CMakeLists is
+# always included by the build system; without this guard the sources would be
+# compiled even for applications that pull UBI into their workspace but leave
+# CONFIG_UBI_ENABLE off, failing on undefined CONFIG_UBI_* symbols.
+if(CONFIG_UBI_ENABLE)
+
 zephyr_library()
 zephyr_library_sources(
     # facade
@@ -60,3 +66,5 @@ target_compile_options(${ZEPHYR_CURRENT_LIBRARY} PRIVATE
     -Wno-unused-parameter
 )
 target_compile_definitions(${ZEPHYR_CURRENT_LIBRARY} PRIVATE _POSIX_C_SOURCE=200809L)
+
+endif() # CONFIG_UBI_ENABLE
