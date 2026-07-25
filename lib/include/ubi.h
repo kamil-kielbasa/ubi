@@ -343,6 +343,41 @@ int ubi_volume_get_info(struct ubi_device *ubi, int vol_id, struct ubi_volume_co
 int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf, size_t len);
 
 /**
+ * \brief Partially update a logical erase block (LEB) in place.
+ *
+ * Writes \p len bytes from \p buf at byte \p offset within the LEB, programming
+ * directly into the LEB's currently mapped physical block without relocating it.
+ * The LEB is mapped on first touch. Successive calls at increasing, non-
+ * overlapping offsets accumulate data in the same block (classic NOR append),
+ * so the whole LEB can be built up across several calls.
+ *
+ * This mirrors Linux UBI's offset-based \c ubi_leb_write and complements the
+ * atomic whole-LEB replace performed by \ref ubi_leb_write. Because it programs
+ * flash in place, it is **not** power-fail atomic — a torn trailing write leaves
+ * partial data (same contract as Linux UBI). Reads of not-yet-written regions
+ * return 0xFF.
+ *
+ * \note Restricted to \c UBI_VOLUME_TYPE_DYNAMIC volumes. Static volumes are
+ *       whole-LEB and integrity-checked; (re)write them via \ref ubi_leb_write.
+ *
+ * \param[in] ubi 		UBI device handle.
+ * \param[in] vol_id 		Volume identifier.
+ * \param[in] lnum 		Logical block number (must be < vol_cfg.leb_count).
+ * \param[in] offset 		Byte offset within the LEB (write-block aligned).
+ * \param[in] buf 		Data buffer to write (caller retains ownership).
+ * \param[in] len 		Number of bytes to write from \p buf.
+ *
+ * \retval 0        Success.
+ * \retval -EINVAL  NULL pointer, invalid vol_id, or misaligned offset.
+ * \retval -EACCES  lnum out of range, or volume is not dynamic.
+ * \retval -ENOSPC  offset+len exceeds LEB size, or no free PEB to map.
+ * \retval -ENOSYS  Backend does not support in-place partial writes.
+ * \retval -EIO     Flash write failure.
+ */
+int ubi_leb_write_at(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
+		     const void *buf, size_t len);
+
+/**
  * \brief Read data from a logical erase block (LEB).
  *
  * Reads \p len bytes starting at \p offset from the LEB into \p buf.

@@ -121,7 +121,7 @@ static int leb_prepare_new_mapping(struct ubi_device *ubi, struct ubi_volume *vo
 
 	/* Step 2: Write data payload first (if any). */
 	if (buf && len > 0) {
-		ret = ubi_leb_data_write(&ubi->flash, new_node->value.pnum, buf, len);
+		ret = ubi_leb_data_write(&ubi->flash, new_node->value.pnum, 0, buf, len);
 
 		if (ret != 0) {
 			LOG_ERR("LEB data write failure");
@@ -231,6 +231,94 @@ static int leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void
 	return ret;
 }
 
+/* Partial, in-place LEB update (Linux-UBI `ubi_leb_write` with offset).
+ *
+ * Unlike leb_write() above (an atomic whole-LEB replace onto a fresh PEB),
+ * this programs data directly into the LEB's currently mapped PEB at a byte
+ * offset, without relocation. It is therefore NOT atomic against power loss
+ * (a torn trailing write leaves partial data — the same contract as Linux
+ * UBI's ubi_leb_write) and is restricted to dynamic volumes; static volumes
+ * are whole-LEB, integrity-checked, and rewritten via leb_write().
+ *
+ * The LEB is mapped on first touch (data_size stays 0, meaning "no bound
+ * length" — the whole LEB is addressable and unwritten regions read 0xFF).
+ * The data region is program-only NOR: the caller must write non-overlapping
+ * ranges at write-block-aligned offsets. */
+static int leb_write_at(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
+			const void *buf, size_t len)
+{
+	__ASSERT_NO_MSG(ubi);
+	__ASSERT_NO_MSG(vol_id >= 0);
+	__ASSERT_NO_MSG(buf && len > 0);
+
+	int ret = ubi_mutation_allowed(ubi, UBI_MUT_DATA_PATH);
+
+	if (ret != 0) {
+		LOG_ERR("Mutation blocked: data-path writes not allowed");
+		return ret;
+	}
+
+	struct ubi_volume *vol = ubi_find_volume(ubi, vol_id);
+
+	if (!vol) {
+		return -ENOENT;
+	}
+
+	if (lnum >= vol->cfg.leb_count) {
+		LOG_ERR("Volume LEB limit exceeded");
+		return -EACCES;
+	}
+
+	if (vol->cfg.type != UBI_VOLUME_TYPE_DYNAMIC) {
+		LOG_ERR("Partial LEB write requires a dynamic volume");
+		return -EACCES;
+	}
+
+	const size_t leb_size = ubi->flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	const size_t wbs = ubi->flash.write_block_size;
+
+	if (offset % wbs != 0) {
+		LOG_ERR("Partial LEB write offset %zu not %zu-aligned", offset, wbs);
+		return -EINVAL;
+	}
+
+	if (offset > leb_size || len > (leb_size - offset)) {
+		LOG_ERR("Partial LEB write [%zu,%zu) exceeds LEB size %zu", offset, offset + len,
+			leb_size);
+		return -ENOSPC;
+	}
+
+	/* Map on first touch; later writes reuse the same PEB in place. */
+	struct ubi_rbt_item *entry = ubi_cache_search(&vol->eba_tbl, lnum);
+
+	if (!entry) {
+		if (ubi->free_pool.count == 0) {
+			LOG_ERR("Lack of free PEBs");
+			return -ENOSPC;
+		}
+
+		struct ubi_rbt_item *new_node = NULL;
+
+		ret = leb_prepare_new_mapping(ubi, vol, lnum, NULL, 0, &new_node);
+
+		if (ret != 0) {
+			return ret;
+		}
+
+		leb_commit_mapping_swap(ubi, vol, lnum, new_node);
+		entry = new_node;
+	}
+
+	ret = ubi_leb_data_write(&ubi->flash, entry->value.pnum, offset, buf, len);
+
+	if (ret != 0) {
+		LOG_ERR("Partial LEB data write failure");
+		return ret;
+	}
+
+	return 0;
+}
+
 /* Module interface function definitions -------------------------------------------------------- */
 
 int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
@@ -239,6 +327,17 @@ int ubi_plain_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const v
 	k_mutex_lock(&ubi->mutex, K_FOREVER);
 
 	int ret = leb_write(ubi, vol_id, lnum, buf, len);
+
+	k_mutex_unlock(&ubi->mutex);
+	return ret;
+}
+
+int ubi_plain_leb_write_at(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
+			   const void *buf, size_t len)
+{
+	k_mutex_lock(&ubi->mutex, K_FOREVER);
+
+	int ret = leb_write_at(ubi, vol_id, lnum, offset, buf, len);
 
 	k_mutex_unlock(&ubi->mutex);
 	return ret;
@@ -281,9 +380,19 @@ int ubi_plain_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t o
 		goto exit;
 	}
 
-	if ((offset + len) > vid_hdr.data_size) {
-		LOG_ERR("Read beyond data_size: offset=%zu len=%zu data_size=%u", offset, len,
-			vid_hdr.data_size);
+	/* data_size == 0 marks a LEB mapped without a bound length (an empty
+	 * map, or one populated by in-place partial writes): the whole LEB is
+	 * addressable and unwritten regions read back as 0xFF. A non-zero
+	 * data_size is a whole-LEB write and bounds reads to the payload. */
+	size_t read_bound = vid_hdr.data_size;
+
+	if (read_bound == 0) {
+		read_bound = ubi->flash.erase_block_size - UBI_EC_HDR_SIZE - UBI_VID_HDR_SIZE;
+	}
+
+	if ((offset + len) > read_bound) {
+		LOG_ERR("Read beyond bound: offset=%zu len=%zu bound=%zu", offset, len,
+			read_bound);
 		ret = -EINVAL;
 		goto exit;
 	}

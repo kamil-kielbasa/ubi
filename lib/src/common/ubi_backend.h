@@ -60,7 +60,10 @@ struct ubi_backend_ops {
 
 	/* LEB operations */
 	int (*leb_write)(struct ubi_device *ubi, int vol_id, size_t lnum, const void *buf,
-			 size_t len); /**< Write data to a LEB. */
+			 size_t len); /**< Atomic whole-LEB write (replace). */
+	int (*leb_write_at)(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
+			    const void *buf,
+			    size_t len); /**< In-place partial write at offset (may be NULL). */
 	int (*leb_read)(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
 			size_t len); /**< Read data from a LEB. */
 	int (*leb_map)(struct ubi_device *ubi, int vol_id, size_t lnum); /**< Map a LEB. */

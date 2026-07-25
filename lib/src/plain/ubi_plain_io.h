@@ -295,13 +295,16 @@ int ubi_vid_hdr_write(const struct ubi_flash_desc *flash, const size_t pnum,
  *
  * \param[in] flash  		Flash partition descriptor.
  * \param pnum 			Physical eraseblock number.
+ * \param data_offset 		Byte offset within the LEB data region to write at
+ *                              (0 for a whole-LEB write). Must be write-block
+ *                              aligned; the region is program-only (NOR).
  * \param[in] buf  		Data buffer.
  * \param len  			Length of data in bytes.
  *
  * \return 0 on success, or negative error code.
  */
-int ubi_leb_data_write(const struct ubi_flash_desc *flash, const size_t pnum, const uint8_t *buf,
-		       size_t len);
+int ubi_leb_data_write(const struct ubi_flash_desc *flash, const size_t pnum, size_t data_offset,
+		       const uint8_t *buf, size_t len);
 
 /**
  * \brief Read data from a logical erase block (LEB).

@@ -137,6 +137,22 @@ int ubi_leb_write(struct ubi_device *ubi, int vol_id, size_t lnum, const void *b
 	return ubi->ops->leb_write(ubi, vol_id, lnum, buf, len);
 }
 
+int ubi_leb_write_at(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset,
+		     const void *buf, size_t len)
+{
+	if (!ubi || vol_id < 0 || !buf || len == 0) {
+		LOG_ERR("Invalid argument: ubi=%p vol_id=%d buf=%p len=%zu", (const void *)ubi,
+			vol_id, buf, len);
+		return -EINVAL;
+	}
+
+	if (!ubi->ops->leb_write_at) {
+		return -ENOSYS;
+	}
+
+	return ubi->ops->leb_write_at(ubi, vol_id, lnum, offset, buf, len);
+}
+
 int ubi_leb_read(struct ubi_device *ubi, int vol_id, size_t lnum, size_t offset, void *buf,
 		 size_t len)
 {

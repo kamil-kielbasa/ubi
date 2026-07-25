@@ -21,6 +21,7 @@ target_sources(app PRIVATE
                src/plain/tests_ubi_volumes.c
                src/plain/tests_ubi_map_unmap.c
                src/plain/tests_ubi_write_read.c
+               src/plain/tests_ubi_partial_write.c
                src/plain/tests_ubi_erase.c
                src/plain/tests_ubi_mixed.c
                src/plain/tests_ubi_error_handling.c
