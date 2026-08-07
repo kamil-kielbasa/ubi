@@ -97,6 +97,12 @@ Pick the card that matches what you came here to do.
 
 .. toctree::
    :maxdepth: 1
+   :caption: Proposals
+
+   proposals/journaling
+
+.. toctree::
+   :maxdepth: 1
    :caption: Project
 
    project/roadmap
