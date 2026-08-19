@@ -71,7 +71,7 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'positioning']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'positioning', 'proposals']
 
 # -- Options for HTML output -------------------------------------------------
 
